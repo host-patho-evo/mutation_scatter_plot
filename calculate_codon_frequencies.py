@@ -1,8 +1,9 @@
 #! /usr/bin/env python3
 
-# Copyright (c) 2025 Charles University in Prague - First Faculty of Medicine
-#
-# https://creativecommons.org/licenses/by/4.0/legalcode.en
+# This work © 2025 by Jiří Zahradník and Martin Mokrejš
+# (First Medical Faculty - Charles University in Prague) is licensed under
+# Creative Commons Attribution 4.0 International. To view a copy of this
+# license, visit https://creativecommons.org/licenses/by/4.0/
 
 """This program calculate_codon_frequencies.py can parse multi-FASTA *.aln
 files (ALN) of protein-coding regions along with GFF3 annotation file to
