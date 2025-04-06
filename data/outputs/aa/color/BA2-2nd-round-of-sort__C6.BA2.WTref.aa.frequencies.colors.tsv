@@ -1,0 +1,176 @@
+436	TGG	['TGC', 'TGT']	W	C	0.002023	#d44e41ff	-2.0
+438	TCT	['TGC', 'TGT']	S	C	0.008630	#e0654fff	-1.0
+443	TCT	['TGC', 'TGT']	S	C	0.003548	#e0654fff	-1.0
+447	GGT	TGT	G	C	0.001239	#c43032ff	-3.0
+514	TCT	['TGC', 'TGT']	S	C	0.002967	#e0654fff	-1.0
+431	GGC	['CGA', 'CGC', 'CGG', 'CGT']	G	R	0.001998	#d44e41ff	-2.0
+436	TGG	['AGG', 'CGC', 'CGG']	W	R	0.001294	#c43032ff	-3.0
+444	AAG	['AGA', 'AGG', 'CGG']	K	R	0.654081	#c3d5f4ff	2.0
+446	GGT	['AGA', 'CGA', 'CGG', 'CGT']	G	R	0.002001	#d44e41ff	-2.0
+447	GGT	['AGG', 'CGA', 'CGC', 'CGT']	G	R	0.001977	#d44e41ff	-2.0
+452	CTG	['AGG', 'CGA', 'CGC', 'CGG', 'CGT']	L	R	0.014507	#d44e41ff	-2.0
+462	AAA	['AGA', 'CGA']	K	R	0.003261	#c3d5f4ff	2.0
+463	CCT	['AGG', 'CGA', 'CGC', 'CGG', 'CGT']	P	R	0.001533	#d44e41ff	-2.0
+476	GGT	['AGA', 'CGA', 'CGC', 'CGG', 'CGT']	G	R	0.002678	#d44e41ff	-2.0
+478	ACA	AGA	T	R	0.005361	#e0654fff	-1.0
+479	CCT	['AGA', 'CGA', 'CGC', 'CGG', 'CGT']	P	R	0.002596	#d44e41ff	-2.0
+482	GGT	['AGA', 'CGA', 'CGC', 'CGG', 'CGT']	G	R	0.001079	#d44e41ff	-2.0
+484	GAA	['AGA', 'AGG', 'CGA', 'CGC', 'CGT']	E	R	0.696625	#dcddddff	0.0
+491	CCT	['AGA', 'AGG', 'CGA', 'CGC', 'CGG', 'CGT']	P	R	0.001197	#d44e41ff	-2.0
+493	CAA	['AGA', 'CGA', 'CGC', 'CGG', 'CGT']	Q	R	0.179434	#d1dae9ff	1.0
+496	GGT	['AGA', 'CGA', 'CGC', 'CGG', 'CGT']	G	R	0.001002	#d44e41ff	-2.0
+498	CAA	['AGA', 'AGG', 'CGA', 'CGC', 'CGG', 'CGT']	Q	R	0.996413	#d1dae9ff	1.0
+499	CCC	['AGA', 'CGA', 'CGC', 'CGG', 'CGT']	P	R	0.002148	#d44e41ff	-2.0
+502	GGT	['AGA', 'CGA', 'CGC', 'CGG', 'CGT']	G	R	0.001014	#d44e41ff	-2.0
+504	GGT	['CGA', 'CGC', 'CGT']	G	R	0.001264	#d44e41ff	-2.0
+507	CCA	['AGA', 'CGA', 'CGG', 'CGT']	P	R	0.001423	#d44e41ff	-2.0
+519	CAT	['CGA', 'CGC', 'CGT']	H	R	0.001080	#dcddddff	0.0
+521	CCA	['AGA', 'CGA', 'CGC', 'CGG', 'CGT']	P	R	0.002975	#d44e41ff	-2.0
+526	GGA	['AGA', 'CGA']	G	R	0.001778	#d44e41ff	-2.0
+434	ATA	AAA	I	K	0.001535	#c43032ff	-3.0
+439	AAC	['AAA', 'AAG']	N	K	0.004924	#dcddddff	0.0
+440	AAT	['AAA', 'AAG']	N	K	0.991194	#dcddddff	0.0
+452	CTG	['AAA', 'AAG']	L	K	0.005844	#d44e41ff	-2.0
+460	AAT	['AAA', 'AAG']	N	K	0.874640	#dcddddff	0.0
+478	ACA	['AAA', 'AAG']	T	K	0.985235	#e0654fff	-1.0
+481	AAT	['AAA', 'AAG']	N	K	0.001143	#dcddddff	0.0
+450	AAT	['GAA', 'GAG']	N	E	0.001136	#dcddddff	0.0
+458	AAG	GAG	K	E	0.003507	#d1dae9ff	1.0
+467	GAT	['GAA', 'GAG']	D	E	0.001437	#c3d5f4ff	2.0
+478	ACA	GAA	T	E	0.001620	#e0654fff	-1.0
+510	GTA	['GAA', 'GAG']	V	E	0.001548	#d44e41ff	-2.0
+511	GTA	['GAA', 'GAG']	V	E	0.001500	#d44e41ff	-2.0
+520	GCA	GAA	A	E	0.002159	#e0654fff	-1.0
+452	CTG	['CAA', 'CAG']	L	Q	0.034124	#d44e41ff	-2.0
+471	GAA	['CAA', 'CAG']	E	Q	0.001162	#c3d5f4ff	2.0
+516	GAA	['CAA', 'CAG']	E	Q	0.017593	#c3d5f4ff	2.0
+518	CTA	CAA	L	Q	0.004934	#d44e41ff	-2.0
+519	CAT	['CAA', 'CAG']	H	Q	0.003441	#dcddddff	0.0
+521	CCA	['CAA', 'CAG']	P	Q	0.001550	#e0654fff	-1.0
+433	GTT	['GAC', 'GAT']	V	D	0.001112	#c43032ff	-3.0
+445	GTT	['GAC', 'GAT']	V	D	0.001159	#c43032ff	-3.0
+446	GGT	GAT	G	D	0.002322	#e0654fff	-1.0
+450	AAT	['GAC', 'GAT']	N	D	0.709332	#d1dae9ff	1.0
+471	GAA	['GAC', 'GAT']	E	D	0.009953	#c3d5f4ff	2.0
+503	GTT	['GAC', 'GAT']	V	D	0.004784	#c43032ff	-3.0
+504	GGT	['GAC', 'GAT']	G	D	0.004640	#e0654fff	-1.0
+519	CAT	['GAC', 'GAT']	H	D	0.012208	#e0654fff	-1.0
+449	TAT	AAT	Y	N	0.001026	#d44e41ff	-2.0
+451	TAC	['AAC', 'AAT']	Y	N	0.001047	#d44e41ff	-2.0
+453	TAT	['AAC', 'AAT']	Y	N	0.001037	#d44e41ff	-2.0
+462	AAA	['AAC', 'AAT']	K	N	0.001230	#dcddddff	0.0
+470	ACT	['AAC', 'AAT']	T	N	0.001013	#dcddddff	0.0
+477	AGC	['AAC', 'AAT']	S	N	0.996400	#d1dae9ff	1.0
+478	ACA	['AAC', 'AAT']	T	N	0.003000	#dcddddff	0.0
+519	CAT	['AAC', 'AAT']	H	N	0.008608	#d1dae9ff	1.0
+438	TCT	['ACA', 'ACC', 'ACG', 'ACT']	S	T	0.002318	#d1dae9ff	1.0
+443	TCT	['ACA', 'ACC', 'ACG', 'ACT']	S	T	0.001538	#d1dae9ff	1.0
+444	AAG	['ACA', 'ACC', 'ACG', 'ACT']	K	T	0.010270	#e0654fff	-1.0
+459	TCT	['ACA', 'ACC', 'ACG', 'ACT']	S	T	0.003204	#d1dae9ff	1.0
+468	ATT	['ACA', 'ACC', 'ACG', 'ACT']	I	T	0.004591	#e0654fff	-1.0
+469	TCA	['ACA', 'ACC', 'ACG', 'ACT']	S	T	0.003135	#d1dae9ff	1.0
+481	AAT	['ACA', 'ACG', 'ACT']	N	T	0.001218	#dcddddff	0.0
+484	GAA	['ACA', 'ACT']	E	T	0.001812	#e0654fff	-1.0
+509	AGA	['ACA', 'ACC', 'ACT']	R	T	0.001293	#e0654fff	-1.0
+514	TCT	['ACA', 'ACC', 'ACG', 'ACT']	S	T	0.005177	#d1dae9ff	1.0
+520	GCA	['ACA', 'ACC', 'ACG', 'ACT']	A	T	0.001789	#dcddddff	0.0
+522	GCA	['ACA', 'ACG', 'ACT']	A	T	0.001631	#dcddddff	0.0
+527	CCT	ACT	P	T	0.001490	#e0654fff	-1.0
+432	TGC	['AGC', 'AGT', 'TCA', 'TCC', 'TCG', 'TCT']	C	S	0.002403	#e0654fff	-1.0
+435	GCT	['AGT', 'TCA', 'TCC', 'TCG', 'TCT']	A	S	0.002938	#d1dae9ff	1.0
+436	TGG	['AGC', 'AGT', 'TCA', 'TCC', 'TCG', 'TCT']	W	S	0.001845	#c43032ff	-3.0
+444	AAG	['AGC', 'AGT', 'TCC', 'TCG', 'TCT']	K	S	0.001415	#dcddddff	0.0
+446	GGT	['AGC', 'AGT', 'TCT']	G	S	0.001788	#dcddddff	0.0
+454	AGA	['AGC', 'AGT', 'TCA', 'TCT']	R	S	0.001624	#e0654fff	-1.0
+457	AGG	['AGC', 'AGT', 'TCG']	R	S	0.001046	#e0654fff	-1.0
+466	AGA	['AGC', 'AGT', 'TCA', 'TCT']	R	S	0.003789	#e0654fff	-1.0
+470	ACT	['AGC', 'AGT', 'TCA', 'TCG', 'TCT']	T	S	0.002003	#d1dae9ff	1.0
+480	TGT	['AGC', 'AGT', 'TCA', 'TCC', 'TCT']	C	S	0.001010	#e0654fff	-1.0
+481	AAT	['AGT', 'TCT']	N	S	0.001023	#d1dae9ff	1.0
+484	GAA	['AGC', 'AGT', 'TCA', 'TCG', 'TCT']	E	S	0.001908	#dcddddff	0.0
+488	TGT	['AGC', 'AGT', 'TCA', 'TCC', 'TCT']	C	S	0.001044	#e0654fff	-1.0
+490	TTT	['AGT', 'TCA', 'TCC', 'TCT']	F	S	0.033264	#d44e41ff	-2.0
+500	ACT	['AGC', 'AGT', 'TCA', 'TCG', 'TCT']	T	S	0.001937	#d1dae9ff	1.0
+522	GCA	['TCA', 'TCT']	A	S	0.001044	#d1dae9ff	1.0
+523	ACT	['AGC', 'AGT', 'TCA', 'TCC', 'TCT']	T	S	0.003766	#d1dae9ff	1.0
+527	CCT	TCT	P	S	0.003493	#e0654fff	-1.0
+441	CTT	['CAC', 'CAT']	L	H	0.002026	#c43032ff	-3.0
+442	GAT	['CAC', 'CAT']	D	H	0.002405	#e0654fff	-1.0
+450	AAT	['CAC', 'CAT']	N	H	0.001060	#d1dae9ff	1.0
+451	TAC	CAC	Y	H	0.001462	#c3d5f4ff	2.0
+493	CAA	['CAC', 'CAT']	Q	H	0.001956	#dcddddff	0.0
+505	TAC	['CAC', 'CAT']	Y	H	0.993748	#c3d5f4ff	2.0
+508	TAC	['CAC', 'CAT']	Y	H	0.016523	#c3d5f4ff	2.0
+517	CTT	CAT	L	H	0.002163	#c43032ff	-3.0
+440	AAT	ATG	N	M	0.001095	#d44e41ff	-2.0
+452	CTG	ATG	L	M	0.710401	#c3d5f4ff	2.0
+455	TTG	ATG	L	M	0.004644	#c3d5f4ff	2.0
+458	AAG	ATG	K	M	0.006144	#e0654fff	-1.0
+435	GCT	['CCA', 'CCC', 'CCG', 'CCT']	A	P	0.002010	#e0654fff	-1.0
+470	ACT	['CCA', 'CCC', 'CCG', 'CCT']	T	P	0.001706	#e0654fff	-1.0
+490	TTT	['CCA', 'CCC', 'CCT']	F	P	0.003227	#b40426ff	-4.0
+494	TCA	['CCA', 'CCC']	S	P	0.001446	#e0654fff	-1.0
+517	CTT	['CCA', 'CCC', 'CCT']	L	P	0.003967	#c43032ff	-3.0
+520	GCA	['CCA', 'CCC', 'CCG', 'CCT']	A	P	0.009676	#e0654fff	-1.0
+522	GCA	['CCA', 'CCC', 'CCG', 'CCT']	A	P	0.005722	#e0654fff	-1.0
+432	TGC	TGG	C	W	0.003569	#d44e41ff	-2.0
+438	TCT	['TAC', 'TAT']	S	Y	0.002293	#d44e41ff	-2.0
+439	AAC	['TAC', 'TAT']	N	Y	0.003520	#d44e41ff	-2.0
+448	AAT	TAT	N	Y	0.002204	#d44e41ff	-2.0
+450	AAT	['TAC', 'TAT']	N	Y	0.002306	#d44e41ff	-2.0
+464	TTT	['TAC', 'TAT']	F	Y	0.010773	#b5cdfaff	3.0
+481	AAT	['TAC', 'TAT']	N	Y	0.001008	#d44e41ff	-2.0
+490	TTT	['TAC', 'TAT']	F	Y	0.009800	#b5cdfaff	3.0
+501	AAT	['TAC', 'TAT']	N	Y	0.996373	#d44e41ff	-2.0
+514	TCT	['TAC', 'TAT']	S	Y	0.005971	#d44e41ff	-2.0
+449	TAT	['TTC', 'TTT']	Y	F	0.001887	#b5cdfaff	3.0
+451	TAC	['TTC', 'TTT']	Y	F	0.007168	#b5cdfaff	3.0
+453	TAT	['TTC', 'TTT']	Y	F	0.140256	#b5cdfaff	3.0
+455	TTG	['TTC', 'TTT']	L	F	0.001031	#dcddddff	0.0
+508	TAC	['TTC', 'TTT']	Y	F	0.006692	#b5cdfaff	3.0
+441	CTT	['GTA', 'GTC', 'GTG', 'GTT']	L	V	0.009322	#d1dae9ff	1.0
+452	CTG	['GTC', 'GTG', 'GTT']	L	V	0.001072	#d1dae9ff	1.0
+465	GAG	['GTA', 'GTC', 'GTG', 'GTT']	E	V	0.001537	#d44e41ff	-2.0
+467	GAT	['GTA', 'GTC', 'GTT']	D	V	0.001400	#c43032ff	-3.0
+468	ATT	['GTA', 'GTT']	I	V	0.001799	#b5cdfaff	3.0
+486	TTT	['GTA', 'GTC', 'GTT']	F	V	0.002357	#e0654fff	-1.0
+513	CTT	['GTA', 'GTC', 'GTT']	L	V	0.001896	#d1dae9ff	1.0
+522	GCA	GTA	A	V	0.001246	#dcddddff	0.0
+433	GTT	['CTA', 'CTC', 'CTG', 'CTT', 'TTA']	V	L	0.002112	#d1dae9ff	1.0
+434	ATA	['CTA', 'CTT', 'TTA', 'TTG']	I	L	0.002230	#c3d5f4ff	2.0
+445	GTT	['CTA', 'CTC', 'CTG', 'CTT', 'TTA', 'TTG']	V	L	0.002149	#d1dae9ff	1.0
+490	TTT	['CTT', 'TTA', 'TTG']	F	L	0.001328	#dcddddff	0.0
+493	CAA	['CTA', 'CTC', 'CTG', 'CTT', 'TTA']	Q	L	0.004711	#d44e41ff	-2.0
+503	GTT	['CTA', 'CTC', 'CTG', 'CTT', 'TTA']	V	L	0.001318	#d1dae9ff	1.0
+430	ACA	['ATA', 'ATT']	T	I	0.001035	#e0654fff	-1.0
+437	AAT	['ATA', 'ATC', 'ATT']	N	I	0.002082	#c43032ff	-3.0
+441	CTT	['ATA', 'ATT']	L	I	0.001522	#c3d5f4ff	2.0
+445	GTT	ATT	V	I	0.001159	#b5cdfaff	3.0
+448	AAT	['ATA', 'ATC', 'ATT']	N	I	0.001261	#c43032ff	-3.0
+452	CTG	['ATA', 'ATC', 'ATT']	L	I	0.001056	#c3d5f4ff	2.0
+461	CTC	['ATA', 'ATC', 'ATT']	L	I	0.001782	#c3d5f4ff	2.0
+478	ACA	['ATA', 'ATC', 'ATT']	T	I	0.001400	#e0654fff	-1.0
+481	AAT	['ATA', 'ATC', 'ATT']	N	I	0.001430	#c43032ff	-3.0
+492	TTA	['ATA', 'ATC', 'ATT']	L	I	0.001144	#c3d5f4ff	2.0
+503	GTT	['ATA', 'ATT']	V	I	0.001093	#b5cdfaff	3.0
+431	GGC	['GCA', 'GCC', 'GCG', 'GCT']	G	A	0.002264	#dcddddff	0.0
+445	GTT	['GCA', 'GCT']	V	A	0.001550	#dcddddff	0.0
+446	GGT	['GCA', 'GCC', 'GCG', 'GCT']	G	A	0.002294	#dcddddff	0.0
+447	GGT	['GCA', 'GCC', 'GCT']	G	A	0.001193	#dcddddff	0.0
+463	CCT	['GCA', 'GCC', 'GCG', 'GCT']	P	A	0.001806	#e0654fff	-1.0
+476	GGT	['GCA', 'GCG', 'GCT']	G	A	0.002173	#dcddddff	0.0
+479	CCT	['GCA', 'GCC', 'GCG', 'GCT']	P	A	0.001446	#e0654fff	-1.0
+483	GTT	['GCA', 'GCT']	V	A	0.002654	#dcddddff	0.0
+484	GAA	['GCA', 'GCC', 'GCG', 'GCT']	E	A	0.291241	#e0654fff	-1.0
+502	GGT	['GCA', 'GCC', 'GCG', 'GCT']	G	A	0.001071	#dcddddff	0.0
+503	GTT	['GCA', 'GCC', 'GCT']	V	A	0.001438	#dcddddff	0.0
+504	GGT	['GCA', 'GCC', 'GCG', 'GCT']	G	A	0.001554	#dcddddff	0.0
+521	CCA	['GCA', 'GCC', 'GCG', 'GCT']	P	A	0.001379	#e0654fff	-1.0
+527	CCT	GCT	P	A	0.003728	#e0654fff	-1.0
+435	GCT	['GGA', 'GGC', 'GGG', 'GGT']	A	G	0.007954	#dcddddff	0.0
+445	GTT	['GGA', 'GGC', 'GGT']	V	G	0.003410	#c43032ff	-3.0
+471	GAA	['GGA', 'GGG', 'GGT']	E	G	0.002005	#d44e41ff	-2.0
+493	CAA	['GGA', 'GGC', 'GGG', 'GGT']	Q	G	0.157752	#d44e41ff	-2.0
+520	GCA	['GGA', 'GGC', 'GGG', 'GGT']	A	G	0.024769	#dcddddff	0.0
+522	GCA	['GGA', 'GGG', 'GGT']	A	G	0.002223	#dcddddff	0.0
+524	GTT	['GGA', 'GGG', 'GGT']	V	G	0.002099	#c43032ff	-3.0
