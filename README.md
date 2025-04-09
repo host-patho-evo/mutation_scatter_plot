@@ -1,4 +1,4 @@
-**Calculate in each position frequency of codons and amino acids from a multiple sequence alignment and draw an interactive scatter plot**
+## Calculate in each position frequency of codons and amino acids from a multiple sequence alignment and draw an interactive scatter plot
 
 The scripts and data contained in this folder are for a **Convergence of Directed and Viral Evolution Reveals the Selective Pressures Driving Omicron Emergence** publication by Shoshany et al. (submitted 2025). Additional data can be found at DOI:10.5281/zenodo.15102607 .
 
@@ -10,11 +10,11 @@ There are two programs.
 Interactive figures can be visualized and individual frequencies of mutations inspected using python with [matplotlib](https://matplotlib.org/) and [mplcursors](https://pypi.org/project/mplcursors/) installed and concurrently, interactive HTML files are rendered thanks to [Bokeh](https://bokeh.org/).
 
 
-**Prerequisities**
+## Prerequisities
 
-A Run the application on your local computer
+** A Run the application on your local computer **
 
-A.1 Install necessary python tools using pip
+** A.1 Install necessary python tools using pip **
 
 ```
 pip install biopython
@@ -34,7 +34,7 @@ pip install pycairo
 pip install cairocffi
 ```
 
-A.2 Install necessary python tools using conda
+** A.2 Install necessary python tools using conda **
 
 ```
 conda create -n mutation_scatter_plot
@@ -70,7 +70,7 @@ To disable interactive matplotlib figures raised on your X11/Wayland display (in
 `export MPLBACKEND=agg`.
 
 
-**Usage**
+## Usage
 
 ```
 prefix='WT-7th-library-LSS__7-WU-FF.WUPA.WTref'
@@ -79,7 +79,7 @@ mutation_scatter_plot.py --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv -
 count_motifs_in_sequences.py --infilename="$prefix".scores_above_84.fastp.amplicons.clean.prot.counts.fasta --motif=RPTY
 ```
 
-**Examples**
+## Examples
 
 ![BA1-7th-library-LSS__7-OM-EE.OMPA.WTref.aa.frequencies.jpg](data/outputs/aa/jpg/BA1-7th-library-LSS__7-OM-EE.OMPA.WTref.aa.frequencies.jpg)
 ![BA1-7th-library-LSS__7-OM-EE.OMPA.WTref.codon.frequencies.jpg](data/outputs/codon/jpg/BA1-7th-library-LSS__7-OM-EE.OMPA.WTref.codon.frequencies.jpg)
@@ -87,15 +87,25 @@ count_motifs_in_sequences.py --infilename="$prefix".scores_above_84.fastp.amplic
 All figures we prepared for our new publication are at [https://host-patho-evo.github.io/mutation_scatter_plot](https://host-patho-evo.github.io/mutation_scatter_plot/).
 
 
-**Citation**
+## Citation
 
 Please cite the following article if you use our data or software in your research:
 
 Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxova K., Zoler E., Mokrejš M., Schreiber G., Zahradník J. (submitted) Convergence of Directed and Viral Evolution Reveals the Selective Pressures Driving Omicron Emergence.
 
 
-**Website**
+## Website
 
 https://github.com/host-patho-evo/mutation_scatter_plot
 
+
+## License
+
 This work © 2025 by Jiří Zahradník and Martin Mokrejš (First Medical Faculty - Charles University in Prague) is licensed under Creative Commons Attribution 4.0 International (CC BY 4.0). To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/
+
+
+## Acknowledgements
+[This project was supported by the National Institute of Virology and Bacteriology (Programme EXCELES, LX22NPO5103) - funded by the European Union - NextGenerationEU](https://nivb.cz/en/)
+
+![logos/loga_hlavicka_colour_ENG.png]Funded by the European Union NextGenerationEU -- Czech Recovery Plan -- Ministry of Education, Youth and Sports
+
