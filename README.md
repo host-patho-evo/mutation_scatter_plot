@@ -12,9 +12,9 @@ Interactive figures can be visualized and individual frequencies of mutations in
 
 ## Prerequisities
 
-** A Run the application on your local computer **
+**A Run the application on your local computer**
 
-** A.1 Install necessary python tools using pip **
+**A.1 Install necessary python tools using pip**
 
 ```
 pip install biopython
@@ -34,7 +34,7 @@ pip install pycairo
 pip install cairocffi
 ```
 
-** A.2 Install necessary python tools using conda **
+**A.2 Install necessary python tools using conda**
 
 ```
 conda create -n mutation_scatter_plot
