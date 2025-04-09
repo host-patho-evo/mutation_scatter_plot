@@ -107,5 +107,5 @@ This work © 2025 by Jiří Zahradník and Martin Mokrejš (First Medical Facult
 ## Acknowledgements
 [This project was supported by the National Institute of Virology and Bacteriology (Programme EXCELES, LX22NPO5103) - funded by the European Union - NextGenerationEU](https://nivb.cz/en/)
 
-![logos/loga_hlavicka_colour_ENG.png]Funded by the European Union NextGenerationEU -- Czech Recovery Plan -- Ministry of Education, Youth and Sports
+![logos/loga_hlavicka_colour_ENG.png](logos/loga_hlavicka_colour_ENG.png)Funded by the European Union NextGenerationEU -- Czech Recovery Plan -- Ministry of Education, Youth and Sports
 
