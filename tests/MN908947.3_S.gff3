@@ -1,0 +1,25 @@
+# The program looks for "CDS", "exon", "three_prime_UTR" and "five_prime_UTR" lines,
+# looks up their parent transcript (determined from the "Parent=transcript:" attribute),
+# the gene (determined from the transcript's "Parent=gene:" attribute), and the biotype
+# (the most interesting is "protein_coding").
+#
+# Attributes required for
+#   gene lines:
+#   - ID=gene:<gene_id>
+#   - biotype=<biotype>
+#   - Name=<gene_name>      [optional]
+#
+#   transcript lines:
+#   - ID=transcript:<transcript_id>
+#   - Parent=gene:<gene_id>
+#   - biotype=<biotype>
+#
+#   other lines (CDS, exon, five_prime_UTR, three_prime_UTR):
+#   - Parent=transcript:<transcript_id>
+#
+# Supported biotypes:
+#   - see the function gff_parse_biotype() in bcftools/csq.c
+MN908947.3_S_protein	ignored_field	gene	1	3825	.	+	.	ID=gene:S;biotype=protein_coding;Name=S
+MN908947.3_S_protein	ignored_field	transcript	1	3825	.	+	.	ID=transcript:43740568;Parent=gene:S;biotype=protein_coding
+MN908947.3_S_protein	ignored_field	exon	1	3825	.	+	.	Parent=transcript:43740568
+MN908947.3_S_protein	ignored_field	CDS	1	3825	.	+	0	Parent=transcript:43740568
