@@ -68,7 +68,7 @@ from Bio import AlignIO
 
 from BCBio import GFF
 
-version = 2025004050820
+version = 202504101845
 
 myparser = OptionParser()
 myparser.add_option("--reference-infile", action="store", type="string", dest="reference_infilename", default=None, metavar="FILE",
