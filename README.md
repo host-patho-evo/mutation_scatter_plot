@@ -74,6 +74,18 @@ To disable interactive matplotlib figures raised on your X11/Wayland display (in
 
 ## Usage
 
+
+**Testcase**
+```
+python3 calculate_codon_frequencies.py --reference-infile=tests/MN908947.3_S.fasta --reference-gff3-infile=tests/MN908947.3_S.gff3 \
+    --alignment-file=tests/test.fa --outfile-prefix=tests/test --left-offset=1 --right-offset=3825 --debug=3 --print-unchanged-sites
+prefix='tests/test'
+mutation_scatter_plot.py --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".aa.frequencies.png --aminoacids
+mutation_scatter_plot.py --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".codon.frequencies.png
+count_motifs_in_sequences.py --infilename="$prefix".scores_above_84.fastp.amplicons.clean.prot.counts.fasta --motif=RPTY
+```
+
+**More realistic example**
 ```
 prefix='WT-7th-library-LSS__7-WU-FF.WUPA.WTref'
 mutation_scatter_plot.py --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".aa.frequencies.png --aminoacids
