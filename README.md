@@ -19,6 +19,7 @@ Interactive figures can be visualized and individual frequencies of mutations in
 ```
 pip install biopython
 pip install blosum
+pip install bcbio-gff # needed only for calculate_codon_frequencies.py
 pip install pandas
 pip install mplcursors
 pip install bokeh
@@ -40,6 +41,7 @@ pip install cairocffi
 conda create -n mutation_scatter_plot
 conda install biopython
 conda install blosum
+conda install bcbio-gff # needed only for calculate_codon_frequencies.py
 conda install pandas
 conda install mplcursors
 conda install bokeh
