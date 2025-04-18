@@ -5,13 +5,11 @@
 # Creative Commons Attribution 4.0 International. To view a copy of this
 # license, visit https://creativecommons.org/licenses/by/4.0/
 
-"""This program calculate_codon_frequencies.py can parse multi-FASTA *.aln
-files (ALN) of protein-coding regions along with GFF3 annotation file to
-read a codon (or amino acid residue) from the reference sequence and calculate
-frequencies of all up to 64 codons (or up to 20 amino acids) in the respective
-column of the ALN file. It also counts number of DELeletion events in the
-sample (compared to reference) and also of STOP codons ('*' or 'X' is displayed
-in figures depending on the runtime mode).
+"""This program calculate_codon_frequencies.py can parse multi-FASTA
+files (FASTA) with padding dashes '-' and calculates frequencies of all up
+to 64 codons (or up to 20 amino acids) in the respective column of the FASTA
+file. It also counts number of INS-, DEL-, X- and STOP-events in the
+sample multi-FASTA file (compared to pre-aligned reference).
 
 It uses decimal module to keep numeric precision at maximum and only converts
 to floating point numbers during output if not outputting just a string
@@ -19,26 +17,40 @@ representation of the number.
 
 To prepare the input data we typically map NGS short sequences from Illumina
 platform using 'bwa mem' to a reference protein-coding ORF sequence and then
-convert the SAM file format to ALN using `gofasta sam toMultiAlign` command.
+convert the SAM file format to FASTA using `gofasta sam toMultiAlign` command.
 The tool gofasta can be obtained from https://github.com/virus-evolution/gofasta .
 
-It does not keep record of INSertions appearing relative to the reference
-sequence from the sample sequences but provided in our assays these are just
-sequencing errors and not real mutations (as they would break the reading frame
-and the proteins would not be synthesized in expression host) we can safely
-ignore gofasta discarding these erroneous INSertions.
-In principle, 3nt, 6nt, ... long INSertions would be lost but they cannot
-appear in our experiments with single nucleotide changes and very very rarely
-with double-nucleotide changes.
+We aligned the sequences using BLASTN to the de-padded reference sequence
+and extracted padded alignment of the best match. This multi-FASTA file however
+has varying length of the entries, caused by INSertion event in the sample
+sequences compared tot he reference. To get a well aligned alignment with all
+of them with same length one needs to extend the original reference sequence
+with extra dashes to yield same length. Then this program can report INSertion
+in the sample properly.
 
 The utility discards internally codons containing unknown ('N') nucleotides.
-It uses Biopython for parsing and translation. The output is a TAB-separated
-TSV file with frequencies, e.g.:
+It uses Biopython for parsing and translation. Similarly it discards incomplete
+codon containing just one or two dashes.
 
-439	N	K	0.000310	AAC	AAA
+The output is a TAB-separated TSV file with frequencies, e.g.:
 
-To respect reading frame calculate_codon_frequencies.py follows reference
-sequence and parses always 3 nucleotides at once from the ALN input file.
+146	N	D	0.137285	GGT	GAC	6750538
+146	N	D	0.638309	GGT	GAT	6750538
+146	N	X	0.001593	GGT	GNT	6750538
+146	N	X	0.007141	GGT	GRT	6750538
+146	N	V	0.000231	GGT	GTT	6750538
+147	D	X	0.000809	GTT	GT-	5826744
+147	D	X	0.000437	GTT	NN-	5826744
+147	D	F	0.000144	GTT	TTT	5826744
+147	D	DEL	0.137225	GTT	---	5826744
+147	INS	X	0.446303	---	--N	9926
+147	INS	X	0.297502	---	--T	9926
+147	INS	T	0.256196	---	ACT	9926
+
+If the reference sequence contains no padding symbols '-', it will not report
+any INSertions in the sample but should work otherwise. To respect reading frame
+it follows reference sequence and parses always 3 nucleotides at once from the FASTA
+input file.
 If there was a gap (padding) character '-' if picks an extra character from
 the input until it has 3 nucleotides. Then it calculates frequencies for
 all possible codons. The results are stored in a TAB-separated TSV file for
@@ -68,17 +80,17 @@ from Bio import AlignIO
 
 from BCBio import GFF
 
-version = 202504111800
+version = 202504182340
 
 myparser = OptionParser()
 myparser.add_option("--reference-infile", action="store", type="string", dest="reference_infilename", default=None, metavar="FILE",
-    help="FASTA formatted input file with reference padded sequence matching GFF3 contents and the FASTA aln file")
+    help="FASTA formatted input file with reference padded sequence matching GFF3 contents and the FASTA padded FASTA file")
 myparser.add_option("--reference-gff3-infile", action="store", type="string", dest="gff3_infilename", default=None, metavar="FILE",
     help="GFF3 formatted annotation of the reference")
 myparser.add_option("--alignment-file", action="store", type="string", dest="alignment_infilename", default=None, metavar="FILE",
     help="Alignment file in FASTA format with - (minus) chars to adjust the alignment to the --reference-infile")
 myparser.add_option("--outfile-prefix", action="store", type="string", dest="outfileprefix", default=None, metavar="FILE",
-    help="Prefix to derive output TSV filename to be created, .tsv and .unchanged_codons.tsv will be appended to it")
+    help="It assumes *.frequencies.fasta files. The prefix specified should end with .frequencies . The .tsv and .unchanged_codons.tsv will be appended to the prefix.")
 myparser.add_option("--left-offset", action="store", type="int", dest="loffset", default=0,
     help="First nucleotide of the ORF region of interest to be sliced out from the input sequences")
 myparser.add_option("--right-offset", action="store", type="int", dest="roffset", default=0,
@@ -92,7 +104,7 @@ myparser.add_option("--x-after-count", action="store_true", dest="x_after_count"
 myparser.add_option("--print-unchanged-sites", action="store_true", dest="print_unchanged_sites", default=False,
     help="Print out also sites with unchanged codons in to unchanged_codons.tsv file")
 myparser.add_option("--discard-this-many-leading-nucs", action="store", type="int", dest="discard_this_many_leading_nucs", default=0,
-    help="Specify how many offending nucleotides are at the front of the ALN sequences shifting the reading frame of the input ALN file from frame +1 so either of two remaining. Count the leading dashes and eventual nucleotides of incomplete codons too and check if it can be divided by 3.0 without slack. By default reading frame +1 is expected and hence no leading nucleotides are discarded.")
+    help="Specify how many offending nucleotides are at the front of the FASTA sequences shifting the reading frame of the input FASTA file from frame +1 so either of two remaining. Count the leading dashes and eventual nucleotides of incomplete codons too and check if it can be divided by 3.0 without slack. By default reading frame +1 is expected and hence no leading nucleotides are discarded.")
 myparser.add_option("--minimum-alignments-length", action="store", type="int", dest="minimum_aln_length", default=50,
     help="Minimum length of aligned NGS read to be used for calculations") 
 myparser.add_option("--debug", action="store", type="int", dest="debug", default=0,
@@ -115,14 +127,14 @@ def get_codons(seq):
 
 
 def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_seq, reference_as_codons, outfilename, outfilename_unchanged_codons, alnfilename_count, aa_start):
-    if myoptions.debug: print("Debug0: Depadded reference sequence has length %d, padded reference sequence has length %d, each entry from %s must also have same padded length" % (len(padded_reference_dna_seq.replace('-','')), len(padded_reference_dna_seq), alignment_file))
+    if myoptions.debug: print("Debug0: Depadded reference sequence has length %d, padded reference sequence has length %d, each entry from %s must also have same padded length %d" % (len(padded_reference_dna_seq.replace('-','')), len(padded_reference_dna_seq), alignment_file, len(padded_reference_dna_seq)))
     if myoptions.debug: print("Debug1: reference_protein_seq=%s with length %d" % (str(reference_protein_seq), len(reference_protein_seq)))
     try:
         _align = AlignIO.read(alignment_file, "fasta") # read whole alignment into memory
     except ValueError:
         raise ValueError("Error: one of the entries in the %s file has different length" % alignment_file)
     if myoptions.loffset or myoptions.roffset:
-        padded_reference_dna_seq = padded_reference_dna_seq[max(myoptions.loffset - 1, 0) : min(len(padded_reference_dna_seq), myoptions.roffset)] # discard leading sequence of the reference not contained in ALN file, if the loffset is correct
+        padded_reference_dna_seq = padded_reference_dna_seq[max(myoptions.loffset - 1, 0) : min(len(padded_reference_dna_seq), myoptions.roffset)] # discard leading sequence of the reference not contained in FASTA file, if the loffset is correct
         reference_protein_seq = reference_protein_seq[int(max(myoptions.loffset - 1, 0) / 3): int(min(len(reference_protein_seq), myoptions.roffset / 3))]
         reference_as_codons = reference_as_codons[int(max(myoptions.loffset - 1, 0) / 3): int(min(len(reference_as_codons), myoptions.roffset / 3))]
         if True or myoptions.debug:
@@ -137,7 +149,7 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
 
         if True or myoptions.debug: print("Debug2: Depadded reference sequence has length %d, padded reference sequence has length %d, each entry from %s must also have same padded length" % (len(padded_reference_dna_seq.replace('-','')), len(padded_reference_dna_seq), alignment_file))
     if len(padded_reference_dna_seq) != len(_align[0].seq):
-        raise ValueError("Error: Length %s of the padded reference sequence %s does not match length %s of the first alignment item %s read from thr ALN file. Please check your --left-offset and --right-offset" % (len(padded_reference_dna_seq), padded_reference_dna_seq, len(_align[0].seq), _align[0].seq))
+        raise ValueError("Error: Length %s of the padded reference sequence %s does not match length %s of the first alignment item %s read from the FASTA file. Please check your --left-offset and --right-offset" % (len(padded_reference_dna_seq), padded_reference_dna_seq, len(_align[0].seq), _align[0].seq))
     _reference_aa_index = 0
     _reference_aa = reference_protein_seq[_reference_aa_index] # fetch the very first aa residue, supposedly 'M' but above we already chopped the sequence and cut only a region of interest
     _previous_gaps = 0
@@ -333,7 +345,7 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                         _new_aa_residue = 'X'
                         _changed_aa_residues[_new_aa_residue] += _record_count
                         if myoptions.debug: print("Debug23: Including frame-breaking codon %s into per-codon coverage, reference codon is %s, refseq length %s, sliced [%d:%d] (pythonic slice numbering), aa_residue is %s" % (_rough_sample_codon, _reference_codon, _padded_aln_line_length, _start+_previous_gaps, _start+_previous_gaps+3+_new_gaps, _new_aa_residue))
-        # all entries in ALN file were processed for the current codon column
+        # all entries in padded FASTA file were processed for the current codon column
         if myoptions.debug: print("Debug24: Lists of changed codons and aminoacid residues: %s-%s %s %s" % (_start+1, _start+3, _changed_codons, _changed_aa_residues)) # undo off-by-one error due to pythonic counting
         if myoptions.debug: print("Debug25: Lists of unchanged codons and aminoacid residues: %s-%s %s %s" % (_start+1, _start+3, _unchanged_codons, _unchanged_aa_residues)) # undo off-by-one error due to pythonic counting
 
@@ -348,7 +360,7 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
             _reference_aa = reference_protein_seq[_reference_aa_index]
             # otherwise keep previous values (actually keep the C-term residue)
 
-        # this is performed for every input ALN line so it slows down the execution, perform the check only once per reference codon
+        # this is performed for every input alignment line so it slows down the execution, perform the check only once per reference codon
         if _start not in _already_checked_starts and len(_reference_codon) == 3:
             if _reference_codon == '---':
                 _reference_aa = '-'
@@ -402,7 +414,7 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
             for _some_deleted_codon, _some_deleted_aa in zip(_deleted_codons, _deleted_aa_residues):
                 outfilename.write("{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\n".format(_reference_aa_index + 1 + int( myoptions.loffset / 3.0) + aa_start, _reference_aa, 'DEL', Decimal(_deleted_codons[_some_deleted_codon]) / Decimal(_total_codons_per_site_sum), _some_deleted_codon, '---', _coverage_per_codon))
 
-        # get the top-most codon in this ALN column
+        # get the top-most codon in this FASTA column
         try:
             _top_most_codon, _top_most_count = _total_codons_per_site_counts.most_common()[0]
         except IndexError:

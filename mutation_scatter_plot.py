@@ -114,13 +114,13 @@ setcontext(ExtendedContext)
 c = getcontext()
 c.prec = 99
 
-version = 202504101845
+version = 202504182225
 
 myparser = OptionParser(version="%s version %s" % ('%prog', version))
 myparser.add_option("--tsv", action="store", type="string", dest="tsv_file_path", default='',
-    help="Path to a TAB separated file with 5-columns: ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon']")
+    help="Path to a TAB separated file with 5-columns: ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'coverage_per_codon']")
 myparser.add_option("--column", action="store", type="string", dest="column_with_frequencies", default='frequency',
-    help="Name of a column to be used for rendering frequencies")
+    help="Name of a column in input TSV to be used for rendering frequencies [frequency]")
 myparser.add_option("--outfile", action="store", type="string", dest="outfile", default='',
     help="Output filename for the PNG image, JPG or PDF or any other filetype recognized by matplotlib vis file extension")
 myparser.add_option("--offset", action="store", type="int", dest="offset", default=0,
@@ -133,8 +133,12 @@ myparser.add_option("--aminoacids", action="store_true", dest="aminoacids", defa
     help="Draw chart with amino acid residues on Y-axis instead of codons")
 myparser.add_option("--show-STOP", action="store_true", dest="showstop", default=False,
     help="Include STOP codons or '*' in charts on Y-axis")
+myparser.add_option("--show-INS", action="store_true", dest="showins", default=False,
+    help="Include INS in charts on Y-axis")
 myparser.add_option("--show-DEL", action="store_true", dest="showdel", default=False,
     help="Include DEL in charts on Y-axis")
+myparser.add_option("--show-X", action="store_true", dest="showx", default=False,
+    help="Include X in charts on Y-axis")
 myparser.add_option("--disable-short-legend", action="store_false", dest="shortlegend", default=True,
     help="Disable short legend in charts on X-axis")
 myparser.add_option("--include-synonymous", action="store_true", dest="include_synonymous", default=False,
@@ -192,7 +196,7 @@ def adjust_size_and_color(frequency, old_codon_or_aa, new_codon_or_aa, matrix, m
 
     if myoptions.aminoacids:
         # in aa mode we always pass to this routine a codon instead of the original amino acid, dunno why but at least when rendering a static figure legend we pass down 'NNN'
-        _old_codon_or_aa = translate(old_codon_or_aa)
+        _old_codon_or_aa = translate(old_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True)
         _len_old_codon_or_aa = len(_old_codon_or_aa)
         if new_codon_or_aa == 'NNN':
             _new_codon_or_aa = 'X'
@@ -281,13 +285,13 @@ def adjust_size_and_color(frequency, old_codon_or_aa, new_codon_or_aa, matrix, m
         elif _old_codon_or_aa in ('X', 'NNN') or new_codon_or_aa in ('X', 'NNN'):
             _color = 'gray'
         elif _codon_on_input:
-            if translate(_old_codon_or_aa) == translate(_new_codon_or_aa):
+            if translate(_old_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True) == translate(_new_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True):
                 _color = 'palegreen'
             else:
                 if myoptions.debug:
                     sys.stdout.write("Info: Translating %s to %s to fetch color from cmap," % (_old_codon_or_aa, _new_codon_or_aa))
-                #_color = discrete_cmap(matrix[translate(_old_codon_or_aa)][translate(_new_codon_or_aa)])
-                _pos = int(matrix[translate(_old_codon_or_aa)][translate(_new_codon_or_aa)]) + _half_size
+                #_color = discrete_cmap(matrix[translate(_old_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True)][translate(_new_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True)])
+                _pos = int(matrix[translate(_old_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True)][translate(_new_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True)]) + _half_size
                 _color = _colors[_pos]
                 if myoptions.debug:
                     sys.stdout.write(" which has yielded %s and %s%s" % (_pos, str(_color), os.linesep))
@@ -415,26 +419,26 @@ def main():
     df['position'] = df['position'] + int(myoptions.offset)
 
     _before = len(df['mutant_codon'])
-    df = df.loc[df['mutant_codon'].str.match('[ATGCatgc-][ATGCatgc-][ATGCatgc-]')] # discard [nN] but keep '-'
+    df = df.loc[df['mutant_codon'].str.match('[ATGCatgc-][ATGCatgc-][ATGCatgc-]')] # discard [nN] but keep '-', beware GISAID also contains other IUPAC codes
     if not myoptions.showstop:
-        if not myoptions.showdel:
-            # discard sequencing errors appearing as STOPs
-            df = df.loc[~df['mutant_aa'].isin(['*', 'DEL'])]
-        else:
-            df = df.loc[~df['mutant_aa'].isin(['*'])]
-    elif not myoptions.showdel:
+        # discard sequencing errors appearing as STOPs
+        df = df.loc[~df['mutant_aa'].isin(['*'])]
+    if not myoptions.showdel:
         # discard sequencing errors appearing as DEL
         df = df.loc[~df['mutant_aa'].isin(['DEL'])]
+    if not myoptions.showins:
+        df = df.loc[~df['mutant_aa'].isin(['INS'])]
+    df = df.loc[~df['mutant_aa'].isin(['X'])] # discard frame-breaking changes (codons contain one or two dashes), TODO: maybe we should check if any dash was in the reference_sequence ?
     _after = len(df['mutant_codon'])
     if myoptions.showstop:
         if myoptions.showdel:
-            print("Info: Originally there were %d rows but after discarding codons with [N n * DEL] there are only %d left" % (_before, _after))
+            print("Info: Originally there were %d rows but after discarding codons with [N n] there are only %d left" % (_before, _after))
         else:
-            print("Info: Originally there were %d rows but after discarding codons with [N n *] there are only %d left" % (_before, _after))
+            print("Info: Originally there were %d rows but after discarding codons with [N n DEL] there are only %d left" % (_before, _after))
     elif myoptions.showdel:
-        print("Info: Originally there were %d rows but after discarding codons with [N n DEL] there are only %d left" % (_before, _after))
+        print("Info: Originally there were %d rows but after discarding codons with [N n *] there are only %d left" % (_before, _after))
     else:
-        print("Info: Originally there were %d rows but after discarding codons with [N n] there are only %d left" % (_before, _after))
+        print("Info: Originally there were %d rows but after discarding codons with [N n DEL] there are only %d left" % (_before, _after))
     # print(df)
     print("Info: Writing into %s" % myoptions.tsv_file_path.replace('.tsv', '.actually_rendered.tsv'))
     df.to_csv(myoptions.tsv_file_path.replace('.tsv', '.actually_rendered.tsv'), sep='\t', header=None, index=False, float_format='{:7.6f}'.format) # dump back the edited dataframe for eventual checks and disable scientific notation of float numbers
@@ -462,6 +466,10 @@ def main():
     # create an empty table pre-filled with zeroes, without ['B', 'Z']
     #amino_acids = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', '*']
     amino_acids = ['C', 'R', 'K', 'E', 'Q', 'D', 'N', 'T', 'S', 'H', 'M', 'P', 'W', 'Y', 'F', 'V', 'L', 'I', 'A', 'G'] # 'INS', 'X', 'DEL'] #, None] # sorted by physicochemical properties
+    if myoptions.showins:
+        amino_acids.append('INS')
+    if myoptions.showx:
+        amino_acids.append('X')
     if myoptions.showstop:
         amino_acids.append('*')
     if myoptions.showdel:
@@ -484,7 +492,7 @@ def main():
             codons_whitelist.remove(_stopcodon)
     
     if myoptions.debug: print("Debug: Translating pre-made all possible codons")
-    codons_whitelist_aa = [translate(_codon) for _codon in codons_whitelist]
+    codons_whitelist_aa = [translate(_codon, gap='-', ignore_gaps=False, respect_alignment=True) for _codon in codons_whitelist]
     # ensure the resulting codons_whitelist2 will have same length as the codons later parsed from TSV file into _table.index
     if 'DEL' in amino_acids:
         codons_whitelist.append('---')
@@ -854,7 +862,7 @@ def main():
                     _circles.append((_aa_position, _some_codon_or_aa, float(np.abs(size) * 100), 'circle_x', color, 0.5))
                 else:
                     # print later codons followed by the amino acid they encode on Y-axis
-                    _circles.append((_aa_position, _some_codon_or_aa + ' (' + translate(_some_codon_or_aa) + ')', float(np.abs(size) * 100), 'circle_x', color, 0.5))
+                    _circles.append((_aa_position, _some_codon_or_aa + ' (' + translate(_some_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True) + ')', float(np.abs(size) * 100), 'circle_x', color, 0.5))
                 # for matplotlib figures use i index instead
                 _circles5000.append((_aa_position, i, float(np.abs(size) * 5000), 'circle_x', color, 0.5)) 
                 _markers.append((_aa_position, i, 1, 'dot', 'black', 0.5)) # for matplotlib figures provide j, i pointers instead of _aa_position, _some_codon_or_aa for some reason
@@ -990,7 +998,7 @@ def main():
                     elif _some_codon_or_aa == 'DEL':
                         _mutant_aa = 'DEL'
                     else:
-                        _mutant_aa = translate(_some_codon_or_aa)
+                        _mutant_aa = translate(_some_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True)
                     # sanitize empty Data Frame for codon mode
                     _mutant_codons = df.loc[(df['position'] == position_in_protein) & (df['mutant_codon'] == _some_codon_or_aa)]['mutant_codon'].to_list()
                 if _original_aa and not frequency < myoptions.threshold and size:
