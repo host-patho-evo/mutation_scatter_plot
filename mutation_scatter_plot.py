@@ -114,7 +114,7 @@ setcontext(ExtendedContext)
 c = getcontext()
 c.prec = 99
 
-version = 202504182225
+version = 202504192325
 
 myparser = OptionParser(version="%s version %s" % ('%prog', version))
 myparser.add_option("--tsv", action="store", type="string", dest="tsv_file_path", default='',
@@ -138,7 +138,7 @@ myparser.add_option("--show-INS", action="store_true", dest="showins", default=F
 myparser.add_option("--show-DEL", action="store_true", dest="showdel", default=False,
     help="Include DEL in charts on Y-axis")
 myparser.add_option("--show-X", action="store_true", dest="showx", default=False,
-    help="Include X in charts on Y-axis")
+    help="Include X in charts on Y-axis in --aminoacids mode")
 myparser.add_option("--disable-short-legend", action="store_false", dest="shortlegend", default=True,
     help="Disable short legend in charts on X-axis")
 myparser.add_option("--include-synonymous", action="store_true", dest="include_synonymous", default=False,
@@ -409,7 +409,11 @@ def main():
         try:
             df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'coverage_per_codon']
         except ValueError:
+            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'coverage_per_codon']
+        except ValueError:
             df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'coverage_per_codon', 'frequency_parent', 'frequency_selected']
+        except ValueError:
+            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'coverage_per_codon', 'frequency_parent', 'frequency_selected']
     else:
         print("Info: Autodetected new TSV file format with a header in %s" % myoptions.tsv_file_path)
     print("Info: The file %s contains these columns: %s" % (myoptions.tsv_file_path, str(df.columns)))
