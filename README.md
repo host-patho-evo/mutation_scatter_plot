@@ -19,7 +19,6 @@ Interactive figures can be visualized and individual frequencies of mutations in
 ```
 pip install biopython
 pip install blosum
-pip install bcbio-gff # needed only for calculate_codon_frequencies.py
 pip install pandas
 pip install mplcursors
 pip install bokeh
@@ -41,7 +40,6 @@ pip install cairocffi
 conda create -n mutation_scatter_plot
 conda install biopython
 conda install blosum
-conda install bcbio-gff # needed only for calculate_codon_frequencies.py
 conda install pandas
 conda install mplcursors
 conda install bokeh
@@ -77,9 +75,10 @@ To disable interactive matplotlib figures raised on your X11/Wayland display (in
 
 **Testcase**
 ```
-python3 calculate_codon_frequencies.py --reference-infile=tests/MN908947.3_S.fasta --reference-gff3-infile=tests/MN908947.3_S.gff3 \
-    --alignment-file=tests/test.fa --outfile-prefix=tests/test --left-offset=1 --right-offset=3825 --debug=3 --print-unchanged-sites
-prefix='tests/test'
+python3 calculate_codon_frequencies.py --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/outputs/test.fa \
+    --outfile-prefix=tests/outputs/test --left-offset=1 --right-offset=3825 --debug=3 --print-unchanged-sites
+
+prefix='tests/outputs/test'
 mutation_scatter_plot.py --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".aa.frequencies.png --aminoacids
 mutation_scatter_plot.py --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".codon.frequencies.png
 count_motifs_in_sequences.py --infilename="$prefix".scores_above_84.fastp.amplicons.clean.prot.counts.fasta --motif=RPTY
