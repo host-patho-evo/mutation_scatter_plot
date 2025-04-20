@@ -78,7 +78,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq, reverse_complement, translate
 from Bio import AlignIO
 
-version = 202504201120
+version = 202504201220
 
 myparser = OptionParser()
 myparser.add_option("--reference-infile", action="store", type="string", dest="reference_infilename", default=None, metavar="FILE",
@@ -122,15 +122,23 @@ def get_codons(seq):
     return codons
 
 
-def write_tsv_line(outfilename, codons, natural_codon_position_padded, natural_codon_position_depadded, reference_aa, total_codons_per_site_sum, reference_codon, coverage_per_codon, debug=False):
+def write_tsv_line(outfilename, codons, natural_codon_position_padded, natural_codon_position_depadded, reference_aa, total_codons_per_site_sum, reference_codon, debug=False):
+    if not total_codons_per_site_sum:
+        _total_codons_per_site_sum = 0
+    else:
+        _total_codons_per_site_sum = total_codons_per_site_sum
     for _some_codon in codons:
         if len(_some_codon) < 3:
             _some_aa = 'X'
         else:
             _some_aa = translate(_some_codon, gap='-', ignore_gaps=False, respect_alignment=True)
         _observed_codon_count = Decimal(codons[_some_codon])
-        outfilename.write("{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\t{}\t{}\n".format(natural_codon_position_padded, natural_codon_position_depadded, reference_aa, _some_aa, _observed_codon_count / Decimal(total_codons_per_site_sum), reference_codon, _some_codon, _observed_codon_count, total_codons_per_site_sum, coverage_per_codon))
-        if debug: print("TESTING1:\t{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\t{}\t{}\n".format(natural_codon_position_padded, natural_codon_position_depadded, reference_aa, _some_aa, _observed_codon_count / Decimal(total_codons_per_site_sum), reference_codon, _some_codon, _observed_codon_count, total_codons_per_site_sum, coverage_per_codon))
+        if not _observed_codon_count:
+            _observed_codon_count2 = 0
+        else:
+            _observed_codon_count2 = _observed_codon_count
+        outfilename.write("{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\t{}\n".format(natural_codon_position_padded, natural_codon_position_depadded, reference_aa, _some_aa, _observed_codon_count2 / Decimal(total_codons_per_site_sum), reference_codon, _some_codon, _observed_codon_count2, _total_codons_per_site_sum))
+        if debug: print("TESTING1:\t{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\t{}\n".format(natural_codon_position_padded, natural_codon_position_depadded, reference_aa, _some_aa, _observed_codon_count2 / Decimal(total_codons_per_site_sum), reference_codon, _some_codon, _observed_codon_count2, _total_codons_per_site_sum))
 
 
 def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_seq, reference_as_codons, outfilename, outfilename_unchanged_codons, alnfilename_count, aa_start):
@@ -175,6 +183,7 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
         _unchanged_codons = Counter()
         _changed_codons = Counter()
         _deleted_reference_codons = Counter()
+        _inserted_codons = Counter()
         _unchanged_aa_residues = Counter()
         _changed_aa_residues = Counter()
         _deleted_reference_aa_residues = Counter()
@@ -192,7 +201,7 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                 _record_count = 1
             _sample_codon_contained_pad = False
             if not _zero_based_codon_startpos:
-                # count lines only when iterating over the first codon
+                # count lines and actually the counts mentioned in the FASTA ID only when iterating over the first codon
                 _total_aln_entries_used += _record_count
             if myoptions.discard_this_many_leading_nucs:
                 _aln_line_seq = str(_aln_line.seq)[myoptions.discard_this_many_leading_nucs:]
@@ -263,8 +272,8 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                         _sample_codon_contained_pad = True
                     else:
                         _sample_codon_contained_pad = False
-                    _reference_aa = 'INS' # this gets output into prefix.frequencies.unchanged_codons.tsv
-                    _changed_codons[_sample_codon_depadded] += _record_count # use depadded representation to compress --N and -N- and N-- together
+                    _reference_aa = 'INS'
+                    _inserted_codons[_sample_codon_depadded] += _record_count # use depadded representation to compress --N and -N- and N-- together
                     _new_aa_residue = translate(_rough_sample_codon, gap='-', ignore_gaps=False, respect_alignment=True)
                     if _new_aa_residue:
                         _changed_aa_residues[_new_aa_residue] += _record_count
@@ -338,15 +347,16 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
         if myoptions.debug: print("Debug24: Lists at %d of changed codons and aminoacid residues: %s-%s %s %s" % (_zero_based_padded_reference_codon_index + 1, _zero_based_codon_startpos+1, _zero_based_codon_startpos+3, _changed_codons, _changed_aa_residues)) # undo off-by-one error due to pythonic counting
         if myoptions.debug: print("Debug25: Lists at %d of unchanged codons and aminoacid residues: %s-%s %s %s" % (_zero_based_padded_reference_codon_index + 1, _zero_based_codon_startpos+1, _zero_based_codon_startpos+3, _unchanged_codons, _unchanged_aa_residues)) # undo off-by-one error due to pythonic counting
 
-        if myoptions.debug: print("Debug26: Deleted codons at %d: %s" % (_zero_based_padded_reference_codon_index + 1, _deleted_reference_codons))
+        if myoptions.debug: print("Debug26a: Deleted codons at %d: %s" % (_zero_based_padded_reference_codon_index + 1, _deleted_reference_codons))
+        if myoptions.debug: print("Debug26b: Inserted codons at %d: %s" % (_zero_based_padded_reference_codon_index + 1, _inserted_codons))
 
-        _total_codons_per_site_counts = _deleted_reference_codons + _changed_codons + _unchanged_codons
+        _total_codons_per_site_counts = _inserted_codons + _deleted_reference_codons + _changed_codons + _unchanged_codons
         _total_codons_per_site_sum = sum(_total_codons_per_site_counts.values())
-        _coverage_per_codon = sum(Counter(_changed_codons + _unchanged_codons).values())
+        # _coverage_per_codon = sum(Counter(_inserted_codons + _deleted_reference_codons + _changed_codons + _unchanged_codons).values())
 
-        if myoptions.debug: print("Debug26a: _reference_codon was %s" % str(_reference_codon))
+        if myoptions.debug: print("Debug26c: _reference_codon was %s" % str(_reference_codon))
         #_reference_codon = _padded_reference_dna_seq[_zero_based_codon_startpos+int(_previous_gaps/3.0):_zero_based_codon_startpos + int(_previous_gaps/3.0) + 3 + _new_gaps_in_reference]
-        #if myoptions.debug: print("Debug26b: _reference_codon changed to %s" % str(_reference_codon))
+        #if myoptions.debug: print("Debug26d: _reference_codon changed to %s" % str(_reference_codon))
 
         if len(_reference_protein_seq) > _zero_based_padded_reference_codon_index:
             _reference_aa = _reference_protein_seq[_zero_based_padded_reference_codon_index]
@@ -387,20 +397,24 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
         _natural_codon_position_padded = _zero_based_padded_reference_codon_index + 1 + int( myoptions.loffset / 3.0) + aa_start
         _natural_codon_position_depadded = _natural_codon_position_padded - int((_previous_gaps + _new_gaps_in_reference) / 3.0)
 
-        write_tsv_line(outfilename_unchanged_codons, _unchanged_codons, _natural_codon_position_padded, _natural_codon_position_depadded, _reference_aa, _total_codons_per_site_sum, _reference_codon, _coverage_per_codon, debug=myoptions.debug)
+        write_tsv_line(outfilename_unchanged_codons, _unchanged_codons, _natural_codon_position_padded, _natural_codon_position_depadded, _reference_aa, _total_codons_per_site_sum, _reference_codon, debug=myoptions.debug)
 
         # TODO: print contents of _unchanged_aa_residues eventually too
         if len(_changed_codons):
-            if not _is_insertion: # print only sites where there is > 1 codon used
-                write_tsv_line(outfilename, _changed_codons, _natural_codon_position_padded, _natural_codon_position_depadded, _reference_aa, _total_codons_per_site_sum, _reference_codon, _coverage_per_codon, debug=myoptions.debug)
-            # handle insertion in sample if reference contained a gap otherwise _reference_protein_seq[_zero_based_padded_reference_codon_index] fails with IndexError
-            else:
-                write_tsv_line(outfilename, _changed_codons, _natural_codon_position_padded, _natural_codon_position_depadded, 'INS', _total_codons_per_site_sum, _reference_codon, _coverage_per_codon, debug=myoptions.debug)
+            write_tsv_line(outfilename, _changed_codons, _natural_codon_position_padded, _natural_codon_position_depadded, _reference_aa, _total_codons_per_site_sum, _reference_codon, debug=myoptions.debug)
+
+        if len(_inserted_codons):
+            write_tsv_line(outfilename, _inserted_codons, _natural_codon_position_padded, _natural_codon_position_depadded, 'INS', _total_codons_per_site_sum, _reference_codon, debug=myoptions.debug)
 
         if _is_deletion:
-            for _some_deleted_codon, _some_deleted_aa in zip(_deleted_reference_codons, _deleted_reference_aa_residues):
-                outfilename.write("{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\n".format(_natural_codon_position_padded, _natural_codon_position_depadded, _reference_aa, 'DEL', Decimal(_deleted_reference_codons[_some_deleted_codon]) / Decimal(_total_codons_per_site_sum), _some_deleted_codon, '---', _coverage_per_codon))
-                if myoptions.debug: print("TESTING4:\t{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\n".format(_natural_codon_position_padded, _natural_codon_position_depadded, _reference_aa, 'DEL', Decimal(_deleted_reference_codons[_some_deleted_codon]) / Decimal(_total_codons_per_site_sum), _some_deleted_codon, '---', _coverage_per_codon))
+            for _some_deleted_codon in _deleted_reference_codons:
+                _observed_codon_count = Decimal(_deleted_reference_codons[_some_deleted_codon])
+                if not _observed_codon_count:
+                    _observed_codon_count2 = 0
+                else:
+                    _observed_codon_count2 = _observed_codon_count
+                outfilename.write("{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\t{}\n".format(_natural_codon_position_padded, _natural_codon_position_depadded, _reference_aa, 'DEL', Decimal(_deleted_reference_codons[_some_deleted_codon]) / Decimal(_total_codons_per_site_sum), _some_deleted_codon, '---', _observed_codon_count2, _total_codons_per_site_sum))
+                if myoptions.debug: print("TESTING4:\t{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\t{}\n".format(_natural_codon_position_padded, _natural_codon_position_depadded, _reference_aa, 'DEL', Decimal(_deleted_reference_codons[_some_deleted_codon]) / Decimal(_total_codons_per_site_sum), _some_deleted_codon, '---', _observed_codon_count2, _total_codons_per_site_sum))
 
         _previous_gaps += _new_gaps_in_reference
         _new_gaps_in_reference = 0
@@ -428,6 +442,7 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
 
     del _align
     alnfilename_count.write("%s\n" % _total_aln_entries_used)
+    alnfilename_count.close()
     _consensus = ''.join(_top_most_codons)
     print("Info: consensus = %s" % str(_consensus))
     if _consensus in _padded_reference_dna_seq:

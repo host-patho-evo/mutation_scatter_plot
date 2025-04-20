@@ -114,7 +114,7 @@ setcontext(ExtendedContext)
 c = getcontext()
 c.prec = 99
 
-version = 202504201130
+version = 202504201645
 
 myparser = OptionParser(version="%s version %s" % ('%prog', version))
 myparser.add_option("--tsv", action="store", type="string", dest="tsv_file_path", default='',
@@ -145,6 +145,8 @@ myparser.add_option("--include-synonymous", action="store_true", dest="include_s
     help="Include synonymous changes in output.")
 myparser.add_option("--threshold", action="store", type="float", dest="threshold", default=0.001,
     help="Define minimum frequency threshold to display a pictogram in the output. For codon mode use 0.001 and for aa mode use 0.01.")
+myparser.add_option("--title", action="store", type="string", dest="title", default='',
+    help="Set title for the figures, by default trailing '.frequencies.tsv' is stripped from the end of the input filename")
 myparser.add_option("--legend", action="store_true", dest="legend", default=False,
     help="Draw legend chart")
 myparser.add_option("--matrix", action="store", type="int", dest="matrix", default=62,
@@ -407,13 +409,13 @@ def main():
         df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header=0)#, nrows=500)
         # Assign column names
         try:
-            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'coverage_per_codon']
+            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site']
         except ValueError:
-            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'coverage_per_codon']
+            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site']
         except ValueError:
-            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'coverage_per_codon', 'frequency_parent', 'frequency_selected']
+            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'frequency_parent', 'frequency_selected']
         except ValueError:
-            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'coverage_per_codon', 'frequency_parent', 'frequency_selected']
+            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'frequency_parent', 'frequency_selected']
     else:
         print("Info: Autodetected new TSV file format with a header in %s" % myoptions.tsv_file_path)
     print("Info: The file %s contains these columns: %s" % (myoptions.tsv_file_path, str(df.columns)))
@@ -447,25 +449,27 @@ def main():
     print("Info: Writing into %s" % myoptions.tsv_file_path.replace('.tsv', '.actually_rendered.tsv'))
     df.to_csv(myoptions.tsv_file_path.replace('.tsv', '.actually_rendered.tsv'), sep='\t', header=None, index=False, float_format='{:7.6f}'.format) # dump back the edited dataframe for eventual checks and disable scientific notation of float numbers
     if '.frequencies.tsv' in myoptions.tsv_file_path:
-        try:
-            _aln_handle = open(myoptions.tsv_file_path.strip('.frequencies.tsv') + '.aln.count')
-        except:
-            _aln_rows = '0'
-            _aln_handle = None
+        _count_filename = myoptions.tsv_file_path.replace('.frequencies.tsv','.count')
+        if os.path.exists(_count_filename):
+            try:
+                _aln_handle = open(_count_filename)
+            except:
+                _aln_rows = '0'
+                _aln_handle = None
         else:
-            print("Info: Writing into %s" % myoptions.tsv_file_path.strip('.frequencies.tsv') + '.aln.count')
-        title_data = myoptions.tsv_file_path.strip('frequencies.tsv')
-    else:
-        try:
-            _aln_handle = open(myoptions.tsv_file_path.strip('.diff.tsv') + '.aln.count')
-        except:
             _aln_rows = '0'
             _aln_handle = None
-        print("Info: Writing into %s" % myoptions.tsv_file_path.strip('.diff.tsv') + '.aln.count')
-        title_data = myoptions.tsv_file_path.strip('diff.tsv')
+
+    if not myoptions.title:
+        title_data = myoptions.tsv_file_path.replace('.frequencies.tsv', '')
+    else:
+        title_data = myoptions.title
+
     if _aln_handle:
         _aln_rows = _aln_handle.readline()
         _aln_handle.close()
+
+    print("Info: Title will be %s" % title_data)
 
     # create an empty table pre-filled with zeroes, without ['B', 'Z']
     #amino_acids = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', '*']
@@ -699,6 +703,8 @@ def main():
         #ax.set_xticklabels(np.arange(0, max(unique_aa_positions)), rotation=90, ha='right')  # rotate X-axis legend
         # https://stackoverflow.com/questions/53747298/how-to-format-axis-tick-labels-from-number-to-thousands-or-millions-125-436-to#53747693
         #ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: '{:,.0f}'.format(x/1))) # get rid of non-real numbers on the X-axis,like 2.5
+        _ax1.xaxis.set_tick_params(labelsize=8)
+        _ax1.tick_params(axis='x', which='major', labelsize=8)
         _y_ticks = np.arange(len(amino_acids))
         _ax1.set_yticks(_y_ticks)
         _ax1.set_yticklabels(amino_acids)
@@ -707,6 +713,8 @@ def main():
         #ax.set_xticklabels(np.arange(0, max(unique_codon_positions)), rotation=90, ha='right')  # rotate X-axis legend
         # https://stackoverflow.com/questions/53747298/how-to-format-axis-tick-labels-from-number-to-thousands-or-millions-125-436-to#53747693
         #ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: '{:,.0f}'.format(x/1))) # get rid of non-real numbers on the X-axis,like 2.5
+        _ax1.xaxis.set_tick_params(labelsize=8)
+        _ax1.tick_params(axis='x', which='major', labelsize=8)
         _y_ticks = np.arange(len(codons_whitelist))
         _ax1.set_yticks(_y_ticks)
         _ax1.set_yticklabels([pairs[0] + ' (' + pairs[1] + ')' for pairs in final_sorted_whitelist], fontsize=6) # sorted by amino acids
