@@ -78,7 +78,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq, reverse_complement, translate
 from Bio import AlignIO
 
-version = 202504192215
+version = 202504201120
 
 myparser = OptionParser()
 myparser.add_option("--reference-infile", action="store", type="string", dest="reference_infilename", default=None, metavar="FILE",
@@ -128,8 +128,9 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded, natural_c
             _some_aa = 'X'
         else:
             _some_aa = translate(_some_codon, gap='-', ignore_gaps=False, respect_alignment=True)
-        outfilename.write("{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\n".format(natural_codon_position_padded, natural_codon_position_depadded, reference_aa, _some_aa, Decimal(codons[_some_codon]) / Decimal(total_codons_per_site_sum), reference_codon, _some_codon, coverage_per_codon))
-        if debug: print("TESTING1:\t{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\n".format(natural_codon_position_padded, natural_codon_position_depadded, reference_aa, _some_aa, Decimal(codons[_some_codon]) / Decimal(total_codons_per_site_sum), reference_codon, _some_codon, coverage_per_codon))
+        _observed_codon_count = Decimal(codons[_some_codon])
+        outfilename.write("{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\t{}\t{}\n".format(natural_codon_position_padded, natural_codon_position_depadded, reference_aa, _some_aa, _observed_codon_count / Decimal(total_codons_per_site_sum), reference_codon, _some_codon, _observed_codon_count, total_codons_per_site_sum, coverage_per_codon))
+        if debug: print("TESTING1:\t{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\t{}\t{}\n".format(natural_codon_position_padded, natural_codon_position_depadded, reference_aa, _some_aa, _observed_codon_count / Decimal(total_codons_per_site_sum), reference_codon, _some_codon, _observed_codon_count, total_codons_per_site_sum, coverage_per_codon))
 
 
 def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_seq, reference_as_codons, outfilename, outfilename_unchanged_codons, alnfilename_count, aa_start):

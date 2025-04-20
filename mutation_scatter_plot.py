@@ -114,7 +114,7 @@ setcontext(ExtendedContext)
 c = getcontext()
 c.prec = 99
 
-version = 202504192325
+version = 202504201130
 
 myparser = OptionParser(version="%s version %s" % ('%prog', version))
 myparser.add_option("--tsv", action="store", type="string", dest="tsv_file_path", default='',
@@ -407,13 +407,13 @@ def main():
         df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header=0)#, nrows=500)
         # Assign column names
         try:
-            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'coverage_per_codon']
+            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'coverage_per_codon']
         except ValueError:
-            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'coverage_per_codon']
+            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'coverage_per_codon']
         except ValueError:
-            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'coverage_per_codon', 'frequency_parent', 'frequency_selected']
+            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'coverage_per_codon', 'frequency_parent', 'frequency_selected']
         except ValueError:
-            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'coverage_per_codon', 'frequency_parent', 'frequency_selected']
+            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'coverage_per_codon', 'frequency_parent', 'frequency_selected']
     else:
         print("Info: Autodetected new TSV file format with a header in %s" % myoptions.tsv_file_path)
     print("Info: The file %s contains these columns: %s" % (myoptions.tsv_file_path, str(df.columns)))
