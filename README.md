@@ -1,6 +1,6 @@
 ## Calculate in each position frequency of codons and amino acids from a multiple sequence alignment and draw an interactive scatter plot
 
-The scripts and data contained in this folder are for a **Convergence of Directed and Viral Evolution Reveals the Selective Pressures Driving Omicron Emergence** publication by Shoshany et al. (submitted 2025). Additional data can be found at DOI:10.5281/zenodo.15102607 .
+The scripts and data contained in this folder are for a **In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence** publication by Shoshany et al. (submitted)[bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1). Additional data can be found at DOI:10.5281/zenodo.15102607 .
 
 There are two programs.
 `calculate_codon_frequencies.py` takes a multiple sequence alignment file and calculates frequencies of the codons. It parses a reference nucleotide sequence of the respective protein to stay in the reading frame (only reading frame +1 is supported). Therefore it is best to map sequencing reads to a ORF sequence encoding the protein although only part of it may have been studied. When this is followed the nucleotide or amino acid positions can be easily calculated from the padding with dashes ('-') in a multi-FASTA 2-line file.
@@ -104,7 +104,7 @@ All figures we prepared for our new publication are at [https://host-patho-evo.g
 
 Please cite the following article if you use our data or software in your research:
 
-Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxova K., Zoler E., Mokrejš M., Schreiber G., Zahradník J. (submitted) Convergence of Directed and Viral Evolution Reveals the Selective Pressures Driving Omicron Emergence.
+Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxova K., Zoler E., Mokrejš M., Schreiber G., Zahradník J. (submitted) In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence. [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)
 
 
 ## Website
