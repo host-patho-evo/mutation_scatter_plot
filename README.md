@@ -75,8 +75,8 @@ To disable interactive matplotlib figures raised on your X11/Wayland display (in
 
 **Testcase**
 ```
-python3 calculate_codon_frequencies.py --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/outputs/test.fa \
-    --outfile-prefix=tests/outputs/test --left-offset=1 --right-offset=3825 --debug=3 --print-unchanged-sites
+python3 calculate_codon_frequencies.py --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/inputs/test.fasta \
+    --outfile-prefix=tests/outputs/test --left-offset=1 --right-offset=3873 --print-unchanged-sites --x-after-count
 
 prefix='tests/outputs/test'
 mutation_scatter_plot.py --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".aa.frequencies.png --aminoacids
