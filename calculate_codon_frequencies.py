@@ -78,7 +78,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq, reverse_complement, translate
 from Bio import AlignIO
 
-version = 202504201220
+version = 202505180050
 
 myparser = OptionParser()
 myparser.add_option("--reference-infile", action="store", type="string", dest="reference_infilename", default=None, metavar="FILE",
@@ -100,11 +100,11 @@ myparser.add_option("--x-after-count", action="store_true", dest="x_after_count"
 myparser.add_option("--print-unchanged-sites", action="store_true", dest="print_unchanged_sites", default=False,
     help="Print out also sites with unchanged codons in to unchanged_codons.tsv file")
 myparser.add_option("--discard-this-many-leading-nucs", action="store", type="int", dest="discard_this_many_leading_nucs", default=0,
-    help="Specify how many offending nucleotides are at the front of the FASTA sequences shifting the reading frame of the input FASTA file from frame +1 so either of two remaining. Count the leading dashes and eventual nucleotides of incomplete codons too and check if it can be divided by 3.0 without slack. By default reading frame +1 is expected and hence no leading nucleotides are discarded.")
+    help="Specify how many offending nucleotides are at the front of the FASTA sequences shifting the reading frame of the input FASTA file from frame +1 to either of the two remaining. Count the leading dashes and eventual nucleotides of incomplete codons too and check if it can be divided by 3.0 without slack. By default reading frame +1 is expected and hence no leading nucleotides are discarded.")
 myparser.add_option("--minimum-alignments-length", action="store", type="int", dest="minimum_aln_length", default=50,
     help="Minimum length of aligned NGS read to be used for calculations")
 myparser.add_option("--debug", action="store", type="int", dest="debug", default=0,
-    help="Set debug level to some integer value")
+    help="Set debug level to some real number")
 
 (myoptions, myargs) = myparser.parse_args()
 
@@ -118,9 +118,19 @@ def get_codons(seq):
         codons = [seq[i:i+3] for i in range(0, len(seq.replace('-','')), 3)]
         if myoptions.debug: print("Debug: Detected %s minus signs in the sequence but after all the nucleotide sequence can be divided by three when they are omitted, good." % seq.count('-'))
     else:
-        raise ValueError("Error: sequence %s cannot be divided by 3 and removing minus signs does not help either" % seq)
+        raise ValueError("Error: Sequence %s cannot be divided by 3 and removing minus signs does not help either" % seq)
     return codons
 
+def alt_translate(seq):
+    """Biopython cannot sometimes translate a sequence but one can get around by
+    splitting it into codons and merging later back
+    https://github.com/biopython/biopython/pull/4992
+    https://github.com/biopython/biopython/pull/4992#issuecomment-2865429105
+    """
+
+    codons = (seq[i:i+3] for i in range(0, len(seq), 3))
+    codons = ("NNN" if "-" in codon and codon != "---" else codon for codon in codons)
+    return "".join(translate(codon, gap='-') for codon in codons)
 
 def write_tsv_line(outfilename, codons, natural_codon_position_padded, natural_codon_position_depadded, reference_aa, total_codons_per_site_sum, reference_codon, debug=False):
     if not total_codons_per_site_sum:
@@ -131,7 +141,7 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded, natural_c
         if len(_some_codon) < 3:
             _some_aa = 'X'
         else:
-            _some_aa = translate(_some_codon, gap='-', ignore_gaps=False, respect_alignment=True)
+            _some_aa = alt_translate(_some_codon)
         _observed_codon_count = Decimal(codons[_some_codon])
         if not _observed_codon_count:
             _observed_codon_count2 = 0
@@ -260,7 +270,7 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                         _reference_codon_contained_pad = True
                     else:
                         _reference_codon_contained_pad = False
-                    _deleted_aa_residue = translate(_deleted_reference_codon, gap='-', ignore_gaps=False, respect_alignment=True)
+                    _deleted_aa_residue = alt_translate(_deleted_reference_codon)
                     _deleted_reference_aa_residues[_deleted_aa_residue] += _record_count
                     _codon = '---'
                     _sample_codon_depadded = ''
@@ -274,7 +284,7 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                         _sample_codon_contained_pad = False
                     _reference_aa = 'INS'
                     _inserted_codons[_sample_codon_depadded] += _record_count # use depadded representation to compress --N and -N- and N-- together
-                    _new_aa_residue = translate(_rough_sample_codon, gap='-', ignore_gaps=False, respect_alignment=True)
+                    _new_aa_residue = alt_translate(_rough_sample_codon)
                     if _new_aa_residue:
                         _changed_aa_residues[_new_aa_residue] += _record_count
                     else:
@@ -306,15 +316,15 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                         # skip empty codon parsed just after the end of the sequence
                         # skip 'AT-C' versus 'ATC' but increase the incidence counter
                         _unchanged_codons[_sample_codon_depadded] += _record_count
-                        _unchanged_aa_residues[translate(_sample_codon_depadded, gap='-', ignore_gaps=False, respect_alignment=True)] += _record_count
+                        _unchanged_aa_residues[alt_translate(_sample_codon_depadded)] += _record_count
                         if myoptions.debug: print("Debug18: Skipping unchanged codon at %d due to a padding dash in %s or %s" % (_zero_based_padded_reference_codon_index + 1, _rough_sample_codon, _reference_codon))
                     elif _sample_codon_depadded == _reference_codon_depadded:
                         _unchanged_codons[_sample_codon_depadded] += _record_count
-                        _unchanged_aa_residues[translate(_sample_codon_depadded, gap='-', ignore_gaps=False, respect_alignment=True)] += _record_count
+                        _unchanged_aa_residues[alt_translate(_sample_codon_depadded)] += _record_count
                         if myoptions.debug: print("Debug19: Unchanged codon at %d is %s or %s" % (_zero_based_padded_reference_codon_index + 1, _sample_codon_depadded, _reference_codon_depadded))
                     elif _sample_codon_depadded != _reference_codon_depadded:
                         _changed_codons[_sample_codon_depadded] += _record_count
-                        _new_aa_residue = translate(_rough_sample_codon, gap='-', ignore_gaps=False, respect_alignment=True)
+                        _new_aa_residue = alt_translate(_rough_sample_codon)
                         if 'N' in _sample_codon_depadded and _new_aa_residue != 'X':
                             if _sample_codon_depadded not in ('TCN', 'CTN', 'GTN', 'CCN', 'ACN', 'GCN', 'CGN', 'GGN'):
                                 raise ValueError("Error: biopython translated codon %s at %d into %s" % (_sample_codon_depadded, _zero_based_padded_reference_codon_index + 1, _new_aa_residue))
@@ -331,7 +341,7 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                         if myoptions.debug: print("Debug22: Final codon at %d is %s, reference codon is %s, refseq length %s, sliced [%d:%d] (pythonic slice numbering), aa_residue is %s" % (_zero_based_padded_reference_codon_index + 1, _rough_sample_codon, _reference_codon, _padded_aln_line_length, _zero_based_codon_startpos+_previous_gaps, _zero_based_codon_startpos+_previous_gaps+3+_new_gaps_in_reference, _new_aa_residue))
                     else:
                         _unchanged_codons[_rough_sample_codon] += _record_count
-                        _new_aa_residue = translate(_rough_sample_codon, gap='-', ignore_gaps=False, respect_alignment=True)
+                        _new_aa_residue = alt_translate(_rough_sample_codon)
                         if _new_aa_residue:
                             if _new_aa_residue != _reference_aa:
                                 _changed_aa_residues[_new_aa_residue] += _record_count
@@ -371,7 +381,7 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                 _current_aa = '-'
             else:
                 try:
-                    _current_aa = translate(_reference_codon, gap='-', ignore_gaps=False, respect_alignment=True)
+                    _current_aa = alt_translate(_reference_codon)
                 except:
                     # Bio.Data.CodonTable.TranslationError: Codon '---' is invalid
                     _current_aa = 'Biopython failure'
@@ -460,7 +470,7 @@ def main():
             _padded_reference_dna_seq = str(_record.seq)
             break # parse only the first and supposedly the only entry
         _reference_dna_seq = _padded_reference_dna_seq.replace('-', '')
-        _reference_protein_seq = translate(_padded_reference_dna_seq, gap='-', ignore_gaps=False, respect_alignment=True)
+        _reference_protein_seq = alt_translate(_padded_reference_dna_seq)
         _reference_as_codons = get_codons(_padded_reference_dna_seq)
     else:
         raise ValueError("Error: File %s does not exist" % myoptions.reference_infilename)
