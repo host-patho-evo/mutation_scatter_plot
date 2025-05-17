@@ -113,7 +113,7 @@ setcontext(ExtendedContext)
 c = getcontext()
 c.prec = 99
 
-version = 202505170040
+version = 202505180050
 
 myparser = OptionParser(version="%s version %s" % ('%prog', version))
 myparser.add_option("--tsv", action="store", type="string", dest="tsv_file_path", default='',
@@ -159,9 +159,19 @@ myparser.add_option("--dpi", action="store", type="int", dest="dpi", default=600
 myparser.add_option("--backend", action="store", type="string", dest="backend", default='',
     help="Matplotlibg backend to render resulting figures: agg, wxpython, pyqt5, pyqt6, pycairo, cairocffi [default: unset]\nTo disable Matplolib interactive window being raised up you can set MPLBACKEND=agg env variable.")
 myparser.add_option("--debug", action="store", type="int", dest="debug", default=0,
-    help="Set debug to some value")
+    help="Set debug to some real number")
 (myoptions, myargs) = myparser.parse_args()
 
+def alt_translate(seq):
+    """Biopython cannot sometimes translate a sequence but one can get around by
+    splitting it into codons and merging later back
+    https://github.com/biopython/biopython/pull/4992
+    https://github.com/biopython/biopython/pull/4992#issuecomment-2865429105
+    """
+
+    codons = (seq[i:i+3] for i in range(0, len(seq), 3))
+    codons = ("NNN" if "-" in codon and codon != "---" else codon for codon in codons)
+    return "".join(translate(codon, gap='-') for codon in codons)
 
 def adjust_size_and_color(frequency, old_codon_or_aa, new_codon_or_aa, matrix, min_score, max_score):
     """Define colors for basic type of scatterplot figures. The circles have variable diameter
@@ -197,7 +207,7 @@ def adjust_size_and_color(frequency, old_codon_or_aa, new_codon_or_aa, matrix, m
 
     if myoptions.aminoacids:
         # in aa mode we always pass to this routine a codon instead of the original amino acid, dunno why but at least when rendering a static figure legend we pass down 'NNN'
-        _old_codon_or_aa = translate(old_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True)
+        _old_codon_or_aa = alt_translate(old_codon_or_aa)
         _len_old_codon_or_aa = len(_old_codon_or_aa)
         if new_codon_or_aa == 'NNN':
             _new_codon_or_aa = 'X'
@@ -286,13 +296,13 @@ def adjust_size_and_color(frequency, old_codon_or_aa, new_codon_or_aa, matrix, m
         elif _old_codon_or_aa in ('X', 'NNN') or new_codon_or_aa in ('X', 'NNN'):
             _color = 'gray'
         elif _codon_on_input:
-            if translate(_old_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True) == translate(_new_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True):
+            if alt_translate(_old_codon_or_aa) == alt_translate(_new_codon_or_aa):
                 _color = 'palegreen'
             else:
                 if myoptions.debug:
                     sys.stdout.write("Info: Translating %s to %s to fetch color from cmap," % (_old_codon_or_aa, _new_codon_or_aa))
-                #_color = discrete_cmap(matrix[translate(_old_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True)][translate(_new_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True)])
-                _pos = int(matrix[translate(_old_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True)][translate(_new_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True)]) + _half_size
+                #_color = discrete_cmap(matrix[alt_translate(_old_codon_or_aa)][alt_translate(_new_codon_or_aa)])
+                _pos = int(matrix[alt_translate(_old_codon_or_aa)][alt_translate(_new_codon_or_aa)]) + _half_size
                 _color = _colors[_pos]
                 if myoptions.debug:
                     sys.stdout.write(" which has yielded %s and %s%s" % (_pos, str(_color), os.linesep))
@@ -408,19 +418,23 @@ def main():
         df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header=0)#, nrows=500)
         # Assign column names
         # released results on Zenodo: 430	T	K	0.000386	ACA	AAA
-        try:
-            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon']
-        except ValueError:
-            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site']
-        except ValueError:
+        print("Info: The file %s contained initially these columns: %s" % (myoptions.tsv_file_path, str(df.columns)))
+        _count_columns = len(df.columns.values)
+        if _count_columns == 9:
             df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site']
-        except ValueError:
-            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'frequency_parent', 'frequency_selected']
-        except ValueError:
+        elif _count_columns == 11:
             df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'frequency_parent', 'frequency_selected']
+        elif _count_columns == 10:
+            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'frequency_parent', 'frequency_selected']
+        elif _count_columns == 8:
+            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site']
+        elif _count_columns == 6:
+            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon']
+        else:
+            raise RuntimeError("Unexpected number of columns in the %s file" % myoptions.tsv_file_path)
     else:
         print("Info: Autodetected new TSV file format with a header in %s" % myoptions.tsv_file_path)
-    print("Info: The file %s contains these columns: %s" % (myoptions.tsv_file_path, str(df.columns)))
+    print("Info: The file %s contains now these columns: %s" % (myoptions.tsv_file_path, str(df.columns)))
 
     #print("Info: df=%s" % str(df))
     # sanitize input aa positions and add myoptions.offset to each value
@@ -461,6 +475,9 @@ def main():
         else:
             _aln_rows = '0'
             _aln_handle = None
+    else:
+        _aln_rows = '0'
+        _aln_handle = None
 
     if not myoptions.title:
         title_data = myoptions.tsv_file_path.replace('.frequencies.tsv', '')
@@ -502,7 +519,7 @@ def main():
             codons_whitelist.remove(_stopcodon)
     
     if myoptions.debug: print("Debug: Translating pre-made all possible codons")
-    codons_whitelist_aa = [translate(_codon, gap='-', ignore_gaps=False, respect_alignment=True) for _codon in codons_whitelist]
+    codons_whitelist_aa = [alt_translate(_codon) for _codon in codons_whitelist]
     # ensure the resulting codons_whitelist2 will have same length as the codons later parsed from TSV file into _table.index
     if 'DEL' in amino_acids:
         codons_whitelist.append('---')
@@ -520,7 +537,7 @@ def main():
     
     # sort the pairs according to physicochemical properties in amino_acids
     final_sorted_whitelist = [tuple for x in amino_acids for tuple in sorted_whitelist if tuple[1] == x]
-    if True or myoptions.debug: print("Debug: final_sorted_whitelist=%s" % str(final_sorted_whitelist))
+    if myoptions.debug: print("Debug: final_sorted_whitelist=%s" % str(final_sorted_whitelist))
 
     # >>> [tuple for x in amino_acids for tuple in sorted_whitelist if tuple[1] == x]
     # [('TGT', 'C'), ('TGC', 'C'), ('CGT', 'R'), ('CGC', 'R'), ('CGA', 'R'), ('CGG', 'R'), ('AGA', 'R'), ('AGG', 'R'), ('AAA', 'K'), ('AAG', 'K'), ('GAA', 'E'), ('GAG', 'E'), ('CAA', 'Q'), ('CAG', 'Q'), ('GAT', 'D'), ('GAC', 'D'), ('AAT', 'N'), ('AAC', 'N'), ('ACT', 'T'), ('ACC', 'T'), ('ACA', 'T'), ('ACG', 'T'), ('TCT', 'S'), ('TCC', 'S'), ('TCA', 'S'), ('TCG', 'S'), ('AGT', 'S'), ('AGC', 'S'), ('CAT', 'H'), ('CAC', 'H'), ('ATG', 'M'), ('CCT', 'P'), ('CCC', 'P'), ('CCA', 'P'), ('CCG', 'P'), ('TGG', 'W'), ('TAT', 'Y'), ('TAC', 'Y'), ('TTT', 'F'), ('TTC', 'F'), ('GTT', 'V'), ('GTC', 'V'), ('GTA', 'V'), ('GTG', 'V'), ('TTA', 'L'), ('TTG', 'L'), ('CTT', 'L'), ('CTC', 'L'), ('CTA', 'L'), ('CTG', 'L'), ('ATT', 'I'), ('ATC', 'I'), ('ATA', 'I'), ('GCT', 'A'), ('GCC', 'A'), ('GCA', 'A'), ('GCG', 'A'), ('GGT', 'G'), ('GGC', 'G'), ('GGA', 'G'), ('GGG', 'G'), ('TAA', '*'), ('TAG', '*'), ('TGA', '*')]
@@ -528,7 +545,7 @@ def main():
 
     codons_whitelist2 = [x[0] for x in final_sorted_whitelist] # get back the list of codons in the order used in final_sorted_whitelist but also in sync with the order on Y-axis further down
     
-    if True or myoptions.debug: print("Debug: codons_whitelist2=%s" % str(codons_whitelist2))
+    if myoptions.debug: print("Debug: codons_whitelist2=%s" % str(codons_whitelist2))
     
     # Define the genetic code and codons with an additional parameter (1 to 65)
     genetic_code = {
@@ -876,7 +893,7 @@ def main():
                     _circles.append((_aa_position, _some_codon_or_aa, float(np.abs(size) * 100), 'circle_x', color, 0.5))
                 else:
                     # print later codons followed by the amino acid they encode on Y-axis
-                    _circles.append((_aa_position, _some_codon_or_aa + ' (' + translate(_some_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True) + ')', float(np.abs(size) * 100), 'circle_x', color, 0.5))
+                    _circles.append((_aa_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', float(np.abs(size) * 100), 'circle_x', color, 0.5))
                 # for matplotlib figures use i index instead
                 _circles5000.append((_aa_position, i, float(np.abs(size) * 5000), 'circle_x', color, 0.5)) 
                 _markers.append((_aa_position, i, 1, 'dot', 'black', 0.5)) # for matplotlib figures provide j, i pointers instead of _aa_position, _some_codon_or_aa for some reason
@@ -903,7 +920,7 @@ def main():
                 new_codons = df.loc[(df['position'] == _aa_position) & (df['mutant_aa'] == _some_codon_or_aa)]['mutant_codon'].to_list()
                 if myoptions.aminoacids:
                     if frequency != _table.at[_some_codon_or_aa, _aa_position]:
-                         raise ValueError("Values frequency=%s and _table.at[_some_codon_or_aa, _aa_position]=%s should be equal" % (frequency, _table.at[_some_codon_or_aa, _aa_position])) # both approaches should work
+                        raise ValueError("Values frequency=%s and _table.at[_some_codon_or_aa, _aa_position]=%s should be equal" % (frequency, _table.at[_some_codon_or_aa, _aa_position])) # both approaches should work
                     if len(new_codons) != len(frequencies):
                         raise ValueError("len(new_codons) != len(frequencies), specifically: %s != %s" % (len(new_codons), len(frequencies)))
                     for filtered_codon, filtered_frequency in zip(new_codons, frequencies):
@@ -1012,7 +1029,7 @@ def main():
                     elif _some_codon_or_aa == 'DEL':
                         _mutant_aa = 'DEL'
                     else:
-                        _mutant_aa = translate(_some_codon_or_aa, gap='-', ignore_gaps=False, respect_alignment=True)
+                        _mutant_aa = alt_translate(_some_codon_or_aa)
                     # sanitize empty Data Frame for codon mode
                     _mutant_codons = df.loc[(df['position'] == position_in_protein) & (df['mutant_codon'] == _some_codon_or_aa)]['mutant_codon'].to_list()
                 if _original_aa and not frequency < myoptions.threshold and size:

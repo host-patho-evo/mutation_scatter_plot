@@ -21,6 +21,7 @@ We developed the software using the following versions:
 >=matplotlib-3.8.4
 >=mplcursors-0.5.3
 >=pandas-2.2.2
+>=numpy-2.2.5
 >=blosum-2.0.3
 >=bokeh-3.7.2
 ```
@@ -53,6 +54,7 @@ virtualenv mutation_scatter_plot
 . ~/.virtualenv/mutation_scatter_plot/bin/activate
 pip install biopython
 pip install blosum
+pip install numpy
 pip install pandas
 pip install mplcursors
 pip install bokeh
@@ -78,6 +80,7 @@ conda create -n mutation_scatter_plot
 conda activate mutation_scatter_plot
 conda install biopython
 conda install blosum
+conda install numpy
 conda install pandas
 conda install mplcursors
 conda install bokeh
@@ -132,12 +135,11 @@ One can calculate the codon frequencies from a provided FASTA input file. The se
 
 ```
 python3 calculate_codon_frequencies.py --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/inputs/test.fasta \
-    --outfile-prefix=tests/outputs/test --left-offset=1 --right-offset=3873 --print-unchanged-sites --x-after-count
+    --outfile-prefix=tests/outputs/test.frequencies --left-offset=1 --right-offset=3873 --print-unchanged-sites --x-after-count
 
-prefix='tests/outputs/test'
+prefix='tests/outputs/test.frequencies'
 mutation_scatter_plot.py --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".aa.frequencies.png --aminoacids
 mutation_scatter_plot.py --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".codon.frequencies.png
-scripts/count_motifs_in_sequences.py --infilename="$prefix".scores_above_84.fastp.amplicons.clean.prot.counts.fasta --motif=RPTY
 ```
 
 **More realistic usage example**
@@ -163,7 +165,7 @@ count_motifs_in_sequences.py --infilename=data/intermediates/"$prefix".scores_ab
 
 ## Run times
 
-The runtime of `calculate_codon_frequencies.py` depends on the number of sequences in the input. To process ~350nt wide amplicon regions of ~200k sequences we needed several hours on a 2.3GHz machine (in a single thread). However, typicaly one can provide only unique sequences with their counts in the FASTA ID (for example `>100x` as the FASTA identifier) and then it takes just minutes do do all the processing.
+The runtime of `calculate_codon_frequencies.py` depends on the number of sequences in the input. To process ~350nt wide amplicon regions of ~200k sequences we needed several hours on a 2.3GHz machine (in a single thread). However, typicaly one can provide only unique sequences with their counts in the FASTA ID (for example `>100x` as the FASTA identifier) and then it takes just minutes to do all the processing.
 
 The runtime of `mutation_scatter_plot.py` is a few minutes per dataset when all figure types are to be rendered on a 2.3GHz machine (in a single thread).
 
@@ -418,19 +420,9 @@ Options:
 $
 ```
 
-## Upcoming new version from master branch requires modified biopython
+## Upcoming new version from master branch supports INSertions relative to the reference sequence
 
-We further improved the software to be able to report INSertions appearing in sample data but that required to overcome some issues with biopython. The `calculate_codon_frequencies.py` also report total counts of reads covering each codon (per-site coverage) in additional columns in the TSV output file. The more detailed file can be parsed by `mutation_scatter_plot.py`. Another significant change was the requirement for padded alignment at input, which is a must if the INSertion are to be recognized. Sadly we had to tweak biopython be able to translate the partial codons (like `AA-` and even `---` in some cases).
-
-We opened a pull-request [PR4992](https://github.com/biopython/biopython/pull/4992). To run the unreleased version *one needs to patch the biopython installation*. More details are described in pull-request thread.
-
-```
-curl -o /tmp/d6fdc48beeb6121ace9a7e4c6ea85ca3fd0d5480.patch https://github.com/biopython/biopython/commit/d6fdc48beeb6121ace9a7e4c6ea85ca3fd0d5480.patch
-cd ~/.virtualenvs/mutation_scatter_plot/lib/python3.11/site-packages
-patch -p1 < /tmp/d6fdc48beeb6121ace9a7e4c6ea85ca3fd0d5480.patch
-```
-
-After the patching one can run the latest and greatest `calculate_codon_frequencies.py` and `mutation_scatter_plot` programs. 
+Since version 0.1 used for the published results we further improved the software to be able to report INSertions appearing in sample data. The `calculate_codon_frequencies.py` now also reports total counts of reads covering each codon (per-site coverage) in additional columns 8 and 9 of the TSV output file. The more detailed file can be parsed by `mutation_scatter_plot.py`. Another significant change was the requirement for padded alignment at input, which is a must if the INSertion are to be recognized.
 
 ## Citation
 
