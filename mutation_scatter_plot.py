@@ -113,7 +113,7 @@ setcontext(ExtendedContext)
 c = getcontext()
 c.prec = 99
 
-version = 202505180050
+version = 202505181350
 
 myparser = OptionParser(version="%s version %s" % ('%prog', version))
 myparser.add_option("--tsv", action="store", type="string", dest="tsv_file_path", default='',
@@ -846,6 +846,9 @@ def main():
     _label_new_amino_acids = [] # new amino acid
     _label_cumulative_frequencies = [] # cumulative frequency
     _label_codon_frequencies = [] # codon frequencies
+    _label_observed_codon_counts = [] # observed_codon_count
+    _label_observed_codon_count_sum = [] # sum of the synonymous codon counts
+    _label_total_codons_per_site = [] # total_codons_per_site
 
     _html_labels = [] # they should be strings of unescaped HTML
     _mutations = []
@@ -873,7 +876,7 @@ def main():
                 # do not die in regions where the are no data, for example in gaps between amplicons
                 # H4/7-OM-EE.IOME@OM-Lib_F+OM-Lib_R.None+None.Wuhan.gofasta.frequencies.tsv at position 341
                 # raise IndexError("Cannot determine original codon for position %s" % _aa_position)
-                if frequency:
+                if frequency and myoptions.debug:
                     print("Debug0b: _aa_position=%s, _some_codon_or_aa=%s, frequency=%s" % (_aa_position, _some_codon_or_aa, str(frequency)))
                 if _aa_position not in _warn_once:
                     sys.stderr.write("Warning: Cannot determine original codon for position %s, seems missing from input TSV or cannot split list %s%s" % (_aa_position, str(df.loc[df['position'] == _aa_position]['original_codon'].to_list()), os.linesep))
@@ -917,30 +920,64 @@ def main():
                 except IndexError:
                     print("Error: Cannot slice %s" % str(df.loc[df['position'] == _aa_position]['original_aa'].to_list()))
                     old_amino_acid = df.loc[df['position'] == _aa_position]['original_aa'].to_list()[0]
+
                 new_codons = df.loc[(df['position'] == _aa_position) & (df['mutant_aa'] == _some_codon_or_aa)]['mutant_codon'].to_list()
                 if myoptions.aminoacids:
                     if frequency != _table.at[_some_codon_or_aa, _aa_position]:
                         raise ValueError("Values frequency=%s and _table.at[_some_codon_or_aa, _aa_position]=%s should be equal" % (frequency, _table.at[_some_codon_or_aa, _aa_position])) # both approaches should work
                     if len(new_codons) != len(frequencies):
                         raise ValueError("len(new_codons) != len(frequencies), specifically: %s != %s" % (len(new_codons), len(frequencies)))
-                    for filtered_codon, filtered_frequency in zip(new_codons, frequencies):
+                    if 'observed_codon_count' in df.columns.values:
+                        _observed_codon_counts = df.loc[(df['position'] == _aa_position) & (df['mutant_aa'] == _some_codon_or_aa)]['observed_codon_count'].to_list()
+                        _total_codons_per_site = df.loc[(df['position'] == _aa_position) & (df['mutant_aa'] == _some_codon_or_aa)]['total_codons_per_site'].to_list()
+                        if _total_codons_per_site and len(_total_codons_per_site) < 2:
+                            _total_codons_per_site = _total_codons_per_site[0]
+                    else:
+                        _observed_codon_counts = []
+                        _total_codons_per_site = 0
+                    _observed_codon_count_sum = 0
+                    for filtered_codon, filtered_frequency, _observed_codon_count in zip(new_codons, frequencies, _observed_codon_counts):
                         if not np.abs(filtered_frequency) < myoptions.threshold:
                             filtered_codons += [filtered_codon]
                             filtered_frequencies += [filtered_frequency]
+                            _observed_codon_count_sum += _observed_codon_count # sum up the individual coverages of the eventual multiple codons
                         if filtered_codon not in new_codons:
                             raise ValueError("The new codon %s is not in the list of all codons %s encoding this aa %s" % (filtered_codon, str(new_codons), _some_codon_or_aa))
                     if filtered_codons and not np.abs(Decimal(frequency)) < myoptions.threshold:
-                        _labels.append(f"Position: {_aa_position}\nOriginal Amino Acid: {old_amino_acid} ({_old_codon})\nNew Amino Acid: {_some_codon_or_aa} {filtered_codons}\nCumulative Frequency: {sum(filtered_frequencies):.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in filtered_frequencies]}")
+                        _labels.append(f"Position: {_aa_position}\nOriginal Amino Acid: {old_amino_acid} ({_old_codon})\nNew Amino Acid: {_some_codon_or_aa} {filtered_codons}\nCumulative Frequency: {sum(filtered_frequencies):.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in filtered_frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon counts sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
                         _label_codon_positions.append(f"{_aa_position}")
                         _label_original_amino_acids.append(f"{old_amino_acid} ({_old_codon})")
                         _label_new_amino_acids.append(f"{_some_codon_or_aa} {filtered_codons}")
                         _label_cumulative_frequencies.append(f"{sum(filtered_frequencies):.6f}")
                         _label_codon_frequencies.append(f"{['{:.6f}'.format(x) for x in filtered_frequencies]}")
-                        _html_labels.append(f"Position: {_aa_position}<br>Original Amino Acid: {old_amino_acid} ({_old_codon})<br>New Amino Acid: {_some_codon_or_aa} {filtered_codons}<br>Cumulative Frequency: {sum(filtered_frequencies):.6f}<br>Codon Frequencies: {['{:.6f}'.format(x) for x in filtered_frequencies]}")
+                        if 'observed_codon_count' in df.columns.values:
+                            _label_observed_codon_counts.append(f"{_observed_codon_counts}")
+                            _label_observed_codon_count_sum.append(f"{sum(_observed_codon_counts)}")
+                            _label_total_codons_per_site.append(f"{_total_codons_per_site}")
+                        else:
+                            _label_observed_codon_counts.append(_observed_codon_counts)
+                            _label_observed_codon_count_sum.append(sum(_observed_codon_counts))
+                            _label_total_codons_per_site.append(_total_codons_per_site)
+                        _html_labels.append(f"Position: {_aa_position}<br>Original Amino Acid: {old_amino_acid} ({_old_codon})<br>New Amino Acid: {_some_codon_or_aa} {filtered_codons}<br>Cumulative Frequency: {sum(filtered_frequencies):.6f}<br>Codon Frequencies: {['{:.6f}'.format(x) for x in filtered_frequencies]}<br>Observed codon counts: {_observed_codon_counts}<br>Observed codon count sum: {_observed_codon_count_sum}<br>Total codons per site: {_total_codons_per_site}")
                         _mutations.append(f"{old_amino_acid}{_aa_position}{_some_codon_or_aa}")
                 else:
                     if frequency != _table.at[_some_codon_or_aa, _aa_position]:
                         raise ValueError("Values frequency=%s and _table.at[_some_codon_or_aa, _aa_position]=%s should be equal" % (frequency, _table.at[_some_codon_or_aa, _aa_position])) # both approaches should work
+
+                    if 'observed_codon_count' in df.columns.values:
+                        _observed_codon_counts = df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)]['observed_codon_count'].to_list()
+                        if _observed_codon_counts and len(_observed_codon_counts) < 2:
+                            _observed_codon_counts = _observed_codon_counts[0]
+                            _observed_codon_count_sum = _observed_codon_counts
+                        else:
+                            _observed_codon_count_sum = sum(_observed_codon_counts)
+                        _total_codons_per_site = df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)]['total_codons_per_site'].to_list()
+                        if _total_codons_per_site and len(_total_codons_per_site) < 2:
+                            _total_codons_per_site = _total_codons_per_site[0]
+                    else:
+                        _observed_codon_counts = []
+                        _total_codons_per_site = 0
+
                     #old_amino_acid = df.loc[df['position'] == _aa_position]['original_aa'].to_list()[0]
 
                     if myoptions.debug:
@@ -964,7 +1001,7 @@ def main():
                         if old_amino_acid and not frequency < myoptions.threshold and size:
                             # print colors used only for data points above the threshold, because those below are not rendered
                             # also do not draw data points if the limits were applied manually with size=0 and palegreen color enforced
-    
+
                             if myoptions.column_with_frequencies == 'neutralized_parent_difference':
                                 _labels.append(f"Position: {_aa_position}\nOriginal Codon: {_old_codon} ({old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({new_amino_acid})\nDifference neutralized2parent: {_frequency:.6f}")
                                 _html_labels.append(f"Position: {_aa_position}<br>Original Codon: {_old_codon} ({old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({new_amino_acid})<br>Difference neutralized2parent: {_frequency:.6f}")
@@ -975,16 +1012,16 @@ def main():
                                 _labels.append(f"Position: {_aa_position}\nOriginal Codon: {_old_codon} ({old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({new_amino_acid})\nWeighted difference escape2neutralized: {_frequency:.6f}")
                                 _html_labels.append(f"Position: {_aa_position}<br>Original Codon: {_old_codon} ({old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({new_amino_acid})<br>Weighted difference escape2neutralized: {_frequency:.6f}")
                             elif myoptions.column_with_frequencies == 'frequency':
-                                _labels.append(f"Position: {_aa_position}\nOriginal Codon: {_old_codon} ({old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({new_amino_acid})\nFrequency: {_frequency:.6f}")
-                                _html_labels.append(f"Position: {_aa_position}<br>Original Codon: {_old_codon} ({old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({new_amino_acid})<br>Frequency: {_frequency:.6f}")
+                                _labels.append(f"Position: {_aa_position}\nOriginal Codon: {_old_codon} ({old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({new_amino_acid})\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_counts}\nTotal codons per site: {_total_codons_per_site}")
+                                _html_labels.append(f"Position: {_aa_position}<br>Original Codon: {_old_codon} ({old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({new_amino_acid})<br>Frequency: {_frequency:.6f}<br>Observed codon counts: {_observed_codon_counts}<br>Total codons per site: {_total_codons_per_site}")
                                 _label_codon_positions.append(f"{_aa_position}")
                                 _label_original_amino_acids.append(f"{old_amino_acid} ({_old_codon})")
                                 _label_new_amino_acids.append(f"{new_amino_acid} ({_some_codon_or_aa})")
                                 _label_cumulative_frequencies.append(f"{_frequency:.6f}")
                                 _label_codon_frequencies.append(f"{_frequency:.6f}")
                             else:
-                                _labels.append(f"Position: {_aa_position}\nOriginal Codon: {_old_codon} ({old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({new_amino_acid})\nFrequency: {_frequency:.6f}")
-                                _html_labels.append(f"Position: {_aa_position}<br>Original Codon: {_old_codon} ({old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({new_amino_acid})<br>Frequency: {_frequency:.6f}")
+                                _labels.append(f"Position: {_aa_position}\nOriginal Codon: {_old_codon} ({old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({new_amino_acid})\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_counts}\nTotal codons per site: {_total_codons_per_site}")
+                                _html_labels.append(f"Position: {_aa_position}<br>Original Codon: {_old_codon} ({old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({new_amino_acid})<br>Frequency: {_frequency:.6f}<br>Observed codon counts: {_observed_codon_counts}<br>Total codons per site: {_total_codons_per_site}")
                                 _label_codon_positions.append(f"{_aa_position}")
                                 _label_original_amino_acids.append(f"{old_amino_acid} ({_old_codon})")
                                 _label_new_amino_acids.append(f"{new_amino_acid} ({_some_codon_or_aa})")
@@ -994,6 +1031,14 @@ def main():
                                 _mutations.append(f"{_old_codon}{_aa_position}{_some_codon_or_aa}")
                             else:
                                 _mutations.append('')
+                            if 'observed_codon_count' in df.columns.values:
+                                _label_observed_codon_counts.append(f"{_observed_codon_counts}")
+                                _label_observed_codon_count_sum.append(f"{_observed_codon_count_sum}")
+                                _label_total_codons_per_site.append(f"{_total_codons_per_site}")
+                            else:
+                                _label_observed_codon_counts.append('')
+                                _label_observed_codon_count_sum.append('')
+                                _label_total_codons_per_site.append('')
 #                        else:
 #                            # fill in the labels to get same amount of items in the list
 #                            _frequency = Decimal(df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0])
@@ -1090,6 +1135,9 @@ def main():
         label3=_label_new_amino_acids,
         label4=_label_cumulative_frequencies,
         label5=_label_codon_frequencies,
+        label6=_label_observed_codon_counts,
+        label7=_label_observed_codon_count_sum,
+        label8=_label_total_codons_per_site,
         mutation=_mutations,
     ))
 
@@ -1108,6 +1156,9 @@ def main():
             ("New Amino Acid", "@label3"),
             ("Cumulative Frequency", "@label4"),
             ("Codon Frequencies", "@label5"),
+            ("Observed codon counts", "@label6"),
+            ("Observed codon count sum", "@label7"),
+            ("Total codons per site", "@label8"),
         ]
     else:
         TOOLTIPS = [
@@ -1124,6 +1175,8 @@ def main():
             ("New Amino Acid", "@label3"),
             ("Cumulative Frequency", "@label4"),
             ("Codon Frequencies", "@label5"),
+            ("Observed codon count", "@label6"),
+            ("Total codons per site", "@label8"),
         ]
     if myoptions.aminoacids:
         p = bokeh.plotting.figure(x_range=(_xmin, _xmax), y_range=amino_acids, tooltips=TOOLTIPS, title=title_data, x_axis_label=_xlabel, y_axis_label='Introduced amino acid changes', x_minor_ticks=10, width=2000, height=1200, sizing_mode='stretch_width') # width=5000, height=5000)
@@ -1183,6 +1236,9 @@ def main():
             old_codon = df.loc[df['position'] == position_in_protein]['original_codon'].to_list()[0]
             new_codons = df.loc[(df['position'] == position_in_protein) & (df['mutant_aa'] == new_amino_acid)]['mutant_codon'].to_list()
             new_codon = new_codons[0]
+            _observed_codon_counts = df.loc[(df['position'] == position_in_protein) & (df['mutant_codon'] == new_codon)]['observed_codon_count'].to_list()
+            _observed_codon_count_sum = sum(_observed_codon_counts)
+            _total_codons_per_site = df.loc[(df['position'] == position_in_protein) & (df['mutant_codon'] == new_codon)]['total_codons_per_site'].to_list()[0]
             # discard sequencing noise
             filtered_codons = []
             filtered_frequencies = []
@@ -1202,9 +1258,9 @@ def main():
             elif myoptions.column_with_frequencies == 'weighted_diff_escape_neutralized':
                 sel.annotation.set_text(f"Position: {position_in_protein}\nOriginal Amino Acid: {old_amino_acid} ({old_codon})\nNew Amino Acid: {new_amino_acid} ({filtered_codons})\nCumulative Frequency: {frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in filtered_frequencies]}")
             elif myoptions.column_with_frequencies == 'frequency':
-                sel.annotation.set_text(f"Position: {position_in_protein}\nOriginal Amino Acid: {old_amino_acid} ({old_codon})\nNew Amino Acid: {new_amino_acid} ({filtered_codons})\nCumulative Frequency: {frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in filtered_frequencies]}")
+                sel.annotation.set_text(f"Position: {position_in_protein}\nOriginal Amino Acid: {old_amino_acid} ({old_codon})\nNew Amino Acid: {new_amino_acid} ({filtered_codons})\nCumulative Frequency: {frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in filtered_frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon count sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
             else:
-                sel.annotation.set_text(f"Position: {position_in_protein}\nOriginal Amino Acid: {old_amino_acid} ({old_codon})\nNew Amino Acid: {new_amino_acid} ({filtered_codons})\nCumulative Frequency: {frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in filtered_frequencies]}")
+                sel.annotation.set_text(f"Position: {position_in_protein}\nOriginal Amino Acid: {old_amino_acid} ({old_codon})\nNew Amino Acid: {new_amino_acid} ({filtered_codons})\nCumulative Frequency: {frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in filtered_frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon count sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
     else:
         @cursor.connect("add")
         def on_add(sel):
@@ -1218,6 +1274,8 @@ def main():
             old_codon = df.loc[df['position'] == position_in_protein]['original_codon'].to_list()[0]
             old_amino_acid = df.loc[df['position'] == position_in_protein]['original_aa'].to_list()[0]
             #new_codon = df.loc[(df['position'] == position_in_protein)][xpos-myoptions.offset].to_list()['mutant_codon']
+            _observed_codon_count = df.loc[(df['position'] == position_in_protein) & (df['mutant_codon'] == new_codon)]['observed_codon_count'].to_list()[0]
+            _total_codons_per_site = df.loc[(df['position'] == position_in_protein) & (df['mutant_codon'] == new_codon)]['total_codons_per_site'].to_list()[0]
 
             # print relevant lines from df matching a particular codon column
             print("Info: %d aa residues observed in position %d:%s %s" % (len(df.loc[df['position'] == position_in_protein]['position']), position_in_protein, os.linesep, str(df.loc[df['position'] == position_in_protein][0:])))
@@ -1243,9 +1301,9 @@ def main():
             elif myoptions.column_with_frequencies == 'weighted_diff_escape_neutralized':
                 sel.annotation.set_text(f"Position: {position_in_protein}\nOriginal Codon: {old_codon} ({old_amino_acid})\nNew Codon: {new_codon} ({new_amino_acid})\nWeighted difference escape2neutralized: {frequency:.6f}")
             elif myoptions.column_with_frequencies == 'frequency':
-                sel.annotation.set_text(f"Position: {position_in_protein}\nOriginal Codon: {old_codon} ({old_amino_acid})\nNew Codon: {new_codon} ({new_amino_acid})\nFrequency: {frequency:.6f}")
+                sel.annotation.set_text(f"Position: {position_in_protein}\nOriginal Codon: {old_codon} ({old_amino_acid})\nNew Codon: {new_codon} ({new_amino_acid})\nFrequency: {frequency:.6f}\nObserved codon count: {_observed_codon_count}\nTotal codons per site: {_total_codons_per_site}")
             else:
-                sel.annotation.set_text(f"Position: {position_in_protein}\nOriginal Codon: {old_codon} ({old_amino_acid})\nNew Codon: {new_codon} ({new_amino_acid})\nFrequency: {frequency:.6f}")
+                sel.annotation.set_text(f"Position: {position_in_protein}\nOriginal Codon: {old_codon} ({old_amino_acid})\nNew Codon: {new_codon} ({new_amino_acid})\nFrequency: {frequency:.6f}\nObserved codon count: {_observed_codon_count}\nTotal codons per site: {_total_codons_per_site}")
             if myoptions.debug:
                 print("Debug: final_sorted_whitelist=%s" % str(final_sorted_whitelist))
                 print("Debug: codons_whitelist2=%s" % str(codons_whitelist2))
