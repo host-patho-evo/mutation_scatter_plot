@@ -424,6 +424,9 @@ $
 
 Since version 0.1 used for the published results we further improved the software to be able to report INSertions appearing in sample data. The `calculate_codon_frequencies.py` now also reports total counts of reads covering each codon (per-site coverage) in additional columns 8 and 9 of the TSV output file. The more detailed file can be parsed by `mutation_scatter_plot.py`. Another significant change was the requirement for padded alignment at input, which is a must if the INSertion are to be recognized.
 
+![GISAID SARS-CoV-2 spikenuc1207 frequencies of mutations in S protein](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.aa.jpg)
+![GISAID SARS-CoV-2 spikenuc1207 frequencies of mutations in S protein at aa position 501](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.aa.jpg)
+
 ## Citation
 
 Please cite the following article if you use our data or software in your research:
