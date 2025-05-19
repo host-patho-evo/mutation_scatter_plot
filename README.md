@@ -179,22 +179,34 @@ The following were rendered by `mutation_scatter_plot.py`:
 
 All figures we prepared for our new publication are at [https://host-patho-evo.github.io/mutation_scatter_plot](https://host-patho-evo.github.io/mutation_scatter_plot/).
 
-## Example dynamic output of matplotlib window (with interactive features)
+## Example of a dynamic output of matplotlib window (with interactive features)
 
 Once the interactive window is raised by matplotlib user can point the computer mouse to any circular object and a bubble with more detailed annotation is raised. Once the window is closed `mutation_scatter_plot.py` can continue and finish.
 
-![images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.matplotlib.screenshot.aa490.jpg](images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.matplotlib.screenshot.aa490.jpg)
-![images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.matplotlib.screenshot.aa501.jpg](images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.matplotlib.screenshot.aa501.jpg)
-![images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.codon.matplotlib.screenshot.codon501.jpg](images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.codon.matplotlib.screenshot.codon501.jpg)
-![images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.codon.matplotlib.screenshot.codon498.jpg](images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.codon.matplotlib.screenshot.codon498.jpg)
+![BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.matplotlib.screenshot.aa.F490S.jpg](images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.matplotlib.screenshot.aa.F490S.jpg)
+![BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.matplotlib.screenshot.aa.N501Y.jpg](images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.matplotlib.screenshot.aa.N501Y.jpg)
+![BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.codon.matplotlib.screenshot.codon.Q498R.jpg](images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.codon.matplotlib.screenshot.codon.Q498R.jpg)
+![BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.codon.matplotlib.screenshot.codon.N501Y.jpg](images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.codon.matplotlib.screenshot.codon.N501Y.jpg)
+![spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.aa15INS.jpg](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.aa15INS.jpg)
+![spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.15INS.jpg](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.15INS.jpg)
+![spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.N501Y.jpg](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.N501Y.jpg)
+![spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.Q498R.zoom.jpg](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.Q498R.zoom.jpg)
+![spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.N501Y.zoom.jpg](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.N501Y.zoom.jpg)
+![spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.INS15P.jpg](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.INS15P.jpg)
+![spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.P26DEL.jpg](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.P26DEL.jpg)
+![spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.V143DEL.jpg](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.V143DEL.jpg)
+![spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.V483DEL.jpg](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.codon.V483DEL.jpg)
 
-## Example dynamic output HTML pages with images (with interactive features)
+
+## Example of a dynamic output HTML pages with images (with interactive features)
 
 The following were rendered by `mutation_scatter_plot.py`. They are not so visually appealing like the figures from matplotlib but they work in any www browser. The following figure is from Firefox.
 
-![images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.firefox.screenshot.aa490.jpg](images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.firefox.screenshot.aa490.jpg)
+![BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.firefox.screenshot.aa.F490S.jpg](images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.firefox.screenshot.aa.F490S.jpg)
+![spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.firefox.screenshot.codon.png](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.firefox.screenshot.codon.png)
 
-See also
+Browse the live HTML with Javascript file contents at:
+
 [data/outputs/aa/html/BA2-4th-round-of-sort__G6.BA2.WTref.aa.frequencies.html](https://host-patho-evo.github.io/mutation_scatter_plot/aa/html/BA2-4th-round-of-sort__G6.BA2.WTref.aa.frequencies.html)
 
 [data/outputs/codon/html/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.html](https://host-patho-evo.github.io/mutation_scatter_plot/codon/html/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.html)
