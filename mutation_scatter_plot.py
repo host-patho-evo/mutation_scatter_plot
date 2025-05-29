@@ -143,7 +143,7 @@ myparser.add_option("--disable-short-legend", action="store_false", dest="shortl
 myparser.add_option("--include-synonymous", action="store_true", dest="include_synonymous", default=False,
     help="Include synonymous changes in output.")
 myparser.add_option("--threshold", action="store", type="float", dest="threshold", default=0.001,
-    help="Define minimum frequency threshold to display a pictogram in the output. For codon mode use 0.001 and for aa mode use 0.01.")
+    help="Define minimum frequency threshold to display a pictogram in the output. For codon mode use 0.001 and for aa mode use 0.01. [default: 0.001]")
 myparser.add_option("--title", action="store", type="string", dest="title", default='',
     help="Set title for the figures, by default trailing '.frequencies.tsv' is stripped from the end of the input filename")
 myparser.add_option("--legend", action="store_true", dest="legend", default=False,
