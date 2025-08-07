@@ -65,10 +65,13 @@ Please cite the following article if you use our data or software in your resear
 Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxova K., Zoler E., Mokrejš M., Schreiber G., Zahradník J. (submitted) In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence. [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)
 """
 
-import os, re, sys
+import os
+import re
+import sys
 from subprocess import Popen, PIPE, call
 
 from collections import Counter
+import hashlib
 
 from optparse import OptionParser
 from decimal import Decimal
@@ -78,7 +81,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq, reverse_complement, translate
 from Bio import AlignIO
 
-version = 202505180050
+version = 202508071835
 
 myparser = OptionParser()
 myparser.add_option("--reference-infile", action="store", type="string", dest="reference_infilename", default=None, metavar="FILE",
@@ -90,17 +93,23 @@ myparser.add_option("--alignment-file", action="store", type="string", dest="ali
 myparser.add_option("--outfile-prefix", action="store", type="string", dest="outfileprefix", default=None, metavar="FILE",
     help="It assumes *.frequencies.fasta files. The prefix specified should end with .frequencies . The .tsv and .unchanged_codons.tsv will be appended to the prefix.")
 myparser.add_option("--left-offset", action="store", type="int", dest="loffset", default=0,
-    help="First nucleotide of the ORF region of interest to be sliced out from the input sequences")
+    help="First nucleotide of the ORF region of the REFERENCE of interest to be sliced out from the input sequences. This requires 0-based numbering.")
 myparser.add_option("--right-offset", action="store", type="int", dest="roffset", default=0,
-    help="Last nucleotide of the last codon of interest to be sliced out from the input sequences")
+    help="Last nucleotide of the last codon of the REFERENCE of interest to be sliced out from the input sequences. This requires 0-based numbering.")
 myparser.add_option("--aa_start", action="store", type="int", dest="aa_start", default=0,
-    help="Real position of the very first codon unless (1 for an initiator ATG). Add this value to shift the codon position in the output TSV file (the ATG position minus one). Use this if you cannot use --left-offset nor --right-offset which would have been used for slicing the input reference. The value provided is decremented by one to match pythonic 0-based numbering.")
+    help="Real position of the very first codon unless (1 for an initiator ATG). This value is added to the codon position reported in the output TSV file (the ATG position minus one). Use this if you cannot use --left-offset nor --right-offset which would have been used for slicing the input reference. The value provided is decremented by one to match pythonic 0-based numbering.")
+myparser.add_option("--min_start", action="store", type="int", dest="min_start", default=0,
+    help="Minimum start position of the amplicon region to be included in output. This requires 0-based numbering. This is to speedup parsing of input sequences and of the reference by skipping typical leading and trailing padding dashes.")
+myparser.add_option("--max_stop", action="store", type="int", dest="max_stop", default=0,
+    help="Maximum stop position of the amplicon region to be included in output. This requires 0-based numbering. This is to speedup parsing of input sequences and of the reference by skipping typical leading and trailing padding dashes.")
 myparser.add_option("--x-after-count", action="store_true", dest="x_after_count", default=False,
     help="The FASTA file ID contains the count value followed by lowercase 'x'")
 myparser.add_option("--print-unchanged-sites", action="store_true", dest="print_unchanged_sites", default=False,
     help="Print out also sites with unchanged codons in to unchanged_codons.tsv file")
 myparser.add_option("--discard-this-many-leading-nucs", action="store", type="int", dest="discard_this_many_leading_nucs", default=0,
-    help="Specify how many offending nucleotides are at the front of the FASTA sequences shifting the reading frame of the input FASTA file from frame +1 to either of the two remaining. Count the leading dashes and eventual nucleotides of incomplete codons too and check if it can be divided by 3.0 without slack. By default reading frame +1 is expected and hence no leading nucleotides are discarded.")
+    help="Specify how many offending nucleotides are at the front of the FASTA sequences shifting the reading frame of the input FASTA file from frame +1 to either of the two remaining. Count the leading dashes and eventual nucleotides of incomplete codons too and check if it can be divided by 3.0 without slack. By default reading frame +1 is expected and hence no leading nucleotides are discarded. Default: 0")
+myparser.add_option("--discard-this-many-trailing-nucs", action="store", type="int", dest="discard_this_many_trailing_nucs", default=0,
+    help="Specify how many offending nucleotides are at the end of each sequence. Default: 0")
 myparser.add_option("--minimum-alignments-length", action="store", type="int", dest="minimum_aln_length", default=50,
     help="Minimum length of aligned NGS read to be used for calculations")
 myparser.add_option("--debug", action="store", type="int", dest="debug", default=0,
@@ -110,6 +119,10 @@ myparser.add_option("--debug", action="store", type="int", dest="debug", default
 
 
 def get_codons(seq):
+    """This function is only used to parse reference sequence and if it was not
+    already in frame +1 and divisible by 3 without remainder, any padding dashes
+    are removed and sequence is split into triplets (codons)."""
+
     if len(seq) % 3 == 0:
         #split list into codons of three
         codons = [seq[i:i+3] for i in range(0, len(seq), 3)]
@@ -151,7 +164,7 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded, natural_c
         if debug: print("TESTING1:\t{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\t{}\n".format(natural_codon_position_padded, natural_codon_position_depadded, reference_aa, _some_aa, _observed_codon_count2 / Decimal(total_codons_per_site_sum), reference_codon, _some_codon, _observed_codon_count2, _total_codons_per_site_sum))
 
 
-def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_seq, reference_as_codons, outfilename, outfilename_unchanged_codons, alnfilename_count, aa_start):
+def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_seq, reference_as_codons, outfilename, outfilename_unchanged_codons, alnfilename_count, aa_start, calculate_checksums=False):
     if myoptions.debug: print("Debug0: Depadded reference sequence has length %d, padded reference sequence has length %d, each entry from %s must also have same padded length %d" % (len(padded_reference_dna_seq.replace('-','')), len(padded_reference_dna_seq), alignment_file, len(padded_reference_dna_seq)))
     if myoptions.debug: print("Debug1: reference_protein_seq=%s with length %d" % (str(reference_protein_seq), len(reference_protein_seq)))
     try:
@@ -172,7 +185,7 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
         if not _reference_as_codons:
             raise ValueError("Error: No _reference_as_codons provided or left. Was the slicing using myoptions.loffset=%s, myoptions.roffset=%s wrong?" % (myoptions.loffset, myoptions.roffset))
 
-        if myoptions.debug: print("Debug2: Depadded reference sequence has length %d, padded reference sequence has length %d, each entry from %s must also have same padded length" % (len(_padded_reference_dna_seq.replace('-','')), len(_padded_reference_dna_seq), alignment_file))
+        if myoptions.debug: print("Debug2: Depadded reference sequence has length %d, padded reference sequence has length %d, each padded entry from %s must also have same padded length" % (len(_padded_reference_dna_seq.replace('-','')), len(_padded_reference_dna_seq), alignment_file))
     else:
         _padded_reference_dna_seq = padded_reference_dna_seq
         _reference_protein_seq = reference_protein_seq
@@ -189,7 +202,9 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
     _already_checked_starts = [] # keep list of the pythonic codon _starts of the for loop below so that some check are performed only once per iteration, not for every input alignment line
     _top_most_codons = []
     _total_aln_entries_used = 0
-    for _zero_based_codon_startpos in range(0, len(_padded_reference_dna_seq), 3): # generate pythonic numbers so the pythonic slicing below works, the input sequence must be in frame +1
+    _start_from = myoptions.discard_this_many_leading_nucs # cut away some eventually offending leading nucleotides to get the alignment into frame +1
+    _stop_to = myoptions.discard_this_many_trailing_nucs # cut away some eventually offending trailing nucleotides
+    for _zero_based_codon_startpos in range(myoptions.min_start, myoptions.max_stop or len(_padded_reference_dna_seq), 3): # generate pythonic numbers so the pythonic slicing below works, the input sequence must be in frame +1
         _unchanged_codons = Counter()
         _changed_codons = Counter()
         _deleted_reference_codons = Counter()
@@ -206,15 +221,31 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
         for _aln_line in _align:
             _record_id = _aln_line.id
             if myoptions.x_after_count:
-                _record_count = int(_record_id.replace('x',''))
+                if 'x.' in _record_id:
+                    _record_count, _checksum = _record_id.split('x.')
+                    _record_count = int(_record_count)
+                else:
+                    _record_count = int(_record_id.replace('x',''))
+                    if calculate_checksums:
+                        _hash_func = hashlib.sha256() # always create a new object other .update() just appends to it new string
+                        _hash_func.update(_record_id.seq.encode()) # calculate the hash without a trailing newline
+                        _checksum = _hash_func.hexdigest() # TODO: _checksum is unusued
             else:
                 _record_count = 1
-            _sample_codon_contained_pad = False
-            if not _zero_based_codon_startpos:
+                if calculate_checksums:
+                    _hash_func = hashlib.sha256() # always create a new object other .update() just appends to it new string
+                    _hash_func.update(_record_id.seq.encode()) # calculate the hash without a trailing newline
+                    _checksum = _hash_func.hexdigest() # TODO: _checksum is unusued
+            if not _zero_based_codon_startpos or not _total_aln_entries_used:
                 # count lines and actually the counts mentioned in the FASTA ID only when iterating over the first codon
                 _total_aln_entries_used += _record_count
-            if myoptions.discard_this_many_leading_nucs:
-                _aln_line_seq = str(_aln_line.seq)[myoptions.discard_this_many_leading_nucs:]
+            if _start_from:
+                if _stop_to:
+                    _aln_line_seq = str(_aln_line.seq)[_start_from:-_stop_to] # discard leading one or two nucleotides to get into frame +1 while reference was supposedly in +1 frame already
+                else:
+                    _aln_line_seq = str(_aln_line.seq)[_start_from:] # discard leading one or two nucleotides to get into frame +1 while reference was supposedly in +1 frame already
+            elif _stop_to:
+                _aln_line_seq = str(_aln_line.seq)[:-_stop_to] # discard some trailing nucleotides
             else:
                 _aln_line_seq = str(_aln_line.seq)
             _padded_aln_line_length = len(_aln_line_seq) # padded length
@@ -227,6 +258,14 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
             _rough_sample_codon = _aln_line_seq[_zero_based_codon_startpos:_zero_based_codon_startpos + 3].upper()
             _sample_codon_depadded = _rough_sample_codon.replace('-','')
             _reference_codon_depadded = _reference_codon.replace('-','')
+            if len(_rough_sample_codon) != len(_sample_codon_depadded):
+                _sample_codon_contained_pad = True
+            else:
+                _sample_codon_contained_pad = False
+            if len(_reference_codon) != len(_reference_codon_depadded):
+                _reference_codon_contained_pad = True
+            else:
+                _reference_codon_contained_pad = False
             _new_aa_residue = None
 
             _end_of_leading_gaps = 0
@@ -235,26 +274,26 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                 _end_of_leading_gaps = _match.end()
             for _match in _re_trailing_gaps.finditer(_aln_line_seq):
                 _start_of_trailing_gaps = _match.start()
-            if myoptions.debug: print("Debug4: End of leading gaps is at %s, start of trailing gaps is at %s, %s" % (_end_of_leading_gaps, _start_of_trailing_gaps, _aln_line_seq))
+            if myoptions.debug: print(f"Debug4: End of leading gaps is at {_end_of_leading_gaps:6d}, start of trailing gaps is at {_start_of_trailing_gaps:6d}, {_aln_line_seq}")
 
             if myoptions.minimum_aln_length and _depadded_aln_line_length < myoptions.minimum_aln_length:
                 pass # skip alignments shorter than 50nt
-                if myoptions.debug: print("Debug5:Here1")
+                if myoptions.debug: print("Debug5:Here1, _end_of_leading_gaps=%s, _start_of_trailing_gaps=%s, _zero_based_codon_startpos=%s" % (_end_of_leading_gaps, _start_of_trailing_gaps, _zero_based_codon_startpos))
             elif not _depadded_aln_line_length:
                 pass # skip empty alignments
-                if myoptions.debug: print("Debug6:Here2")
-            elif _end_of_leading_gaps and _zero_based_codon_startpos < _end_of_leading_gaps + 1:
+                if myoptions.debug: print("Debug6:Here2, _end_of_leading_gaps=%s, _start_of_trailing_gaps=%s, _zero_based_codon_startpos=%s" % (_end_of_leading_gaps, _start_of_trailing_gaps, _zero_based_codon_startpos))
+            elif _end_of_leading_gaps and _zero_based_codon_startpos < _end_of_leading_gaps - 1:
                 pass # skip leading gaps so they do not get counted as DELetions
-                if myoptions.debug: print("Debug7:Here3")
+                if myoptions.debug: print("Debug7:Here3, _end_of_leading_gaps=%s, _start_of_trailing_gaps=%s, _zero_based_codon_startpos=%s" % (_end_of_leading_gaps, _start_of_trailing_gaps, _zero_based_codon_startpos))
             elif _start_of_trailing_gaps and _zero_based_codon_startpos + 1 > _start_of_trailing_gaps:
                 pass # skip trailing gaps so they do not get counted as DELetions
-                if myoptions.debug: print("Debug8:Here4")
+                if myoptions.debug: print("Debug8:Here4, _end_of_leading_gaps=%s, _start_of_trailing_gaps=%s, _zero_based_codon_startpos=%s" % (_end_of_leading_gaps, _start_of_trailing_gaps, _zero_based_codon_startpos))
             elif not _end_of_leading_gaps and _zero_based_codon_startpos + 1 > _start_of_trailing_gaps and _start_of_trailing_gaps:
                 pass # skip trailing gaps so they do not get counted as DELetions but do not enter here is there are no leading or trailing dashes at all causing _start_of_trailing_gaps=0 _end_of_leading_gaps=0
                 # Q409del
-                if myoptions.debug: print("Debug9:Here5")
+                if myoptions.debug: print("Debug9:Here5, _end_of_leading_gaps=%s, _start_of_trailing_gaps=%s, _zero_based_codon_startpos=%s" % (_end_of_leading_gaps, _start_of_trailing_gaps, _zero_based_codon_startpos))
             elif not _start_of_trailing_gaps and _zero_based_codon_startpos < _end_of_leading_gaps + 1 and _end_of_leading_gaps:
-                if myoptions.debug: print("Debug10:Here6")
+                if myoptions.debug: print("Debug10:Here6, _end_of_leading_gaps=%s, _start_of_trailing_gaps=%s, _zero_based_codon_startpos=%s" % (_end_of_leading_gaps, _start_of_trailing_gaps, _zero_based_codon_startpos))
                 pass # skip leading gaps so they do not get counted as DELetions but do not enter here when there are no leading or trailing dashes at all causing _start_of_trailing_gaps=0 _end_of_leading_gaps=0
             elif _padded_aln_line_length + 1 > _zero_based_codon_startpos + 3: # avoid infinite loop when increasing slice end position behind the existing input sequence
                 if myoptions.debug: print("Debug11: Rough codon at %d is %s, reference codon is %s, refseq length %s, sliced [%d:%d] (pythonic slice numbering)" % (_zero_based_padded_reference_codon_index + 1, _rough_sample_codon, _reference_codon, _padded_aln_line_length, _zero_based_codon_startpos+_previous_gaps, _zero_based_codon_startpos + _previous_gaps + 3))
@@ -266,10 +305,6 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                     _deleted_reference_codon_depadded = _deleted_reference_codon.replace('-','')
                     if myoptions.debug: print("Debug12: Padded deleted codon at %d is %s, original reference codon is %s, refseq length %s, end of slice is %d" % (_zero_based_padded_reference_codon_index + 1, _deleted_reference_codon, _reference_codon, _padded_aln_line_length, _zero_based_codon_startpos + _previous_gaps + 3 + _new_gaps_in_reference))
                     _deleted_reference_codons[_deleted_reference_codon] += _record_count
-                    if len(_reference_codon) != len(_reference_codon_depadded):
-                        _reference_codon_contained_pad = True
-                    else:
-                        _reference_codon_contained_pad = False
                     _deleted_aa_residue = alt_translate(_deleted_reference_codon)
                     _deleted_reference_aa_residues[_deleted_aa_residue] += _record_count
                     _codon = '---'
@@ -278,10 +313,6 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                 elif _reference_codon == '---' and _rough_sample_codon != '---':
                     _is_insertion = True
                     _sample_codon_depadded = _rough_sample_codon.replace('-','')
-                    if len(_rough_sample_codon) != len(_sample_codon_depadded):
-                        _sample_codon_contained_pad = True
-                    else:
-                        _sample_codon_contained_pad = False
                     _reference_aa = 'INS'
                     _inserted_codons[_sample_codon_depadded] += _record_count # use depadded representation to compress --N and -N- and N-- together
                     _new_aa_residue = alt_translate(_rough_sample_codon)
@@ -293,14 +324,6 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                     if myoptions.debug: print("Debug14: Added Deleted codon at %d is %s, reference codon is %s, refseq length %s, sliced [%d:%d] (pythonic slice numbering), aa_residue is %s" % (_zero_based_padded_reference_codon_index + 1, '---', _reference_codon, _padded_aln_line_length, _zero_based_codon_startpos+_previous_gaps, _zero_based_codon_startpos + _previous_gaps + 3 + _new_gaps_in_reference, _new_aa_residue))
                 else:
                     _sample_codon_depadded = _rough_sample_codon.replace('-','')
-                    if len(_rough_sample_codon) != len(_sample_codon_depadded):
-                        _sample_codon_contained_pad = True
-                    else:
-                        _sample_codon_contained_pad = False
-                    if len(_reference_codon) != len(_reference_codon_depadded):
-                        _reference_codon_contained_pad = True
-                    else:
-                        _reference_codon_contained_pad = False
                     if myoptions.debug: print("Debug15: Rough codon at %d is %s, reference codon is %s, refseq length %s, sliced [%d:%d] (pythonic slice numbering), _sample_codon_depadded is %s, _reference_codon_depadded is %s, _sample_codon_contained_pad=%s, _reference_codon_contained_pad=%s" % (_zero_based_padded_reference_codon_index + 1, _rough_sample_codon, _reference_codon, _padded_aln_line_length, _zero_based_codon_startpos+_previous_gaps, _zero_based_codon_startpos+_previous_gaps+3+_new_gaps_in_reference, _sample_codon_depadded, _reference_codon_depadded, str(_sample_codon_contained_pad), str(_reference_codon_contained_pad)))
 
                     if (_sample_codon_contained_pad and _reference_codon_contained_pad) and not _sample_codon_depadded and not _reference_codon:
@@ -351,7 +374,7 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                             _changed_aa_residues['None'] += _record_count
                         if myoptions.debug: print("Debug23: Including frame-breaking codon %s at %d into per-codon coverage, reference codon is %s, refseq length %s, sliced [%d:%d] (pythonic slice numbering), aa_residue is %s" % (_rough_sample_codon, _zero_based_padded_reference_codon_index + 1, _reference_codon, _padded_aln_line_length, _zero_based_codon_startpos+_previous_gaps, _zero_based_codon_startpos+_previous_gaps+3+_new_gaps_in_reference, _new_aa_residue))
             else:
-                if myoptions.debug: print("Debug10b:Here7. Leaking sample codon %s" % _rough_sample_codon)
+                if myoptions.debug: print("Debug10b:Here7. Leaking sample codon %s at position %d, _padded_aln_line_length=%d" % (_rough_sample_codon, _zero_based_codon_startpos, _padded_aln_line_length))
 
         # all entries in padded FASTA file were processed for the current codon column
         if myoptions.debug: print("Debug24: Lists at %d of changed codons and aminoacid residues: %s-%s %s %s" % (_zero_based_padded_reference_codon_index + 1, _zero_based_codon_startpos+1, _zero_based_codon_startpos+3, _changed_codons, _changed_aa_residues)) # undo off-by-one error due to pythonic counting
@@ -386,8 +409,10 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                     # Bio.Data.CodonTable.TranslationError: Codon '---' is invalid
                     _current_aa = 'Biopython failure'
             if _current_aa != _reference_aa:
-                # ValueError: The reference aa should be 'INS' but parsed reference codon '---' encodes 'None'. The _zero_based_codon_startpos = 45
-                raise ValueError("Error: The reference aa at %d should be '%s' but parsed reference codon '%s' encodes '%s'. The _zero_based_codon_startpos = %s" % (_zero_based_padded_reference_codon_index + 1, _reference_aa, _reference_codon, _current_aa, _zero_based_codon_startpos))
+                if not myoptions.min_start:
+                    # ValueError: The reference aa should be 'INS' but parsed reference codon '---' encodes 'None'. The _zero_based_codon_startpos = 45
+                    raise ValueError("Error: The reference aa at %d should be '%s' but parsed reference codon '%s' encodes '%s'. The _zero_based_codon_startpos = %s" % (_zero_based_padded_reference_codon_index + 1, _reference_aa, _reference_codon, _current_aa, _zero_based_codon_startpos))
+                    # but do not die if the alignment does not start at initiator methionine
             else:
                 _already_checked_starts.append(_zero_based_codon_startpos)
 
@@ -461,6 +486,13 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
         print("Info: Sample consensus sequence should roughly match substring inside the reference BUT IT DOES NOT, maybe due to some true major mutations in some codons: %s" % str(_top_most_codons))
 
 
+def open_file(outfilename):
+    if os.path.exists(outfilename):
+        raise RuntimeError("The file %s already exists, will not overwrite it." % outfilename)
+    else:
+        _outfilename_handle = open(outfilename, 'w')
+        return _outfilename_handle
+
 def main():
     # parse the reference DNA
     if not myoptions.reference_infilename:
@@ -482,11 +514,11 @@ def main():
 
     if myoptions.outfileprefix:
         if myoptions.outfileprefix.endswith('.tsv'):
-            _outfilename = open(myoptions.outfileprefix, 'w')
-            _outfilename_unchanged_codons = open(myoptions.outfileprefix[:-4] + '.unchanged_codons.tsv', 'w')
+            _outfilename_handle = open_file(myoptions.outfileprefix)
+            _outfilename_unchanged_codons_handle = open_file(myoptions.outfileprefix[:-4] + '.unchanged_codons.tsv')
         else:
-            _outfilename = open(myoptions.outfileprefix + '.tsv', 'w')
-            _outfilename_unchanged_codons = open(myoptions.outfileprefix + '.unchanged_codons.tsv', 'w')
+            _outfilename_handle = open_file(myoptions.outfileprefix + '.tsv')
+            _outfilename_unchanged_codons_handle = open_file(myoptions.outfileprefix + '.unchanged_codons.tsv')
     else:
         raise RuntimeError("Please specify output filename prefix via --outfile-prefix")
     if myoptions.aa_start:
@@ -494,7 +526,7 @@ def main():
     else:
         _aa_start = 0
     if myoptions.alignment_infilename and os.path.exists(myoptions.alignment_infilename):
-        parse_alignment(myoptions.alignment_infilename, _padded_reference_dna_seq, _reference_protein_seq, _reference_as_codons, _outfilename, _outfilename_unchanged_codons, _alnfilename_count_handle, _aa_start)
+        parse_alignment(myoptions.alignment_infilename, _padded_reference_dna_seq, _reference_protein_seq, _reference_as_codons, _outfilename_handle, _outfilename_unchanged_codons_handle, _alnfilename_count_handle, _aa_start)
     else:
         raise RuntimeError("Input file %s does not exist or is not defined" % str(myoptions.alignment_infilename))
 
