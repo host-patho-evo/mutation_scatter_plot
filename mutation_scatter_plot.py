@@ -650,7 +650,11 @@ def main():
     #print(plt.rcParams["font.sans-serif"][0])
     #print(plt.rcParams["font.monospace"][0])
     matplotlib.rcParams['font.family'] = 'monospace'
-    matplotlib.rcParams["font.monospace"] = ["FreeMono"]
+    #matplotlib.rcParams["font.monospace"] = ["DejavuSans"]
+    # trigger core fonts for PDF backend
+    plt.rcParams["pdf.use14corefonts"] = True
+    # trigger core fonts for PS backend
+    plt.rcParams["ps.useafm"] = True
     #plt.text(2, 0.65, 'Version %s' % version)
 
     print("Info: matplotlib.get_backend=%s" % matplotlib.get_backend())
@@ -668,7 +672,7 @@ def main():
             _xlabel = 'Codon position'
         else:
             _xlabel = 'Codon position%sbased on %s ALN rows, matrix %s, colormap %s, mutation_scatter_plot.py %s' % (os.linesep, _aln_rows.strip(os.linesep), _matrix_name, myoptions.colormap, version)
-    _ax1.set_xlabel(_xlabel, fontsize=7)
+    _ax1.set_xlabel(_xlabel, fontsize=6)
     if myoptions.aminoacids:
         _ax1.set_ylabel('Introduced amino acid changes', fontsize=7)
         _ax1.set_title(title_data, fontsize=9)
@@ -735,7 +739,7 @@ def main():
         _ax1.tick_params(axis='x', which='major', labelsize=8)
         _y_ticks = np.arange(len(codons_whitelist))
         _ax1.set_yticks(_y_ticks)
-        _ax1.set_yticklabels([pairs[0] + ' (' + pairs[1] + ')' for pairs in final_sorted_whitelist], fontsize=6) # sorted by amino acids
+        _ax1.set_yticklabels([pairs[0] + ' (' + pairs[1] + ')  ' if pairs[1] not in ('INS', 'DEL') else pairs[0] + ' (' + pairs[1] + ')' for pairs in final_sorted_whitelist], fontsize=4) # sorted by amino acids
 
     plt.xticks(rotation=90)
     # work around the bug with xmin being reset to zero when ax.set_xticks(() is used and adjust the spacing of ticks in a different way
