@@ -142,6 +142,24 @@ mutation_scatter_plot.py --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv -
 mutation_scatter_plot.py --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".codon.frequencies.png
 ```
 
+**More complex testing**
+```
+calculate_codon_frequencies.py --reference-infile=MN908947.3_S.fasta --alignment-file=test5.amplicons.clean.counts.filtered.fasta --outfile-prefix=test5.amplicons.frequencies --left-reference-offset=1288 --right-reference-offset=1584 --min_start=1288 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
+
+calculate_codon_frequencies.py --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test6.amplicons.frequencies --left-reference-offset=1288 --right-reference-offset=1584 --min_start=1288 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
+
+calculate_codon_frequencies.py --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test7.amplicons.frequencies --left-reference-offset=1297 --right-reference-offset=1584 --min_start=1297 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
+
+calculate_codon_frequencies.py --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test8.amplicons.frequencies --print-unchanged-sites --x-after-count --padded-reference
+
+diff -u -w tests/outputs/test5.amplicons.frequencies.tsv test5.amplicons.frequencies.tsv
+diff -u -w tests/outputs/test5.amplicons.frequencies.tsv test6.amplicons.frequencies.tsv # you should see some DELetion events for codons 430, 431, 432
+diff -u -w tests/outputs/test5.amplicons.frequencies.tsv test7.amplicons.frequencies.tsv # you should see lines starting with 430, 431 and 432 are gone because first 9 nulecotides were skipped when parsing the alignment
+diff -u -w tests/outputs/test6.amplicons.frequencies.tsv test8.amplicons.frequencies.tsv # you should see NO DIFFERENCE
+
+```
+
+
 **More realistic usage example**
 
 Although we provide already the input, intermediate and resulting files in their respective ZIP bundles for download, to repeat the work or process other data one can take the following procedure to re-create our results. Download real data from [Zenodo https://doi.org/10.5281/zenodo.15102607](https://zenodo.org/records/15102607/files/per_sample_observed_codon_frequencies.zip?download=1). Unpack the ZIP file and pick any from the TSV files, for example `data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.frequencies.tsv`.
@@ -460,4 +478,3 @@ This work © 2025 by Jiří Zahradník and Martin Mokrejš (First Medical Facult
 [This project was supported by the National Institute of Virology and Bacteriology (Programme EXCELES, LX22NPO5103) - funded by the European Union - NextGenerationEU](https://nivb.cz/en/)
 
 ![logos/loga_hlavicka_colour_ENG.png](logos/loga_hlavicka_colour_ENG.png)Funded by the European Union NextGenerationEU -- Czech Recovery Plan -- Ministry of Education, Youth and Sports
-
