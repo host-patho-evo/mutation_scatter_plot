@@ -81,7 +81,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq, reverse_complement, translate
 from Bio import AlignIO
 
-version = 202508082050
+VERSION = 202508160940
 
 myparser = OptionParser()
 myparser.add_option("--reference-infile", action="store", type="string", dest="reference_infilename", default=None, metavar="FILE",
@@ -174,8 +174,8 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
     if myoptions.debug: print("Debug1: reference_protein_seq=%s with length %d" % (str(reference_protein_seq), len(reference_protein_seq)))
     try:
         _align = AlignIO.read(alignment_file, "fasta") # read whole alignment into memory
-    except ValueError:
-        raise ValueError("Error: one of the entries in the %s file has different length" % alignment_file)
+    except ValueError as exc:
+        raise ValueError('Error: one of the entries in the %s file has different length' % alignment_file) from exc
     if myoptions.left_reference_offset or myoptions.right_reference_offset:
         _padded_reference_dna_seq = padded_reference_dna_seq[max(myoptions.left_reference_offset - 1, 0) : min(len(padded_reference_dna_seq), myoptions.right_reference_offset)] # discard leading sequence of the reference not contained in FASTA file, if the left_reference_offset is correct
         _reference_protein_seq = reference_protein_seq[int(max(myoptions.left_reference_offset - 1, 0) / 3): int(min(len(reference_protein_seq), myoptions.right_reference_offset / 3))]
@@ -220,7 +220,10 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
         _is_deletion = False
         _is_insertion = False
         _new_aa_residue = None
-        _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index].upper() # fetch the very first aa residue, supposedly 'M' but above we already chopped the sequence and cut only a region of interest
+        try:
+            _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index].upper() # fetch the very first aa residue, supposedly 'M' but above we already chopped the sequence and cut only a region of interest
+        except IndexError as exc:
+            raise IndexError('Error: Cannot slice reference protein sequence %s at position %s' % (_reference_protein_seq, _zero_based_padded_reference_aa_index)) from exc
         _current_codon_position = _zero_based_codon_startpos / 3 + 1
         if myoptions.debug: print("Debug3: _start=%s, _padded_reference_dna_seq=%s" % (_zero_based_codon_startpos, _padded_reference_dna_seq))
         for _aln_line in _align:
@@ -234,13 +237,13 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
                     if calculate_checksums:
                         _hash_func = hashlib.sha256() # always create a new object other .update() just appends to it new string
                         _hash_func.update(_record_id.seq.encode()) # calculate the hash without a trailing newline
-                        _checksum = _hash_func.hexdigest() # TODO: _checksum is unusued
+                        _checksum = _hash_func.hexdigest() # TODO: _checksum is unused
             else:
                 _record_count = 1
                 if calculate_checksums:
                     _hash_func = hashlib.sha256() # always create a new object other .update() just appends to it new string
                     _hash_func.update(_record_id.seq.encode()) # calculate the hash without a trailing newline
-                    _checksum = _hash_func.hexdigest() # TODO: _checksum is unusued
+                    _checksum = _hash_func.hexdigest() # TODO: _checksum is unused
             if not _zero_based_codon_startpos or not _total_aln_entries_used:
                 # count lines and actually the counts mentioned in the FASTA ID only when iterating over the first codon
                 _total_aln_entries_used += _record_count
@@ -499,7 +502,7 @@ def open_file(outfilename):
     if os.path.exists(outfilename):
         raise RuntimeError("The file %s already exists, will not overwrite it." % outfilename)
     else:
-        _outfilename_handle = open(outfilename, 'w')
+        _outfilename_handle = open(outfilename, 'x')
         return _outfilename_handle
 
 def main():
