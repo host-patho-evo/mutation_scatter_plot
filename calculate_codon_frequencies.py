@@ -59,6 +59,16 @@ codons containing unknown (N) nucleotides using python Pandas library and
 finally draws interactive figures using Matplotlib and Bokeh graphical
 libraries.
 
+The program requires in our hands 14 GB of RAM memory while parsing a multiFASTA
+file containing a padded alignment with 3.1M lines. The alignment file object is
+kept in memory continually while from just 3nt are parsed from each line and its
+respective columns and the sums of all codons observed are added to a dictionary
+counter for the codon position.
+
+The program is running in a single thread but it inputs can split into multiple
+chunks and after finishing the partial TSV files can be merged back into a single
+one. The memory is used very quickly after program starts and does not grow during
+most of the running time.
 
 Please cite the following article if you use our data or software in your research:
 
@@ -81,7 +91,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq, reverse_complement, translate
 from Bio import AlignIO
 
-VERSION = 202508160940
+VERSION = 202508181840
 
 myparser = OptionParser()
 myparser.add_option("--reference-infile", action="store", type="string", dest="reference_infilename", default=None, metavar="FILE",
@@ -167,7 +177,7 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded, natural_c
 
 def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_seq, reference_as_codons, outfilename, outfilename_unchanged_codons, alnfilename_count, aa_start, min_start, max_stop, calculate_checksums=False):
     """left_reference_offset and right_reference_offset are used to slice the reference
-    discard_this_many_leading_nucs and discard_this_many_trailing_nucs are used to discard some leading/trailing nucs if the aligned region was a bit wider, aspecially if not starting at frame +1
+    discard_this_many_leading_nucs and discard_this_many_trailing_nucs are used to discard some leading/trailing nucs if the aligned region was a bit wider, especially if not starting at frame +1
     """
 
     if myoptions.debug: print("Debug0: Depadded reference sequence has length %d, padded reference sequence has length %d, each entry from %s must also have same padded length %d" % (len(padded_reference_dna_seq.replace('-','')), len(padded_reference_dna_seq), alignment_file, len(padded_reference_dna_seq)))
@@ -181,14 +191,14 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
         _reference_protein_seq = reference_protein_seq[int(max(myoptions.left_reference_offset - 1, 0) / 3): int(min(len(reference_protein_seq), myoptions.right_reference_offset / 3))]
         _reference_as_codons = reference_as_codons[int(max(myoptions.left_reference_offset - 1, 0) / 3): int(min(len(reference_as_codons), myoptions.right_reference_offset / 3))]
         if myoptions.debug:
-            print("Info: len(padded_reference_dna_seq)=%s, myoptions.left_reference_offset=%s, myoptions.right_reference_offset=%s" % (len(padded_reference_dna_seq), myoptions.left_reference_offset, myoptions.right_reference_offset))
+            print("Info: len(padded_reference_dna_seq)=%s, myoptions.left_reference_offset=%s, myoptions.right_reference_offset=%s" % (len(padded_reference_dna_seq), myoptions.left_reference_offset - 1, myoptions.right_reference_offset))
             print("Info: After cutting input using offset position: %s" % _padded_reference_dna_seq)
             print("Info: After cutting input using offset position: %s" % _reference_protein_seq)
             print("Info: After cutting input using offset position: %s" % _reference_as_codons)
         if not _reference_protein_seq:
-            raise ValueError("Error: No _reference_protein_seq provided or left. Was the slicing using myoptions.left_reference_offset=%s, myoptions.right_reference_offset=%s wrong?" % (myoptions.left_reference_offset, myoptions.right_reference_offset))
+            raise ValueError("Error: No _reference_protein_seq provided or left. Was the slicing using myoptions.left_reference_offset-1=%s, myoptions.right_reference_offset=%s wrong?" % (myoptions.left_reference_offset - 1, myoptions.right_reference_offset))
         if not _reference_as_codons:
-            raise ValueError("Error: No _reference_as_codons provided or left. Was the slicing using myoptions.left_reference_offset=%s, myoptions.right_reference_offset=%s wrong?" % (myoptions.left_reference_offset, myoptions.right_reference_offset))
+            raise ValueError("Error: No _reference_as_codons provided or left. Was the slicing using myoptions.left_reference_offset-1=%s, myoptions.right_reference_offset=%s wrong?" % (myoptions.left_reference_offset - 1, myoptions.right_reference_offset))
 
         if myoptions.debug: print("Debug2: Depadded reference sequence has length %d, padded reference sequence has length %d, each padded entry from %s must also have same padded length" % (len(_padded_reference_dna_seq.replace('-','')), len(_padded_reference_dna_seq), alignment_file))
     else:
