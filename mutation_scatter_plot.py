@@ -409,17 +409,18 @@ def main():
     print("Info: Parsing input file %s" % myoptions.tsv_file_path)
     if not myoptions.tsv_file_path:
         raise RuntimeError("Please provide an input TSV file via --tsv")
-    df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header='infer')#, nrows=500)
+    df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header='infer', na_filter=False, na_values=[None])#, nrows=500)
 
     if 'position' not in df.columns:
         del(df)
         print("Info: Autodetected old TSV file format without a header in %s, assigning default column names" % myoptions.tsv_file_path)
-        df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header=0)#, nrows=500)
+        df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header=0, na_filter=False, na_values=[None])#, nrows=500)
         # Assign column names
         # released results on Zenodo: 430	T	K	0.000386	ACA	AAA
         print("Info: The file %s contained initially these columns: %s" % (myoptions.tsv_file_path, str(df.columns)))
         _count_columns = len(df.columns.values)
         if _count_columns == 9:
+            # 340     340     E       E       0.012149        GAA     GAG     97849   8054365
             df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site']
         elif _count_columns == 11:
             df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'frequency_parent', 'frequency_selected']
@@ -440,7 +441,10 @@ def main():
     df['position'] = df['position'] + int(myoptions.offset)
 
     _before = len(df['mutant_codon'])
-    df = df.loc[df['mutant_codon'].str.match('[ATGCatgc-][ATGCatgc-][ATGCatgc-]')] # discard [nN] but keep '-', beware GISAID also contains other IUPAC codes
+    try:
+        df = df.loc[df['mutant_codon'].str.match('[ATGCatgc-][ATGCatgc-][ATGCatgc-]')] # discard [nN] but keep '-', beware GISAID also contains other IUPAC codes
+    except Exception as _exc:
+        raise ValueError("Cannot parse column df['mutant_codon']=%s containing %d values" % (str(df['mutant_codon']), len(df['mutant_codon'])))
     if not myoptions.showstop:
         # discard sequencing errors appearing as STOPs
         df = df.loc[~df['mutant_aa'].isin(['*'])]
