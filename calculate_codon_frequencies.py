@@ -78,20 +78,18 @@ Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxova K., Zoler E., Mokrej
 import os
 import re
 import sys
-from subprocess import Popen, PIPE, call
 
 from collections import Counter
 import hashlib
 
 from optparse import OptionParser
 from decimal import Decimal
-from numpy import median, average
 
 from Bio import SeqIO
-from Bio.Seq import Seq, reverse_complement, translate
+from Bio.Seq import translate
 from Bio import AlignIO
 
-VERSION = 202508181840
+VERSION = 202508252235
 
 myparser = OptionParser()
 myparser.add_option("--reference-infile", action="store", type="string", dest="reference_infilename", default=None, metavar="FILE",
@@ -206,7 +204,6 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
         _reference_protein_seq = reference_protein_seq
         _reference_as_codons = reference_as_codons
 
-    _zero_based_padded_reference_codon_index = 0 # used to fetch next codon or a dash
     _zero_based_padded_reference_aa_index = 0 # used to fetch next aa residue or a dash from already sliced-out reference sequence, will be increased by one per every 3 nt
     _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index] # fetch the very first aa residue, supposedly 'M' but above we already chopped the sequence and cut only a region of interest
     _previous_gaps = 0
@@ -483,29 +480,29 @@ def parse_alignment(alignment_file, padded_reference_dna_seq, reference_protein_
         else:
             _top_most_codons.append(_top_most_codon)
 
-#        if len(_reference_protein_seq) > _zero_based_padded_reference_aa_index + 1: # undo off-by-one error while stop increasing after the C-terminus of the reference protein
-#            if _is_insertion:
-#                _zero_based_padded_reference_aa_index += 1 # increase the value of the counter for every INS traversed too
-#                if myoptions.debug: print("Debug33: Increased _zero_based_padded_reference_aa_index to %d, moving to next codon" % _zero_based_padded_reference_aa_index)
-#            elif _is_deletion:
-#                _zero_based_padded_reference_aa_index += 1 # increase the counter in extra for every DEL traversed
-#                if myoptions.debug: print("Debug31: Increased _zero_based_padded_reference_aa_index to %d, moving to next codon" % _zero_based_padded_reference_aa_index)
-#            else:
-#                _zero_based_padded_reference_aa_index += 1 # increase the counter anyway since we support INS in the reference
-#                if myoptions.debug: print("Debug32: Increased _zero_based_padded_reference_aa_index to %d, moving to next codon" % _zero_based_padded_reference_aa_index)
-        if myoptions.debug: print("Debug33: After increments: _natural_codon_position_depadded=%d _previous_gaps=%d _new_gaps_in_reference=%d" % (_natural_codon_position_depadded, _previous_gaps, _new_gaps_in_reference))
-        _zero_based_padded_reference_aa_index += 1 # increase the padded aa counter
-        _zero_based_padded_reference_codon_index += 3
+        if len(_reference_protein_seq) > _zero_based_padded_reference_aa_index + 1: # undo off-by-one error while stop increasing after the C-terminus of the reference protein
+            if _is_insertion:
+                _zero_based_padded_reference_aa_index += 1 # increase the value of the padded aa counter for every INS traversed too
+                if myoptions.debug: print("Debug33: Increased _zero_based_padded_reference_aa_index to %d, moving to next codon" % _zero_based_padded_reference_aa_index)
+            elif _is_deletion:
+                _zero_based_padded_reference_aa_index += 1 # increase the padded aa counter in extra for every DEL traversed
+                if myoptions.debug: print("Debug31: Increased _zero_based_padded_reference_aa_index to %d, moving to next codon" % _zero_based_padded_reference_aa_index)
+            else:
+                _zero_based_padded_reference_aa_index += 1 # increase the padded aa counter anyway since we support INS in the reference
+                if myoptions.debug: print("Debug32: Increased _zero_based_padded_reference_aa_index to %d, moving to next codon" % _zero_based_padded_reference_aa_index)
+            if myoptions.debug: print("Debug33: After increments: _natural_codon_position_depadded=%d _previous_gaps=%d _new_gaps_in_reference=%d" % (_natural_codon_position_depadded, _previous_gaps, _new_gaps_in_reference))
+        else:
+            break # do not die if the _zero_based_padded_reference_aa_index gets increased past the input _reference_protein_seq
 
     del _align
     alnfilename_count.write("%s\n" % _total_aln_entries_used)
     alnfilename_count.close()
-    _consensus = ''.join(_top_most_codons)
+    _consensus = ''.join(_top_most_codons).upper()
     print("Info: consensus = %s" % str(_consensus))
-    if _consensus in _padded_reference_dna_seq:
-        print("Info: Sample consensus sequence should roughly match substring inside the reference and IT DOES: %s" % str(_top_most_codons))
+    if _consensus in _padded_reference_dna_seq.upper():
+        print("Info: Sample consensus sequence should roughly match substring inside the reference %s and IT DOES: %s" % (str(_padded_reference_dna_seq), str(_top_most_codons)))
     else:
-        print("Info: Sample consensus sequence should roughly match substring inside the reference BUT IT DOES NOT, maybe due to some true major mutations in some codons: %s" % str(_top_most_codons))
+        print("Info: Sample consensus sequence should roughly match substring inside the reference %s BUT IT DOES NOT, maybe due to some true major mutations in some codons: %s" % (str(_padded_reference_dna_seq), str(_top_most_codons)))
 
 
 def open_file(outfilename):
@@ -553,7 +550,7 @@ def main():
     else:
         _min_start = 0
     if myoptions.max_stop:
-        _max_stop = myoptions.max_stop # incidentally the 1-based value is matching pythonic slicing expectations
+        _max_stop = myoptions.max_stop + 1 # adjust the 1-based value to matching pythonic slicing expectations
     else:
         _max_stop = 0
 
