@@ -113,7 +113,7 @@ setcontext(ExtendedContext)
 c = getcontext()
 c.prec = 99
 
-version = 202505191650
+version = 202509041145
 
 myparser = OptionParser(version="%s version %s" % ('%prog', version))
 myparser.add_option("--tsv", action="store", type="string", dest="tsv_file_path", default='',
@@ -129,25 +129,27 @@ myparser.add_option("--xmin", action="store", type="int", dest="xmin", default=0
 myparser.add_option("--xmax", action="store", type="int", dest="xmax", default=0,
     help="Define maximum X-axis value")
 myparser.add_option("--aminoacids", action="store_true", dest="aminoacids", default=False,
-    help="Draw chart with amino acid residues on Y-axis instead of codons")
+    help="Draw chart with amino acid residues on Y-axis instead of codons. [default is False]")
 myparser.add_option("--show-STOP", action="store_true", dest="showstop", default=False,
-    help="Include STOP codons or '*' in charts on Y-axis")
+    help="Include STOP codons or '*' in charts on Y-axis. [default is False]")
 myparser.add_option("--show-INS", action="store_true", dest="showins", default=False,
-    help="Include INS in charts on Y-axis")
+    help="Include INS in charts on Y-axis. [default is False]")
 myparser.add_option("--show-DEL", action="store_true", dest="showdel", default=False,
-    help="Include DEL in charts on Y-axis")
+    help="Include DEL in charts on Y-axis. [default is False]")
 myparser.add_option("--show-X", action="store_true", dest="showx", default=False,
-    help="Include X in charts on Y-axis in --aminoacids mode")
+    help="Include X in charts on Y-axis in --aminoacids mode. [default is False]")
 myparser.add_option("--disable-short-legend", action="store_false", dest="shortlegend", default=True,
-    help="Disable short legend in charts on X-axis")
+    help="Disable short legend in charts on X-axis. [is Enabled by default]")
 myparser.add_option("--include-synonymous", action="store_true", dest="include_synonymous", default=False,
-    help="Include synonymous changes in output.")
+    help="Include synonymous changes in --aminoacids output as green diamonds. In codon output they are always shown. [default is False]")
 myparser.add_option("--threshold", action="store", type="float", dest="threshold", default=0.001,
     help="Define minimum frequency threshold to display a pictogram in the output. For codon mode use 0.001 and for aa mode use 0.01. [default: 0.001]")
 myparser.add_option("--title", action="store", type="string", dest="title", default='',
     help="Set title for the figures, by default trailing '.frequencies.tsv' is stripped from the end of the input filename")
+myparser.add_option("--disable-2nd-Y-axis", action="store_true", dest="disable_2nd_Y_axis", default=False,
+    help="Disable rendering of the 2nd Y-axis showing sequencing coverage")
 myparser.add_option("--legend", action="store_true", dest="legend", default=False,
-    help="Draw legend chart")
+    help="Draw legend chart. [default is False]")
 myparser.add_option("--matrix", action="store", type="int", dest="matrix", default=62,
     help="BLOSUM matrix: 45,50,62,80,90 [default is 62]")
 myparser.add_option("--matrix-file", action="store", type="string", dest="matrix_file", default=None,
@@ -753,22 +755,23 @@ def main():
     # add the grid in gray
     _ax1.grid(True, linestyle='--', alpha=0.3, color='gray')
 
-    ax2 = _ax1.twinx()
-    ax2.set_xlim(_xmin, _xmax) # start X-axis from 1, not zero
-    ## Set the y-axis limit for the second axis (ax2)
-    ax2.set_ylim(0, 1)
+    if not myoptions.disable_2nd_Y_axis:
+        ax2 = _ax1.twinx()
+        ax2.set_xlim(_xmin, _xmax) # start X-axis from 1, not zero
+        ## Set the y-axis limit for the second axis (ax2)
+        ax2.set_ylim(0, 1)
 
-    x1, x2 = ax2.get_xlim()
-    ax2.set_ylabel('Cumulative frequency of mutations above threshold %f per codon' % myoptions.threshold, fontsize=7)
-    _ax1.figure.canvas.draw()
-    ax2.figure.canvas.draw()
+        x1, x2 = ax2.get_xlim()
+        ax2.set_ylabel('Cumulative frequency of mutations above threshold %f per codon' % myoptions.threshold, fontsize=7)
+        _ax1.figure.canvas.draw()
+        ax2.figure.canvas.draw()
 
-    if myoptions.aminoacids:
-        ax2.bar(unique_aa_positions, total_frequencies, color='black', alpha=0.5, width=0.8, align='center', label='Total AA Frequencies')
-    else:
-        ax2.bar(unique_codon_positions, total_frequencies, color='black', alpha=0.5, width=0.8, align='center', label='Total Codon Frequencies')
+        if myoptions.aminoacids:
+            ax2.bar(unique_aa_positions, total_frequencies, color='black', alpha=0.5, width=0.8, align='center', label='Total AA Frequencies')
+        else:
+            ax2.bar(unique_codon_positions, total_frequencies, color='black', alpha=0.5, width=0.8, align='center', label='Total Codon Frequencies')
 
-    x1, x2 = ax2.get_xlim()
+        x1, x2 = ax2.get_xlim()
     
     if myoptions.aminoacids:
         _table = new_aa_table
