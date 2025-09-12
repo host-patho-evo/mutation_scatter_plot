@@ -174,10 +174,10 @@ mutation_scatter_plot.py --xmin 430 --xmax 528 --tsv data/intermediates/"$prefix
 mutation_scatter_plot.py --xmin 430 --xmax 528 --tsv data/intermediates/"$prefix".frequencies.tsv --outfile data/outputs/codon/"$prefix".codon.frequencies.png
 ```
 
-We also provide a utility to count motifs in [per_sample_unique_sequence_counts_in_FASTA.zip](https://zenodo.org/records/17108067/files/per_sample_unique_sequence_counts_in_FASTA.zip?download=1)
+We also provide a utility to count motifs in [per_sample_unique_sequences_in_FASTA.zip](https://zenodo.org/records/17108067/files/per_sample_unique_sequences_in_FASTA.zip?download=1)
 ```
-curl -o per_sample_unique_sequence_counts_in_FASTA.zip "https://zenodo.org/records/17108067/files/per_sample_unique_sequence_counts_in_FASTA.zip?download=1"
-unzip per_sample_unique_sequence_counts_in_FASTA.zip
+curl -o per_sample_unique_sequences_in_FASTA.zip "https://zenodo.org/records/17108067/files/per_sample_unique_sequences_in_FASTA.zip?download=1"
+unzip per_sample_unique_sequences_in_FASTA.zip
 count_motifs_in_sequences.py --infilename=data/intermediates/"$prefix".scores_above_84.fastp.amplicons.clean.prot.counts.fasta --motif=RPTY
 ```
 
