@@ -2,7 +2,30 @@
 
 # Copyright (c) 2025 Charles University in Prague - First Faculty of Medicine
 #
-# https://creativecommons.org/licenses/by/4.0/legalcode.en
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+# Except as contained in this notice, the name of Charles University in
+# Prague - First Faculty of Medicine shall not be used in advertising or
+# otherwise to promote the sale, use or other dealings in this Software
+# without prior written authorization from Charles University in Prague
+# - First Faculty of Medicine.
 
 """Cut out a region of interest out of 2-line FASTA alignment ALN file padded with dashes
 for gaps and count incidence of those words. You can highlight multiple words in the resulting
@@ -84,7 +107,10 @@ if _motif not in _motif_counter.keys():
 _motif_counter_ordered = OrderedDict(_motif_counter.most_common())
 _percentages = OrderedDict()
 for _key, _value in _motif_counter_ordered.items():
-    _percentages[_key] = round((_value / _total) * 100, 2) # round to two decimal positions
+    if _total:
+        _percentages[_key] = round((_value / _total) * 100, 2) # round to two decimal positions
+    else:
+        _percentages[_key] = 0
 
 if _motif not in _percentages.keys():
     # prevent KeyError if the motif was not found at all
