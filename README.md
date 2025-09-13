@@ -102,8 +102,8 @@ Later you can re-enter this environment by `conda activate mutation_scatter_plot
 Download the release which works with vanilla biopython:
 
 ```
-wget https://github.com/host-patho-evo/mutation_scatter_plot/archive/refs/tags/v0.1.zip
-unzip v0.1.zip
+wget https://github.com/host-patho-evo/mutation_scatter_plot/archive/refs/tags/v0.2.zip
+unzip v0.2.zip
 ```
 
 The mplcursors `hover()` works under the following backends. Pick just a single command from the following:
