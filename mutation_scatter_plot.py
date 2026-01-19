@@ -637,7 +637,7 @@ def main():
     #        except TypeError:
     #            # sanitize nan values in the table
     #            raise TypeError("Weird value %s" % new_codon_table.at[new_codon, position])
-            if myoptions.debug: print("OriginalDataFrameRowNumber: %s, Old: %s, New: %s, Frequency: %s" % (df_index, old_amino_acid, new_amino_acid, frequency))
+            if myoptions.debug: print("Debug: OriginalDataFrameRowNumber: %s, Old: %s, New: %s, Frequency: %s" % (df_index, old_amino_acid, new_amino_acid, frequency))
 
     if myoptions.debug:
         # print tables with summed up frequencies, notably each has different amount of rows which differ from the original TSV row number as well
