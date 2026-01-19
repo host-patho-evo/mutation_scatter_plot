@@ -6,7 +6,7 @@
 # alignment. Alternativley, the reference sequence would eed to be inflated by padding
 # dashes to create space for the INSertion in the sample.
 
-find . -name \*fastp.amplicons.clean.counts.fasta | sort | while read f; do bash kick.sh $f; done
+find . -name \*fastp.amplicons.clean.counts.fasta | sort | while read f; do p=`echo $f | sed -e 's/.fasta//'`; kick.py --infile="$f" --outfile-prefix="$p" --full-length=3822; done
 
 # For eventual analysis, use NCBI blastn to align the discarded sample reads to
 # their proper reference.
