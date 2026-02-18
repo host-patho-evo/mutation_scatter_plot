@@ -595,25 +595,16 @@ def adjust_size_and_color_weighted(weighted_diff_escape_neutralized, old_codon_o
 
 
 def main():
-    if not myoptions.outfile_prefix:
-        raise RuntimeError("Please provide output filename prefix via --outfile-prefix")
-    else:
-        _outfile_prefix = myoptions.outfile_prefix + '.' + myoptions.matrix
-        if myoptions.colorbar:
-            _outfile_prefix = _outfile_prefix + '.with_colorbar'
-        print("Info: _outfile_prefix=%s" % _outfile_prefix)
-
     if myoptions.matrix_file and os.path.exists(myoptions.matrix_file):
         print(myoptions.matrix)
         if not myoptions.matrix:
             myoptions.matrix = re.sub(r'.*/', '', myoptions.matrix_file)
-        else:
-            myoptions.matrix = myoptions.matrix
         print(myoptions.matrix)
         _matrix_type, _matrix_num = re.sub(r'\d+', '', myoptions.matrix), int(re.sub(r'[a-zA-Z]+', '', myoptions.matrix))
         _matrix = blosum.BLOSUM(myoptions.matrix_file) # if compatible with BLOSUM, import the custom file
         _matrix_name = myoptions.matrix_file.split(os.path.sep)[-1]
         _commonly_used_matrix = False
+        myoptions.matrix = _matrix_name
     else:
         _matrix_type, _matrix_num = re.sub(r'\d+', '', myoptions.matrix), int(re.sub(r'[a-zA-Z]+', '', myoptions.matrix))
         if _matrix_type == 'BLOSUM':
@@ -625,6 +616,12 @@ def main():
             _matrix_name = "BLOSUM%d" % (_matrix_num)
             myoptions.matrix = _matrix_name
         _commonly_used_matrix = True
+
+    if not myoptions.outfile_prefix:
+        raise RuntimeError("Please provide output filename prefix via --outfile-prefix")
+    else:
+        _outfile_prefix = myoptions.outfile_prefix + '.' + _matrix_name + '.' + myoptions.colormap
+        print("Info: _outfile_prefix=%s" % _outfile_prefix)
 
     _theoretical_scores = set()
     for _aa in _matrix.keys():
@@ -890,14 +887,14 @@ def main():
 
     print("Info: matplotlib.get_backend=%s" % matplotlib.get_backend())
 
-    _figure, (_ax1, _ax3, _ax4) = plt.subplots(1, 3, figsize=(16, 9), width_ratios=[55, 5, 1]) # default was 6.4 x 4.8 in and 100dpi
+    _figure, (_ax1, _ax3, _ax4) = plt.subplots(1, 3, figsize=(16, 9), width_ratios=[55, 1, 6]) # default was 6.4 x 4.8 in and 100dpi
 
     # _aln_rows contain number of rows in the ALN file typically each read is counted so roughly divide it by two to get at aboutnumber of amplicons sequenced
     if myoptions.aminoacids:
         if myoptions.shortlegend:
-            _xlabel = 'AA position'
+            _xlabel = 'Amino acid position'
         else:
-            _xlabel = 'AA position%sbased on %s ALN rows, matrix %s, colormap %s, mutation_scatter_plot.py %s' % (os.linesep, _aln_rows.strip(os.linesep), _matrix_name, myoptions.colormap, version)
+            _xlabel = 'Amino acid position%sbased on %s ALN rows, matrix %s, colormap %s, mutation_scatter_plot.py %s' % (os.linesep, _aln_rows.strip(os.linesep), _matrix_name, myoptions.colormap, version)
     else:
         if myoptions.shortlegend:
             _xlabel = 'Codon position'
@@ -919,7 +916,7 @@ def main():
             _xmax = max(unique_aa_positions) + 1
     else:
         _ax1.set_ylabel('Introduced codon changes', fontsize=14)
-        _ax1.set_title(title_data, fontsize=18)
+        _ax1.set_title(title_data, fontsize=14)
         if myoptions.xmin:
             # --offset 299 --xmin 305 --xmax 485 ## respect xmin and do not make the figure wider spanning into primer region
             _xmin = myoptions.xmin
@@ -932,6 +929,8 @@ def main():
             _xmax = max(unique_codon_positions) + 1
 
     _ax1.set_xlim(_xmin, _xmax) # start X-axis from 1, not zero
+    _ax1.xaxis.set_major_locator(ticker.MultipleLocator(10))
+    _ax1.xaxis.set_minor_locator(ticker.MultipleLocator(5))
 
     if myoptions.debug: print("Debug: X-axis1: %d-%d" % (_xmin, _xmax))
 
@@ -956,26 +955,27 @@ def main():
         #ax.set_xticklabels(np.arange(0, max(unique_aa_positions)), rotation=90, ha='right')  # rotate X-axis legend
         # https://stackoverflow.com/questions/53747298/how-to-format-axis-tick-labels-from-number-to-thousands-or-millions-125-436-to#53747693
         #ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: '{:,.0f}'.format(x/1))) # get rid of non-real numbers on the X-axis,like 2.5
-        _ax1.xaxis.set_tick_params(labelsize=8)
-        _ax1.tick_params(axis='x', which='major', labelsize=8)
+        _ax1.xaxis.set_tick_params(labelsize=14)
+        _ax1.tick_params(axis='x', which='both', labelsize=14)
         _y_ticks = np.arange(len(amino_acids))
         _ax1.set_yticks(_y_ticks)
-        _ax1.set_yticklabels(amino_acids)
+        _ax1.set_yticklabels(amino_acids, fontsize=14)
     else:
     #    ax.set_xticks(np.arange(0, max(unique_codon_positions), round(round(max(unique_aa_positions)/20)/10.0)*10)) # this breaks syncing of ax and ax2 axes to be out-of-sync, worked around via plt.locator_params()
         #ax.set_xticklabels(np.arange(0, max(unique_codon_positions)), rotation=90, ha='right')  # rotate X-axis legend
         # https://stackoverflow.com/questions/53747298/how-to-format-axis-tick-labels-from-number-to-thousands-or-millions-125-436-to#53747693
         #ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: '{:,.0f}'.format(x/1))) # get rid of non-real numbers on the X-axis,like 2.5
-        _ax1.xaxis.set_tick_params(labelsize=8)
-        _ax1.tick_params(axis='x', which='major', labelsize=8)
+        _ax1.xaxis.set_tick_params(labelsize=14)
+        _ax1.tick_params(axis='x', which='both', labelsize=14)
         _y_ticks = np.arange(len(codons_whitelist))
         _ax1.set_yticks(_y_ticks)
         _ax1.set_yticklabels([pairs[0] + ' (' + pairs[1] + ')  ' if pairs[1] not in ('INS', 'DEL') else pairs[0] + ' (' + pairs[1] + ')' for pairs in final_sorted_whitelist], fontsize=8) # sorted by amino acids
+        _ax1.tick_params(axis='y', which='major', labelsize=8)
 
-    plt.xticks(rotation=90)
+    #plt.xticks(rotation=90)
     # work around the bug with xmin being reset to zero when ax.set_xticks(() is used and adjust the spacing of ticks in a different way
     # https://www.geeksforgeeks.org/how-to-change-the-number-of-ticks-in-matplotlib/
-    plt.locator_params(axis='x', nbins=30 )
+    #plt.locator_params(axis='x', nbins=20 )
 
     # add the grid in gray
     _ax1.grid(True, linestyle='--', alpha=0.3, color='gray')
@@ -987,14 +987,14 @@ def main():
         _ax2.set_ylim(0, 1)
 
         x1, x2 = _ax2.get_xlim()
-        _ax2.set_ylabel('Cumulative frequency of mutations above threshold %f per codon' % myoptions.threshold, fontsize=8)
+        _ax2.set_ylabel(f'Cumulative frequency of mutations above threshold {myoptions.threshold:.1%} per codon', fontsize=12)
         _ax1.figure.canvas.draw()
         _ax2.figure.canvas.draw()
 
         if myoptions.aminoacids:
-            _ax2.bar(unique_aa_positions, total_frequencies, color='black', alpha=0.5, width=0.8, align='center', label='AA Frequencies')
+            _ax2.bar(unique_aa_positions, total_frequencies, color='black', alpha=0.5, width=0.8, align='center') # , label='AA Frequencies')
         else:
-            _ax2.bar(unique_codon_positions, total_frequencies, color='black', alpha=0.5, width=0.8, align='center', label='Codon Frequencies')
+            _ax2.bar(unique_codon_positions, total_frequencies, color='black', alpha=0.5, width=0.8, align='center') # , label='Codon Frequencies')
 
         x1, x2 = _ax2.get_xlim()
     
@@ -1358,8 +1358,13 @@ def main():
     # https://www.bomberbot.com/python/exploring-the-power-and-versatility-of-matplotlibs-listedcolormap/
     #_figure.subplots_adjust(right=0.8)
     #_cbar_ax = _figure.add_axes([0.92, 0.1, 0.02, 0.8]) # [left, bottom, width, height]
-    _colorbar = _figure.colorbar(plt.cm.ScalarMappable(norm=matplotlib.colors.Normalize(- _half_size, _half_size, _half_size * 2 + 1), cmap=_cmap), cax=_ax4, label="%s values" % myoptions.matrix, location='right', pad=0.03, alpha=0.5)
-    _figure.tight_layout(h_pad=5)
+    _ax3.xaxis.set_major_locator(ticker.MultipleLocator(2))
+    _colorbar = _figure.colorbar(plt.cm.ScalarMappable(norm=matplotlib.colors.Normalize(- _half_size, _half_size, _half_size * 2 + 1), cmap=_cmap), cax=_ax3, label="%s values" % myoptions.matrix, location='right', pad=-0.1, alpha=0.5)
+    # _figure.tight_layout(h_pad=0)
+
+    for label in _ax1.get_xticklabels():
+        label.set_rotation(90)
+        label.set_ha("center")
 
     # does not work
     # _colorbar = _figure.colorbar(mappable=_cmap, ax=_ax1, label="%s values" % myoptions.matrix, location='left', pad=0.15)
@@ -1581,18 +1586,18 @@ def main():
             _matrix_value, _size, _color = adjust_size_and_color(Decimal(_freq), _junk, _junk, _matrix, _min_theoretical_score, _max_theoretical_score, _cmap)
             # _size = _size * 5000
         # print("Info: Freq is %s" % _freq.__round__(3))
-        handle = _ax2.scatter(_size, - 400 + _freq, s=float(_freq * 5000), color='magenta', alpha=0.5, label=f'Frequency {_freq:.1%}')
+        handle = _ax2.scatter(_size, - 400 + _freq, s=float(_freq * 5000), color='gray', alpha=0.5, label=f'Frequency {_freq:.1%}')
         label = str(_freq)
         handles.append(handle)
         labels.append(label)
     # https://stackoverflow.com/questions/4700614/how-to-put-the-legend-outside-the-plot#4701285
     # Shrink current x-axis and y-axis by 50%
-    _box = _ax3.get_position()
-    _ax3.set_position([_box.x0, _box.y0, _box.width * 1.05, _box.height * 1.05])
-    _ax3.set_axis_off()
-    plt.xticks(rotation=90)
+    #_box = _ax4.get_position()
+    #_ax4.set_position([_box.x0, _box.y0, _box.width * 1.00, _box.height * 1.00])
+    _ax4.set_axis_off()
+    #plt.xticks(rotation=90)
     # 'center top' is not a valid value for loc; supported values are 'best', 'upper right', 'upper left', 'lower left', 'lower right', 'right', 'center left', 'center right', 'lower center', 'upper center', 'center'
-    _ax2.legend(loc='lower left', bbox_to_anchor=(1.08, 0.0), labelspacing=3, frameon=False, handletextpad=1.5)
+    _ax2.legend(loc='upper center', bbox_to_anchor=(1.25, 1.00), labelspacing=3, frameon=False, handletextpad=1.5)
 
     for _ext in ('.png', '.jpg', '.pdf'):
         _wholefig = plt.gcf()
