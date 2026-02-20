@@ -344,9 +344,11 @@ def get_colormap(colormapname):
                                     _micro_cvd_purple_r = _micro_cvd_purple[::-1]
 
                                     if myoptions.colormap == 'microshades_cvd_palettes':
-                                        _cmap = matplotlib.colors.ListedColormap(list(_micro_cvd_orange) + list(_micro_cvd_turquoise) + list(_micro_cvd_blue) + list(_micro_cvd_purple) + list(_micro_cvd_green) + list(_micro_cvd_gray), 'microshades_cvd_palettes')
+                                        _colors = list(_micro_cvd_orange) + list(_micro_cvd_turquoise) + list(_micro_cvd_blue) + list(_micro_cvd_purple) + list(_micro_cvd_green) + list(_micro_cvd_gray)
+                                        _cmap = matplotlib.colors.ListedColormap(_colors, 'microshades_cvd_palettes')
                                     elif myoptions.colormap == 'microshades_cvd_palettes_r':
-                                        _cmap = matplotlib.colors.ListedColormap(list(_micro_cvd_orange_r) + list(_micro_cvd_turquoise_r) + list(_micro_cvd_blue_r) + list(_micro_cvd_purple_r) + list(_micro_cvd_green_r) + list(_micro_cvd_gray_r), 'microshades_cvd_palettes_r')
+                                        _colors = list(_micro_cvd_orange_r) + list(_micro_cvd_turquoise_r) + list(_micro_cvd_blue_r) + list(_micro_cvd_purple_r) + list(_micro_cvd_green_r) + list(_micro_cvd_gray_r)
+                                        _cmap = matplotlib.colors.ListedColormap(_colors, 'microshades_cvd_palettes_r')
                                     elif myoptions.colormap == 'merged':
                                         # https://stackoverflow.com/questions/31051488/combining-two-matplotlib-colormaps
                                         # sample the colormaps that you want to use. Use 128 from each so we get 256
@@ -372,16 +374,17 @@ def get_colormap(colormapname):
                                     elif myoptions.colormap == 'dkeenan_26cols':
                                         # https://graphicdesign.stackexchange.com/questions/3682/where-can-i-find-a-large-palette-set-of-contrasting-colors-for-coloring-many-d
                                         # https://dkeenan.com/Colour/
-                                        _dkeenan_26cols = ["#00B7FF", "#004DFF", "#00FFFF", "#826400", "#580041", "#FF00FF", "#00FF00", "#C500FF", "#B4FFD7", "#FFCA00", "#969600", "#B4A2FF", "#C20078", "#0000C1", "#FF8B00", "#FFC8FF", "#666666", "#FF0000", "#CCCCCC", "#009E8F", "#D7A870", "#8200FF", "#960000", "#BBFF00", "#FFFF00", "#006F00"]
-                                        _cmap = matplotlib.colors.ListedColormap(_dkeenan_26cols, "dkeenan_26cols") # 26 colors
+                                        _colors = ["#00B7FF", "#004DFF", "#00FFFF", "#826400", "#580041", "#FF00FF", "#00FF00", "#C500FF", "#B4FFD7", "#FFCA00", "#969600", "#B4A2FF", "#C20078", "#0000C1", "#FF8B00", "#FFC8FF", "#666666", "#FF0000", "#CCCCCC", "#009E8F", "#D7A870", "#8200FF", "#960000", "#BBFF00", "#FFFF00", "#006F00"]
+                                        _cmap = matplotlib.colors.ListedColormap(_colors, "dkeenan_26cols") # 26 colors
                                         myoptions.colormap = 'dkeenan_26cols'
                                     else:
                                         # _amino_acid_changes_cvd_cmap = ["#F5F5F5", "#D6D6D6", "#B7B7B7", "#8B8B8B", "#ff0000", "#f16264", "#ffc8ff", "#EFB6D6", "#CC79A7", "#ff9900", "#F09163", "#9c644b", "#ffcc00", "#cccc00", "#A3E4D7", "#7DCCFF", "#0042ff", "#DDFFA0", "#97CE2F", "#219f11", "#00ff04", "#c20078", "#ff00fd", "#c500ff", "#8200ff", "#960000", "#580041"]
-                                        _amino_acid_changes_cvd_cmap = ["#930000", "#930000", "#930000", "#930000", "#930000", "#930000", "#960000", "#580041", "#8200ff", "#c500ff", "#ff00fd", "#eea1d0", "#CC79A7", "#cc0000", "#ff0000", "#ff4f00", "#ff7c7c", "#ff9999", "#c58a24", "#9c644b", "#ffff00", "#ffcc00", "#cccc00", "#7DCCFF", "#0042ff", "#0000ff", "#D6D6D6", "#B7B7B7", "#8B8B8B", "#97CE2F", "#219f11", "#00ff04", "#bbff00", "#930000", "#930000", "#930000", "#930000", "#930000", "#930000"]
-                                        _cmap = matplotlib.colors.ListedColormap(_amino_acid_changes_cvd_cmap, "amino_acid_changes_cvd") # 27 colors
+                                        _colors = ["#930000", "#930000", "#930000", "#930000", "#930000", "#930000", "#960000", "#580041", "#8200ff", "#c500ff", "#ff00fd", "#eea1d0", "#CC79A7", "#cc0000", "#ff0000", "#ff4f00", "#ff7c7c", "#ff9999", "#c58a24", "#9c644b", "#ffff00", "#ffcc00", "#cccc00", "#7DCCFF", "#0042ff", "#0000ff", "#D6D6D6", "#B7B7B7", "#8B8B8B", "#97CE2F", "#219f11", "#00ff04", "#bbff00", "#930000", "#930000", "#930000", "#930000", "#930000", "#930000"]
+                                        _cmap = matplotlib.colors.ListedColormap(_colors, "amino_acid_changes_cvd", len(_colors)) # 27 colors
+                                        #plt.cm.register_cmap(name='amino_acid_changes_cvd', cmap=_cmap)
                                         myoptions.colormap = 'amino_acid_changes_cvd'
 
-    return _cmap
+    return _cmap, _colors
 
 
 def adjust_size_and_color(frequency, old_codon_or_aa, new_codon_or_aa, matrix, min_score, max_score, cmap):
@@ -1068,8 +1071,8 @@ def main():
         _color_file = open(_outfilename, 'w')
         print("Info: Writing into %s" % _outfilename)
 
-    _colors = set()
-    _cmap = get_colormap(myoptions.colormap)
+    _used_colors = set()
+    _cmap, _colors = get_colormap(myoptions.colormap)
     _labels = [] # list of all simple label strings as they are added to a scatter plot axis
     _label_codon_positions = [] # position
     _label_original_amino_acids = [] # original_amino_acid
@@ -1347,7 +1350,7 @@ def main():
                         sys.stderr.write("Debug: Skipped line for _aa_position=%s _original_aa=%s _old_codon=%s _mutant_codons=%s _some_codon_or_aa=%s frequency=%s score=%s myoptions.threshold=%s\n" % (_aa_position, _original_aa, _old_codon, str(_mutant_codons), _some_codon_or_aa, '{0:.6f}'.format(frequency), _score, myoptions.threshold))
                     else:
                         sys.stderr.write("Debug: Skipped line for _aa_position=%s _original_aa=%s _old_codon=%s _mutant_codons=%s _some_codon_or_aa=%s frequency=%s score=%s myoptions.threshold=%s\n" % (_aa_position, _original_aa, _old_codon, _mutant_codon, _mutant_aa, '{0:.6f}'.format(frequency), _score, myoptions.threshold))
-                _colors.add(color)
+                _used_colors.add(color)
     _color_file.close()
 
     # _colorbar = _figure.colorbar(plt.cm.ScalarMappable(norm=matplotlib.colors.Normalize(0, 1), cmap=_cmap), ax=_ax1, label="%s%s values" % myoptions.matrix, location='left')
@@ -1359,7 +1362,8 @@ def main():
     #_figure.subplots_adjust(right=0.8)
     #_cbar_ax = _figure.add_axes([0.92, 0.1, 0.02, 0.8]) # [left, bottom, width, height]
     _ax3.xaxis.set_major_locator(ticker.MultipleLocator(2))
-    _colorbar = _figure.colorbar(plt.cm.ScalarMappable(norm=matplotlib.colors.Normalize(- _half_size, _half_size, _half_size * 2 + 1), cmap=_cmap), cax=_ax3, label="%s values" % myoptions.matrix, location='right', pad=-0.1, alpha=0.5)
+    _ticks = [int(x) for x in range(- _half_size, _half_size)]
+    _colorbar = _figure.colorbar(plt.cm.ScalarMappable(norm=matplotlib.colors.Normalize(- _half_size, _half_size, _half_size * 2 + 1), cmap=_cmap), ticks=_ticks, cax=_ax3, label="%s values" % myoptions.matrix, location='right', pad=-0.1, alpha=0.5)
     # _figure.tight_layout(h_pad=0)
 
     for label in _ax1.get_xticklabels():
@@ -1373,7 +1377,7 @@ def main():
     print("Info: The following values were collected from matrix %s based on the actual data (some values from matrix might not be needed for your data, hence are not listed here): %s . Range spans %d values (before symmetrization)." % (myoptions.matrix, str(sorted(_matrix_values)), abs(min(_matrix_values)) + 1 + max(_matrix_values)))
     _merged_lists = _circles # _markers + _dots # do not add _markers as they are just the central dots inside circles
     if myoptions.debug:
-        print("Debug: %d _colors used: %s" % (len(_colors), str(_colors)))
+        print("Debug: %d _used_colors used: %s" % (len(_used_colors), str(_used_colors)))
 
     if myoptions.debug:
         print("Debug: %d _labels=%s" % (len(_labels), str(_labels)))
@@ -1481,9 +1485,9 @@ def main():
     #old_amino_acid =  df.loc[df['position'] == 145][1].to_list()[0]
     #print("Original AA at position %s was %s" % (index_position_in_TSV, old_amino_acid))
 
-    _ax1.scatter([x[0] for x in _circles5000], [x[1] for x in _circles5000], s=[x[2] for x in _circles5000], color=[x[4] for x in _circles5000], alpha=0.5)
-    _ax1.scatter([x[0] for x in _markers], [x[1] for x in _markers], s=[x[2] for x in _markers], marker='x', color='black', alpha=0.5) # TODO: this applies same marker='x' to negative and positive values, somehow cannot find a way to utilize [x[3] for x in _markers] containing a mix of prepared dots and circles
-    _ax1.scatter([x[0] for x in _dots], [x[1] for x in _dots], s=[x[2] for x in _dots], marker='.', color='black', alpha=0.5)
+    _mpl_scatterplot = _ax1.scatter([x[0] for x in _circles5000], [x[1] for x in _circles5000], s=[x[2] for x in _circles5000], color=[x[4] for x in _circles5000], alpha=0.5, cmap=_cmap)
+    _ax1.scatter([x[0] for x in _markers], [x[1] for x in _markers], s=[x[2] for x in _markers], marker='x', color='black', alpha=0.5, cmap=_cmap) # TODO: this applies same marker='x' to negative and positive values, somehow cannot find a way to utilize [x[3] for x in _markers] containing a mix of prepared dots and circles
+    _ax1.scatter([x[0] for x in _dots], [x[1] for x in _dots], s=[x[2] for x in _dots], marker='.', color='black', alpha=0.5, cmap=_cmap)
 
     # display info on mouse hover()
     cursor = mplcursors.cursor(_ax1, hover=True)
