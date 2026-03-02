@@ -228,6 +228,14 @@ myparser.add_option("--xmin", action="store", type="int", dest="xmin", default=0
     help="Define minimum X-axis value")
 myparser.add_option("--xmax", action="store", type="int", dest="xmax", default=0,
     help="Define maximum X-axis value")
+myparser.add_option("--x-axis-bins", action="store", type="int", dest="xaxis_bins", default=0,
+    help="Set number of bins (labels) on the X-axis. Could be used to override the amount of major ticks in a different way. Use 20 for example. [default is 0]")
+myparser.add_option("--x-axis-major-ticks-spacing", action="store", type="int", dest="xaxis_major_ticks_spacing", default=10,
+    help="Set distance between the major ticks on X-axis")
+myparser.add_option("--x-axis-minor-ticks-spacing", action="store", type="int", dest="xaxis_minor_ticks_spacing", default=5,
+    help="Set distance between the minor ticks on X-axis")
+myparser.add_option("--x-axis-label-start", action="store", type="int", dest="xaxis_label_start", default=0,
+    help="Set first label value on the X-axis")
 myparser.add_option("--aminoacids", action="store_true", dest="aminoacids", default=False,
     help="Draw chart with amino acid residues on Y-axis instead of codons. [default is False]")
 myparser.add_option("--show-STOP", action="store_true", dest="showstop", default=False,
@@ -379,10 +387,11 @@ def get_colormap(colormapname):
                                         myoptions.colormap = 'dkeenan_26cols'
                                     else:
                                         # _amino_acid_changes_cvd_cmap = ["#F5F5F5", "#D6D6D6", "#B7B7B7", "#8B8B8B", "#ff0000", "#f16264", "#ffc8ff", "#EFB6D6", "#CC79A7", "#ff9900", "#F09163", "#9c644b", "#ffcc00", "#cccc00", "#A3E4D7", "#7DCCFF", "#0042ff", "#DDFFA0", "#97CE2F", "#219f11", "#00ff04", "#c20078", "#ff00fd", "#c500ff", "#8200ff", "#960000", "#580041"]
-                                        _colors = ["#930000", "#930000", "#930000", "#930000", "#930000", "#930000", "#960000", "#580041", "#8200ff", "#c500ff", "#ff00fd", "#eea1d0", "#CC79A7", "#cc0000", "#ff0000", "#ff4f00", "#ff7c7c", "#ff9999", "#c58a24", "#9c644b", "#ffff00", "#ffcc00", "#cccc00", "#7DCCFF", "#0042ff", "#0000ff", "#D6D6D6", "#B7B7B7", "#8B8B8B", "#97CE2F", "#219f11", "#00ff04", "#bbff00", "#930000", "#930000", "#930000", "#930000", "#930000", "#930000"]
-                                        _cmap = matplotlib.colors.ListedColormap(_colors, "amino_acid_changes_cvd", len(_colors)) # 27 colors
+                                        _colors = ["#930000", "#930000", "#930000", "#930000", "#930000", "#930000", "#960000", "#580041", "#8200ff", "#c500ff", "#ff00fd", "#eea1d0", "#CC79A7", "#cc0000", "#ff0000", "#ff4f00", "#ff7c7c", "#ff9999", "#c58a24", "#9c644b", "#ffff00", "#ffcc00", "#cccc00", "#7DCCFF", "#0042ff", "#0000ff", "#D6D6D6", "#B7B7B7", "#8B8B8B", "#97CE2F", "#bbff00", "#219f11", "#00ff04", "#930000", "#930000", "#930000", "#930000", "#930000", "#930000"]
+                                        _cmap = matplotlib.colors.ListedColormap(_colors, "amino_acid_changes_cvd", len(_colors)) # 39 colors
                                         #plt.cm.register_cmap(name='amino_acid_changes_cvd', cmap=_cmap)
                                         myoptions.colormap = 'amino_acid_changes_cvd'
+                                        return _cmap, _colors
 
     return _cmap, _colors
 
@@ -496,17 +505,22 @@ def adjust_size_and_color(frequency, old_codon_or_aa, new_codon_or_aa, matrix, m
     _number_of_colors_needed = int(max(abs(min_score), max_score) * 2 + 1) # calculate how many colors are needed to cover all values in the matrix while 0 would be in the middle and convert to int from float
 
     # make sure the BLOSUM matrix contains the AA pair otherwise blosum module returns -inf (infinity) triggering OverflowError
-    if _codon_on_input:
-        _matrix_value = int(matrix[alt_translate(_old_codon_or_aa)][alt_translate(_new_codon_or_aa)])
+    if _new_codon_or_aa in ('---', 'DEL', 'INS'):
+        _score = -11
+    elif _codon_on_input:
+        _score = int(matrix[alt_translate(_old_codon_or_aa)][alt_translate(_new_codon_or_aa)])
     else:
-        _matrix_value = int(matrix[_old_codon_or_aa][_new_codon_or_aa])
+        try:
+            _score = int(matrix[_old_codon_or_aa][_new_codon_or_aa])
+        except:
+            raise ValueError("Cannot get a score for myoptions.matrix='%s', _old_codon_or_aa='%s', _new_codon_or_aa='%s'" % (myoptions.matrix, _old_codon_or_aa, _new_codon_or_aa))
         
-    if not _matrix_value:
+    if not _score:
         _pos = max(abs(min_score), max_score) # get the position of the 0 in the middle of the list of colors
-    elif _matrix_value < 0:
-        _pos = max(abs(min_score), max_score)  - abs(int(_matrix_value)) # do not add 1 for the 0 in the middle of the list of colors because python counts items anyway from 0
+    elif _score < 0:
+        _pos = max(abs(min_score), max_score) - abs(int(_score)) # do not add 1 for the 0 in the middle of the list of colors because python counts items anyway from 0
     else:
-        _pos = max(abs(min_score), max_score) + int(_matrix_value) # do not add 1 for the 0 in the middle of the list of colors because python counts items anyway from 0
+        _pos = max(abs(min_score), max_score) + int(_score) # do not add 1 for the 0 in the middle of the list of colors because python counts items anyway from 0
 
     if _size:
         # https://matplotlib.org/stable/api/_as_gen/matplotlib.colors.to_hex.html
@@ -529,7 +543,7 @@ def adjust_size_and_color(frequency, old_codon_or_aa, new_codon_or_aa, matrix, m
             else:
                 if myoptions.debug:
                     sys.stdout.write("Info: Translating %s to %s to fetch color from cmap," % (_old_codon_or_aa, _new_codon_or_aa))
-                _color = _colors[_pos]
+                _color = _colors[_pos] # get the color by its index position in the ListedColormap
                 if myoptions.debug:
                     sys.stdout.write(" which has yielded %s and %s%s" % (_pos, str(_color), os.linesep))
         else:
@@ -542,38 +556,38 @@ def adjust_size_and_color(frequency, old_codon_or_aa, new_codon_or_aa, matrix, m
             raise ValueError("_pos=%s, Only %d colors are expected, widen the range int(max(abs(%d), %d) * 2 + 1) if you need more." % (str(_pos), _number_of_colors_needed, min_score, max_score))
 
     if not _size:
-        return _matrix_value, 0.00005, _color
+        return _score, 0.00005, _color
     elif not frequency < myoptions.threshold:
         if old_codon_or_aa.upper() == new_codon_or_aa.upper(): # do not draw circles for unchanged amino acids
             if myoptions.debug: print("Debug: For _old_codon_or_aa = '%s', _new_codon_or_aa = '%s' returning _size = '%s', _color = '%s'" % (_old_codon_or_aa, _new_codon_or_aa, 0, 'palegreen'))
-            return _matrix_value, 0.00005, 'palegreen'
+            return _score, 0.00005, 'palegreen'
         elif _old_codon_or_aa.upper() == _new_codon_or_aa.upper(): # do not draw circles for unchanged amino acids
             if myoptions.debug: print("Debug: For _old_codon_or_aa = '%s', _new_codon_or_aa = '%s' returning _size = '%s', _color = '%s'" % (_old_codon_or_aa, _new_codon_or_aa, 0, 'palegreen'))
-            return _matrix_value, 0.00005, 'palegreen'
+            return _score, 0.00005, 'palegreen'
         else:
             if myoptions.debug: print("Debug: For _old_codon_or_aa = '%s', _new_codon_or_aa = '%s' returning _size = '%s', _color = '%s'" % (_old_codon_or_aa, _new_codon_or_aa, frequency, _color))
-            return _matrix_value, frequency, _color # do not draw circles for frequencies below threshold
+            return _score, frequency, _color # do not draw circles for frequencies below threshold
     else:
         if myoptions.debug: print("Debug: For _old_codon_or_aa = '%s', _new_codon_or_aa = '%s' returning _size = '%s', _color = '%s'" % (_old_codon_or_aa, _new_codon_or_aa, 0, _color))
-        return _matrix_value, 0.00005, _color
+        return _score, 0.00005, _color
 
 
 def adjust_size_and_color_neutralized_escape(neutralized_parent_difference, old_codon_or_aa, new_codon_or_aa, matrix):
     "Used only for neutralized_parent_difference and escape_parent_difference figure types."
 
     if neutralized_parent_difference < -0.001:
-        size = abs(neutralized_parent_difference)
-        color = 'red'
+        _size = abs(neutralized_parent_difference)
+        _color = 'red'
     elif neutralized_parent_difference > 0.001:
         if not _codon_on_input:
-            size, color = 0, 'palegreen' # do not draw circles for unchanged amino acids
+            _size, _color = 0, 'palegreen' # do not draw circles for unchanged amino acids
         else:
-            size = neutralized_parent_difference
-            color = 'palegreen'
+            _size = neutralized_parent_difference
+            _color = 'palegreen'
     else:        # Values close to zero (between -0.001 and 0.001) non-visible; use size 5 to retain a controlling handle
-        size = 0
-        color = 'black'
-    return size, color
+        _size = 0
+        _color = 'black'
+    return _size, _color
 
 
 def adjust_size_and_color_weighted(weighted_diff_escape_neutralized, old_codon_or_aa, new_codon_or_aa, matrix, generic_circle_size=5000, weighted_diff_escape_neutralized_size1=3000, weighted_diff_escape_neutralized_size2=2000): # use for 'weighted_diff_escape_neutralized'
@@ -581,20 +595,20 @@ def adjust_size_and_color_weighted(weighted_diff_escape_neutralized, old_codon_o
 
     if weighted_diff_escape_neutralized > 1:
         # Values above 1 will be scaled more prominently and colored dark blue
-        size = (weighted_diff_escape_neutralized) * generic_circle_size
-        color = 'black'
+        _size = (weighted_diff_escape_neutralized) * generic_circle_size
+        _color = 'black'
     elif weighted_diff_escape_neutralized > 0.1:
         # Values between 0.001 and 1 will be scaled and colored skyblue
-        size = (weighted_diff_escape_neutralized) * weighted_diff_escape_neutralized_size1
-        color = 'darkblue'
+        _size = (weighted_diff_escape_neutralized) * weighted_diff_escape_neutralized_size1
+        _color = 'darkblue'
     elif weighted_diff_escape_neutralized > 0.01:
         # Values between 0.001 and 1 will be scaled and colored skyblue
-        size = (weighted_diff_escape_neutralized) * weighted_diff_escape_neutralized_size2
-        color = 'skyblue'
+        _size = (weighted_diff_escape_neutralized) * weighted_diff_escape_neutralized_size2
+        _color = 'skyblue'
     else:
-        size = abs(weighted_diff_escape_neutralized) * 0
-        color = 'black'
-    return size, color
+        _size = abs(weighted_diff_escape_neutralized) * 0
+        _color = 'black'
+    return _size, _color
 
 
 def main():
@@ -692,10 +706,10 @@ def main():
     else:
         print("Info: Originally there were %d rows but after discarding codons with [N n DEL] there are only %d left" % (_before, _after))
     # print(df)
-    print("Info: Writing into %s" % myoptions.tsv_file_path.replace('.tsv', '.actually_rendered.tsv'))
-    df.to_csv(myoptions.tsv_file_path.replace('.tsv', '.actually_rendered.tsv'), sep='\t', header=None, index=False, float_format='{:7.6f}'.format) # dump back the edited dataframe for eventual checks and disable scientific notation of float numbers
+    print(f"Info: Writing into {_outfile_prefix}.actually_rendered.tsv")
+    df.to_csv(f"{_outfile_prefix}.actually_rendered.tsv", sep='\t', header=None, index=False, float_format='{:7.6f}'.format) # dump back the edited dataframe for eventual checks and disable scientific notation of float numbers
     if '.frequencies.tsv' in myoptions.tsv_file_path:
-        _count_filename = myoptions.tsv_file_path.replace('.frequencies.tsv','.count')
+        _count_filename = _outfile_prefix + '.count'
         if os.path.exists(_count_filename):
             try:
                 _aln_handle = open(_count_filename)
@@ -892,7 +906,7 @@ def main():
 
     _figure, (_ax1, _ax3, _ax4) = plt.subplots(1, 3, figsize=(16, 9), width_ratios=[55, 1, 6]) # default was 6.4 x 4.8 in and 100dpi
 
-    # _aln_rows contain number of rows in the ALN file typically each read is counted so roughly divide it by two to get at aboutnumber of amplicons sequenced
+    # _aln_rows contain number of rows in the ALN file typically each read is counted so roughly divide it by two to get at about number of amplicons sequenced
     if myoptions.aminoacids:
         if myoptions.shortlegend:
             _xlabel = 'Amino acid position'
@@ -931,9 +945,9 @@ def main():
         else:
             _xmax = max(unique_codon_positions) + 1
 
-    _ax1.set_xlim(_xmin, _xmax) # start X-axis from 1, not zero
-    _ax1.xaxis.set_major_locator(ticker.MultipleLocator(10))
-    _ax1.xaxis.set_minor_locator(ticker.MultipleLocator(5))
+    _ax1.set_xlim(myoptions.xaxis_label_start or _xmin, _xmax) # start X-axis from 1, not zero
+    _ax1.xaxis.set_major_locator(ticker.MultipleLocator(myoptions.xaxis_major_ticks_spacing))
+    _ax1.xaxis.set_minor_locator(ticker.MultipleLocator(myoptions.xaxis_minor_ticks_spacing))
 
     if myoptions.debug: print("Debug: X-axis1: %d-%d" % (_xmin, _xmax))
 
@@ -978,7 +992,8 @@ def main():
     #plt.xticks(rotation=90)
     # work around the bug with xmin being reset to zero when ax.set_xticks(() is used and adjust the spacing of ticks in a different way
     # https://www.geeksforgeeks.org/how-to-change-the-number-of-ticks-in-matplotlib/
-    #plt.locator_params(axis='x', nbins=20 )
+    if myoptions.xaxis_bins:
+        plt.locator_params(axis='x', nbins=myoptions.xaxis_bins )
 
     # add the grid in gray
     _ax1.grid(True, linestyle='--', alpha=0.3, color='gray')
@@ -990,7 +1005,7 @@ def main():
         _ax2.set_ylim(0, 1)
 
         x1, x2 = _ax2.get_xlim()
-        _ax2.set_ylabel(f'Cumulative frequency of mutations above threshold {myoptions.threshold:.1%} per codon', fontsize=12)
+        _ax2.set_ylabel(f'Cumulative frequency of mutations above threshold {myoptions.threshold:.2%} per codon', fontsize=12)
         _ax1.figure.canvas.draw()
         _ax2.figure.canvas.draw()
 
@@ -1091,7 +1106,6 @@ def main():
     _circles5000 = [] # scaled by 5000 for matplotlib figures
     _markers = []
     _dots = []
-    _scores = [] # scores actually met in the dataset
     _warn_once = []
     _matrix_values = set() # unique matrix values collected for the data points
     for i, _some_codon_or_aa in enumerate(_table.index): # introduces off-by-one error, iterate over amino_acids which were used as the index using 'pd.DataFrame(Decimal(0), index=amino_acids, columns=unique_aa_positions)'
@@ -1120,38 +1134,40 @@ def main():
                 next
             if not np.abs(Decimal(frequency)) < myoptions.threshold:
                 if myoptions.column_with_frequencies in ['neutralized_parent_difference', 'escape_parent_difference']:
-                    size, color = adjust_size_and_color_neutralized_escape(Decimal(frequency), _old_codon, _some_codon_or_aa, _matrix)
+                    size, _color = adjust_size_and_color_neutralized_escape(Decimal(frequency), _old_codon, _some_codon_or_aa, _matrix)
+                    _score = -22 # TODO: junk value
                 elif myoptions.column_with_frequencies in ['weighted_diff_escape_neutralized']:
-                    size, color = adjust_size_and_color_weighted(Decimal(frequency), _old_codon, _some_codon_or_aa, _matrix)
+                    size, _color = adjust_size_and_color_weighted(Decimal(frequency), _old_codon, _some_codon_or_aa, _matrix)
+                    _score = -22 # TODO: junk value
                 else:
                     #  we always pass-down the original codon, even when running in aa mode which confuses the code in adjust_size_and_color()
-                    _matrix_value, size, color = adjust_size_and_color(Decimal(frequency), _old_codon, _some_codon_or_aa, _matrix, _min_theoretical_score, _max_theoretical_score, _cmap)
-                    _matrix_values.add(_matrix_value)
-                if myoptions.debug: print("Debug: Real AA position: %s, observed codon: %s, frequency: %s, size: %s, color: %s" % (_aa_position, _some_codon_or_aa, frequency, size, color))
+                    _score, size, _color = adjust_size_and_color(Decimal(frequency), _old_codon, _some_codon_or_aa, _matrix, _min_theoretical_score, _max_theoretical_score, _cmap) # the _color was derived via np.linspace mapping to range(0,1)
+                    _matrix_values.add(_score) # update the set() with unique score values actually present in the dataset
+                if myoptions.debug: print("Debug: Real AA position: %s, observed codon: %s, frequency: %s, size: %s, color: %s" % (_aa_position, _some_codon_or_aa, frequency, size, _color))
                 # for bokeh plots use _some_codon_or_aa index
                 # TODO: try to emphasize differences by interpreting negative and positive matrix values, but these are later ignored anyway
                 if myoptions.aminoacids:
-                    if _matrix_value < 0:
-                        _circles.append((_aa_position, _some_codon_or_aa, float(np.abs(size) * 100), 'circle_x', color, 0.5))
+                    if _score < 0:
+                        _circles.append((_aa_position, _some_codon_or_aa, float(np.abs(size) * 100), 'circle_x', _color, 0.5, _score))
                     else:
-                        _circles.append((_aa_position, _some_codon_or_aa, float(np.abs(size) * 100), 'circle_x', color, 0.5))
+                        _circles.append((_aa_position, _some_codon_or_aa, float(np.abs(size) * 100), 'circle_x', _color, 0.5, _score))
                 else:
                     # print later codons followed by the amino acid they encode on Y-axis
-                    _circles.append((_aa_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', float(np.abs(size) * 100), 'circle_x', color, 0.5))
+                    _circles.append((_aa_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', float(np.abs(size) * 100), 'circle_x', _color, 0.5))
                 # for matplotlib figures use i index instead
                 # TODO: try to emphasize differences by interpreting negative and positive matrix values, but these are later ignored anyway
-                if _matrix_value < 0:
-                    _circles5000.append((_aa_position, i, float(np.abs(size) * 5000), 'circle_x', color, 0.5)) 
+                if _score < 0:
+                    _circles5000.append((_aa_position, i, float(np.abs(size) * 5000), 'circle_x', _color, 0.5, _score)) 
                     _markers.append((_aa_position, i, 1, 'dot', 'black', 0.5)) # for matplotlib figures provide j, i pointers instead of _aa_position, _some_codon_or_aa for some reason
                 else:
-                    _circles5000.append((_aa_position, i, float(np.abs(size) * 5000), 'circle_x', color, 0.5))
+                    _circles5000.append((_aa_position, i, float(np.abs(size) * 5000), 'circle_x', _color, 0.5, _score))
                     _markers.append((_aa_position, i, 1, 'circle', 'black', 0.5)) # for matplotlib figures provide j, i pointers instead of _aa_position, _some_codon_or_aa for some reason
             else:
                 # just draw some tiny dot otherwise pandas will drop empty Y-rows for unused amino acids or codons, which sucks and it btw does happen for charts with codons too although they have more data and supposedly are less likely to run into this issue but it does happen too
-                size, color = 0, 'black' # if we force the size to 0.00000000009 the invisible dots are drawn in matplotlib figs
+                size, _color = 0, 'black' # if we force the size to 0.00000000009 the invisible dots are drawn in matplotlib figs
                 # for matplotlib figures use i index
-                _dots.append((_aa_position, i, size, 'dot', color, 0.5))
-                if myoptions.debug: print("Debug: Invisible dot. Real AA position: %s, observed codon: %s, frequency: %s, size: %s, color: %s" % (_aa_position, _some_codon_or_aa, frequency, size, color))
+                _dots.append((_aa_position, i, size, 'dot', _color, 0.5, _score))
+                if myoptions.debug: print("Debug: Invisible dot. Real AA position: %s, observed codon: %s, frequency: %s, size: %s, color: %s" % (_aa_position, _some_codon_or_aa, frequency, size, _color))
             # df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon']
 
 
@@ -1183,7 +1199,6 @@ def main():
 
                     # filtered_codons, filtered_frequencies, _observed_codon_count_sum = filter_codons(_some_codon_or_aa, new_codons, frequencies, _observed_codon_counts, myoptions.threshold)
                     if not frequency < myoptions.threshold: # append to the lists only if the frequency is above threshold
-                        _score = _matrix[old_amino_acid][_some_codon_or_aa]
                         _labels.append(f"Position: {_aa_position}\nOriginal Amino Acid: {old_amino_acid} ({_old_codon})\nNew Amino Acid: {_some_codon_or_aa} {new_codons}\n{myoptions.matrix} score: {_score}\nCumulative Frequency: {sum(frequencies):.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon counts sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
                         _label_codon_positions.append(f"{_aa_position}")
                         _label_original_amino_acids.append(f"{old_amino_acid} ({_old_codon})")
@@ -1237,13 +1252,12 @@ def main():
                         except:
                             _frequency = 0.00000000009 # enter junk value but prevent matplotlib from crashing
                         if _frequency != frequency and (_frequency != 0.00000000009 and frequency != 0):
-                            raise ValueError("Frequency new_codon_table.at[_some_codon_or_aa, _aa_position]=%s not same as df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0]=%s" % (frequency, _frequency))
+                            raise ValueError("Frequency new_codon_table.at[_some_codon_or_aa, _aa_position]=%s _some_codon_or_aa=%s, _aa_position=%s not same as df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0]=%s" % (frequency, _some_codon_or_aa, _aa_position, _frequency))
 
                         if old_amino_acid and not frequency < myoptions.threshold and size:
                             # print colors used only for data points above the threshold, because those below are not rendered
                             # also do not draw data points if the limits were applied manually with size=0 and palegreen color enforced
 
-                            _score = _matrix[old_amino_acid][new_amino_acid]
                             _label_scores.append(_score)
 
                             if myoptions.column_with_frequencies == 'neutralized_parent_difference':
@@ -1324,25 +1338,15 @@ def main():
                 if _original_aa and not frequency < myoptions.threshold and size:
                     # print colors used only for data points above the threshold, because those below are not rendered
                     # also do not draw data points if the limits were applied manually with size=0 and palegreen color enforced
-                    if _some_codon_or_aa == ('---', 'DEL', 'INS', '*'):
-                        _score = -15 # zap the -inf value and set an arbitrary negative score or maybe enforce _min_theoretical_score?
-                    else:
-                        _score = None
                     if len(_mutant_codons) > 1:
-                        if not _score:
-                            _score = _matrix[_original_aa][_some_codon_or_aa]
                         #  multiple codons encoding same mutated_aa do appear: TCT -> ['TCA', 'TCC', 'TCG']
-                        _color_file.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s%s" % (_aa_position, _old_codon, str(_mutant_codons), _original_aa, _some_codon_or_aa, '{0:.6f}'.format(frequency), color, _score, os.linesep))
+                        _color_file.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s%s" % (_aa_position, _old_codon, str(_mutant_codons), _original_aa, _some_codon_or_aa, '{0:.6f}'.format(frequency), _color, _score, os.linesep))
                     elif not myoptions.aminoacids:
-                        if not _score:
-                            _score = _matrix[_original_aa][_mutant_aa]
-                        _color_file.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s%s" % (_aa_position, _old_codon, _mutant_codon, _original_aa, _mutant_aa, '{0:.6f}'.format(frequency), color, _score, os.linesep))
+                        _color_file.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s%s" % (_aa_position, _old_codon, _mutant_codon, _original_aa, _mutant_aa, '{0:.6f}'.format(frequency), _color, _score, os.linesep))
                         # Note: beware there will be multiple lines per each mutated codon appearing. To sort the changes from worst to synonymous by the BLOSUM score use:
                         # sort -t$'\t' -k 1,1n -k 8,8n -k 6,6n prefix.gofasta.aa.frequencies.colors.tsv
                     elif _mutant_codons:
-                        if not _score:
-                            _score = _matrix[_original_aa][_some_codon_or_aa]
-                        _color_file.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s%s" % (_aa_position, _old_codon, _mutant_codons[0], _original_aa, _some_codon_or_aa, '{0:.6f}'.format(frequency), color, _score, os.linesep))
+                        _color_file.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s%s" % (_aa_position, _old_codon, _mutant_codons[0], _original_aa, _some_codon_or_aa, '{0:.6f}'.format(frequency), _color, _score, os.linesep))
                     # else:
                     #     # do not draw an empty [] if the mutation did not happen and hence does not exist in the input TSV file
                 elif myoptions.debug:
@@ -1350,28 +1354,21 @@ def main():
                         sys.stderr.write("Debug: Skipped line for _aa_position=%s _original_aa=%s _old_codon=%s _mutant_codons=%s _some_codon_or_aa=%s frequency=%s score=%s myoptions.threshold=%s\n" % (_aa_position, _original_aa, _old_codon, str(_mutant_codons), _some_codon_or_aa, '{0:.6f}'.format(frequency), _score, myoptions.threshold))
                     else:
                         sys.stderr.write("Debug: Skipped line for _aa_position=%s _original_aa=%s _old_codon=%s _mutant_codons=%s _some_codon_or_aa=%s frequency=%s score=%s myoptions.threshold=%s\n" % (_aa_position, _original_aa, _old_codon, _mutant_codon, _mutant_aa, '{0:.6f}'.format(frequency), _score, myoptions.threshold))
-                _used_colors.add(color)
+                _used_colors.add(_color)
     _color_file.close()
 
-    # _colorbar = _figure.colorbar(plt.cm.ScalarMappable(norm=matplotlib.colors.Normalize(0, 1), cmap=_cmap), ax=_ax1, label="%s%s values" % myoptions.matrix, location='left')
     _half_size = int(max(abs(_min_theoretical_score), _max_theoretical_score))
     # cax=_ax1.inset_axes([- _half_size, - _half_size / 2, _half_size / 2, _half_size], transform=_ax1.transData)
-    # _colorbar = _figure.colorbar(plt.cm.ScalarMappable(norm=matplotlib.colors.Normalize(- _half_size, _half_size), cmap=_cmap), ax=_ax1, label="%s values" % myoptions.matrix, location='left', pad=0.15)
 
     # https://www.bomberbot.com/python/exploring-the-power-and-versatility-of-matplotlibs-listedcolormap/
     #_figure.subplots_adjust(right=0.8)
     #_cbar_ax = _figure.add_axes([0.92, 0.1, 0.02, 0.8]) # [left, bottom, width, height]
-    _ax3.xaxis.set_major_locator(ticker.MultipleLocator(2))
-    _ticks = [int(x) for x in range(- _half_size, _half_size)]
-    _colorbar = _figure.colorbar(plt.cm.ScalarMappable(norm=matplotlib.colors.Normalize(- _half_size, _half_size, _half_size * 2 + 1), cmap=_cmap), ticks=_ticks, cax=_ax3, label="%s values" % myoptions.matrix, location='right', pad=-0.1, alpha=0.5)
+    #_ax3.xaxis.set_major_locator(ticker.MultipleLocator(2))
     # _figure.tight_layout(h_pad=0)
 
     for label in _ax1.get_xticklabels():
         label.set_rotation(90)
         label.set_ha("center")
-
-    # does not work
-    # _colorbar = _figure.colorbar(mappable=_cmap, ax=_ax1, label="%s values" % myoptions.matrix, location='left', pad=0.15)
 
 
     print("Info: The following values were collected from matrix %s based on the actual data (some values from matrix might not be needed for your data, hence are not listed here): %s . Range spans %d values (before symmetrization)." % (myoptions.matrix, str(sorted(_matrix_values)), abs(min(_matrix_values)) + 1 + max(_matrix_values)))
@@ -1393,7 +1390,7 @@ def main():
         y=[y[1] for y in _circles],
         s=[s[2] for s in _circles], # size
         m=[m[3] for m in _circles], # marker
-        c=[c[4] for c in _circles], # color
+        c=[c[4] for c in _circles], # _color
         a=[a[5] for a in _circles], # alpha
         label=_labels,
         label1=_label_codon_positions,
@@ -1485,9 +1482,14 @@ def main():
     #old_amino_acid =  df.loc[df['position'] == 145][1].to_list()[0]
     #print("Original AA at position %s was %s" % (index_position_in_TSV, old_amino_acid))
 
-    _mpl_scatterplot = _ax1.scatter([x[0] for x in _circles5000], [x[1] for x in _circles5000], s=[x[2] for x in _circles5000], color=[x[4] for x in _circles5000], alpha=0.5, cmap=_cmap)
-    _ax1.scatter([x[0] for x in _markers], [x[1] for x in _markers], s=[x[2] for x in _markers], marker='x', color='black', alpha=0.5, cmap=_cmap) # TODO: this applies same marker='x' to negative and positive values, somehow cannot find a way to utilize [x[3] for x in _markers] containing a mix of prepared dots and circles
+    _norm = matplotlib.colors.BoundaryNorm(np.arange(-19, 19, 1), _cmap.N) # to account for BoundaryNorm choosing based on the lower bound
+    _mpl_scatterplot = _ax1.scatter([x[0] for x in _circles5000], [x[1] for x in _circles5000], s=[x[2] for x in _circles5000], alpha=0.5, c=[x[6] for x in _circles5000], cmap=_cmap, norm=_norm)
+    _colorbar = _figure.colorbar(_mpl_scatterplot, cax=_ax3, label="%s values" % myoptions.matrix, location='right', pad=-0.1, alpha=0.5)
+    _colorbar.ax.set_yticks(np.arange(-18.5, 18.5, 1), np.arange(-18, 19, 1)) # colorbar is only -11 to +10, instead of -11 to +11
+    _colorbar.ax.tick_params(axis='y', which='minor', length=0) # to clean up old ticks
+    _ax1.scatter([x[0] for x in _markers], [x[1] for x in _markers], s=[x[2] for x in _markers], marker='x', color='black', alpha=0.5) # TODO: this applies same marker='x' to negative and positive values, somehow cannot find a way to utilize [x[3] for x in _markers] containing a mix of prepared dots and circles
     _ax1.scatter([x[0] for x in _dots], [x[1] for x in _dots], s=[x[2] for x in _dots], marker='.', color='black', alpha=0.5, cmap=_cmap)
+
 
     # display info on mouse hover()
     cursor = mplcursors.cursor(_ax1, hover=True)
@@ -1574,7 +1576,7 @@ def main():
                 print("Debug: final_sorted_whitelist=%s" % str(final_sorted_whitelist))
                 print("Debug: codons_whitelist2=%s" % str(codons_whitelist2))
 
-    # draw legends in a separate figure, just in case
+    # draw legend
     handles, labels = [], []
     if myoptions.aminoacids:
         _junk = 'NNN'
@@ -1587,7 +1589,7 @@ def main():
         elif myoptions.column_with_frequencies in ['weighted_diff_escape_neutralized']:
             _size, _color = adjust_size_and_color_weighted(Decimal(_freq), _junk, _junk, _matrix) # size is already multiplied by either 2000 or 3000 or 5000
         else:
-            _matrix_value, _size, _color = adjust_size_and_color(Decimal(_freq), _junk, _junk, _matrix, _min_theoretical_score, _max_theoretical_score, _cmap)
+            _score, _size, _color = adjust_size_and_color(Decimal(_freq), _junk, _junk, _matrix, _min_theoretical_score, _max_theoretical_score, _cmap)
             # _size = _size * 5000
         # print("Info: Freq is %s" % _freq.__round__(3))
         handle = _ax2.scatter(_size, - 400 + _freq, s=float(_freq * 5000), color='gray', alpha=0.5, label=f'Frequency {_freq:.1%}')
@@ -1603,7 +1605,7 @@ def main():
     # 'center top' is not a valid value for loc; supported values are 'best', 'upper right', 'upper left', 'lower left', 'lower right', 'right', 'center left', 'center right', 'lower center', 'upper center', 'center'
     _ax2.legend(loc='upper center', bbox_to_anchor=(1.25, 1.00), labelspacing=3, frameon=False, handletextpad=1.5)
 
-    for _ext in ('.png', '.jpg', '.pdf'):
+    for _ext in ('.png', '.pdf'): # '.jpg'
         _wholefig = plt.gcf()
         _figsize= _wholefig.get_size_inches()*_wholefig.dpi # size in pixels
         print("Info: Writing into %s, figure size is %s inches and %s dpi" % (_outfile_prefix + _ext, _wholefig.get_size_inches(), _figsize))
@@ -1627,7 +1629,7 @@ def main():
 #        elif myoptions.column_with_frequencies in ['weighted_diff_escape_neutralized']:
 #            _size, _color = adjust_size_and_color_weighted(Decimal(_freq), _junk, _junk, _matrix) # size is already multiplied by either 2000 or 3000 or 5000
 #        else:
-#            _matrix_value, _size, _color = adjust_size_and_color(Decimal(_freq), _junk, _junk, _matrix, _min_theoretical_score, _max_theoretical_score, _cmap)
+#            _score, _size, _color = adjust_size_and_color(Decimal(_freq), _junk, _junk, _matrix, _min_theoretical_score, _max_theoretical_score, _cmap)
 #            # _size = _size * 5000
 #        # print("Info: Freq is %s" % _freq.__round__(3))
 #        handle = _ax5.scatter(400 + _freq, _size, s=float(_freq * 5000), color='magenta', alpha=0.6, label=f'Frequency {_freq:.3f}')
@@ -1667,7 +1669,7 @@ def main():
 #            elif myoptions.column_with_frequencies in ['weighted_diff_escape_neutralized']:
 #                _size, _color = adjust_size_and_color_weighted(Decimal(_freq), _junk, _junk, _matrix) # size is already multiplied by either 2000 or 3000 or 5000
 #            else:
-#                _matrix_value, _size, _color = adjust_size_and_color(Decimal(_freq), _junk, _junk, _matrix, _min_theoretical_score, _max_theoretical_score, _cmap)
+#                _score, _size, _color = adjust_size_and_color(Decimal(_freq), _junk, _junk, _matrix, _min_theoretical_score, _max_theoretical_score, _cmap)
 #                # _size = _size * 5000
 #            # print("Info: Freq is %s" % _freq.__round__(3))
 #            handle = _ax6.scatter(400 + _freq, _size, s=float(_freq * 5000), color='magenta', alpha=0.6, label=f'Frequency {_freq:.3f}')
