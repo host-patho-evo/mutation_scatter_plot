@@ -304,7 +304,7 @@ def get_colormap(colormapname):
             except:
                 try:
                     _wished_cmapname_prefix, _wished_cmapname_num = '_'.join(myoptions.colormap.split('_')[:-1]), int(myoptions.colormap.split('_')[-1])
-                    print("Debug: _wished_cmapname_prefix=%s, _wished_cmapname_num=%s" % (_wished_cmapname_prefix, _wished_cmapname_num))
+                    print(f"Debug: _wished_cmapname_prefix={_wished_cmapname_prefix}, _wished_cmapname_num={_wished_cmapname_num}")
                     _cmap_from_palettable = palettable.colorbrewer.get_map(_wished_cmapname_prefix, 'diverging', _wished_cmapname_num)
                     _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
                 except:
@@ -436,7 +436,7 @@ def adjust_size_and_color(frequency, old_codon_or_aa, new_codon_or_aa, matrix, m
             _new_codon_or_aa = 'X'
             _len_new_codon_or_aa = len(_new_codon_or_aa)
         elif _len_new_codon_or_aa > 1 and new_codon_or_aa not in ('---', 'DEL', 'INS'):
-            print("Info: Weird, the new_codon_or_aa=%s" % new_codon_or_aa)
+            print(f"Info: Weird, the new_codon_or_aa={new_codon_or_aa}")
             _new_codon_or_aa = new_codon_or_aa.upper()
         else:
             _new_codon_or_aa = new_codon_or_aa.upper()
@@ -638,16 +638,16 @@ def main():
         raise RuntimeError("Please provide output filename prefix via --outfile-prefix")
     else:
         _outfile_prefix = myoptions.outfile_prefix + '.' + _matrix_name + '.' + myoptions.colormap
-        print("Info: _outfile_prefix=%s" % _outfile_prefix)
+        print(f"Info: _outfile_prefix={_outfile_prefix}")
 
     _theoretical_scores = set()
     for _aa in _matrix.keys():
         for _score in _matrix[_aa].values():
             _theoretical_scores.add(_score)
-    print("Info: Using %s matrix now. Theoretical minimum score is %d, theoretical maximum score is %d, values are %s" % (_matrix_name, min(_theoretical_scores), max(_theoretical_scores), str(_theoretical_scores)))
+    print(f"Info: Using {_matrix_name} matrix now. Theoretical minimum score is {min(_theoretical_scores)}, theoretical maximum score is {max(_theoretical_scores)}, values are {str(_theoretical_scores)}")
     _min_theoretical_score, _max_theoretical_score = int(min(_theoretical_scores)), int(max(_theoretical_scores)) # also convert from float to int
 
-    print("Info: Parsing input file %s" % myoptions.tsv_file_path)
+    print(f"Info: Parsing input file {myoptions.tsv_file_path}")
     if not myoptions.tsv_file_path:
         raise RuntimeError("Please provide an input TSV file via --tsv")
     df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header='infer', na_filter=False, na_values=[None])#, nrows=500)
@@ -658,7 +658,7 @@ def main():
         df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header=0, na_filter=False, na_values=[None])#, nrows=500)
         # Assign column names
         # released results on Zenodo: 430	T	K	0.000386	ACA	AAA
-        print("Info: The file %s contained initially these columns: %s" % (myoptions.tsv_file_path, str(df.columns)))
+        print(f"Info: The file {myoptions.tsv_file_path} contained initially these columns: {str(df.columns)}")
         _count_columns = len(df.columns.values)
         if _count_columns == 9:
             # 340     340     E       E       0.012149        GAA     GAG     97849   8054365
@@ -674,10 +674,10 @@ def main():
         else:
             raise RuntimeError("Unexpected number of columns in the %s file" % myoptions.tsv_file_path)
     else:
-        print("Info: Autodetected new TSV file format with a header in %s" % myoptions.tsv_file_path)
-    print("Info: The file %s contains now these columns: %s" % (myoptions.tsv_file_path, str(df.columns)))
+        print(f"Info: Autodetected new TSV file format with a header in {myoptions.tsv_file_path}")
+    print(f"Info: The file {myoptions.tsv_file_path} contains now these columns: {str(df.columns)}")
 
-    #print("Info: df=%s" % str(df))
+    #print(f"Info: df={str(df)}")
     # sanitize input aa positions and add myoptions.offset to each value
     df['position'] = df['position'] + int(myoptions.offset)
 
@@ -732,7 +732,7 @@ def main():
         _aln_rows = _aln_handle.readline()
         _aln_handle.close()
 
-    print("Info: Title will be %s" % title_data)
+    print(f"Info: Title will be {title_data}")
 
     # create an empty table pre-filled with zeroes, without ['B', 'Z']
     #amino_acids = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', '*']
@@ -752,9 +752,9 @@ def main():
     #_number_of_insertions = _padded_reference_sequence.count('-') # count number of insertions based on the number of dashes in a padded reference sequence
     _number_of_insertions = 0
     unique_aa_positions = [x for x in range(_min_aa_pos, _max_aa_pos + 1 + _number_of_insertions)] # ensure we have a continuous range, eventually inject INS positions, add +1 to accommodate for the pandas dataframe index column
-    if myoptions.debug: print("Debug: len(unique_aa_positions)=%d, unique_aa_positions: %s" % (len(unique_aa_positions), str(unique_aa_positions)))
+    if myoptions.debug: print(f"Debug: len(unique_aa_positions)={len(unique_aa_positions)}, unique_aa_positions: {str(unique_aa_positions)}")
     unique_codon_positions = list(unique_aa_positions)
-    if myoptions.debug: print("Debug: len(unique_codon_positions)=%d, unique_codon_positions: %s" % (len(unique_codon_positions), str(unique_codon_positions)))
+    if myoptions.debug: print(f"Debug: len(unique_codon_positions)={len(unique_codon_positions)}, unique_codon_positions: {str(unique_codon_positions)}")
 
     # these are all theoretically appearing codons in a sample
     codons_whitelist = ['TTT', 'TTC', 'TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG', 'ATT', 'ATC', 'ATA', 'ATG', 'GTT', 'GTC', 'GTA', 'GTG', 'TCT', 'TCC', 'TCA', 'TCG', 'CCT', 'CCC', 'CCA', 'CCG', 'ACT', 'ACC', 'ACA', 'ACG', 'GCT', 'GCC', 'GCA', 'GCG', 'TAT', 'TAC', 'TAA', 'TAG', 'CAT', 'CAC', 'CAA', 'CAG', 'AAT', 'AAC', 'AAA', 'AAG', 'GAT', 'GAC', 'GAA', 'GAG', 'TGT', 'TGC', 'TGA', 'TGG', 'CGT', 'CGC', 'CGA', 'CGG', 'AGT', 'AGC', 'AGA', 'AGG', 'GGT', 'GGC', 'GGA', 'GGG']
@@ -773,7 +773,7 @@ def main():
         raise ValueError("Length of codons_whitelist is %d which is not equal to codons_whitelist_aa with %d" % (len(codons_whitelist), len(codons_whitelist_aa)))
     sorted_whitelist = sorted(zip(codons_whitelist, codons_whitelist_aa), key=lambda x: x[1])
 
-    if myoptions.debug: print("Debug: sorted_whitelist=%s" % str(sorted_whitelist))
+    if myoptions.debug: print(f"Debug: sorted_whitelist={str(sorted_whitelist)}")
     # Info: sorted_whitelist=[('TAA', '*'), ('TAG', '*'), ('TGA', '*'), ('GCT', 'A'), ('GCC', 'A'), ('GCA', 'A'), ('GCG', 'A'), ('TGT', 'C'), ('TGC', 'C'), ('GAT', 'D'), ('GAC', 'D'), ('GAA', 'E'), ('GAG', 'E'), ('TTT', 'F'), ('TTC', 'F'), ('GGT', 'G'), ('GGC', 'G'), ('GGA', 'G'), ('GGG', 'G'), ('CAT', 'H'), ('CAC', 'H'), ('ATT', 'I'), ('ATC', 'I'), ('ATA', 'I'), ('AAA', 'K'), ('AAG', 'K'), ('TTA', 'L'), ('TTG', 'L'), ('CTT', 'L'), ('CTC', 'L'), ('CTA', 'L'), ('CTG', 'L'), ('ATG', 'M'), ('AAT', 'N'), ('AAC', 'N'), ('CCT', 'P'), ('CCC', 'P'), ('CCA', 'P'), ('CCG', 'P'), ('CAA', 'Q'), ('CAG', 'Q'), ('CGT', 'R'), ('CGC', 'R'), ('CGA', 'R'), ('CGG', 'R'), ('AGA', 'R'), ('AGG', 'R'), ('TCT', 'S'), ('TCC', 'S'), ('TCA', 'S'), ('TCG', 'S'), ('AGT', 'S'), ('AGC', 'S'), ('ACT', 'T'), ('ACC', 'T'), ('ACA', 'T'), ('ACG', 'T'), ('GTT', 'V'), ('GTC', 'V'), ('GTA', 'V'), ('GTG', 'V'), ('TGG', 'W'), ('TAT', 'Y'), ('TAC', 'Y')]
     
     # >>> [pairs[0] + ' (' + pairs[1] + ')' for pairs in sorted_whitelist]
@@ -781,7 +781,7 @@ def main():
     
     # sort the pairs according to physicochemical properties in amino_acids
     final_sorted_whitelist = [tuple for x in amino_acids for tuple in sorted_whitelist if tuple[1] == x]
-    if myoptions.debug: print("Debug: final_sorted_whitelist=%s" % str(final_sorted_whitelist))
+    if myoptions.debug: print(f"Debug: final_sorted_whitelist={str(final_sorted_whitelist)}")
 
     # >>> [tuple for x in amino_acids for tuple in sorted_whitelist if tuple[1] == x]
     # [('TGT', 'C'), ('TGC', 'C'), ('CGT', 'R'), ('CGC', 'R'), ('CGA', 'R'), ('CGG', 'R'), ('AGA', 'R'), ('AGG', 'R'), ('AAA', 'K'), ('AAG', 'K'), ('GAA', 'E'), ('GAG', 'E'), ('CAA', 'Q'), ('CAG', 'Q'), ('GAT', 'D'), ('GAC', 'D'), ('AAT', 'N'), ('AAC', 'N'), ('ACT', 'T'), ('ACC', 'T'), ('ACA', 'T'), ('ACG', 'T'), ('TCT', 'S'), ('TCC', 'S'), ('TCA', 'S'), ('TCG', 'S'), ('AGT', 'S'), ('AGC', 'S'), ('CAT', 'H'), ('CAC', 'H'), ('ATG', 'M'), ('CCT', 'P'), ('CCC', 'P'), ('CCA', 'P'), ('CCG', 'P'), ('TGG', 'W'), ('TAT', 'Y'), ('TAC', 'Y'), ('TTT', 'F'), ('TTC', 'F'), ('GTT', 'V'), ('GTC', 'V'), ('GTA', 'V'), ('GTG', 'V'), ('TTA', 'L'), ('TTG', 'L'), ('CTT', 'L'), ('CTC', 'L'), ('CTA', 'L'), ('CTG', 'L'), ('ATT', 'I'), ('ATC', 'I'), ('ATA', 'I'), ('GCT', 'A'), ('GCC', 'A'), ('GCA', 'A'), ('GCG', 'A'), ('GGT', 'G'), ('GGC', 'G'), ('GGA', 'G'), ('GGG', 'G'), ('TAA', '*'), ('TAG', '*'), ('TGA', '*')]
@@ -789,7 +789,7 @@ def main():
 
     codons_whitelist2 = [x[0] for x in final_sorted_whitelist] # get back the list of codons in the order used in final_sorted_whitelist but also in sync with the order on Y-axis further down
     
-    if myoptions.debug: print("Debug: codons_whitelist2=%s" % str(codons_whitelist2))
+    if myoptions.debug: print(f"Debug: codons_whitelist2={str(codons_whitelist2)}")
     
     # Define the genetic code and codons with an additional parameter (1 to 65)
     genetic_code = {
@@ -821,7 +821,7 @@ def main():
     # make tables with yet another number of rows summing up eventually the frequencies
     for df_index, row in df.iterrows():
         # 1       G       DEL      0.012625       GGA     ---
-        #print("Row: %s" % str(row))
+        #print(f"Row: {str(row)}")
 
         # It is not necessary to skip N-containing codons as we anyway draw just those
         # in codons list. Skipping some rows would make new_aa_table and new_codon_table
@@ -830,7 +830,7 @@ def main():
         if _very_leftmost_aa_pos is None:
             _very_leftmost_aa_pos = int(position)
             _calculated_aa_offset = _very_leftmost_aa_pos - myoptions.offset + 1 # if AA positions in the input file do NOT start from the first-one the numbering of sites gets shifted, so calculate the offset
-            if myoptions.debug: print("Debug: calculated offset is %d" % _calculated_aa_offset)
+            if myoptions.debug: print(f"Debug: calculated offset is {_calculated_aa_offset}")
         old_amino_acid = row['original_aa']
         new_amino_acid = row['mutant_aa']
         frequency = Decimal(row[myoptions.column_with_frequencies])
@@ -876,12 +876,12 @@ def main():
     #        except TypeError:
     #            # sanitize nan values in the table
     #            raise TypeError("Weird value %s" % new_codon_table.at[new_codon, position])
-            if myoptions.debug: print("Debug: OriginalDataFrameRowNumber: %s, Old: %s, New: %s, Frequency: %s" % (df_index, old_amino_acid, new_amino_acid, frequency))
+            if myoptions.debug: print(f"Debug: OriginalDataFrameRowNumber: {df_index}, Old: {old_amino_acid}, New: {new_amino_acid}, Frequency: {frequency}")
 
     if myoptions.debug:
         # print tables with summed up frequencies, notably each has different amount of rows which differ from the original TSV row number as well
         for t in (old_aa_table, new_aa_table, old_codon_table, new_codon_table):
-            print("Debug: len(%s)=%d" % (t, len(t)))
+            print(f"Debug: len({t})={len(t)}")
 
     if myoptions.debug:
         if myoptions.aminoacids:
@@ -902,7 +902,7 @@ def main():
     plt.rcParams["ps.useafm"] = True
     #plt.text(2, 0.65, 'Version %s' % version)
 
-    print("Info: matplotlib.get_backend=%s" % matplotlib.get_backend())
+    print(f"Info: matplotlib.get_backend={matplotlib.get_backend()}")
 
     _figure, (_ax1, _ax3, _ax4) = plt.subplots(1, 3, figsize=(16, 9), width_ratios=[55, 1, 6]) # default was 6.4 x 4.8 in and 100dpi
 
@@ -949,17 +949,17 @@ def main():
     _ax1.xaxis.set_major_locator(ticker.MultipleLocator(myoptions.xaxis_major_ticks_spacing))
     _ax1.xaxis.set_minor_locator(ticker.MultipleLocator(myoptions.xaxis_minor_ticks_spacing))
 
-    if myoptions.debug: print("Debug: X-axis1: %d-%d" % (_xmin, _xmax))
+    if myoptions.debug: print(f"Debug: X-axis1: {_xmin}-{_xmax}")
 
     # add a barchart with relative changes
     #print(str(unique_aa_positions)) # these are one-based positions
-    #print("Length of unique_aa_positions is %d" % len(unique_aa_positions))
+    #print(f"Length of unique_aa_positions is {len(unique_aa_positions)}")
     if myoptions.aminoacids:
         total_frequencies = np.sum(np.abs(new_aa_table), axis=0)
     else:
         total_frequencies = np.sum(np.abs(new_codon_table), axis=0)
 
-    if myoptions.debug: print("Debug: len(total_frequencies)=%d, total_frequencies=%s" % (len(total_frequencies), str(total_frequencies.to_list())))
+    if myoptions.debug: print(f"Debug: len(total_frequencies)={len(total_frequencies)}, total_frequencies={str(total_frequencies.to_list())}")
 
     # BUG: we cannot change X-axis xticks on one X-axis without resetting xmin and xmax for the twinx plot
     #     It makes no differenceif we use "ax2 = ax.twinx()" or if we use "fig, (ax, ax2) = plt.subplots(1, 2, sharex=True)"
@@ -1021,7 +1021,7 @@ def main():
     else:
         _table = new_codon_table
     if myoptions.debug:
-        print("Debug: Printing the _table: %s" % str(_table))
+        print(f"Debug: Printing the _table: {str(_table)}")
         # the _observed_codon_or_aa contains e.g. ANA, ANN, etc.
 
     if myoptions.debug:
@@ -1061,9 +1061,9 @@ def main():
     #    for j, _aa_position in enumerate(_table.columns): # causes off-by-one error
 
     _real_aa_positions = list(_table.columns)
-    if myoptions.debug: print("Debug: _real_aa_positions=%s" % str(_real_aa_positions))
+    if myoptions.debug: print(f"Debug: _real_aa_positions={str(_real_aa_positions)}")
     #for row in _table.itertuples(index=True):
-    #    print("Info: len(row)=%d; row=%s" % (len(row), str(row)))
+    #    print(f"Info: len(row)={len(row)}; row={str(row)}")
     #    _some_codon_or_aa = row['position']
     #    for _index, frequency in enumerate(row[1:]):
 
@@ -1080,11 +1080,11 @@ def main():
     if myoptions.aminoacids:
         _outfilename = _outfile_prefix + '.aa.frequencies.colors.tsv'
         _color_file = open(_outfilename, 'w')
-        print("Info: Writing into %s" % _outfilename)
+        print(f"Info: Writing into {_outfilename}")
     else:
         _outfilename = _outfile_prefix + '.codon.frequencies.colors.tsv'
         _color_file = open(_outfilename, 'w')
-        print("Info: Writing into %s" % _outfilename)
+        print(f"Info: Writing into {_outfilename}")
 
     _used_colors = set()
     _cmap, _colors = get_colormap(myoptions.colormap)
@@ -1110,7 +1110,7 @@ def main():
     _matrix_values = set() # unique matrix values collected for the data points
     for i, _some_codon_or_aa in enumerate(_table.index): # introduces off-by-one error, iterate over amino_acids which were used as the index using 'pd.DataFrame(Decimal(0), index=amino_acids, columns=unique_aa_positions)'
         for j, _aa_position in enumerate(_table.columns): # introduces off-by-one error
-            if myoptions.debug: print("Debug: i: %s, j: %s, _aa_position column: %s" % (str(i), str(j), str(_aa_position)))
+            if myoptions.debug: print(f"Debug: i: {str(i)}, j: {str(j)}, _aa_position column: {str(_aa_position)}")
             _real_aa_position = _real_aa_positions[j]
             if _real_aa_position != _aa_position:
                 raise ValueError("Values _aa_position=%s and _real_aa_position=%s should be equal" % (_aa_position, _real_aa_position)) # both approaches should work
@@ -1119,7 +1119,7 @@ def main():
                 # Debug0: _aa_position=351, _some_codon_or_aa=C, frequency=0.00109599999999999996903865540076594697893597185611724853515625
                 # 7-SA-AA.SAPA@SA-Lib_F+SA-Lib_R.None+None.Wuhan.gofasta.frequencies.tsv
                 # 351	Y	C	0.001096	TAT	TGT
-                print("Debug0: _aa_position=%s, _some_codon_or_aa=%s, frequency=%s" % (_aa_position, _some_codon_or_aa, str(frequency)))
+                print(f"Debug0: _aa_position={_aa_position}, _some_codon_or_aa={_some_codon_or_aa}, frequency={str(frequency)}")
             try:
                 _old_codon = df.loc[df['position'] == _aa_position]['original_codon'].to_list()[0] # pick any/first row to infer original_codon
             except IndexError:
@@ -1127,7 +1127,7 @@ def main():
                 # H4/7-OM-EE.IOME@OM-Lib_F+OM-Lib_R.None+None.Wuhan.gofasta.frequencies.tsv at position 341
                 # raise IndexError("Cannot determine original codon for position %s" % _aa_position)
                 if frequency and myoptions.debug:
-                    print("Debug0b: _aa_position=%s, _some_codon_or_aa=%s, frequency=%s" % (_aa_position, _some_codon_or_aa, str(frequency)))
+                    print(f"Debug0b: _aa_position={_aa_position}, _some_codon_or_aa={_some_codon_or_aa}, frequency={str(frequency)}")
                 if _aa_position not in _warn_once:
                     sys.stderr.write("Warning: Cannot determine original codon for position %s, seems missing from input TSV or cannot split list %s%s" % (_aa_position, str(df.loc[df['position'] == _aa_position]['original_codon'].to_list()), os.linesep))
                     _warn_once.append(_aa_position)
@@ -1143,7 +1143,7 @@ def main():
                     #  we always pass-down the original codon, even when running in aa mode which confuses the code in adjust_size_and_color()
                     _score, size, _color = adjust_size_and_color(Decimal(frequency), _old_codon, _some_codon_or_aa, _matrix, _min_theoretical_score, _max_theoretical_score, _cmap) # the _color was derived via np.linspace mapping to range(0,1)
                     _matrix_values.add(_score) # update the set() with unique score values actually present in the dataset
-                if myoptions.debug: print("Debug: Real AA position: %s, observed codon: %s, frequency: %s, size: %s, color: %s" % (_aa_position, _some_codon_or_aa, frequency, size, _color))
+                if myoptions.debug: print(f"Debug: Real AA position: {_aa_position}, observed codon: {_some_codon_or_aa}, frequency: {frequency}, size: {size}, color: {_color}")
                 # for bokeh plots use _some_codon_or_aa index
                 # TODO: try to emphasize differences by interpreting negative and positive matrix values, but these are later ignored anyway
                 if myoptions.aminoacids:
@@ -1167,7 +1167,7 @@ def main():
                 size, _color = 0, 'black' # if we force the size to 0.00000000009 the invisible dots are drawn in matplotlib figs
                 # for matplotlib figures use i index
                 _dots.append((_aa_position, i, size, 'dot', _color, 0.5, _score))
-                if myoptions.debug: print("Debug: Invisible dot. Real AA position: %s, observed codon: %s, frequency: %s, size: %s, color: %s" % (_aa_position, _some_codon_or_aa, frequency, size, _color))
+                if myoptions.debug: print(f"Debug: Invisible dot. Real AA position: {_aa_position}, observed codon: {_some_codon_or_aa}, frequency: {frequency}, size: {size}, color: {_color}")
             # df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon']
 
 
@@ -1178,7 +1178,7 @@ def main():
                 try:
                     old_amino_acid = df.loc[df['position'] == _aa_position]['original_aa'].to_list()[0] # this sometimes fails to slice 0 element
                 except IndexError:
-                    print("Error: Cannot slice %s" % str(df.loc[df['position'] == _aa_position]['original_aa'].to_list()))
+                    print(f"Error: Cannot slice {str(df.loc[df['position'] == _aa_position]['original_aa'].to_list())}")
                     old_amino_acid = df.loc[df['position'] == _aa_position]['original_aa'].to_list()[0]
 
                 new_codons = df.loc[(df['position'] == _aa_position) & (df['mutant_aa'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['mutant_codon'].to_list()
@@ -1238,8 +1238,8 @@ def main():
 
                     if myoptions.debug:
                         # print relevant lines from df matching a particular codon column
-                        print("Info: %d aa residues observed in position %d:%s %s" % (len(df.loc[df['position'] == _aa_position]['position']), _aa_position, os.linesep, str(df.loc[df['position'] == _aa_position][0:])))
-                    #print("Info: Looking for new_codon=%s" % _some_codon_or_aa)
+                        print(f"Info: {len(df.loc[df['position'] == _aa_position]['position'])} aa residues observed in position {_aa_position}:{os.linesep} {str(df.loc[df['position'] == _aa_position][0:])}")
+                    #print(f"Info: Looking for new_codon={_some_codon_or_aa}")
                     try:
                         new_amino_acid = df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)]['mutant_aa'].to_list()[0]
                     except:
@@ -1374,14 +1374,14 @@ def main():
     print("Info: The following values were collected from matrix %s based on the actual data (some values from matrix might not be needed for your data, hence are not listed here): %s . Range spans %d values (before symmetrization)." % (myoptions.matrix, str(sorted(_matrix_values)), abs(min(_matrix_values)) + 1 + max(_matrix_values)))
     _merged_lists = _circles # _markers + _dots # do not add _markers as they are just the central dots inside circles
     if myoptions.debug:
-        print("Debug: %d _used_colors used: %s" % (len(_used_colors), str(_used_colors)))
+        print(f"Debug: {len(_used_colors)} _used_colors used: {str(_used_colors)}")
 
     if myoptions.debug:
-        print("Debug: %d _labels=%s" % (len(_labels), str(_labels)))
-        print("Debug: %d _html_labels=%s" % (len(_html_labels), str(_html_labels)))
-        print("Debug: %d _circles=%s" % (len(_circles), str(_circles)))
-        print("Debug: %d _markers=%s" % (len(_markers), str(_markers)))
-        print("Debug: %d _dots=%s" % (len(_dots), str(_dots)))
+        print(f"Debug: {len(_labels)} _labels={str(_labels)}")
+        print(f"Debug: {len(_html_labels)} _html_labels={str(_html_labels)}")
+        print(f"Debug: {len(_circles)} _circles={str(_circles)}")
+        print(f"Debug: {len(_markers)} _markers={str(_markers)}")
+        print(f"Debug: {len(_dots)} _dots={str(_dots)}")
 
 
     # https://docs.bokeh.org/en/latest/docs/user_guide/interaction/tools.html#ug-interaction-tools-hover-tool
@@ -1450,7 +1450,7 @@ def main():
         # codons sorted by amino acids
         p = bokeh.plotting.figure(x_range=(_xmin, _xmax), y_range=[pairs[0] + ' (' + pairs[1] + ')' for pairs in final_sorted_whitelist], tooltips=TOOLTIPS, title=title_data, x_axis_label=_xlabel, y_axis_label='Introduced codon changes', x_minor_ticks=10, height=1200, width=2000, sizing_mode='stretch_width') # width=5000, height=5000)
 
-    # print("ticks=%s" % str(_ticks))
+    # print(f"ticks={str(_ticks)}")
     # p.xaxis.ticker = _x_ticks
     #
     # axis_label, axis_label_align, axis_label_orientation, axis_label_standoff, axis_label_text_align, axis_label_text_alpha, axis_label_text_baseline, axis_label_text_color, axis_label_text_font, axis_label_text_font_size, axis_label_text_font_style, axis_label_text_line_height, axis_label_text_outline_color, axis_line_alpha, axis_line_cap, axis_line_color, axis_line_dash, axis_line_dash_offset, axis_line_join, axis_line_width, background_fill_alpha, background_fill_color, bounds, context_menu, coordinates, css_classes, css_variables, dimension, face, fixed_location, formatter, group, js_event_callbacks, js_property_callbacks, level, major_label_orientation, major_label_overrides, major_label_policy, major_label_standoff, major_label_text_align, major_label_text_alpha, major_label_text_baseline, major_label_text_color, major_label_text_font, major_label_text_font_size, major_label_text_font_style, major_label_text_line_height, major_label_text_outline_color, major_tick_in, major_tick_line_alpha, major_tick_line_cap, major_tick_line_color, major_tick_line_dash, major_tick_line_dash_offset, major_tick_line_join, major_tick_line_width, major_tick_out, minor_tick_in, minor_tick_line_alpha, minor_tick_line_cap, minor_tick_line_color, minor_tick_line_dash, minor_tick_line_dash_offset, minor_tick_line_join, minor_tick_line_width, minor_tick_out, name, propagate_hover, styles, stylesheets, subscribed_events, syncable, tags, ticker, visible, x_range_name or y_range_name
@@ -1472,7 +1472,7 @@ def main():
     p.text(x='x', y='y', text='mutation', text_color='c', text_font_size='10px', text_font_style='bold', source=mysource)
     p.title.align = 'center'
     p.title.text_font_size = '14pt'
-    print("Info: Writing into %s" % _outfile_prefix + '.html')
+    print(f"Info: Writing into {_outfile_prefix + '.html'}")
     bokeh.plotting.output_file(_outfile_prefix + '.html')
     bokeh.plotting.show(p)
 
@@ -1480,7 +1480,7 @@ def main():
     #Some known testing position
     #index_position_in_TSV = df.loc[df['position'] == 145][0].to_list()[0]
     #old_amino_acid =  df.loc[df['position'] == 145][1].to_list()[0]
-    #print("Original AA at position %s was %s" % (index_position_in_TSV, old_amino_acid))
+    #print(f"Original AA at position {index_position_in_TSV} was {old_amino_acid}")
 
     _norm = matplotlib.colors.BoundaryNorm(np.arange(-19, 19, 1), _cmap.N) # to account for BoundaryNorm choosing based on the lower bound
     _mpl_scatterplot = _ax1.scatter([x[0] for x in _circles5000], [x[1] for x in _circles5000], s=[x[2] for x in _circles5000], alpha=0.5, c=[x[6] for x in _circles5000], cmap=_cmap, norm=_norm)
@@ -1500,7 +1500,7 @@ def main():
             #old_amino_acid = old_aa_table.index[ypos]
             new_amino_acid = new_aa_table.index[ypos]
             position_in_protein = new_aa_table.columns[xpos+1-myoptions.offset-_calculated_aa_offset] # undo the off-by-one error removal attempt on the ax.scatter line
-            #print("Position: %s" % position_in_protein)
+            #print(f"Position: {position_in_protein}")
             frequency = new_aa_table.at[new_amino_acid, position_in_protein]
             frequencies = [Decimal(x) for x in df.loc[(df['position'] == position_in_protein) & (df['mutant_aa'] == new_amino_acid) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)][myoptions.column_with_frequencies].to_list()] # convert strings to Decimal values
             old_amino_acid = df.loc[df['position'] == position_in_protein]['original_aa'].to_list()[0]
@@ -1533,12 +1533,12 @@ def main():
         @cursor.connect("add")
         def on_add(sel):
             ypos, xpos = int(sel.target[1]), int(sel.target[0])
-            print("Info: xpos=%s, ypos=%s, _calculated_aa_offset=%s" % (xpos, ypos, _calculated_aa_offset))
+            print(f"Info: xpos={xpos}, ypos={ypos}, _calculated_aa_offset={_calculated_aa_offset}")
             new_codon = new_codon_table.index[ypos]
             #_old_codon = old_codon_table.index[ypos]
             position_in_protein = new_codon_table.columns[xpos+1-myoptions.offset-_calculated_aa_offset]
             frequency = new_codon_table.at[new_codon, position_in_protein]
-            print("Info: position_in_protein=%s, frequency=%s" % (position_in_protein, frequency))
+            print(f"Info: position_in_protein={position_in_protein}, frequency={frequency}")
             old_codon = df.loc[df['position'] == position_in_protein]['original_codon'].to_list()[0]
             old_amino_acid = df.loc[df['position'] == position_in_protein]['original_aa'].to_list()[0]
             #new_codon = df.loc[(df['position'] == position_in_protein)][xpos-myoptions.offset].to_list()['mutant_codon']
@@ -1546,8 +1546,8 @@ def main():
             _observed_codon_count_sum = sum(_observed_codon_counts)
             _total_codons_per_site = df.loc[(df['position'] == position_in_protein) & (df['mutant_codon'] == new_codon) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['total_codons_per_site'].to_list()[0]
             # print relevant lines from df matching a particular codon column
-            print("Info: %d aa residues observed in position %d:%s %s" % (len(df.loc[df['position'] == position_in_protein]['position']), position_in_protein, os.linesep, str(df.loc[df['position'] == position_in_protein][0:])))
-            #print("Info: Looking for new_codon=%s" % new_codon)
+            print(f"Info: {len(df.loc[df['position'] == position_in_protein]['position'])} aa residues observed in position {position_in_protein}:{os.linesep} {str(df.loc[df['position'] == position_in_protein][0:])}")
+            #print(f"Info: Looking for new_codon={new_codon}")
             try:
                 new_amino_acid = df.loc[(df['position'] == position_in_protein) & (df['mutant_codon'] == new_codon)]['mutant_aa'].to_list()[0]
             except:
@@ -1573,8 +1573,8 @@ def main():
             else:
                 sel.annotation.set_text(f"Position: {position_in_protein}\nOriginal Codon: {old_codon} ({old_amino_acid})\nNew Codon: {new_codon} ({new_amino_acid})\n{myoptions.matrix} score: {_score}\nFrequency: {frequency:.6f}\nObserved codon count: {_observed_codon_count}\nTotal codons per site: {_total_codons_per_site}")
             if myoptions.debug:
-                print("Debug: final_sorted_whitelist=%s" % str(final_sorted_whitelist))
-                print("Debug: codons_whitelist2=%s" % str(codons_whitelist2))
+                print(f"Debug: final_sorted_whitelist={str(final_sorted_whitelist)}")
+                print(f"Debug: codons_whitelist2={str(codons_whitelist2)}")
 
     # draw legend
     handles, labels = [], []
@@ -1591,7 +1591,7 @@ def main():
         else:
             _score, _size, _color = adjust_size_and_color(Decimal(_freq), _junk, _junk, _matrix, _min_theoretical_score, _max_theoretical_score, _cmap)
             # _size = _size * 5000
-        # print("Info: Freq is %s" % _freq.__round__(3))
+        # print(f"Info: Freq is {_freq.__round__(3)}")
         handle = _ax2.scatter(_size, - 400 + _freq, s=float(_freq * 5000), color='gray', alpha=0.5, label=f'Frequency {_freq:.1%}')
         label = str(_freq)
         handles.append(handle)
@@ -1631,7 +1631,7 @@ def main():
 #        else:
 #            _score, _size, _color = adjust_size_and_color(Decimal(_freq), _junk, _junk, _matrix, _min_theoretical_score, _max_theoretical_score, _cmap)
 #            # _size = _size * 5000
-#        # print("Info: Freq is %s" % _freq.__round__(3))
+#        # print(f"Info: Freq is {_freq.__round__(3)}")
 #        handle = _ax5.scatter(400 + _freq, _size, s=float(_freq * 5000), color='magenta', alpha=0.6, label=f'Frequency {_freq:.3f}')
 #        label = str(_freq)
 #        handles.append(handle)
@@ -1648,7 +1648,7 @@ def main():
 #    #_figure_legend.legend(bbox_to_anchor=(0.15, 0.15), loc='lower left') #, bbox_transform=_figure_legend.transFigure)
 #    # supported values are 'best', 'upper right', 'upper left', 'lower left', 'lower right', 'right', 'center left', 'center right', 'lower center', 'upper center', 'center'
 #    _ax5.legend(loc='center left', bbox_to_anchor=(1.05, 0.5), labelspacing=3, frameon=False, handletextpad=1.5)
-#    print("Info: Writing into %s" % _outfile_prefix + '.legend.png')
+#    print(f"Info: Writing into {_outfile_prefix + '.legend.png'}")
 #    _figure_legend.savefig(_outfile_prefix + '.legend.png', dpi=myoptions.dpi)
 
 
@@ -1671,7 +1671,7 @@ def main():
 #            else:
 #                _score, _size, _color = adjust_size_and_color(Decimal(_freq), _junk, _junk, _matrix, _min_theoretical_score, _max_theoretical_score, _cmap)
 #                # _size = _size * 5000
-#            # print("Info: Freq is %s" % _freq.__round__(3))
+#            # print(f"Info: Freq is {_freq.__round__(3)}")
 #            handle = _ax6.scatter(400 + _freq, _size, s=float(_freq * 5000), color='magenta', alpha=0.6, label=f'Frequency {_freq:.3f}')
 #            label = str(_freq)
 #            handles.append(handle)
@@ -1683,9 +1683,9 @@ def main():
 #        plt.xticks(rotation=90)
 #
 #        _colorbar = _figure_colorbar.colorbar(plt.cm.ScalarMappable(norm=matplotlib.colors.Normalize(- _half_size, _half_size, _half_size * 2 + 1), cmap=_cmap), ax=_ax6, label="%s values" % myoptions.matrix, location='left', pad=0.15, alpha=0.5)
-#        print("Info: Writing into %s" % _outfile_prefix + '.colorbar.png')
+#        print(f"Info: Writing into {_outfile_prefix + '.colorbar.png'}")
 #        _figure_colorbar.savefig(_outfile_prefix + '.colorbar.png', dpi=myoptions.dpi)
-#        print("Info: Writing into %s" % _outfile_prefix + '.colorbar.pdf')
+#        print(f"Info: Writing into {_outfile_prefix + '.colorbar.pdf'}")
 #        _figure_colorbar.savefig(_outfile_prefix + '.colorbar.pdf', dpi=myoptions.dpi)
 #        plt.clf()
 
