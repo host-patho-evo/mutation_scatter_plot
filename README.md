@@ -60,7 +60,7 @@ pip install mplcursors
 pip install bokeh
 ```
 
-Later you can re-enter this virtual environment by `. ~/.virtualenvs/mutation_scatter_plot/bin/activate` command.
+Later you can re-enter this virtual environment by `. ~/.virtualenvs/mutation_scatter_plot/bin/activate` command. To get back you can call `. ~/.virtualenvs/mutation_scatter_plot/bin/deactivate` command.
 
 To yield interactive figures one of the following backends must be installed
 
