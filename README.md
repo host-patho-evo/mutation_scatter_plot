@@ -3,16 +3,16 @@
 The software code and data contained in this folder were used during the work published in **In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence** publication by Shoshany et al. (submitted, see [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)). Original input data, calculated frequencies in TSV files and also the ready-made figures in JPG/PNG/PDF/HTML+Javascript can be found at [DOI:10.5281/zenodo.17252728](https://zenodo.org/records/17252728) meanwhile. One does not need to install these two utilities to study the results. However, we provide our code to facilitate similar studies of other datasets.
 
 We developed two standalone programs:
-`calculate_codon_frequencies.py` takes a multiple sequence alignment file in a FASTA format (possibly padded with `-` as gaps) and calculates frequencies of the codons. It parses a reference nucleotide sequence of the respective protein to stay in the reading frame (only reading frame +1 is supported). Therefore it is best to map sequencing reads (notably including amplification primer sequences to anchor the alignment ends perfectly) to a complete open reading frame (ORF) sequence encoding the protein (incl. START and STOP codons) although only part of it may have been studied. When this is followed the nucleotide or amino acid positions can be easily calculated from the padding with dashes (`-`) in a multi-FASTA 2-line file (input multiple-sequence alignment file). Otherwise the program allows to specify an arbitrary offset (to be added to the output codon position values) to output native coordinates despite short sequence provided. One can also specify some narrow regions (multiples of three) so that not all columns are to be inspected and codon frequencies calculated.
+`calculate_codon_frequencies` takes a multiple sequence alignment file in a FASTA format (possibly padded with `-` as gaps) and calculates frequencies of the codons. It parses a reference nucleotide sequence of the respective protein to stay in the reading frame (only reading frame +1 is supported). Therefore it is best to map sequencing reads (notably including amplification primer sequences to anchor the alignment ends perfectly) to a complete open reading frame (ORF) sequence encoding the protein (incl. START and STOP codons) although only part of it may have been studied. When this is followed the nucleotide or amino acid positions can be easily calculated from the padding with dashes (`-`) in a multi-FASTA 2-line file (input multiple-sequence alignment file). Otherwise the program allows to specify an arbitrary offset (to be added to the output codon position values) to output native coordinates despite short sequence provided. One can also specify some narrow regions (multiples of three) so that not all columns are to be inspected and codon frequencies calculated.
 
-`mutation_scatter_plot.py` when run on a graphical terminal opens an interactive matplotlib window with the figures. One can use computer mouse to `hover()` the bubbles to see detailed annotation. After closing the interactive window it also outputs files in JPG, PNG and PDF format and finally also JSON and an interactive HTML+javascript output files are created. One can disable the interactive matplotlib window being raised by adjusting the `MPLBACKEND` environment variable (read further below).
+`mutation_scatter_plot` when run on a graphical terminal opens an interactive matplotlib window with the figures. One can use computer mouse to `hover()` the bubbles to see detailed annotation. After closing the interactive window it also outputs files in JPG, PNG and PDF format and finally also JSON and an interactive HTML+javascript output files are created. One can disable the interactive matplotlib window being raised by adjusting the `MPLBACKEND` environment variable (read further below).
 
 Interactive figures can be visualized and individual frequencies of mutations inspected using python with [matplotlib](https://matplotlib.org/) and [mplcursors](https://pypi.org/project/mplcursors/) installed and concurrently, interactive HTML files are rendered thanks to [Bokeh](https://bokeh.org/).
 
 
 ## System requirements
 
-One does not really need to install the two `python3`-based programs but their standard python dependencies must be available on the execution host. Any `python-3.10` or never will work fine. We use python-3.11 and 3.12. Provided `blosum` and `Bokeh` packages are not included in standard Debian packages we recommended to install them via pip` (see A.2 route below) or `conda` (see A.3 route below) into a `python3`-based virtual environment.
+Any `python-3.10` or newer will work fine. We use python-3.11 and 3.12.
 
 We developed the software using the following versions:
 ```
@@ -26,43 +26,28 @@ We developed the software using the following versions:
 >=bokeh-3.7.2
 ```
 
-We tested these two package management implementations providing same functionality:
-```
->=conda-24.11.3
->=virtualenv-20.25.1
-```
+**Installation**
 
-**Installation of dependencies**
+The package is installed with a single command that handles all dependencies automatically. Follow either A.1 (pip) or A.2 (conda) route.
 
-You can copy&paste the commands shown below so the installation of the requirements should take few dozens of seconds. Follow either A.2 or A.3 route as they are the simplest. If you are one Debian-based system you can follow a mix of A.1 but then continue with either A.2 or A.3 installation procedure to install the missing packages.
+After installation the following commands are available on your `PATH`: `mutation_scatter_plot`, `calculate_codon_frequencies`, `count_motifs_in_sequences`, `alignment2dots`, and `split_fasta_entries_by_lengths`.
 
-**A.1 Install some of the necessary python tools using apt on a Debian-based Linux host**
-```
-apt-get install python3-biopython
-apt-get install python3-pandas
-apt-get install python3-mplcursors
-```
+The top-level `scripts/` directory contains shell helper scripts (`render-figures.sh`, `per_residue_frequencies.sh`, `create_per_residue_tables.sh`, `split_fasta_entries_by_lengths.sh`) that are **not** installed by `pip install .` — they are provided as reference workflows and must be run directly from the `scripts/` directory or copied manually to a location on your `PATH`.
 
-Further you need to install [blosum](https://github.com/not-a-feature/blosum) and [Bokeh](https://docs.bokeh.org/en/latest/docs/first_steps.html#first-steps-installing) packages via either `pip` (ideally into a virtual environment) or `conda` (follow either of the following procedures).
-
-**A.2 Install all necessary python tools using pip**
+**A.1 Install using pip into a virtual environment**
 
 ```
 cd $HOME
 mkdir -p .virtualenvs && cd .virtualenvs
 virtualenv mutation_scatter_plot
-. ~/.virtualenv/mutation_scatter_plot/bin/activate
-pip install biopython
-pip install blosum
-pip install numpy
-pip install pandas
-pip install mplcursors
-pip install bokeh
+. ~/.virtualenvs/mutation_scatter_plot/bin/activate
+cd /path/to/mutation_scatter_plot   # directory containing pyproject.toml
+pip install .
 ```
 
-Later you can re-enter this virtual environment by `. ~/.virtualenvs/mutation_scatter_plot/bin/activate` command. To get back you can call `. ~/.virtualenvs/mutation_scatter_plot/bin/deactivate` command.
+Later you can re-enter this virtual environment by `. ~/.virtualenvs/mutation_scatter_plot/bin/activate`. To leave it call `deactivate`.
 
-To yield interactive figures one of the following backends must be installed
+To yield interactive matplotlib figures one of the following backends must also be installed:
 
 ```
 pip install wxpython
@@ -72,39 +57,27 @@ pip install pycairo
 pip install cairocffi
 ```
 
-**A.3 Install all necessary python tools using conda**
+**A.2 Install using conda**
 
-Conda creates its own virtual environment so 
 ```
 conda create -n mutation_scatter_plot
 conda activate mutation_scatter_plot
-conda install biopython
-conda install blosum
-conda install numpy
-conda install pandas
-conda install mplcursors
-conda install bokeh
+cd /path/to/mutation_scatter_plot   # directory containing pyproject.toml
+pip install .
 ```
 
-To yield interactive figures one of the following backends must be installed/enabled in your matplotlib. Just test which `MPLBACKEND` value works for you best. Most likely some of these backends are already enabled on your system. Matplotlib will pick any available automatically. For the wxagg backend probably `wxpython` must be installed. Most users will not need to set this variable and force the switch to a non-default backend. But just in case ...
+To yield interactive figures, one of the matplotlib backends listed above must also be available. For the wxagg backend `wxpython` is needed:
 
 ```
 conda install wxpython
 ```
 
-You can leave the conda environment by `conda deactivate` command.
-
-Later you can re-enter this environment by `conda activate mutation_scatter_plot` command.
+You can leave the conda environment by `conda deactivate` and re-enter it later with `conda activate mutation_scatter_plot`.
 
 
 ## Usage
 
-Download the release which works with vanilla biopython:
-
-```
-wget https://github.com/host-patho-evo/mutation_scatter_plot/archive/refs/tags/v0.2.zip
-unzip v0.2.zip
-```
+After installation via `pip install .` both commands are available directly on your `PATH`:
 
 The mplcursors `hover()` works under the following backends. Pick just a single command from the following:
 
@@ -127,30 +100,30 @@ To disable interactive matplotlib figures raised on your X11/Wayland display (in
 export MPLBACKEND=agg
 ```
 
-Below we explain what happens further upon the execution. Not only there is helpful information reported on STDOUT but also a web browser is opened (or a TAB in an existing browser is opened with the HTML+Javascript interactivity) but also an interactive Matplotlib window is opened. Once the Matplotliob window is closed the `mutation_scatter_plot.py` can finish. In the next paragraphs we describe some of these steps in more detail.
+Below we explain what happens further upon the execution. Not only there is helpful information reported on STDOUT but also a web browser is opened (or a TAB in an existing browser is opened with the HTML+Javascript interactivity) but also an interactive Matplotlib window is opened. Once the Matplotliob window is closed the `mutation_scatter_plot` can finish. In the next paragraphs we describe some of these steps in more detail.
 
 **Simple Testcase to calculate codon frequencies and to render the figures**
 
 One can calculate the codon frequencies from a provided FASTA input file. The sequence must be in frame +1. In version 0.1 the padding dashes `-` are ignored and the software keeps fetches next() nucleotides as long until there are three nucleotides representing the codon to be translated. In the `main` branch there is now a version which requires the inut sequence to be fully aligned to codons. 
 
 ```
-python3 calculate_codon_frequencies.py --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/inputs/test.fasta \
+calculate_codon_frequencies --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/inputs/test.fasta \
     --outfile-prefix=tests/outputs/test.frequencies --min_start=1 --max_stop=3873 --print-unchanged-sites --x-after-count --padded-reference
 
 prefix='tests/outputs/test.frequencies'
-mutation_scatter_plot.py --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".aa.frequencies.png --aminoacids
-mutation_scatter_plot.py --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".codon.frequencies.png
+mutation_scatter_plot --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".aa.frequencies.png --aminoacids
+mutation_scatter_plot --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".codon.frequencies.png
 ```
 
 **More complex testing**
 ```
-calculate_codon_frequencies.py --reference-infile=MN908947.3_S.fasta --alignment-file=test5.amplicons.clean.counts.filtered.fasta --outfile-prefix=test5.amplicons.frequencies --left-reference-offset=1288 --right-reference-offset=1584 --min_start=1288 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
+calculate_codon_frequencies --reference-infile=MN908947.3_S.fasta --alignment-file=test5.amplicons.clean.counts.filtered.fasta --outfile-prefix=test5.amplicons.frequencies --left-reference-offset=1288 --right-reference-offset=1584 --min_start=1288 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
 
-calculate_codon_frequencies.py --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test6.amplicons.frequencies --left-reference-offset=1288 --right-reference-offset=1584 --min_start=1288 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
+calculate_codon_frequencies --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test6.amplicons.frequencies --left-reference-offset=1288 --right-reference-offset=1584 --min_start=1288 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
 
-calculate_codon_frequencies.py --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test7.amplicons.frequencies --left-reference-offset=1297 --right-reference-offset=1584 --min_start=1297 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
+calculate_codon_frequencies --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test7.amplicons.frequencies --left-reference-offset=1297 --right-reference-offset=1584 --min_start=1297 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
 
-calculate_codon_frequencies.py --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test8.amplicons.frequencies --print-unchanged-sites --x-after-count --padded-reference
+calculate_codon_frequencies --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test8.amplicons.frequencies --print-unchanged-sites --x-after-count --padded-reference
 
 diff -u -w tests/outputs/test5.amplicons.frequencies.tsv test5.amplicons.frequencies.tsv
 diff -u -w tests/outputs/test5.amplicons.frequencies.tsv test6.amplicons.frequencies.tsv # you should see some DELetion events for codons 430, 431, 432
@@ -170,28 +143,28 @@ unzip per_sample_observed_codon_frequencies.zip
 prefix='BA2-4th-round-of-sort__G6.BA2.WTref'
 mkdir -p data/outputs/aa/
 mkdir -p data/outputs/codon/
-mutation_scatter_plot.py --xmin 430 --xmax 528 --tsv data/intermediates/"$prefix".frequencies.tsv --outfile data/outputs/aa/"$prefix".aa.frequencies.png --aminoacids
-mutation_scatter_plot.py --xmin 430 --xmax 528 --tsv data/intermediates/"$prefix".frequencies.tsv --outfile data/outputs/codon/"$prefix".codon.frequencies.png
+mutation_scatter_plot --xmin 430 --xmax 528 --tsv data/intermediates/"$prefix".frequencies.tsv --outfile data/outputs/aa/"$prefix".aa.frequencies.png --aminoacids
+mutation_scatter_plot --xmin 430 --xmax 528 --tsv data/intermediates/"$prefix".frequencies.tsv --outfile data/outputs/codon/"$prefix".codon.frequencies.png
 ```
 
 We also provide a utility to count motifs in [per_sample_unique_sequences_in_FASTA.zip](https://zenodo.org/records/17252728/files/per_sample_unique_sequences_in_FASTA.zip?download=1)
 ```
 curl -o per_sample_unique_sequences_in_FASTA.zip "https://zenodo.org/records/17252728/files/per_sample_unique_sequences_in_FASTA.zip?download=1"
 unzip per_sample_unique_sequences_in_FASTA.zip
-count_motifs_in_sequences.py --infilename=data/intermediates/"$prefix".scores_above_84.fastp.amplicons.clean.prot.counts.fasta --motif=RPTY
+count_motifs_in_sequences --infilename=data/intermediates/"$prefix".scores_above_84.fastp.amplicons.clean.prot.counts.fasta --motif=RPTY
 ```
 
 ## Run times
 
-The runtime of `calculate_codon_frequencies.py` depends on the number of sequences in the input. To process ~350nt wide amplicon regions of ~200k sequences we needed several hours on a 2.3GHz machine (in a single thread). However, typicaly one can provide only unique sequences with their counts in the FASTA ID (for example `>100x` as the FASTA identifier) and then it takes just minutes to do all the processing. One can split the jobs into multiple chunks, for example into 3 codons per sub-analysis (9 nt wide windows). We have a script to merged them into a single TSV file. Also a script to report which sub-analyses are not yet available.
+The runtime of `calculate_codon_frequencies` depends on the number of sequences in the input. To process ~350nt wide amplicon regions of ~200k sequences we needed several hours on a 2.3GHz machine (in a single thread). However, typically one can provide only unique sequences with their counts in the FASTA ID (for example `>100x` as the FASTA identifier) and then it takes just minutes to do all the processing. One can split the jobs into multiple chunks, for example into 3 codons per sub-analysis (9 nt wide windows). We have a script to merge them into a single TSV file. Also a script to report which sub-analyses are not yet available.
 
-The runtime of `mutation_scatter_plot.py` is a few minutes per dataset when all figure types are to be rendered on a 2.3GHz machine (in a single thread).
+The runtime of `mutation_scatter_plot` is a few minutes per dataset when all figure types are to be rendered on a 2.3GHz machine (in a single thread).
 
 
 
 ## Example static output images (without interactive features)
 
-The following were rendered by `mutation_scatter_plot.py`:
+The following were rendered by `mutation_scatter_plot`:
 ![BA2-4th-round-of-sort__G6.BA2.WTref.aa.frequencies.jpg](data/outputs/aa/jpg/BA2-4th-round-of-sort__G6.BA2.WTref.aa.frequencies.jpg)
 ![BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.jpg](data/outputs/codon/jpg/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.jpg)
 
@@ -199,7 +172,7 @@ All figures we prepared for our new publication are at [https://host-patho-evo.g
 
 ## Example of a dynamic output of matplotlib window (with interactive features)
 
-Once the interactive window is raised by matplotlib user can point the computer mouse to any circular object and a bubble with more detailed annotation is raised. Once the window is closed `mutation_scatter_plot.py` can continue and finish.
+Once the interactive window is raised by matplotlib user can point the computer mouse to any circular object and a bubble with more detailed annotation is raised. Once the window is closed `mutation_scatter_plot` can continue and finish.
 
 ![BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.matplotlib.screenshot.aa.F490S.jpg](images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.matplotlib.screenshot.aa.F490S.jpg)
 ![BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.matplotlib.screenshot.aa.N501Y.jpg](images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.matplotlib.screenshot.aa.N501Y.jpg)
@@ -218,7 +191,7 @@ Once the interactive window is raised by matplotlib user can point the computer 
 
 ## Example of a dynamic output HTML pages with images (with interactive features)
 
-The following were rendered by `mutation_scatter_plot.py`. They are not so visually appealing like the figures from matplotlib but they work in any www browser. The following figure is from Firefox.
+The following were rendered by `mutation_scatter_plot`. They are not so visually appealing like the figures from matplotlib but they work in any www browser. The following figure is from Firefox.
 
 ![BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.firefox.screenshot.aa.F490S.jpg](images/BA2-4th-round-of-sort__G6.BA2.WTref.gofasta.aa.firefox.screenshot.aa.F490S.jpg)
 ![spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.firefox.screenshot.codon.png](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.firefox.screenshot.codon.png)
@@ -231,12 +204,12 @@ Browse the live HTML with Javascript file contents at:
 
 ## Command line output
 
-Both `calculate_codon_frequencies.py` and `mutation_scatter_plot.py` output some helpful _Info:_ text on their STDOUT. One can also enable `--debug` option with debugging level.
+Both `calculate_codon_frequencies` and `mutation_scatter_plot` output some helpful _Info:_ text on their STDOUT. One can also enable `--debug` option with debugging level.
 
-When matplotlib raises its interactive image window and user points the mouse pointer some circular object in the chart (triggering the mouse `hover()` event) the `mutation_scatter_plot.py` writes on the STDOUT the values parsed for the codon or amino acid, for example:
+When matplotlib raises its interactive image window and user points the mouse pointer some circular object in the chart (triggering the mouse `hover()` event) the `mutation_scatter_plot` writes on the STDOUT the values parsed for the codon or amino acid, for example:
 
 ```
-$ mutation_scatter_plot.py --xmin 430 --xmax 528 --tsv  data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.frequencies.tsv --outfile /tmp/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.png 
+$ mutation_scatter_plot --xmin 430 --xmax 528 --tsv  data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.frequencies.tsv --outfile /tmp/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.png 
 Info: Using BLOSUM62 now. Minimum score is -4, maximum score is 11
 Info: Parsing input file data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.frequencies.tsv
 Info: Autodetected old TSV file format without a header in data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.frequencies.tsv, assigning default column names
@@ -324,8 +297,8 @@ Info: Writing into /tmp/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.le
 ## Command line arguments
 
 ```
-$ python calculate_codon_frequencies.py --help
-Usage: calculate_codon_frequencies.py [options]
+$ calculate_codon_frequencies --help
+Usage: calculate_codon_frequencies [options]
 
 Options:
   -h, --help            show this help message and exit
@@ -400,8 +373,8 @@ $
 ```
 
 ```
-$ python mutation_scatter_plot.py --help
-Usage: mutation_scatter_plot.py [options]
+$ mutation_scatter_plot --help
+Usage: mutation_scatter_plot [options]
 
 Options:
   --version             show program's version number and exit
@@ -471,7 +444,7 @@ $
 
 ## Version 0.2 supports DELetions and INSertions relative to the (padded) reference sequence
 
-We further improved the software to be able to report DELetions and INSertions appearing in sample data (multiple-sequence alignment). The `calculate_codon_frequencies.py` now also reports total counts of reads covering each codon (per-site coverage) in additional columns 8 and 9 of the TSV output file. The more detailed file can be parsed by `mutation_scatter_plot.py`. Another significant change was the requirement for padded alignment at input which must have exactly same length as the reference (which might need to be padded as well). To observe DELetions in the sample sequence one does not need to adjust the reference sequence, because in the aligned sample sequence will be just `---` for a DELeted codon. Obviously, if an INSertion is to be reflected in the sample sequence, the reference sequence must be inflated by paddings. The reason for that is that we use a pairwise NCBI blastn to create the alignment and do not create a multiple-sequence alignment at all (the hints mentioning `gofasta` are now removed).
+We further improved the software to be able to report DELetions and INSertions appearing in sample data (multiple-sequence alignment). The `calculate_codon_frequencies` now also reports total counts of reads covering each codon (per-site coverage) in additional columns 8 and 9 of the TSV output file. The more detailed file can be parsed by `mutation_scatter_plot`. Another significant change was the requirement for padded alignment at input which must have exactly same length as the reference (which might need to be padded as well). To observe DELetions in the sample sequence one does not need to adjust the reference sequence, because in the aligned sample sequence will be just `---` for a DELeted codon. Obviously, if an INSertion is to be reflected in the sample sequence, the reference sequence must be inflated by paddings. The reason for that is that we use a pairwise NCBI blastn to create the alignment and do not create a multiple-sequence alignment at all (the hints mentioning `gofasta` are now removed).
 
 ![GISAID SARS-CoV-2 spikenuc1207 frequencies of mutations in S protein](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.aa.jpg)
 ![GISAID SARS-CoV-2 spikenuc1207 frequencies of mutations in S protein at aa position 501](images/spikenuc1207.native2ascii.no_junk.clean.mafft.frequencies.aa.jpg)
