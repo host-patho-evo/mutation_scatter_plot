@@ -872,7 +872,12 @@ def collect_scatter_data(
                             except (IndexError, ValueError, TypeError):
                                 _some_frequency = 0.00000000009
                             if _some_frequency != _frequency and (_some_frequency != 0.00000000009 and _frequency != 0):
-                                raise ValueError("Frequency new_codon_table.at[_some_codon_or_aa, _aa_position]=%s _some_codon_or_aa=%s, _aa_position=%s not same as df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0]=%s" % (_frequency, _some_codon_or_aa, _aa_position, _some_frequency))
+                                # 334	333	R	R	0.432432	AGG	AGA	16	37 # .frequencies.tsv
+                                # 338	333	INS	R	0.027027	---	AGA	1	37 # .frequencies.tsv
+                                # 344	333	INS	R	0.648649	---	AGA	24	37 # .frequencies.tsv
+                                #
+                                # 344	333	INS	R	0.648649	---	AGA	24	37 # .frequencies.unchanged_codons.tsv
+                                raise ValueError("Frequency new_codon_table.at[_some_codon_or_aa, _aa_position]=%s _some_codon_or_aa=%s, _aa_position=%s not same as df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0]=%s. Are multiple rows matching? We picked just the first one: df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()=%s for _old_codon=%s, _old_amino_acid=%s" % (_frequency, _some_codon_or_aa, _aa_position, _some_frequency, df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list(), _old_codon, _old_amino_acid))
 
                             if _old_amino_acid and not _frequency < myoptions.threshold and _size:
                                 _label_scores.append(_score)
@@ -1139,7 +1144,7 @@ def render_bokeh(
         label7=label_observed_codon_count_sum,
         label8=label_total_codons_per_site,
         label9=label_scores,
-        label10=[s[2] for s in circles_bokeh],
+        # label10=[s[2] for s in circles_bokeh],
         mutation=mutations,
     ))
 
@@ -1154,7 +1159,6 @@ def render_bokeh(
             ("Observed codon count sum", "@label7"),
             ("Total codons per site", "@label8"),
             (f"{myoptions.matrix} score", "@label9"),
-            ("Calculated size", "@label10"),
         ]
     else:
         TOOLTIPS = [
@@ -1166,7 +1170,6 @@ def render_bokeh(
             ("Observed codon count", "@label6"),
             ("Total codons per site", "@label8"),
             (f"{myoptions.matrix} score", "@label9"),
-            ("Calculated size", "@label10"),
         ]
     if myoptions.aminoacids:
         _p = bokeh.plotting.figure(x_range=(xmin, xmax), y_range=amino_acids, tooltips=TOOLTIPS, title=title_data, x_axis_label=xlabel, y_axis_label='Introduced amino acid changes', width=2000, height=1200, sizing_mode='stretch_width')
