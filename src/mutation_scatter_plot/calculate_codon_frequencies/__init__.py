@@ -234,7 +234,11 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                     _record_count, _ = _record_id.split('x.')
                     _record_count = int(_record_count)
                 else:
-                    _record_count = int(_record_id.replace('x', ''))
+                    try:
+                        _record_count = int(_record_id.replace('x', ''))
+                    except ValueError as exc:
+                        # we cannot make an integer from supposedly a string, probably user just enabled x-after-id option but there are just no counts
+                        _record_count = 1
             else:
                 _record_count = 1
 
@@ -347,7 +351,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                     _is_deletion = True
                     _deleted_reference_codon = str(_reference_codon)
                     if myoptions.debug > 1:
-                        print("Debug12: Padded deleted codon at %d is %s, "
+                        print("Debug12: Padded DELeted codon at %d is %s, "
                               "original reference codon is %s, amplicon region "
                               "length %s (nt), end of slice is %d" % (
                                   _current_codon_position,
@@ -359,7 +363,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                     _deleted_reference_aa_residues[_deleted_aa_residue] += _record_count
                     _sample_codon_depadded = ''
                     if myoptions.debug:
-                        print("Debug13: Added Deleted codon at %d is %s, "
+                        print("Debug13: Added DELeted codon at %d is %s, "
                               "reference codon is %s, amplicon region length %s "
                               "(nt), sliced [%d:%d] (pythonic slice numbering), "
                               "aa_residue is %s" % (
@@ -377,7 +381,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                     if _new_aa_residue:
                         _changed_aa_residues[_new_aa_residue] += _record_count
                     if myoptions.debug > 1:
-                        print("Debug14: Added Deleted codon at %d is %s, "
+                        print("Debug14: Added INSerted codon at %d is %s, "
                               "reference codon is %s, amplicon region length %s "
                               "(nt), sliced [%d:%d] (pythonic slice numbering), "
                               "aa_residue is %s" % (
