@@ -114,6 +114,90 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
     reference. discard_this_many_leading_nucs and
     discard_this_many_trailing_nucs are used to discard offending
     leading/trailing nucleotides.
+
+    If the reference protein is shorter than the sample entries, the trailing codons
+    after reference protein terminated are treated as INSertions with aa position
+    of the aminoacid residue corresponding to the last aminoacid codon of the
+    reference protein. But provided there are still codon columns to be parsed
+    there are multiple lines in the resulting TSV files, which later on breaks
+    mutation_scatter_plot because multiple lines are retrieved via Pandas instead
+    of just a single row. A workaround so far is to ignore lines with INSertion
+    event from the input .frequency.tsv file.
+
+    333	332	R	M	0.108108	AGG	ATG	4	37
+    333	332	R	T	0.027027	AGG	ACC	1	37
+    333	332	R	T	0.027027	AGG	ACG	1	37
+    334	333	R	R	0.432432	AGG	AGA	16	37
+    334	333	R	S	0.027027	AGG	AGC	1	37
+    335	333	X	R	0.405405	GA-	AGG	15	37
+    335	333	X	X	0.108108	GA-	AG	4	37
+    335	333	X	X	0.027027	GA-	AC	1	37
+    335	333	X	X	0.027027	GA-	GT	1	37
+    336	333	INS	E	0.405405	---	GAG	15	37
+    336	333	INS	X	0.243243	---	G	9	37
+    336	333	INS	X	0.351351	---	T	13	37
+    337	333	INS	X	0.891892	---	C	33	37
+    337	333	INS	X	0.081081	---	T	3	37
+    337	333	INS	P	0.027027	---	CCC	1	37
+    338	333	INS	R	0.027027	---	AGA	1	37
+    339	333	INS	W	0.027027	---	TGG	1	37
+    340	333	INS	X	0.675676	---	AT	25	37
+    340	333	INS	X	0.243243	---	AA	9	37
+    340	333	INS	X	0.054054	---	AC	2	37
+    340	333	INS	G	0.027027	---	GGT	1	37
+    341	333	INS	P	0.864865	---	CCT	32	37
+    341	333	INS	H	0.108108	---	CAT	4	37
+    341	333	INS	L	0.027027	---	CTT	1	37
+    342	333	INS	L	0.972973	---	CTG	36	37
+    342	333	INS	M	0.027027	---	ATG	1	37
+    343	333	INS	L	0.513514	---	CTA	19	37
+    343	333	INS	L	0.027027	---	TTA	1	37
+    343	333	INS	A	0.081081	---	GCA	3	37
+    343	333	INS	S	0.027027	---	TCA	1	37
+    343	333	INS	D	0.297297	---	GAC	11	37
+    343	333	INS	Y	0.054054	---	TAC	2	37
+    344	333	INS	R	0.648649	---	AGA	24	37
+    344	333	INS	T	0.270270	---	ACA	10	37
+    344	333	INS	A	0.081081	---	GCA	3	37
+    345	333	INS	L	0.540541	---	CTG	20	37
+    345	333	INS	P	0.108108	---	CCG	4	37
+    345	333	INS	F	0.351351	---	TTC	13	37
+    346	333	INS	R	0.513514	---	AGG	19	37
+    346	333	INS	K	0.027027	---	AAG	1	37
+    346	333	INS	M	0.108108	---	ATG	4	37
+    346	333	INS	X	0.351351	---	A	13	37
+    347	333	INS	P	0.459459	---	CCT	17	37
+    347	333	INS	L	0.054054	---	CTT	2	37
+    347	333	INS	A	0.027027	---	GCT	1	37
+    347	333	INS	X	0.108108	---	GC	4	37
+    348	333	INS	P	0.351351	---	CCT	13	37
+    348	333	INS	H	0.189189	---	CAT	7	37
+    349	333	INS	L	0.540541	---	CTG	20	37
+    350	333	INS	X	0.432432	---	CA	16	37
+    350	333	INS	X	0.081081	---	CG	3	37
+    350	333	INS	H	0.027027	---	CAT	1	37
+    351	333	INS	H	0.027027	---	CAT	1	37
+    352	333	INS	X	0.621622	---	T	23	37
+    352	333	INS	P	0.027027	---	CCT	1	37
+    353	333	INS	X	0.135135	---	C	5	37
+    353	333	INS	P	0.378378	---	CCT	14	37
+    353	333	INS	L	0.027027	---	CTT	1	37
+    353	333	INS	H	0.027027	---	CAT	1	37
+    353	333	INS	X	0.054054	---	CYT	2	37
+    353	333	INS	P	0.027027	---	CCA	1	37
+    354	333	INS	P	0.513514	---	CCA	19	37
+    354	333	INS	X	0.324324	---	CA	12	37
+    354	333	INS	X	0.027027	---	TA	1	37
+    355	333	INS	X	0.135135	---	CT	5	37
+    355	333	INS	A	0.837838	---	GCT	31	37
+    355	333	INS	A	0.027027	---	GCW	1	37
+    356	333	INS	L	1.000000	---	CTG	37	37
+    357	333	INS	C	0.810811	---	TGT	30	37
+    357	333	INS	W	0.189189	---	TGG	7	37
+    358	333	INS	L	0.972973	---	CTC	36	37
+    358	333	INS	F	0.027027	---	TTC	1	37
+    359	333	INS	L	1.000000	---	CTG	37	37
+    360	333	INS	H	1.000000	---	CAT	37	37
     """
     if myoptions.debug:
         print("Debug0: Depadded reference sequence has length %d, padded "
@@ -188,6 +272,8 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
 
     _zero_based_padded_reference_aa_index = 0
     _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index]
+    _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3].upper()
+    _reference_codon_depadded = _reference_codon.replace('-', '')
     _previous_gaps = 0
     _new_gaps_in_reference = 0
     _re_leading_gaps = re.compile("^[-Nn]+")
@@ -207,6 +293,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
         _inserted_codons = Counter()
         _unchanged_aa_residues = Counter()
         _changed_aa_residues = Counter()
+        _inserted_aa_residues = Counter() # practically unused
         _deleted_reference_aa_residues = Counter()
         _new_gaps_in_reference = 0
         _is_deletion = False
@@ -223,6 +310,8 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                                  _zero_based_padded_reference_aa_index)
             ) from exc
         _current_codon_position = _zero_based_codon_startpos / 3 + 1
+        _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3].upper()
+        _reference_codon_depadded = _reference_codon.replace('-', '')
         if myoptions.debug:
             print("Debug3: _start=%s, _padded_reference_dna_seq=%s" % (
                 _zero_based_codon_startpos, _padded_reference_dna_seq))
@@ -262,14 +351,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
             )
             _new_gaps_in_reference = 0
             _deleted_reference_codon = None
-            _reference_codon = _padded_reference_dna_seq[
-                3*_zero_based_padded_reference_aa_index:
-                3*_zero_based_padded_reference_aa_index + 3
-            ].upper()
-            _reference_codon_depadded = _reference_codon.replace('-', '')
-            _rough_sample_codon = _aln_line_seq[
-                _zero_based_codon_startpos:_zero_based_codon_startpos + 3
-            ].upper()
+            _rough_sample_codon = _aln_line_seq[_zero_based_codon_startpos:_zero_based_codon_startpos + 3].upper()
             _sample_codon_depadded = _rough_sample_codon.replace('-', '')
             _sample_codon_contained_pad = len(_rough_sample_codon) != len(_sample_codon_depadded)
             _reference_codon_contained_pad = len(_reference_codon) != len(_reference_codon_depadded)
@@ -379,7 +461,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                     _inserted_codons[_sample_codon_depadded] += _record_count
                     _new_aa_residue = alt_translate(_rough_sample_codon)
                     if _new_aa_residue:
-                        _changed_aa_residues[_new_aa_residue] += _record_count
+                        _inserted_aa_residues[_new_aa_residue] += _record_count # practically unused so far
                     if myoptions.debug > 1:
                         print("Debug14: Added INSerted codon at %d is %s, "
                               "reference codon is %s, amplicon region length %s "
@@ -520,9 +602,9 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                       _zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 1,
                       _zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 3,
                       _unchanged_codons, _unchanged_aa_residues))
-            print("Debug26a: Deleted codons at %d: %s" % (
+            print("Debug26a: DELeted codons at %d: %s" % (
                 _current_codon_position, _deleted_reference_codons))
-            print("Debug26b: Inserted codons at %d: %s" % (
+            print("Debug26b: INSerted codons at %d: %s" % (
                 _current_codon_position, _inserted_codons))
 
         _total_codons_per_site_counts = (
@@ -613,7 +695,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                 debug=myoptions.debug,
             )
 
-        if len(_inserted_codons):
+        if len(_inserted_codons): # possibly use a different output file for INSertion so that they do not collide with changed codons and add multiple lines
             write_tsv_line(
                 outfilename, _inserted_codons,
                 _natural_codon_position_padded, _natural_codon_position_depadded,
@@ -621,6 +703,8 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                 debug=myoptions.debug,
             )
 
+        # we add the DEL lines into the main frequencies.tsv file here even without calling write_tsv_line()
+        # the write_tsv_line() accepts list of codons in the sample but here we have a 
         if _is_deletion:
             for _some_deleted_codon in _deleted_reference_codons:
                 _observed_codon_count = Decimal(

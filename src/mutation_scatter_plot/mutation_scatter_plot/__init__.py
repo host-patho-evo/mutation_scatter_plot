@@ -107,6 +107,7 @@ __all__ = [
     "load_matrix",
     "load_and_clean_dataframe",
     "build_frequency_tables",
+    "build_conversion_table",
     "setup_matplotlib_figure",
     "collect_scatter_data",
     "render_bokeh",
@@ -365,8 +366,27 @@ def load_matrix(myoptions):
     return _matrix, _matrix_name, _min_theoretical_score, _max_theoretical_score, _outfile_prefix
 
 
-def load_and_clean_dataframe(myoptions, outfile_prefix):
-    "Load the input TSV, normalise column names for legacy formats, and filter noisy rows."
+def load_and_clean_dataframe(myoptions, infilename, outfile_prefix, padded_position2position):
+    """Load the input TSV, normalise column names for legacy formats, and filter noisy rows.
+    Parse only rows with codons [ATGCatgc-], so not those with more exotic IUPAC codes.
+    Provided we discard some data on-the-fly, we have to create the mapping dictionary
+    ideally before that.
+
+    By design the real _aa_position or _codon_position will always be reused for adjacent (rightwards)
+    codons. Only the number in the _padded_position can be trusted to lead back to the actual
+    codon and its frequency:
+
+    243     243     T       T       0.526316        ACC     ACG     20      38
+    243     243     T       V       0.105263        ACC     GTC     4       38
+    243     243     T       DEL     0.342105        ACC     ---     13      38
+    244     244     Q       H       0.052632        CAG     CAC     2       38
+    244     244     Q       DEL     0.342105        CAG     ---     13      38
+    245     244     INS     V       0.105263        ---     GTC     4       38
+    246     245     R       DEL     0.342105        AGG     ---     13      38
+
+    Attempts to get back to CAG -> CAC change at real codon position 244 will return more than one result.
+    It would return much much results if there were more INSertions after each other.
+    """
 
     print(f"Info: Parsing input file {myoptions.tsv_file_path}")
     if not myoptions.tsv_file_path:
@@ -399,7 +419,11 @@ def load_and_clean_dataframe(myoptions, outfile_prefix):
         print(f"Info: Autodetected new TSV file format with a header in {myoptions.tsv_file_path}")
     print(f"Info: The file {myoptions.tsv_file_path} contains now these columns: {str(df.columns)}")
 
-    df['position'] = df['position'] + int(myoptions.offset)
+    if myoptions.offset:
+        df['position'] = df['position'] + int(myoptions.offset)
+        df['padded_position'] = df['padded_position'] + int(myoptions.offset)
+
+    build_conversion_table(df, padded_position2position) # parse the data
 
     _before = len(df['mutant_codon'])
     try:
@@ -423,35 +447,17 @@ def load_and_clean_dataframe(myoptions, outfile_prefix):
         print("Info: Originally there were %d rows but after discarding codons with [N n *] there are only %d left" % (_before, _after))
     else:
         print("Info: Originally there were %d rows but after discarding codons with [N n DEL] there are only %d left" % (_before, _after))
-
-    print(f"Info: Writing into {outfile_prefix}.actually_rendered.tsv")
-    df.to_csv(f"{outfile_prefix}.actually_rendered.tsv", sep='\t', header=None, index=False, float_format='{:7.6f}'.format)
-
-    if '.frequencies.tsv' in myoptions.tsv_file_path:
-        _count_filename = outfile_prefix + '.count'
-        if os.path.exists(_count_filename):
-            try:
-                with open(_count_filename, encoding="utf-8") as _aln_handle:
-                    _aln_rows = _aln_handle.readline()
-            except OSError:
-                _aln_rows = '0'
-        else:
-            _aln_rows = '0'
-    else:
-        _aln_rows = '0'
-
-    if not myoptions.title:
-        title_data = myoptions.tsv_file_path.replace('.frequencies.tsv', '')
-    else:
-        title_data = myoptions.title
-
-    print(f"Info: Title will be {title_data}")
-
-    return df, title_data, _aln_rows
+    return df, padded_position2position
 
 
-def build_frequency_tables(myoptions, df):
-    "Build amino-acid and codon frequency tables from the cleaned dataframe."
+def build_frequency_tables(myoptions, df, padded_position2position):
+    """Build amino-acid and codon frequency tables from the cleaned dataframe.
+    It is at the beginning initialized with Decimal(0).
+
+    Use 'padded_position' to label the columns instead of 'position', so that thing
+    do not break if we trip over INSertions. Due to that transition we need
+    padded_position2position to convert the positions.
+    """
 
     _amino_acids = ['C', 'R', 'K', 'E', 'Q', 'D', 'N', 'T', 'S', 'H', 'M', 'P', 'W', 'Y', 'F', 'V', 'L', 'I', 'A', 'G']
     if myoptions.showins:
@@ -463,16 +469,16 @@ def build_frequency_tables(myoptions, df):
     if myoptions.showdel:
         _amino_acids.append('DEL')
 
-    _unique_aa_positions = [x for x in df['position'].unique()]
-    _min_aa_pos = min(_unique_aa_positions)
-    _max_aa_pos = max(_unique_aa_positions)
+    _unique_padded_aa_positions = [x for x in df['padded_position'].unique()]
+    _min_padded_aa_pos = min(_unique_padded_aa_positions)
+    _max_padded_aa_pos = max(_unique_padded_aa_positions)
     _number_of_insertions = 0
-    _unique_aa_positions = [x for x in range(_min_aa_pos, _max_aa_pos + 1 + _number_of_insertions)]
+    _continuous_padded_range = [x for x in range(_min_padded_aa_pos, _max_padded_aa_pos + 1)]
     if myoptions.debug:
-        print(f"Debug: len(_unique_aa_positions)={len(_unique_aa_positions)}, _unique_aa_positions: {str(_unique_aa_positions)}")
-    _unique_codon_positions = list(_unique_aa_positions)
+        print(f"Debug: len(_unique_padded_aa_positions)={len(_unique_padded_aa_positions)}, _unique_padded_aa_positions: {str(_unique_padded_aa_positions)}")
+    _unique_padded_codon_positions = list(set(_unique_padded_aa_positions))
     if myoptions.debug:
-        print(f"Debug: len(_unique_codon_positions)={len(_unique_codon_positions)}, _unique_codon_positions: {str(_unique_codon_positions)}")
+        print(f"Debug: len(_unique_padded_codon_positions)={len(_unique_padded_codon_positions)}, _unique_padded_codon_positions: {str(_unique_padded_codon_positions)}")
 
     _codons_whitelist = ['TTT', 'TTC', 'TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG', 'ATT', 'ATC', 'ATA', 'ATG', 'GTT', 'GTC', 'GTA', 'GTG', 'TCT', 'TCC', 'TCA', 'TCG', 'CCT', 'CCC', 'CCA', 'CCG', 'ACT', 'ACC', 'ACA', 'ACG', 'GCT', 'GCC', 'GCA', 'GCG', 'TAT', 'TAC', 'TAA', 'TAG', 'CAT', 'CAC', 'CAA', 'CAG', 'AAT', 'AAC', 'AAA', 'AAG', 'GAT', 'GAC', 'GAA', 'GAG', 'TGT', 'TGC', 'TGA', 'TGG', 'CGT', 'CGC', 'CGA', 'CGG', 'AGT', 'AGC', 'AGA', 'AGG', 'GGT', 'GGC', 'GGA', 'GGG']
     if not myoptions.showstop:
@@ -502,61 +508,65 @@ def build_frequency_tables(myoptions, df):
     if myoptions.debug:
         print(f"Debug: _codons_whitelist2={str(_codons_whitelist2)}")
 
-    _old_aa_table = pd.DataFrame(Decimal(0), index=_amino_acids, columns=_unique_aa_positions)
-    _new_aa_table = pd.DataFrame(Decimal(0), index=_amino_acids, columns=_unique_aa_positions)
-    _old_codon_table = pd.DataFrame(Decimal(0), index=_codons_whitelist2, columns=_unique_codon_positions)
-    _new_codon_table = pd.DataFrame(Decimal(0), index=_codons_whitelist2, columns=_unique_codon_positions)
+    _old_aa_table = pd.DataFrame(Decimal(0), index=_amino_acids, columns=_unique_padded_aa_positions)
+    _new_aa_table = pd.DataFrame(Decimal(0), index=_amino_acids, columns=_unique_padded_aa_positions) # the table contains 64+1 rows and len(_unique_padded_codon_positions) columns
+    _old_codon_table = pd.DataFrame(Decimal(0), index=_codons_whitelist2, columns=_unique_padded_codon_positions)
+    _new_codon_table = pd.DataFrame(Decimal(0), index=_codons_whitelist2, columns=_unique_padded_codon_positions) # the table contains 64+1 rows and len(_unique_padded_codon_positions) columns
 
     _very_leftmost_aa_pos = None
     _calculated_aa_offset = 0
-    for df_index, row in df.iterrows():
-        _position = row['position']
+    # make tables with yet another number of rows summing up eventually the frequencies
+    for _df_index, _row in df.iterrows():
+        _padded_position = _row['padded_position']
+        _position = padded_position2position[_padded_position]
+        # It is not necessary to skip N-containing codons as we anyway draw just those in codons list. Skipping some rows would make new_aa_table and new_codon_table have a different amount of rows, breaking slicing
         if _very_leftmost_aa_pos is None:
-            _very_leftmost_aa_pos = int(_position)
+            _very_leftmost_aa_pos = int(_padded_position)
+            # # if AA positions in the input file do NOT start from the first-one the numbering of sites gets shifted, so calculate the offset
             _calculated_aa_offset = _very_leftmost_aa_pos - myoptions.offset + 1
             if myoptions.debug:
                 print(f"Debug: calculated offset is {_calculated_aa_offset}")
-        _old_amino_acid = row['original_aa']
-        _new_amino_acid = row['mutant_aa']
-        frequency = Decimal(row[myoptions.column_with_frequencies])
-        _old_codon = row['original_codon'].upper()
-        _new_codon = row['mutant_codon'].upper()
+        _old_amino_acid = _row['original_aa']
+        _new_amino_acid = _row['mutant_aa']
+        _frequency = Decimal(_row[myoptions.column_with_frequencies])
+        _old_codon = _row['original_codon'].upper()
+        _new_codon = _row['mutant_codon'].upper()
 
-        if (not myoptions.aminoacids or _old_amino_acid != _new_amino_acid or myoptions.include_synonymous) and not np.abs(frequency) < myoptions.threshold:
+        if (not myoptions.aminoacids or _old_amino_acid != _new_amino_acid or myoptions.include_synonymous) and not np.abs(_frequency) < myoptions.threshold:
             _old_value = Decimal(0)
             try:
-                _old_value = _new_aa_table.at[_new_amino_acid, _position]
+                _old_value = _new_aa_table.at[_new_amino_acid, _padded_position]
             except KeyError:
-                _new_aa_table.at[_new_amino_acid, _position] = Decimal(frequency)
+                _new_aa_table.at[_new_amino_acid, _padded_position] = Decimal(_frequency)
             except TypeError as exc:
-                raise TypeError("Weird value %s" % _new_aa_table.at[_new_amino_acid, _position]) from exc
+                raise TypeError("Weird value %s" % _new_aa_table.at[_new_amino_acid, _padded_position]) from exc
             else:
-                _new_aa_table.at[_new_amino_acid, _position] = Decimal(_old_value) + Decimal(frequency)
-
-            _old_value = Decimal(0)
-            try:
-                _old_value = _old_aa_table.at[_old_amino_acid, _position]
-            except KeyError:
-                _old_aa_table.at[_old_amino_acid, _position] = Decimal(frequency)
-            except TypeError as exc:
-                raise TypeError("Weird value %s" % _old_aa_table.at[_old_amino_acid, _position]) from exc
-            else:
-                _old_aa_table.at[_old_amino_acid, _position] = Decimal(_old_value) + Decimal(frequency)
+                _new_aa_table.at[_new_amino_acid, _padded_position] = Decimal(_old_value) + Decimal(_frequency)
 
             _old_value = Decimal(0)
             try:
-                _old_value = Decimal(_old_codon_table.at[_old_codon, _position])
+                _old_value = _old_aa_table.at[_old_amino_acid, _padded_position]
             except KeyError:
-                _old_codon_table.at[_old_codon, _position] = Decimal(frequency)
+                _old_aa_table.at[_old_amino_acid, _padded_position] = Decimal(_frequency)
             except TypeError as exc:
-                raise TypeError("Weird value %s" % _old_codon_table.at[_old_codon, _position]) from exc
+                raise TypeError("Weird value %s" % _old_aa_table.at[_old_amino_acid, _padded_position]) from exc
             else:
-                _old_codon_table.at[_old_codon, _position] = Decimal(_old_codon_table.at[_old_codon, _position]) + Decimal(frequency)
+                _old_aa_table.at[_old_amino_acid, _padded_position] = Decimal(_old_value) + Decimal(_frequency)
 
             _old_value = Decimal(0)
-            _new_codon_table.at[_new_codon, _position] = Decimal(frequency)
+            try:
+                _old_value = Decimal(_old_codon_table.at[_old_codon, _padded_position])
+            except KeyError:
+                _old_codon_table.at[_old_codon, _padded_position] = Decimal(_frequency)
+            except TypeError as exc:
+                raise TypeError("Weird value %s" % _old_codon_table.at[_old_codon, _padded_position]) from exc
+            else:
+                _old_codon_table.at[_old_codon, _padded_position] = Decimal(_old_codon_table.at[_old_codon, _padded_position]) + Decimal(_frequency)
+
+            _old_value = Decimal(0)
+            _new_codon_table.at[_new_codon, _padded_position] = Decimal(_frequency)
             if myoptions.debug:
-                print(f"Debug: OriginalDataFrameRowNumber: {df_index}, Old: {_old_amino_acid}, New: {_new_amino_acid}, Frequency: {frequency}")
+                print(f"Debug: OriginalDataFrameRowNumber: {_df_index}, Old: {_old_amino_acid}, New: {_new_amino_acid}, Frequency: {_frequency}")
 
     if myoptions.debug:
         for t in (_old_aa_table, _new_aa_table, _old_codon_table, _new_codon_table):
@@ -572,17 +582,34 @@ def build_frequency_tables(myoptions, df):
 
     return (
         _amino_acids, _codons_whitelist, _codons_whitelist2, _final_sorted_whitelist,
-        _unique_aa_positions, _unique_codon_positions,
+        _unique_padded_aa_positions, _unique_padded_codon_positions,
         _old_aa_table, _new_aa_table, _old_codon_table, _new_codon_table,
-        _calculated_aa_offset,
+        _calculated_aa_offset, padded_position2position
     )
+
+
+def build_conversion_table(df, padded_position2position):
+    """Create a conversion table from padded_position to position from the data parsed from the input TSV file.
+    The integers need not be contiguous, because the outfile_prefix.frequencies.tsv are filtered listings of
+    mutations above some frequency threshold. One can supplement them with values from
+    outfile_prefix.frequencies.unchanged_codons.tsv file.
+    """
+
+    # df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'frequency_parent', 'frequency_selected']
+    for _df_index, _row in df.iterrows():
+        _padded_position = int(_row['padded_position'])
+        _position = int(_row['position'])
+        if _padded_position not in padded_position2position:
+            padded_position2position[_padded_position] = _position
+
+    return padded_position2position
 
 
 def setup_matplotlib_figure(
     myoptions,
     title_data, aln_rows, matrix_name, amino_acids, codons_whitelist,
-    final_sorted_whitelist, unique_aa_positions, unique_codon_positions,
-    new_aa_table, new_codon_table,
+    final_sorted_whitelist, unique_aa_padded_positions, unique_padded_codon_positions,
+    new_aa_table, new_codon_table, padded_position2position,
 ):
     """Configure matplotlib figure, axes, labels, ticks, and the frequency bar chart."""
     matplotlib.rcParams['font.family'] = 'monospace'
@@ -595,14 +622,14 @@ def setup_matplotlib_figure(
 
     if myoptions.aminoacids:
         if myoptions.shortlegend:
-            _xlabel = 'Amino acid position'
+            _xlabel = 'Padded amino acid position'
         else:
-            _xlabel = 'Amino acid position%sbased on %s ALN rows, matrix %s, colormap %s, mutation_scatter_plot.py %s' % (os.linesep, aln_rows.strip(os.linesep), matrix_name, myoptions.colormap, VERSION)
+            _xlabel = 'Padded amino acid position%sbased on %s ALN rows, matrix %s, colormap %s, mutation_scatter_plot %s' % (os.linesep, aln_rows.strip(os.linesep), matrix_name, myoptions.colormap, VERSION)
     else:
         if myoptions.shortlegend:
-            _xlabel = 'Codon position'
+            _xlabel = 'Padded codon position'
         else:
-            _xlabel = 'Codon position%sbased on %s ALN rows, matrix %s, colormap %s, mutation_scatter_plot.py %s' % (os.linesep, aln_rows.strip(os.linesep), matrix_name, myoptions.colormap, VERSION)
+            _xlabel = 'Padded codon position%sbased on %s ALN rows, matrix %s, colormap %s, mutation_scatter_plot %s' % (os.linesep, aln_rows.strip(os.linesep), matrix_name, myoptions.colormap, VERSION)
     _ax1.set_xlabel(_xlabel, fontsize=14)
     if myoptions.aminoacids:
         _ax1.set_ylabel('Introduced amino acid changes', fontsize=14)
@@ -610,24 +637,24 @@ def setup_matplotlib_figure(
         if myoptions.xmin:
             _xmin = myoptions.xmin
         else:
-            _xmin = min(unique_aa_positions) - 1
+            _xmin = min(unique_aa_padded_positions) - 1
 
         if myoptions.xmax:
             _xmax = myoptions.xmax
         else:
-            _xmax = max(unique_aa_positions) + 1
+            _xmax = max(unique_aa_padded_positions) + 1 # this should be the position in the padded alignment
     else:
         _ax1.set_ylabel('Introduced codon changes', fontsize=14)
         _ax1.set_title(title_data, fontsize=14)
         if myoptions.xmin:
             _xmin = myoptions.xmin
         else:
-            _xmin = min(unique_codon_positions) - 1
+            _xmin = min(unique_padded_codon_positions) - 1
 
         if myoptions.xmax:
             _xmax = myoptions.xmax
         else:
-            _xmax = max(unique_codon_positions) + 1
+            _xmax = max(unique_padded_codon_positions) + 1
 
     _ax1.set_xlim(myoptions.xaxis_label_start or _xmin, _xmax)
     _ax1.xaxis.set_major_locator(ticker.MultipleLocator(myoptions.xaxis_major_ticks_spacing))
@@ -675,9 +702,9 @@ def setup_matplotlib_figure(
         _ax2.figure.canvas.draw()
 
         if myoptions.aminoacids:
-            _ax2.bar(unique_aa_positions, _total_frequencies, color='black', alpha=0.5, width=0.8, align='center')
+            _ax2.bar(unique_aa_padded_positions, _total_frequencies, color='black', alpha=0.5, width=0.8, align='center')
         else:
-            _ax2.bar(unique_codon_positions, _total_frequencies, color='black', alpha=0.5, width=0.8, align='center')
+            _ax2.bar(unique_padded_codon_positions, _total_frequencies, color='black', alpha=0.5, width=0.8, align='center')
 
         x1, x2 = _ax2.get_xlim()
 
@@ -698,11 +725,11 @@ def setup_matplotlib_figure(
 def collect_scatter_data(
     myoptions,
     df, table, outfile_prefix, matrix,
-    amino_acids, codons_whitelist2,
+    amino_acids, codons_whitelist2, padded_position2position,
 ):
     "Iterate over frequency tables and collect scatter plot data, labels, and colors."
 
-    _real_aa_positions = list(table.columns)
+    _real_aa_positions = sorted(padded_position2position.values()) # better extract it dynamically from the table then from the dictionary just in case some values would be discarded while parsing on-the-fly
     if myoptions.debug:
         print(f"Debug: _real_aa_positions={str(_real_aa_positions)}")
 
@@ -716,6 +743,7 @@ def collect_scatter_data(
     _used_colors = set()
     _norm, _cmap, _colors = get_colormap(myoptions, myoptions.colormap)
     _labels = []
+    _label_padded_positions = []
     _label_codon_positions = []
     _label_original_amino_acids = []
     _label_new_amino_acids = []
@@ -742,24 +770,32 @@ def collect_scatter_data(
     with open(_outfilename, 'w', encoding="utf-8") as _color_file:
         print(f"Info: Writing into {_outfilename}")
 
-        for i, _some_codon_or_aa in enumerate(table.index):
-            for j, _aa_position in enumerate(table.columns):
+        # the tables were constructed with the following in build_frequency_tables()
+        #     _new_aa_table = pd.DataFrame(Decimal(0), index=_amino_acids, columns=_unique_padded_aa_positions)
+        #     _new_codon_table = pd.DataFrame(Decimal(0), index=_codons_whitelist2, columns=_unique_padded_codon_positions)
+        for i, _some_codon_or_aa in enumerate(table.index): # so _some_codon_or_aa contains the index specified when the table was constructed
+            for j, _padded_position in enumerate(table.columns): # so _aa_position contains the real aa_position
                 if myoptions.debug:
-                    print(f"Debug: i: {str(i)}, j: {str(j)}, _aa_position column: {str(_aa_position)}")
-                _real_aa_position = _real_aa_positions[j]
-                if _real_aa_position != _aa_position:
-                    raise ValueError("Values _aa_position=%s and _real_aa_position=%s should be equal" % (_aa_position, _real_aa_position))
-                _frequency = table.loc[_some_codon_or_aa, _aa_position]
-                if myoptions.debug and _frequency:
-                    print(f"Debug0: _aa_position={_aa_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={str(_frequency)}")
+                    print(f"Debug: i: {str(i)}, j: {str(j)}, _padded_position column: {str(_padded_position)}")
                 try:
-                    _old_codon = df.loc[df['position'] == _aa_position]['original_codon'].to_list()[0]
+                    _real_aa_position = padded_position2position[_padded_position]
+                    _aa_position = padded_position2position[_padded_position]
+                except KeyError:
+                    continue
+                if myoptions.debug:
+                    print(f"Debug0: _padded_positions (typically will not be contiguous and will contain multiplicates): {str(sorted(list(table.columns)))}{os.linesep}")
+                    print(f"Debug0:     _aa_positions (typically will not be contiguous and will contain multiplicates): {sorted(padded_position2position.values())}{os.linesep}")
+                _frequency = table.loc[_some_codon_or_aa, _padded_position]
+                if myoptions.debug and _frequency:
+                    print(f"Debug0: _padded_position={_padded_position}, _aa_position={_aa_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={str(_frequency)}")
+                try:
+                    _old_codon = df.loc[df['padded_position'] == _padded_position]['original_codon'].to_list()[0]
                 except IndexError:
                     if _frequency and myoptions.debug:
-                        print(f"Debug0b: _aa_position={_aa_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={str(_frequency)}")
-                    if _aa_position not in _warn_once:
-                        sys.stderr.write("Warning: Cannot determine original codon for position %s, seems missing from input TSV or cannot split list %s%s" % (_aa_position, str(df.loc[df['position'] == _aa_position]['original_codon'].to_list()), os.linesep))
-                        _warn_once.append(_aa_position)
+                        print(f"Debug0b: _padded_position={_padded_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={str(_frequency)}")
+                    if _padded_position not in _warn_once:
+                        sys.stderr.write("Warning: Cannot determine original codon for position %s, seems missing from input TSV or cannot split list %s%s" % (_padded_position, str(df.loc[df['padded_position'] == _padded_position]['original_codon'].to_list()), os.linesep))
+                        _warn_once.append(_padded_position)
                     continue
                 _codon_on_input, _old_codon_or_aa, _new_codon_or_aa = resolve_codon_or_aa(myoptions, _old_codon, _some_codon_or_aa)
                 _score = None
@@ -774,48 +810,48 @@ def collect_scatter_data(
                         _score, _size, _color = adjust_size_and_color(myoptions, Decimal(_frequency), _codon_on_input, _old_codon, _some_codon_or_aa, _old_codon_or_aa, _new_codon_or_aa, matrix, _norm, _colors)
                         _matrix_values.add(_score)
                     if myoptions.debug:
-                        print(f"Debug: Real AA position: {_aa_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
+                        print(f"Debug: Padded AA position: {_padded_position}, Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
                     _bokeh_size = float(np.sqrt(np.abs(_size)) * 100) if myoptions.bokeh_sqrt_size else float(np.abs(_size) * 100)
                     if myoptions.aminoacids:
                         if _score < 0:
-                            _circles_bokeh.append((_aa_position, _some_codon_or_aa, _bokeh_size, 'circle', _color, 0.5, _score))
+                            _circles_bokeh.append((_padded_position, _some_codon_or_aa, _bokeh_size, 'circle', _color, 0.5, _score, _aa_position))
                         else:
-                            _circles_bokeh.append((_aa_position, _some_codon_or_aa, _bokeh_size, 'hex', _color, 0.5, _score))
+                            _circles_bokeh.append((_padded_position, _some_codon_or_aa, _bokeh_size, 'hex', _color, 0.5, _score, _aa_position))
                     else:
                         if _score < 0:
-                            _circles_bokeh.append((_aa_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', _bokeh_size, 'circle_x', _color, 0.5, _score))
+                            _circles_bokeh.append((_padded_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', _bokeh_size, 'circle_x', _color, 0.5, _score, _aa_position))
                         else:
-                            _circles_bokeh.append((_aa_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', _bokeh_size, 'hex', _color, 0.5, _score))
+                            _circles_bokeh.append((_padded_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', _bokeh_size, 'hex', _color, 0.5, _score, _aa_position))
                     if _score < 0:
-                        _circles_matplotlib.append((_aa_position, i, float(np.abs(_size) * 5000), 'circle_x', _color, 0.5, _score, 'o'))
-                        _markers.append((_aa_position, i, 1, 'dot', 'black', 0.5))
+                        _circles_matplotlib.append((_padded_position, i, float(np.abs(_size) * 5000), 'circle_x', _color, 0.5, _score, _aa_position)) # 'o' circle shape
+                        _markers.append((_padded_position, i, 1, 'dot', 'black', 0.5))
                     else:
-                        _circles_matplotlib.append((_aa_position, i, float(np.abs(_size) * 5000), 'circle', _color, 0.5, _score, 'h'))
-                        _markers.append((_aa_position, i, 1, 'circle', 'black', 0.5))
+                        _circles_matplotlib.append((_padded_position, i, float(np.abs(_size) * 5000), 'circle', _color, 0.5, _score, _aa_position)) # 'h' hex shape
+                        _markers.append((_padded_position, i, 1, 'circle', 'black', 0.5))
                 else:
                     _size, _color = 0, 'black'
                     _score = get_score(myoptions, matrix, _codon_on_input, _old_codon_or_aa, _new_codon_or_aa)
-                    _dots.append((_aa_position, i, _size, 'dot', _color, 0.5, _score))
+                    _dots.append((_padded_position, i, _size, 'dot', _color, 0.5, _score))
                     if myoptions.debug:
-                        print(f"Debug: Invisible dot. Real AA position: {_aa_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
+                        print(f"Debug: Invisible dot. Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
 
-                if _aa_position not in _warn_once:
-                    _frequencies = [Decimal(x) for x in df.loc[(df['position'] == _aa_position) & (df['mutant_aa'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)][myoptions.column_with_frequencies].to_list()]
+                if _padded_position not in _warn_once:
+                    _frequencies = [Decimal(x) for x in df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)][myoptions.column_with_frequencies].to_list()]
                     try:
-                        _old_amino_acid = df.loc[df['position'] == _aa_position]['original_aa'].to_list()[0]
+                        _old_amino_acid = df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list()[0]
                     except IndexError:
-                        print(f"Error: Cannot slice {str(df.loc[df['position'] == _aa_position]['original_aa'].to_list())}")
-                        _old_amino_acid = df.loc[df['position'] == _aa_position]['original_aa'].to_list()[0]
+                        print(f"Error: Cannot slice {str(df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list())}")
+                        _old_amino_acid = df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list()[0]
 
-                    _new_codons = df.loc[(df['position'] == _aa_position) & (df['mutant_aa'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['mutant_codon'].to_list()
+                    _new_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['mutant_codon'].to_list()
                     if myoptions.aminoacids:
-                        if _frequency != table.at[_some_codon_or_aa, _aa_position]:
-                            raise ValueError("Values _frequency=%s and table.at[_some_codon_or_aa, _aa_position]=%s should be equal" % (_frequency, table.at[_some_codon_or_aa, _aa_position]))
+                        if _frequency != table.at[_some_codon_or_aa, _padded_position]:
+                            raise ValueError("Values _frequency=%s and table.at[_some_codon_or_aa, _padded_position]=%s should be equal" % (_frequency, table.at[_some_codon_or_aa, _padded_position]))
                         if len(_new_codons) != len(_frequencies):
                             raise ValueError("len(_new_codons) != len(_frequencies), specifically: %s != %s" % (len(_new_codons), len(_frequencies)))
                         if 'observed_codon_count' in df.columns.values:
-                            _observed_codon_counts = df.loc[(df['position'] == _aa_position) & (df['mutant_aa'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()
-                            _total_codons_per_site = df.loc[(df['position'] == _aa_position) & (df['mutant_aa'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['total_codons_per_site'].to_list()
+                            _observed_codon_counts = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()
+                            _total_codons_per_site = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['total_codons_per_site'].to_list()
                             if _total_codons_per_site:
                                 _total_codons_per_site = _total_codons_per_site[0]
                         else:
@@ -824,7 +860,8 @@ def collect_scatter_data(
                         _observed_codon_count_sum = sum(_observed_codon_counts)
 
                         if not _frequency < myoptions.threshold:
-                            _labels.append(f"Position: {_aa_position}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_some_codon_or_aa} {_new_codons}\n{myoptions.matrix} score: {_score}\nCumulative Frequency: {sum(_frequencies):.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon counts sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
+                            _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_some_codon_or_aa} {_new_codons}\n{myoptions.matrix} score: {_score}\nCumulative Frequency: {sum(_frequencies):.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon counts sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
+                            _label_padded_positions.append(f"{_padded_position}")
                             _label_codon_positions.append(f"{_aa_position}")
                             _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
                             _label_new_amino_acids.append(f"{_some_codon_or_aa} {_new_codons}")
@@ -839,36 +876,41 @@ def collect_scatter_data(
                                 _label_observed_codon_count_sum.append(sum(_observed_codon_counts))
                                 _label_total_codons_per_site.append(_total_codons_per_site)
                             _label_scores.append(_score)
-                            _html_labels.append(f"Position: {_aa_position}<br>Original Amino Acid: {_old_amino_acid} ({_old_codon})<br>New Amino Acid: {_some_codon_or_aa} {_new_codons}<br>{myoptions.matrix} score: {_score}<br>Cumulative Frequency: {sum(_frequencies):.6f}<br>Codon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}<br>Observed codon counts: {_observed_codon_counts}<br>Observed codon count sum: {_observed_codon_count_sum}<br>Total codons per site: {_total_codons_per_site}")
+                            _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Amino Acid: {_old_amino_acid} ({_old_codon})<br>New Amino Acid: {_some_codon_or_aa} {_new_codons}<br>{myoptions.matrix} score: {_score}<br>Cumulative Frequency: {sum(_frequencies):.6f}<br>Codon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}<br>Observed codon counts: {_observed_codon_counts}<br>Observed codon count sum: {_observed_codon_count_sum}<br>Total codons per site: {_total_codons_per_site}")
                             _mutations.append(f"{_old_amino_acid}{_aa_position}{_some_codon_or_aa}")
                     else:
-                        if _frequency != table.at[_some_codon_or_aa, _aa_position]:
-                            raise ValueError("Values _frequency=%s and table.at[_some_codon_or_aa, _aa_position]=%s should be equal" % (_frequency, table.at[_some_codon_or_aa, _aa_position]))
+                        if _frequency != table.at[_some_codon_or_aa, _padded_position]:
+                            raise ValueError("Values _frequency=%s and table.at[_some_codon_or_aa, _padded_position]=%s should be equal" % (_frequency, table.at[_some_codon_or_aa, _padded_position]))
 
                         if 'observed_codon_count' in df.columns.values:
-                            _observed_codon_counts = df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()
+                            _observed_codon_counts = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()
                             if _observed_codon_counts and len(_observed_codon_counts) < 2:
                                 _observed_codon_counts = _observed_codon_counts[0]
                                 _observed_codon_count_sum = _observed_codon_counts
                             else:
                                 _observed_codon_count_sum = sum(_observed_codon_counts)
-                            _total_codons_per_site = df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['total_codons_per_site'].to_list()
+                            _total_codons_per_site = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['total_codons_per_site'].to_list()
                             if _total_codons_per_site and len(_total_codons_per_site) < 2:
                                 _total_codons_per_site = _total_codons_per_site[0]
                         else:
                             _observed_codon_counts = []
                             _total_codons_per_site = 0
 
+                        _observed_aminoacids = df.loc[df['padded_position'] == _padded_position]['mutant_aa'].to_list()
                         if myoptions.debug:
-                            print(f"Info: {len(df.loc[df['position'] == _aa_position]['position'])} aa residues observed in position {_aa_position}:{os.linesep} {str(df.loc[df['position'] == _aa_position][0:])}{os.linesep}")
+                            print(f"Info: {len(_observed_aminoacids)} aa residues observed in position {_aa_position}:{os.linesep} {str(df.loc[df['padded_position'] == _padded_position][0:])}{os.linesep}")
+
                         try:
-                            _new_amino_acid = df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)]['mutant_aa'].to_list()[0]
+                            # make sure we dot not fetch also INSertions, which could be even multiple rows in addition to the row with changed_codon, especially if the reference protein and is padded on the right with dashes
+                            # try to switch to 'padded_position' instead of 'position' to fetch a row from Pandas
+                            _new_amino_acid = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)]['mutant_aa'].to_list()[0] # the condition & (df['original_aa'] != 'INS') should not be needed anymore
                         except IndexError:
                             _new_amino_acid = None
 
                         if _new_amino_acid:
                             try:
-                                _some_frequency = Decimal(df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0])
+                                # make sure we dot not fetch also INSertions, which could be even multiple rows in addition to the row with changed_codon
+                                _some_frequency = Decimal(df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0]) # the condition & (df['original_aa'] != 'INS') should not be needed anymore
                             except (IndexError, ValueError, TypeError):
                                 _some_frequency = 0.00000000009
                             if _some_frequency != _frequency and (_some_frequency != 0.00000000009 and _frequency != 0):
@@ -877,31 +919,33 @@ def collect_scatter_data(
                                 # 344	333	INS	R	0.648649	---	AGA	24	37 # .frequencies.tsv
                                 #
                                 # 344	333	INS	R	0.648649	---	AGA	24	37 # .frequencies.unchanged_codons.tsv
-                                raise ValueError("Frequency new_codon_table.at[_some_codon_or_aa, _aa_position]=%s _some_codon_or_aa=%s, _aa_position=%s not same as df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0]=%s. Are multiple rows matching? We picked just the first one: df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()=%s for _old_codon=%s, _old_amino_acid=%s" % (_frequency, _some_codon_or_aa, _aa_position, _some_frequency, df.loc[(df['position'] == _aa_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list(), _old_codon, _old_amino_acid))
+                                raise ValueError("Frequency new_codon_table.at[_some_codon_or_aa, _padded_position]=%s _some_codon_or_aa=%s, _padded_position=%s not same as df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0]=%s. Are multiple rows matching? We picked just the first one: df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()=%s for _old_codon=%s, _old_amino_acid=%s" % (_frequency, _some_codon_or_aa, _padded_position, _some_frequency, df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list(), _old_codon, _old_amino_acid))
 
                             if _old_amino_acid and not _frequency < myoptions.threshold and _size:
                                 _label_scores.append(_score)
 
                                 if myoptions.column_with_frequencies == 'neutralized_parent_difference':
-                                    _labels.append(f"Position: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nDifference neutralized2parent: {_frequency:.6f}")
-                                    _html_labels.append(f"Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Difference neutralized2parent: {_frequency:.6f}")
+                                    _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nDifference neutralized2parent: {_frequency:.6f}")
+                                    _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Difference neutralized2parent: {_frequency:.6f}")
                                 elif myoptions.column_with_frequencies == 'escape_parent_difference':
-                                    _labels.append(f"Position: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nDifference escape2parent: {_frequency:.6f}")
-                                    _html_labels.append(f"Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Difference escape2parent: {_frequency:.6f}")
+                                    _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nDifference escape2parent: {_frequency:.6f}")
+                                    _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Difference escape2parent: {_frequency:.6f}")
                                 elif myoptions.column_with_frequencies == 'weighted_diff_escape_neutralized':
-                                    _labels.append(f"Position: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nWeighted difference escape2neutralized: {_frequency:.6f}")
-                                    _html_labels.append(f"Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Weighted difference escape2neutralized: {_frequency:.6f}")
+                                    _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nWeighted difference escape2neutralized: {_frequency:.6f}")
+                                    _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Weighted difference escape2neutralized: {_frequency:.6f}")
                                 elif myoptions.column_with_frequencies == 'frequency':
-                                    _labels.append(f"Position: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_counts}\nTotal codons per site: {_total_codons_per_site}")
-                                    _html_labels.append(f"Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Frequency: {_frequency:.6f}<br>Observed codon counts: {_observed_codon_counts}<br>Total codons per site: {_total_codons_per_site}")
+                                    _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_counts}\nTotal codons per site: {_total_codons_per_site}")
+                                    _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Frequency: {_frequency:.6f}<br>Observed codon counts: {_observed_codon_counts}<br>Total codons per site: {_total_codons_per_site}")
+                                    _label_padded_positions.append(f"{_padded_position}")
                                     _label_codon_positions.append(f"{_aa_position}")
                                     _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
                                     _label_new_amino_acids.append(f"{_new_amino_acid} ({_some_codon_or_aa})")
                                     _label_cumulative_frequencies.append(f"{_frequency:.6f}")
                                     _label_codon_frequencies.append(f"{_frequency:.6f}")
                                 else:
-                                    _labels.append(f"Position: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_counts}\nTotal codons per site: {_total_codons_per_site}")
-                                    _html_labels.append(f"Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Frequency: {_frequency:.6f}<br>Observed codon counts: {_observed_codon_counts}<br>Total codons per site: {_total_codons_per_site}")
+                                    _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_counts}\nTotal codons per site: {_total_codons_per_site}")
+                                    _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Frequency: {_frequency:.6f}<br>Observed codon counts: {_observed_codon_counts}<br>Total codons per site: {_total_codons_per_site}")
+                                    _label_padded_positions.append(f"{_padded_position}")
                                     _label_codon_positions.append(f"{_aa_position}")
                                     _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
                                     _label_new_amino_acids.append(f"{_new_amino_acid} ({_some_codon_or_aa})")
@@ -921,7 +965,7 @@ def collect_scatter_data(
                                     _label_total_codons_per_site.append('')
 
                     _position_in_protein = _aa_position
-                    _original_aas = df.loc[(df['position'] == _position_in_protein)]['original_aa'].to_list()
+                    _original_aas = df.loc[(df['padded_position'] == _padded_position)]['original_aa'].to_list()
                     if _original_aas:
                         _original_aa = _original_aas[0]
                     else:
@@ -929,7 +973,7 @@ def collect_scatter_data(
                     _new_amino_acid = _some_codon_or_aa
                     _mutant_aa = None
                     if myoptions.aminoacids:
-                        _mutant_codons = df.loc[(df['position'] == _position_in_protein) & (df['mutant_aa'] == _new_amino_acid)]['mutant_codon'].to_list()
+                        _mutant_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _new_amino_acid)]['mutant_codon'].to_list()
                     else:
                         _mutant_codon = _some_codon_or_aa
                         _mutant_codons = [_mutant_codon]
@@ -941,7 +985,7 @@ def collect_scatter_data(
                             _mutant_aa = 'DEL'
                         else:
                             _mutant_aa = alt_translate(_some_codon_or_aa)
-                        _mutant_codons = df.loc[(df['position'] == _position_in_protein) & (df['mutant_codon'] == _some_codon_or_aa)]['mutant_codon'].to_list()
+                        _mutant_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)]['mutant_codon'].to_list()
                     if _original_aa and not _frequency < myoptions.threshold and _size:
                         if len(_mutant_codons) > 1:
                             _color_file.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s%s" % (_aa_position, _old_codon, str(_mutant_codons), _original_aa, _some_codon_or_aa, '{0:.6f}'.format(_frequency), _color, _score, os.linesep))
@@ -970,7 +1014,7 @@ def collect_scatter_data(
     return (
         _norm, _cmap, _colors, _used_colors, _matrix_values,
         _labels, _html_labels, _mutations,
-        _circles_bokeh, _circles_matplotlib, _markers, _dots,
+        _circles_bokeh, _circles_matplotlib, _markers, _dots, _label_padded_positions,
         _label_codon_positions, _label_original_amino_acids, _label_new_amino_acids,
         _label_cumulative_frequencies, _label_codon_frequencies,
         _label_observed_codon_counts, _label_observed_codon_count_sum,
@@ -981,13 +1025,13 @@ def collect_scatter_data(
 def render_bokeh(
     myoptions,
     outfile_prefix, xmin, xmax, amino_acids, final_sorted_whitelist,
-    circles_bokeh, labels, html_labels, mutations,
+    circles_bokeh, labels, html_labels, mutations, label_padded_positions,
     label_codon_positions, label_original_amino_acids, label_new_amino_acids,
     label_cumulative_frequencies, label_codon_frequencies,
     label_observed_codon_counts, label_observed_codon_count_sum,
     label_total_codons_per_site, label_scores,
     title_data, xlabel,
-    matrix_name, colors, norm, cmap,
+    matrix_name, colors, norm, cmap, padded_position2position,
 ):
     """Build and save the interactive Bokeh HTML scatter plot.
 
@@ -1134,8 +1178,9 @@ def render_bokeh(
         c=[c[4] for c in circles_bokeh],
         a=[a[5] for a in circles_bokeh],
         score=[sc[6] for sc in circles_bokeh],
+        aaposition=[aapos[7] for aapos in circles_bokeh],
         label=labels,
-        label1=label_codon_positions,
+        label1=label_padded_positions,
         label2=label_original_amino_acids,
         label3=label_new_amino_acids,
         label4=label_cumulative_frequencies,
@@ -1144,13 +1189,14 @@ def render_bokeh(
         label7=label_observed_codon_count_sum,
         label8=label_total_codons_per_site,
         label9=label_scores,
-        # label10=[s[2] for s in circles_bokeh],
+        label10=label_codon_positions,
         mutation=mutations,
     ))
 
     if myoptions.aminoacids:
         TOOLTIPS = [
-            ("Codon Position", "@label1"),
+            ("Padded Codon Position", "@label1"),
+            ("Codon Position", "@label10"),
             ("Original Amino Acid", "@label2"),
             ("New Amino Acid", "@label3"),
             ("Cumulative Frequency", "@label4"),
@@ -1162,7 +1208,8 @@ def render_bokeh(
         ]
     else:
         TOOLTIPS = [
-            ("Codon Position", "@label1"),
+            ("Padded Codon Position", "@label1"),
+            ("Codon Position", "@label10"),
             ("Original Amino Acid", "@label2"),
             ("New Amino Acid", "@label3"),
             ("Cumulative Frequency", "@label4"),
@@ -1266,7 +1313,7 @@ def render_matplotlib(
     circles_matplotlib, markers, dots, cmap, norm, colors,
     matrix, matrix_name,
     new_aa_table, new_codon_table, df, codons_whitelist2, final_sorted_whitelist,
-    calculated_aa_offset,
+    calculated_aa_offset, padded_position2position,
 ):
     """Render the matplotlib scatter figure with hover callbacks and save to PNG/PDF.
 
@@ -1313,6 +1360,24 @@ def render_matplotlib(
     * ``--x-axis-minor-ticks-spacing``  (default: 5)
     * ``--x-axis-label-start``          (default: 0, meaning use xmin)
     * ``--x-axis-bins``                 overrides spacing via ``locator_params``
+
+    Hover callback (mplcursors)
+    ---------------------------
+    The cursor is attached to ``_mpl_scatterplot`` (circles only), NOT to the
+    full ``ax1`` axes object.  Attaching to ``ax1`` would also cover the
+    ``markers`` and ``dots`` scatter collections; dots intentionally have
+    ``size=0`` and represent below-threshold positions — hovering over them
+    would produce an IndexError because no above-threshold row exists in ``df``
+    for that ``(padded_position, codon/aa)`` combination.
+
+    Inside ``on_add``, point identity is resolved via ``sel.index`` (the integer
+    index of the nearest point in the PathCollection), NOT via ``sel.target``
+    (which returns the raw mouse cursor position in data coordinates and is
+    therefore subject to floating-point imprecision and off-by-one errors when
+    converted back to a table column index).  ``circles_matplotlib[sel.index]``
+    gives the exact ``(_padded_position, row_index, ...)`` tuple that was used
+    to plot the point, guaranteeing that the hover annotation always refers to
+    the correct position and codon/amino-acid.
     """
 
     _mpl_scatterplot = ax1.scatter([x[0] for x in circles_matplotlib], [x[1] for x in circles_matplotlib], marker='o', s=[x[2] for x in circles_matplotlib], alpha=0.5, c=[x[6] for x in circles_matplotlib], cmap=cmap, norm=norm)
@@ -1326,22 +1391,28 @@ def render_matplotlib(
         _label.set_rotation(90)
         _label.set_ha("center")
 
-    _cursor = mplcursors.cursor(ax1, hover=True)
+    _cursor = mplcursors.cursor(_mpl_scatterplot, hover=True)
     if myoptions.aminoacids:
         @_cursor.connect("add")
         def on_add(sel):
-            ypos, xpos = int(sel.target[1]), int(sel.target[0])
+            # sel.index is the index into _mpl_scatterplot's data array, i.e.
+            # into circles_matplotlib.  Do NOT use sel.target: it returns the
+            # raw mouse position in data coordinates, which produces wrong
+            # padded_position values when converted back via column arithmetic.
+            _pt = circles_matplotlib[sel.index]
+            _padded_position = _pt[0]  # stored as _padded_position when appended
+            ypos = _pt[1]              # stored as i (row index in new_aa_table)
             _new_amino_acid = new_aa_table.index[ypos]
-            _position_in_protein = new_aa_table.columns[xpos+1-myoptions.offset-calculated_aa_offset]
-            _frequency = new_aa_table.at[_new_amino_acid, _position_in_protein]
-            _frequencies = [Decimal(x) for x in df.loc[(df['position'] == _position_in_protein) & (df['mutant_aa'] == _new_amino_acid) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)][myoptions.column_with_frequencies].to_list()]
-            _old_amino_acid = df.loc[df['position'] == _position_in_protein]['original_aa'].to_list()[0]
-            _old_codon = df.loc[df['position'] == _position_in_protein]['original_codon'].to_list()[0]
-            _new_codons = df.loc[(df['position'] == _position_in_protein) & (df['mutant_aa'] == _new_amino_acid) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['mutant_codon'].to_list()
+            _position_in_protein = padded_position2position[_padded_position]
+            _frequency = new_aa_table.at[_new_amino_acid, _padded_position]
+            _frequencies = [Decimal(x) for x in df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _new_amino_acid) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)][myoptions.column_with_frequencies].to_list()]
+            _old_amino_acid = df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list()[0]
+            _old_codon = df.loc[df['padded_position'] == _padded_position]['original_codon'].to_list()[0]
+            _new_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _new_amino_acid) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['mutant_codon'].to_list()
             _new_codon = _new_codons[0]
-            _observed_codon_counts = df.loc[(df['position'] == _position_in_protein) & (df['mutant_aa'] == _new_amino_acid) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()
+            _observed_codon_counts = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _new_amino_acid) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()
             _observed_codon_count_sum = sum(_observed_codon_counts)
-            _total_codons_per_site = df.loc[(df['position'] == _position_in_protein) & (df['mutant_codon'] == _new_codon)]['total_codons_per_site'].to_list()
+            _total_codons_per_site = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon)]['total_codons_per_site'].to_list()
             if len(_total_codons_per_site):
                 _total_codons_per_site = _total_codons_per_site[0]
             _score = matrix[_old_amino_acid][_new_amino_acid]
@@ -1349,54 +1420,60 @@ def render_matplotlib(
                 raise ValueError("The new codon %s is not in the list of all codons %s encoding this aa %s" % (_new_codon, str(_new_codons), _new_amino_acid))
 
             if myoptions.column_with_frequencies == 'neutralized_parent_difference':
-                sel.annotation.set_text(f"Position: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}")
+                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}")
             elif myoptions.column_with_frequencies == 'escape_parent_difference':
-                sel.annotation.set_text(f"Position: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}")
+                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}")
             elif myoptions.column_with_frequencies == 'weighted_diff_escape_neutralized':
-                sel.annotation.set_text(f"Position: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}")
+                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}")
             elif myoptions.column_with_frequencies == 'frequency':
-                sel.annotation.set_text(f"Position: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon count sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
+                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon count sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
             else:
-                sel.annotation.set_text(f"Position: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon count sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
+                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {['{:.6f}'.format(x) for x in _frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon count sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
     else:
         @_cursor.connect("add")
         def on_add(sel):
-            ypos, xpos = int(sel.target[1]), int(sel.target[0])
-            print(f"Info: xpos={xpos}, ypos={ypos}, calculated_aa_offset={calculated_aa_offset}")
+            # sel.index is the index into _mpl_scatterplot's data array, i.e.
+            # into circles_matplotlib.  Do NOT use sel.target: it returns the
+            # raw mouse position in data coordinates, which produces wrong
+            # padded_position values when converted back via column arithmetic.
+            _pt = circles_matplotlib[sel.index]
+            _padded_position = _pt[0]  # stored as _padded_position when appended
+            ypos = _pt[1]              # stored as i (row index in new_codon_table)
+            print(f"Info: _padded_position={_padded_position}, ypos={ypos}")
             _new_codon = new_codon_table.index[ypos]
-            _position_in_protein = new_codon_table.columns[xpos+1-myoptions.offset-calculated_aa_offset]
-            _frequency = new_codon_table.at[_new_codon, _position_in_protein]
-            print(f"Info: _position_in_protein={_position_in_protein}, _frequency={_frequency}")
-            _old_codon = df.loc[df['position'] == _position_in_protein]['original_codon'].to_list()[0]
-            _old_amino_acid = df.loc[df['position'] == _position_in_protein]['original_aa'].to_list()[0]
-            _observed_codon_count = df.loc[(df['position'] == _position_in_protein) & (df['mutant_codon'] == _new_codon) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()[0]
-            _total_codons_per_site = df.loc[(df['position'] == _position_in_protein) & (df['mutant_codon'] == _new_codon) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['total_codons_per_site'].to_list()[0]
-            print(f"Info: {len(df.loc[df['position'] == _position_in_protein]['position'])} aa residues observed in position {_position_in_protein}:{os.linesep} {str(df.loc[df['position'] == _position_in_protein][0:])}{os.linesep}")
+            _position_in_protein = padded_position2position[_padded_position]
+            _frequency = new_codon_table.at[_new_codon, _padded_position]
+            print(f"Info: _new_codon={_new_codon}, _padded_position={_padded_position}, _position_in_protein={_position_in_protein}, _frequency={_frequency}")
+            _old_codon = df.loc[df['padded_position'] == _padded_position]['original_codon'].to_list()[0]
+            _old_amino_acid = df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list()[0]
+            _observed_codon_count = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()[0]
+            _total_codons_per_site = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['total_codons_per_site'].to_list()[0]
+            print(f"Info: {len(df.loc[df['padded_position'] == _padded_position]['position'])} aa residues observed in position {_position_in_protein}:{os.linesep} {str(df.loc[df['padded_position'] == _padded_position][0:])}{os.linesep}")
             try:
-                _new_amino_acid = df.loc[(df['position'] == _position_in_protein) & (df['mutant_codon'] == _new_codon)]['mutant_aa'].to_list()[0]
+                _new_amino_acid = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon)]['mutant_aa'].to_list()[0]
             except IndexError:
                 _new_amino_acid = "Failed to find, the %s is wrong and too far from original codon" % _new_codon
             _score = matrix[_old_amino_acid][_new_amino_acid]
             try:
-                _some_frequency = Decimal(df.loc[(df['position'] == _position_in_protein) & (df['mutant_codon'] == _new_codon)][myoptions.column_with_frequencies].to_list()[0])
+                _some_frequency = Decimal(df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon)][myoptions.column_with_frequencies].to_list()[0])
             except (IndexError, ValueError, TypeError):
                 _some_frequency = 0.00000000009
             if _some_frequency != _frequency and (_some_frequency != 0.00000000009 and _frequency != 0) and not np.abs(_frequency) < myoptions.threshold:
-                raise ValueError("Frequency new_codon_table.at[_new_codon, _position_in_protein]=%s not same as df.loc[(df['position'] == _position_in_protein) & (df['mutant_codon'] == _new_codon)][myoptions.column_with_frequencies].to_list()[0]=%s" % (_frequency, _frequency))
+                raise ValueError("Frequency new_codon_table.at[_new_codon, _padded_position]=%s not same as df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon)][myoptions.column_with_frequencies].to_list()[0]=%s" % (_frequency, _frequency))
 
             if myoptions.debug:
-                print(f"Debug: Position: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nFrequency: {_frequency:.6f}")
+                print(f"Debug: Padded position: {_padded_position} Position: {_position_in_protein} Original Codon: {_old_codon} ({_old_amino_acid}) New Codon: {_new_codon} ({_new_amino_acid}) {matrix_name} score: {_score} Frequency: {_frequency:.6f}")
 
             if myoptions.column_with_frequencies == 'neutralized_parent_difference':
-                sel.annotation.set_text(f"Position: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nDifference neutralized2parent: {_frequency:.6f}")
+                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nDifference neutralized2parent: {_frequency:.6f}")
             elif myoptions.column_with_frequencies == 'escape_parent_difference':
-                sel.annotation.set_text(f"Position: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nDifference escape2parent: {_frequency:.6f}")
+                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nDifference escape2parent: {_frequency:.6f}")
             elif myoptions.column_with_frequencies == 'weighted_diff_escape_neutralized':
-                sel.annotation.set_text(f"Position: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nWeighted difference escape2neutralized: {_frequency:.6f}")
+                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nWeighted difference escape2neutralized: {_frequency:.6f}")
             elif myoptions.column_with_frequencies == 'frequency':
-                sel.annotation.set_text(f"Position: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_count}\nTotal codons per site: {_total_codons_per_site}")
+                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_count}\nTotal codons per site: {_total_codons_per_site}")
             else:
-                sel.annotation.set_text(f"Position: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_count}\nTotal codons per site: {_total_codons_per_site}")
+                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_count}\nTotal codons per site: {_total_codons_per_site}")
             if myoptions.debug:
                 print(f"Debug: final_sorted_whitelist={str(final_sorted_whitelist)}")
                 print(f"Debug: codons_whitelist2={str(codons_whitelist2)}")
