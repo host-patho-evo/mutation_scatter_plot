@@ -1,11 +1,13 @@
 """Command-line interface for mutation_scatter_plot."""
 
+import os
 from optparse import OptionParser, IndentedHelpFormatter
 from . import (
     VERSION,
     load_matrix,
     load_and_clean_dataframe,
     build_frequency_tables,
+    build_conversion_table,
     setup_matplotlib_figure,
     collect_scatter_data,
     render_bokeh,
@@ -82,11 +84,11 @@ def build_option_parser():
     )
     myparser.add_option(
         "--xmin", action="store", type="int", dest="xmin", default=0,
-        help="Define minimum X-axis value",
+        help="Define minimum X-axis value. This should be the position in the padded alignment (using '-').",
     )
     myparser.add_option(
         "--xmax", action="store", type="int", dest="xmax", default=0,
-        help="Define maximum X-axis value",
+        help="Define maximum X-axis value. This should be the position in the padded alignment (using '-').",
     )
     myparser.add_option(
         "--x-axis-bins", action="store", type="int", dest="xaxis_bins",
@@ -230,25 +232,65 @@ def main():  # pylint: disable=too-many-locals
     _matrix, _matrix_name, _min_theoretical_score, _max_theoretical_score, \
         _outfile_prefix = load_matrix(myoptions)
 
-    _df, _title_data, _aln_rows = load_and_clean_dataframe(
-        myoptions, _outfile_prefix
+    # create a conversion dictionary
+    _padded_position2position = {}
+
+    # parse the .frequencies.tsv contents and fill-in the conversion dictionary
+    _df, _padded_position2position = load_and_clean_dataframe(
+        myoptions, myoptions.tsv_file_path, _outfile_prefix,
+        _padded_position2position,
     )
+
+    print(f"Info: Writing into {_outfile_prefix}.actually_rendered.tsv")
+    _df.to_csv(
+        f"{_outfile_prefix}.actually_rendered.tsv",
+        sep='\t', header=None, index=False, float_format='{:7.6f}'.format,
+    )
+
+    if '.frequencies.tsv' in myoptions.tsv_file_path:
+        _count_filename = _outfile_prefix + '.count'
+        if os.path.exists(_count_filename):
+            try:
+                with open(_count_filename, encoding="utf-8") as _aln_handle:
+                    _aln_rows = _aln_handle.readline()
+            except OSError:
+                _aln_rows = '0'
+        else:
+            _aln_rows = '0'
+    else:
+        _aln_rows = '0'
+
+    if not myoptions.title:
+        _title_data = myoptions.tsv_file_path.replace('.frequencies.tsv', '')
+    else:
+        _title_data = myoptions.title
+
+    print(f"Info: Title will be {_title_data}")
+
+    # supplement the conversion dictionary with values from .frequencies.unchanged_codons.tsv
+    _unchanged_tsv = myoptions.tsv_file_path.replace(
+        '.frequencies.tsv', '.frequencies.unchanged_codons.tsv'
+    )
+    _df_frequencies_unchanged_codons, _padded_position2position = load_and_clean_dataframe(
+        myoptions, _unchanged_tsv, _outfile_prefix, _padded_position2position,
+    )
+    del(_df_frequencies_unchanged_codons)
 
     (
         _amino_acids, _codons_whitelist, _codons_whitelist2,
         _final_sorted_whitelist,
-        _unique_aa_positions, _unique_codon_positions,
+        _unique_aa_padded_positions, _unique_codon_padded_positions,
         _old_aa_table, _new_aa_table, _old_codon_table, _new_codon_table,
-        _calculated_aa_offset,
-    ) = build_frequency_tables(myoptions, _df)
+        _calculated_aa_offset, _padded_position2position,
+    ) = build_frequency_tables(myoptions, _df, _padded_position2position)
 
     _figure, _ax1, _ax2, _ax3, _ax4, _xmin, _xmax = \
         setup_matplotlib_figure(
             myoptions,
             _title_data, _aln_rows, _matrix_name, _amino_acids,
             _codons_whitelist, _final_sorted_whitelist,
-            _unique_aa_positions, _unique_codon_positions,
-            _new_aa_table, _new_codon_table,
+            _unique_aa_padded_positions, _unique_codon_padded_positions,
+            _new_aa_table, _new_codon_table, _padded_position2position,
         )
 
     _table = _new_aa_table if myoptions.aminoacids else _new_codon_table
@@ -256,7 +298,7 @@ def main():  # pylint: disable=too-many-locals
     (
         _norm, _cmap, _colors, _used_colors, _matrix_values,
         _labels, _html_labels, _mutations,
-        _circles_bokeh, _circles_matplotlib, _markers, _dots,
+        _circles_bokeh, _circles_matplotlib, _markers, _dots, _label_padded_positions,
         _label_codon_positions, _label_original_amino_acids,
         _label_new_amino_acids,
         _label_cumulative_frequencies, _label_codon_frequencies,
@@ -265,7 +307,7 @@ def main():  # pylint: disable=too-many-locals
     ) = collect_scatter_data(
         myoptions,
         _df, _table, _outfile_prefix, _matrix, _amino_acids,
-        _codons_whitelist2,
+        _codons_whitelist2, _padded_position2position,
     )
 
     _xlabel = _ax1.get_xlabel()
@@ -275,14 +317,14 @@ def main():  # pylint: disable=too-many-locals
             myoptions,
             _outfile_prefix, _xmin, _xmax, _amino_acids,
             _final_sorted_whitelist,
-            _circles_bokeh, _labels, _html_labels, _mutations,
+            _circles_bokeh, _labels, _html_labels, _mutations, _label_padded_positions,
             _label_codon_positions, _label_original_amino_acids,
             _label_new_amino_acids,
             _label_cumulative_frequencies, _label_codon_frequencies,
             _label_observed_codon_counts, _label_observed_codon_count_sum,
             _label_total_codons_per_site, _label_scores,
             _title_data, _xlabel,
-            _matrix_name, _colors, _norm, _cmap,
+            _matrix_name, _colors, _norm, _cmap,_padded_position2position,
         )
 
     render_matplotlib(
@@ -292,7 +334,7 @@ def main():  # pylint: disable=too-many-locals
         _matrix, _matrix_name,
         _new_aa_table, _new_codon_table, _df, _codons_whitelist2,
         _final_sorted_whitelist,
-        _calculated_aa_offset,
+        _calculated_aa_offset, _padded_position2position,
     )
 
 
