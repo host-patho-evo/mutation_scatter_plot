@@ -45,7 +45,8 @@ def get_codons(seq, debug=False):
     if len(seq) % 3 == 0:
         codons = [seq[i:i+3] for i in range(0, len(seq), 3)]
     elif len(seq.replace('-', '')) % 3 == 0:
-        codons = [seq[i:i+3] for i in range(0, len(seq.replace('-', '')), 3)]
+        depadded = seq.replace('-', '')
+        codons = [depadded[i:i+3] for i in range(0, len(depadded), 3)]
         if debug:
             print("Debug: Detected %s minus signs in the sequence but after all "
                   "the nucleotide sequence can be divided by three when they are "
@@ -270,11 +271,11 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
         _reference_protein_seq = reference_protein_seq
         _reference_as_codons = reference_as_codons
 
-    _zero_based_padded_reference_aa_index = 0
+    _zero_based_padded_reference_aa_index = int(min_start / 3)
     _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index]
     _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3].upper()
     _reference_codon_depadded = _reference_codon.replace('-', '')
-    _previous_gaps = 0
+    _previous_gaps = _padded_reference_dna_seq[:3*_zero_based_padded_reference_aa_index].count('-')
     _new_gaps_in_reference = 0
     _re_leading_gaps = re.compile("^[-Nn]+")
     _re_trailing_gaps = re.compile("[-Nn]+$")
