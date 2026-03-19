@@ -477,8 +477,6 @@ def build_frequency_tables(myoptions, df, padded_position2position):
         _amino_acids.append('DEL')
 
     _unique_padded_aa_positions = sorted(padded_position2position.keys())
-    _min_padded_aa_pos = min(_unique_padded_aa_positions)
-    _max_padded_aa_pos = max(_unique_padded_aa_positions)
     if myoptions.debug:
         print(f"Debug: len(_unique_padded_aa_positions)={len(_unique_padded_aa_positions)}, _unique_padded_aa_positions: {str(_unique_padded_aa_positions)}")
     _unique_padded_codon_positions = list(set(_unique_padded_aa_positions))
