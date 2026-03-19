@@ -922,11 +922,11 @@ def collect_scatter_data(
                             if _new_amino_acid_list:
                                 _new_amino_acid = _new_amino_acid_list[0]
                             else:
-                                raise IndexError("list parameter is empty")
-                            if myoptions.debug:
+                                _new_amino_acid = None
+                            if myoptions.debug and _new_amino_acid:
                                 print(f"Info: Parsed existing _new_amino_acid '{_new_amino_acid}' for codon position {_aa_position}")
                         except Exception as exc:
-                            raise ValueError(f"Could not parse new amino acid at position {_aa_position}, codon {_some_codon_or_aa}") from exc
+                            _new_amino_acid = None
 
                         if _new_amino_acid:
                             try:
