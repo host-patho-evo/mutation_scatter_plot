@@ -273,7 +273,7 @@ def main():  # pylint: disable=too-many-locals
     _df_frequencies_unchanged_codons, _padded_position2position = load_and_clean_dataframe(
         myoptions, _unchanged_tsv, _outfile_prefix, _padded_position2position,
     )
-    del(_df_frequencies_unchanged_codons)
+    del _df_frequencies_unchanged_codons
 
     (
         _amino_acids, _codons_whitelist, _codons_whitelist2,
