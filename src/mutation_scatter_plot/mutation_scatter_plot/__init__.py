@@ -395,13 +395,14 @@ def load_and_clean_dataframe(myoptions, infilename, outfile_prefix, padded_posit
         raise RuntimeError("Input file not found: %s" % myoptions.tsv_file_path)
     if os.path.getsize(myoptions.tsv_file_path) == 0:
         raise RuntimeError("Input file is empty: %s" % myoptions.tsv_file_path)
+
     df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header='infer', na_filter=False, na_values=[None])
 
-    if 'position' not in df.columns:
-        del(df)
+    if 'position' in df.columns:
+        print(f"Info: Autodetected new TSV file format with a header in {myoptions.tsv_file_path}")
+    else:
         print("Info: Autodetected old TSV file format without a header in %s, assigning default column names" % myoptions.tsv_file_path)
-        df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header=0, na_filter=False, na_values=[None])
-        print(f"Info: The file {myoptions.tsv_file_path} contained initially these columns: {str(df.columns)}")
+        df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header=None, na_filter=False, na_values=[None])
         _count_columns = len(df.columns.values)
         if _count_columns == 9:
             df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site']
@@ -415,9 +416,11 @@ def load_and_clean_dataframe(myoptions, infilename, outfile_prefix, padded_posit
             df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon']
         else:
             raise RuntimeError("Unexpected number of columns in the %s file" % myoptions.tsv_file_path)
-    else:
-        print(f"Info: Autodetected new TSV file format with a header in {myoptions.tsv_file_path}")
+
     print(f"Info: The file {myoptions.tsv_file_path} contains now these columns: {str(df.columns)}")
+
+    if 'padded_position' not in df.columns:
+        df['padded_position'] = df['position']
 
     if myoptions.offset:
         df['position'] = df['position'] + int(myoptions.offset)
@@ -425,18 +428,22 @@ def load_and_clean_dataframe(myoptions, infilename, outfile_prefix, padded_posit
 
     build_conversion_table(df, padded_position2position) # parse the data
 
-    _before = len(df['mutant_codon'])
+    _mutant_codon = df['mutant_codon']
+    _before = len(_mutant_codon)
     try:
-        df = df.loc[df['mutant_codon'].str.match('[ATGCatgc-][ATGCatgc-][ATGCatgc-]')]
+        df = df.loc[_mutant_codon.str.match('[ATGCatgc-][ATGCatgc-][ATGCatgc-]')]
     except Exception as _exc:
-        raise ValueError("Cannot parse column df['mutant_codon']=%s containing %d values" % (str(df['mutant_codon']), len(df['mutant_codon']))) from _exc
+        raise ValueError("Cannot parse column df['mutant_codon']=%s containing %d values" % (str(_mutant_codon), len(_mutant_codon))) from _exc
+    
+    _mutant_aa = df['mutant_aa']
+    _aas_to_filter = ['X']
     if not myoptions.showstop:
-        df = df.loc[~df['mutant_aa'].isin(['*'])]
+        _aas_to_filter.append('*')
     if not myoptions.showdel:
-        df = df.loc[~df['mutant_aa'].isin(['DEL'])]
+        _aas_to_filter.append('DEL')
     if not myoptions.showins:
-        df = df.loc[~df['mutant_aa'].isin(['INS'])]
-    df = df.loc[~df['mutant_aa'].isin(['X'])]
+        _aas_to_filter.append('INS')
+    df = df.loc[~_mutant_aa.isin(_aas_to_filter)]
     _after = len(df['mutant_codon'])
     if myoptions.showstop:
         if myoptions.showdel:
@@ -469,7 +476,7 @@ def build_frequency_tables(myoptions, df, padded_position2position):
     if myoptions.showdel:
         _amino_acids.append('DEL')
 
-    _unique_padded_aa_positions = [x for x in df['padded_position'].unique()]
+    _unique_padded_aa_positions = sorted(padded_position2position.keys())
     _min_padded_aa_pos = min(_unique_padded_aa_positions)
     _max_padded_aa_pos = max(_unique_padded_aa_positions)
     _number_of_insertions = 0
@@ -773,6 +780,10 @@ def collect_scatter_data(
         # the tables were constructed with the following in build_frequency_tables()
         #     _new_aa_table = pd.DataFrame(Decimal(0), index=_amino_acids, columns=_unique_padded_aa_positions)
         #     _new_codon_table = pd.DataFrame(Decimal(0), index=_codons_whitelist2, columns=_unique_padded_codon_positions)
+        _pos_to_old_codon = df.groupby('padded_position')['original_codon'].first().to_dict()
+        _pos_to_old_aa = df.groupby('padded_position')['original_aa'].first().to_dict()
+        _mut_col = 'mutant_aa' if myoptions.aminoacids else 'mutant_codon'
+        _df_indexed = df.set_index(['padded_position', _mut_col])
         for i, _some_codon_or_aa in enumerate(table.index): # so _some_codon_or_aa contains the index specified when the table was constructed
             for j, _padded_position in enumerate(table.columns): # so _aa_position contains the real aa_position
                 if myoptions.debug:
@@ -789,12 +800,12 @@ def collect_scatter_data(
                 if myoptions.debug and _frequency:
                     print(f"Debug0: _padded_position={_padded_position}, _aa_position={_aa_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={str(_frequency)}")
                 try:
-                    _old_codon = df.loc[df['padded_position'] == _padded_position]['original_codon'].to_list()[0]
-                except IndexError:
+                    _old_codon = _pos_to_old_codon[_padded_position]
+                except KeyError:
                     if _frequency and myoptions.debug:
                         print(f"Debug0b: _padded_position={_padded_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={str(_frequency)}")
                     if _padded_position not in _warn_once:
-                        sys.stderr.write("Warning: Cannot determine original codon for position %s, seems missing from input TSV or cannot split list %s%s" % (_padded_position, str(df.loc[df['padded_position'] == _padded_position]['original_codon'].to_list()), os.linesep))
+                        sys.stderr.write("Warning: Cannot determine original codon for position %s, seems missing from input TSV%s" % (_padded_position, os.linesep))
                         _warn_once.append(_padded_position)
                     continue
                 _codon_on_input, _old_codon_or_aa, _new_codon_or_aa = resolve_codon_or_aa(myoptions, _old_codon, _some_codon_or_aa)
@@ -836,24 +847,35 @@ def collect_scatter_data(
                         print(f"Debug: Invisible dot. Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
 
                 if _padded_position not in _warn_once:
-                    _frequencies = [Decimal(x) for x in df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)][myoptions.column_with_frequencies].to_list()]
                     try:
-                        _old_amino_acid = df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list()[0]
-                    except IndexError:
-                        print(f"Error: Cannot slice {str(df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list())}")
-                        _old_amino_acid = df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list()[0]
+                        _base_df = _df_indexed.loc[[(_padded_position, _some_codon_or_aa)]]
+                    except KeyError:
+                        _base_df = pd.DataFrame()
 
-                    _new_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['mutant_codon'].to_list()
+                    if not _base_df.empty:
+                        _sub_df = _base_df[_base_df[myoptions.column_with_frequencies] >= myoptions.threshold]
+                    else:
+                        _sub_df = pd.DataFrame()
+
+                    _frequencies = [Decimal(x) for x in _sub_df[myoptions.column_with_frequencies].to_list()] if not _sub_df.empty else []
+                    
+                    try:
+                        _old_amino_acid = _pos_to_old_aa[_padded_position]
+                    except KeyError:
+                        print(f"Error: Cannot slice {str(df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list())}")
+                        _old_amino_acid = _pos_to_old_aa[_padded_position]
+
+                    _new_codons = _sub_df['mutant_codon'].to_list() if not _sub_df.empty and 'mutant_codon' in _sub_df.columns else []
                     if myoptions.aminoacids:
                         if _frequency != table.at[_some_codon_or_aa, _padded_position]:
                             raise ValueError("Values _frequency=%s and table.at[_some_codon_or_aa, _padded_position]=%s should be equal" % (_frequency, table.at[_some_codon_or_aa, _padded_position]))
                         if len(_new_codons) != len(_frequencies):
                             raise ValueError("len(_new_codons) != len(_frequencies), specifically: %s != %s" % (len(_new_codons), len(_frequencies)))
                         if 'observed_codon_count' in df.columns.values:
-                            _observed_codon_counts = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()
-                            _total_codons_per_site = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['total_codons_per_site'].to_list()
-                            if _total_codons_per_site:
-                                _total_codons_per_site = _total_codons_per_site[0]
+                            _observed_codon_counts = _sub_df['observed_codon_count'].to_list() if not _sub_df.empty else []
+                            _total_codons_per_site_list = _sub_df['total_codons_per_site'].to_list() if not _sub_df.empty else []
+                            if _total_codons_per_site_list:
+                                _total_codons_per_site = _total_codons_per_site_list[0]
                         else:
                             _observed_codon_counts = []
                             _total_codons_per_site = 0
@@ -881,17 +903,16 @@ def collect_scatter_data(
                     else:
                         if _frequency != table.at[_some_codon_or_aa, _padded_position]:
                             raise ValueError("Values _frequency=%s and table.at[_some_codon_or_aa, _padded_position]=%s should be equal" % (_frequency, table.at[_some_codon_or_aa, _padded_position]))
-
                         if 'observed_codon_count' in df.columns.values:
-                            _observed_codon_counts = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()
+                            _observed_codon_counts = _sub_df['observed_codon_count'].to_list() if not _sub_df.empty else []
                             if _observed_codon_counts and len(_observed_codon_counts) < 2:
                                 _observed_codon_counts = _observed_codon_counts[0]
                                 _observed_codon_count_sum = _observed_codon_counts
                             else:
                                 _observed_codon_count_sum = sum(_observed_codon_counts)
-                            _total_codons_per_site = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['total_codons_per_site'].to_list()
-                            if _total_codons_per_site and len(_total_codons_per_site) < 2:
-                                _total_codons_per_site = _total_codons_per_site[0]
+                            _total_codons_per_site_list = _sub_df['total_codons_per_site'].to_list() if not _sub_df.empty else []
+                            if _total_codons_per_site_list:
+                                _total_codons_per_site = _total_codons_per_site_list[0]
                         else:
                             _observed_codon_counts = []
                             _total_codons_per_site = 0
@@ -903,23 +924,30 @@ def collect_scatter_data(
                         try:
                             # make sure we dot not fetch also INSertions, which could be even multiple rows in addition to the row with changed_codon, especially if the reference protein and is padded on the right with dashes
                             # try to switch to 'padded_position' instead of 'position' to fetch a row from Pandas
-                            _new_amino_acid = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)]['mutant_aa'].to_list()[0] # the condition & (df['original_aa'] != 'INS') should not be needed anymore
-                        except IndexError:
-                            _new_amino_acid = None
+                            _new_amino_acid_list = _base_df['mutant_aa'].to_list() if not _base_df.empty and 'mutant_aa' in _base_df.columns else []
+                            if _new_amino_acid_list:
+                                _new_amino_acid = _new_amino_acid_list[0]
+                            else:
+                                raise IndexError("list parameter is empty")
+                            if myoptions.debug:
+                                print(f"Info: Parsed existing _new_amino_acid '{_new_amino_acid}' for codon position {_aa_position}")
+                        except Exception as exc:
+                            raise ValueError("Could not parse new amino acid at position %s, codon %s" % (_aa_position, _some_codon_or_aa)) from exc
 
                         if _new_amino_acid:
                             try:
                                 # make sure we dot not fetch also INSertions, which could be even multiple rows in addition to the row with changed_codon
-                                _some_frequency = Decimal(df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0]) # the condition & (df['original_aa'] != 'INS') should not be needed anymore
+                                _some_freq_list = _base_df[myoptions.column_with_frequencies].to_list() if not _base_df.empty and myoptions.column_with_frequencies in _base_df.columns else []
+                                _some_frequency = Decimal(_some_freq_list[0]) if _some_freq_list else Decimal('0.00000000009')
                             except (IndexError, ValueError, TypeError):
-                                _some_frequency = 0.00000000009
-                            if _some_frequency != _frequency and (_some_frequency != 0.00000000009 and _frequency != 0):
+                                _some_frequency = Decimal('0.00000000009')
+                            if _some_frequency != _frequency and (_some_frequency != Decimal('0.00000000009') and _frequency != 0):
                                 # 334	333	R	R	0.432432	AGG	AGA	16	37 # .frequencies.tsv
                                 # 338	333	INS	R	0.027027	---	AGA	1	37 # .frequencies.tsv
                                 # 344	333	INS	R	0.648649	---	AGA	24	37 # .frequencies.tsv
                                 #
                                 # 344	333	INS	R	0.648649	---	AGA	24	37 # .frequencies.unchanged_codons.tsv
-                                raise ValueError("Frequency new_codon_table.at[_some_codon_or_aa, _padded_position]=%s _some_codon_or_aa=%s, _padded_position=%s not same as df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0]=%s. Are multiple rows matching? We picked just the first one: df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()=%s for _old_codon=%s, _old_amino_acid=%s" % (_frequency, _some_codon_or_aa, _padded_position, _some_frequency, df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list(), _old_codon, _old_amino_acid))
+                                raise ValueError("Frequency new_codon_table.at[_some_codon_or_aa, _padded_position]=%s _some_codon_or_aa=%s, _padded_position=%s not same as df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0]=%s. Are multiple rows matching? We picked just the first one: df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()=%s for _old_codon=%s, _old_amino_acid=%s" % (_frequency, _some_codon_or_aa, _padded_position, _some_frequency, _some_freq_list, _old_codon, _old_amino_acid))
 
                             if _old_amino_acid and not _frequency < myoptions.threshold and _size:
                                 _label_scores.append(_score)

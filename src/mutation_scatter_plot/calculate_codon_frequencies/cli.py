@@ -166,4 +166,5 @@ def main():
         )
 
 
-# vim:ts=4:sw=4:expandtab:smartindent
+if __name__ == "__main__":
+    main()

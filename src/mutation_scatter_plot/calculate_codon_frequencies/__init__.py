@@ -42,20 +42,24 @@ def get_codons(seq, debug=False):
     If the sequence is not already divisible by 3, padding dashes are removed
     before splitting.
     """
-    if len(seq) % 3 == 0:
-        codons = [seq[i:i+3] for i in range(0, len(seq), 3)]
-    elif len(seq.replace('-', '')) % 3 == 0:
-        codons = [seq[i:i+3] for i in range(0, len(seq.replace('-', '')), 3)]
-        if debug:
-            print("Debug: Detected %s minus signs in the sequence but after all "
-                  "the nucleotide sequence can be divided by three when they are "
-                  "omitted, good." % seq.count('-'))
+    _seq_len = len(seq)
+    if _seq_len % 3 == 0:
+        _codons = [seq[_i:_i+3] for _i in range(0, _seq_len, 3)]
     else:
-        raise ValueError(
-            "Error: Sequence %s cannot be divided by 3 and removing minus "
-            "signs does not help either" % seq
-        )
-    return codons
+        _seq_depadded = seq.replace('-', '')
+        _seq_depadded_len = len(_seq_depadded)
+        if _seq_depadded_len % 3 == 0:
+            _codons = [seq[_i:_i+3] for _i in range(0, _seq_depadded_len, 3)]
+            if debug:
+                print("Debug: Detected %s minus signs in the sequence but after all "
+                      "the nucleotide sequence can be divided by three when they are "
+                      "omitted, good." % seq.count('-'))
+        else:
+            raise ValueError(
+                "Error: Sequence %s cannot be divided by 3 and removing minus "
+                "signs does not help either" % seq
+            )
+    return _codons
 
 
 def write_tsv_line(outfilename, codons, natural_codon_position_padded,
