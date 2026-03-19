@@ -434,7 +434,7 @@ def load_and_clean_dataframe(myoptions, infilename, outfile_prefix, padded_posit
         df = df.loc[_mutant_codon.str.match('[ATGCatgc-][ATGCatgc-][ATGCatgc-]')]
     except Exception as _exc:
         raise ValueError("Cannot parse column df['mutant_codon']=%s containing %d values" % (str(_mutant_codon), len(_mutant_codon))) from _exc
-    
+
     _mutant_aa = df['mutant_aa']
     _aas_to_filter = ['X']
     if not myoptions.showstop:
@@ -852,7 +852,7 @@ def collect_scatter_data(
                         _sub_df = pd.DataFrame()
 
                     _frequencies = [Decimal(x) for x in _sub_df[myoptions.column_with_frequencies].to_list()] if not _sub_df.empty else []
-                    
+
                     try:
                         _old_amino_acid = _pos_to_old_aa[_padded_position]
                     except KeyError:

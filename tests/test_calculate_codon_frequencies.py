@@ -12,15 +12,15 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
         self.tests_dir = os.path.dirname(os.path.abspath(__file__))
         self.project_root = os.path.dirname(self.tests_dir)
         self.outputs_dir = os.path.join(self.tests_dir, "outputs")
-        
+
         self.test2_fasta = os.path.join(self.tests_dir, "inputs", "test2.fasta")
         self.ref_fasta = os.path.join(self.tests_dir, "inputs", "MN908947.3_S.fasta")
-        
+
         # Environment to pass to subprocess
         self.env = os.environ.copy()
         if "PYTHONPATH" not in self.env:
             self.env["PYTHONPATH"] = os.path.join(self.project_root, "src")
-        
+
         # To make tests robust against PATH issues (like 'calculate_codon_frequencies' not being installed),
         # we run the python module directly using the same python executable running the tests.
         self.base_cmd = [sys.executable, "-m", "mutation_scatter_plot.calculate_codon_frequencies.cli"]
@@ -28,13 +28,13 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
     def _check_outputs(self, expected_prefix, generated_prefix):
         """Helper to compare generated TSVs with golden files stored in tests/outputs/"""
         os.makedirs(self.outputs_dir, exist_ok=True)
-        
+
         for suffix in [".tsv", ".unchanged_codons.tsv"]:
             generated_file = f"{generated_prefix}{suffix}"
             expected_file = os.path.join(self.outputs_dir, f"{expected_prefix}{suffix}")
-            
+
             self.assertTrue(os.path.exists(generated_file), f"Output file {generated_file} was not created")
-            
+
             if not os.path.exists(expected_file):
                 # Automatically save as the golden version if no existing golden file is present
                 shutil.copy(generated_file, expected_file)

@@ -708,7 +708,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
             )
 
         # we add the DEL lines into the main frequencies.tsv file here even without calling write_tsv_line()
-        # the write_tsv_line() accepts list of codons in the sample but here we have a 
+        # the write_tsv_line() accepts list of codons in the sample but here we have a
         if _is_deletion:
             for _some_deleted_codon in _deleted_reference_codons:
                 _observed_codon_count = Decimal(
