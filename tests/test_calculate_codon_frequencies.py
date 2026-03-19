@@ -46,7 +46,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                     # Run diff -u -w to show the differences
                     diff_result = subprocess.run(
                         ["diff", "-u", "-w", expected_file, generated_file],
-                        capture_output=True, text=True
+                        capture_output=True, text=True, check=False
                     )
                     self.fail(f"File {generated_file} does not match golden file {expected_file}.\nDifferences:\n{diff_result.stdout}")
 
@@ -60,7 +60,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True)
+            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
             self._check_outputs("test2.frequencies", outfile_prefix)
 
@@ -75,7 +75,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--reference-infile", self.ref_fasta,
                 "--x-after-count"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True)
+            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
             self._check_outputs("test2.frequencies_x_after_count", outfile_prefix)
 
@@ -91,7 +91,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--x-after-count",
                 "--min_start=7"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True)
+            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
             self._check_outputs("test2.frequencies_x_after_count_and_min_start", outfile_prefix)
 
