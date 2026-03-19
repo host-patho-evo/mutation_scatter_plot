@@ -107,9 +107,9 @@ def main():
     if not myoptions.reference_infilename:
         raise ValueError("Error: Please specify --reference-infile with FASTA sequence")
     elif not os.path.exists(myoptions.reference_infilename):
-        raise ValueError("Error: File %s does not exist" % myoptions.reference_infilename)
+        raise ValueError(f"Error: File {myoptions.reference_infilename} does not exist")
     elif os.path.getsize(myoptions.reference_infilename) == 0:
-        raise ValueError("Error: File %s is empty" % myoptions.reference_infilename)
+        raise ValueError(f"Error: File {myoptions.reference_infilename} is empty")
     else:
         for _record in SeqIO.parse(myoptions.reference_infilename, "fasta"):
             _padded_reference_dna_seq = str(_record.seq)
@@ -145,7 +145,7 @@ def main():
 
     if myoptions.alignment_infilename and os.path.exists(myoptions.alignment_infilename):
         if os.path.getsize(myoptions.alignment_infilename) == 0:
-            raise RuntimeError("Input file %s is empty" % myoptions.alignment_infilename)
+            raise RuntimeError(f"Input file {myoptions.alignment_infilename} is empty")
         parse_alignment(
             myoptions,
             myoptions.alignment_infilename,

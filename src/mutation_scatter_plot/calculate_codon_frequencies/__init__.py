@@ -214,9 +214,9 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
         print("Debug1: reference_protein_seq=%s with length %d" % (
             str(reference_protein_seq), len(reference_protein_seq)))
     if not os.path.exists(alignment_file):
-        raise RuntimeError("Alignment file not found: %s" % alignment_file)
+        raise RuntimeError(f"Alignment file not found: {alignment_file}")
     if os.path.getsize(alignment_file) == 0:
-        raise RuntimeError("Alignment file is empty: %s" % alignment_file)
+        raise RuntimeError(f"Alignment file is empty: {alignment_file}")
     try:
         _align = AlignIO.read(alignment_file, "fasta")
     except ValueError as exc:
@@ -245,9 +245,9 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                       len(padded_reference_dna_seq),
                       myoptions.left_reference_offset - 1,
                       myoptions.right_reference_offset))
-            print("Info: After cutting input using offset position: %s" % _padded_reference_dna_seq)
-            print("Info: After cutting input using offset position: %s" % _reference_protein_seq)
-            print("Info: After cutting input using offset position: %s" % _reference_as_codons)
+            print(f"Info: After cutting input using offset position: {_padded_reference_dna_seq}")
+            print(f"Info: After cutting input using offset position: {_reference_protein_seq}")
+            print(f"Info: After cutting input using offset position: {_reference_as_codons}")
         if not _reference_protein_seq:
             raise ValueError(
                 "Error: No _reference_protein_seq provided or left. Was the "
@@ -618,7 +618,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
         _total_codons_per_site_sum = sum(_total_codons_per_site_counts.values())
 
         if myoptions.debug:
-            print("Debug26c: _reference_codon was %s" % str(_reference_codon))
+            print(f"Debug26c: _reference_codon was {_reference_codon!s}")
 
         if len(_reference_protein_seq) > _zero_based_padded_reference_aa_index:
             _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index]
@@ -774,10 +774,10 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
             break
 
     del _align
-    alnfilename_count.write("%s\n" % _total_aln_entries_used)
+    alnfilename_count.write(f"{_total_aln_entries_used}\n")
     alnfilename_count.close()
     _consensus = ''.join(_top_most_codons).upper()
-    print("Info: consensus = %s" % str(_consensus))
+    print(f"Info: consensus = {_consensus!s}")
     if _consensus in _padded_reference_dna_seq.upper():
         print("Info: Sample consensus sequence should roughly match substring "
               "inside the reference %s and IT DOES: %s" % (
@@ -793,6 +793,6 @@ def open_file(outfilename):
     """Open a new file for writing, raising an error if it already exists."""
     if os.path.exists(outfilename):
         raise RuntimeError(
-            "The file %s already exists, will not overwrite it." % outfilename
+            f"The file {outfilename} already exists, will not overwrite it."
         )
     return open(outfilename, 'x')
