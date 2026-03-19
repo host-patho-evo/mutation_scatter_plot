@@ -53,7 +53,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
     def test_default_command(self):
         """Test calculate_codon_frequencies with default parameters."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            outfile_prefix = os.path.join(tmpdir, "test2.frequencies")
+            outfile_prefix = os.path.join(tmpdir, "test2.frequencies_default")
             cmd = self.base_cmd + [
                 "--alignment-file", self.test2_fasta,
                 "--outfile-prefix", outfile_prefix,
@@ -62,7 +62,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
-            self._check_outputs("test2.frequencies", outfile_prefix)
+            self._check_outputs("test2.frequencies_default", outfile_prefix)
 
     def test_x_after_count(self):
         """Test calculate_codon_frequencies with --x-after-count."""

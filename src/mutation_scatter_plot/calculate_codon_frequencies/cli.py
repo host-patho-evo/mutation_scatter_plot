@@ -22,7 +22,7 @@ class NoWrapFormatter(IndentedHelpFormatter):
     """Help formatter that does not wrap long lines, preserving URLs."""
 
     def format_description(self, description):
-        return description + "\n" if description else ""
+        return f"{description}\n" if description else ""
 
     def format_option(self, option):
         result = []
@@ -46,7 +46,7 @@ class NoWrapFormatter(IndentedHelpFormatter):
 
 def build_option_parser():
     myparser = OptionParser(
-        version="%s version %s" % ('%prog', VERSION),
+        version="{} version {}".format('%prog', VERSION),
         formatter=NoWrapFormatter(),
         description=__import__('mutation_scatter_plot.calculate_codon_frequencies',
                                fromlist=['']).__doc__,
@@ -120,7 +120,7 @@ def main():
 
     if myoptions.alignment_infilename:
         _alnfilename_count_handle = open(
-            '.'.join(myoptions.alignment_infilename.split('.')[:-1]) + '.count', 'w'
+            f"{'.'.join(myoptions.alignment_infilename.split('.')[:-1])}.count", 'w'
         )
     else:
         raise RuntimeError("Please specify --alignment-file")
@@ -129,12 +129,12 @@ def main():
         if myoptions.outfileprefix.endswith('.tsv'):
             _outfilename_handle = open_file(myoptions.outfileprefix)
             _outfilename_unchanged_codons_handle = open_file(
-                myoptions.outfileprefix[:-4] + '.unchanged_codons.tsv'
+                f"{myoptions.outfileprefix[:-4]}.unchanged_codons.tsv"
             )
         else:
-            _outfilename_handle = open_file(myoptions.outfileprefix + '.tsv')
+            _outfilename_handle = open_file(f"{myoptions.outfileprefix}.tsv")
             _outfilename_unchanged_codons_handle = open_file(
-                myoptions.outfileprefix + '.unchanged_codons.tsv'
+                f"{myoptions.outfileprefix}.unchanged_codons.tsv"
             )
     else:
         raise RuntimeError("Please specify output filename prefix via --outfile-prefix")
@@ -161,8 +161,7 @@ def main():
         )
     else:
         raise RuntimeError(
-            "Input file %s does not exist or is not defined"
-            % str(myoptions.alignment_infilename)
+            f"Input file {str(myoptions.alignment_infilename)} does not exist or is not defined"
         )
 
 
