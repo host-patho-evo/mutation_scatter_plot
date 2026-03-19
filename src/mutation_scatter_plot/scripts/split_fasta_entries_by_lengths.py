@@ -66,16 +66,13 @@ def main():
         raise RuntimeError(f"Input file is empty: {myoptions.infile}")
 
     _exact_length_name = (
-        myoptions.outfile_prefix
-        + ".exactly_" + str(myoptions.full_length) + ".fasta"
+        f"{myoptions.outfile_prefix}.exactly_{myoptions.full_length!s}.fasta"
     )
     _shorter_length_name = (
-        myoptions.outfile_prefix
-        + ".shorter_" + str(myoptions.full_length) + ".fasta"
+        f"{myoptions.outfile_prefix}.shorter_{myoptions.full_length!s}.fasta"
     )
     _longer_length_name = (
-        myoptions.outfile_prefix
-        + ".longer_" + str(myoptions.full_length) + ".fasta"
+        f"{myoptions.outfile_prefix}.longer_{myoptions.full_length!s}.fasta"
     )
 
     _exact_length_cnt   = 0

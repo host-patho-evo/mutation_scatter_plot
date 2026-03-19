@@ -42,20 +42,24 @@ def get_codons(seq, debug=False):
     If the sequence is not already divisible by 3, padding dashes are removed
     before splitting.
     """
-    if len(seq) % 3 == 0:
-        codons = [seq[i:i+3] for i in range(0, len(seq), 3)]
-    elif len(seq.replace('-', '')) % 3 == 0:
-        codons = [seq[i:i+3] for i in range(0, len(seq.replace('-', '')), 3)]
-        if debug:
-            print("Debug: Detected %s minus signs in the sequence but after all "
-                  "the nucleotide sequence can be divided by three when they are "
-                  "omitted, good." % seq.count('-'))
+    _seq_len = len(seq)
+    if _seq_len % 3 == 0:
+        _codons = [seq[_i:_i+3] for _i in range(0, _seq_len, 3)]
     else:
-        raise ValueError(
-            "Error: Sequence %s cannot be divided by 3 and removing minus "
-            "signs does not help either" % seq
-        )
-    return codons
+        _seq_depadded = seq.replace('-', '')
+        _seq_depadded_len = len(_seq_depadded)
+        if _seq_depadded_len % 3 == 0:
+            _codons = [seq[_i:_i+3] for _i in range(0, _seq_depadded_len, 3)]
+            if debug:
+                print("Debug: Detected {} minus signs in the sequence but after all "
+                      "the nucleotide sequence can be divided by three when they are "
+                      "omitted, good.".format(seq.count('-')))
+        else:
+            raise ValueError(
+                f"Error: Sequence {seq} cannot be divided by 3 and removing minus "
+                "signs does not help either"
+            )
+    return _codons
 
 
 def write_tsv_line(outfilename, codons, natural_codon_position_padded,
@@ -77,30 +81,10 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded,
         else:
             _observed_codon_count2 = _observed_codon_count
         outfilename.write(
-            "{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\t{}\n".format(
-                natural_codon_position_padded,
-                natural_codon_position_depadded,
-                reference_aa,
-                _some_aa,
-                _observed_codon_count2 / Decimal(total_codons_per_site_sum),
-                reference_codon,
-                _some_codon,
-                _observed_codon_count2,
-                _total_codons_per_site_sum,
-            )
+            f"{natural_codon_position_padded}\t{natural_codon_position_depadded}\t{reference_aa}\t{_some_aa}\t{_observed_codon_count2 / Decimal(total_codons_per_site_sum):8.6f}\t{reference_codon}\t{_some_codon}\t{_observed_codon_count2}\t{_total_codons_per_site_sum}\n"
         )
         if debug:
-            print("TESTING1:\t{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\t{}".format(
-                natural_codon_position_padded,
-                natural_codon_position_depadded,
-                reference_aa,
-                _some_aa,
-                _observed_codon_count2 / Decimal(total_codons_per_site_sum),
-                reference_codon,
-                _some_codon,
-                _observed_codon_count2,
-                _total_codons_per_site_sum,
-            ))
+            print(f"TESTING1:\t{natural_codon_position_padded}\t{natural_codon_position_depadded}\t{reference_aa}\t{_some_aa}\t{_observed_codon_count2 / Decimal(total_codons_per_site_sum):8.6f}\t{reference_codon}\t{_some_codon}\t{_observed_codon_count2}\t{_total_codons_per_site_sum}")
     outfilename.flush()
 
 
@@ -210,15 +194,14 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
         print("Debug1: reference_protein_seq=%s with length %d" % (
             str(reference_protein_seq), len(reference_protein_seq)))
     if not os.path.exists(alignment_file):
-        raise RuntimeError("Alignment file not found: %s" % alignment_file)
+        raise RuntimeError(f"Alignment file not found: {alignment_file}")
     if os.path.getsize(alignment_file) == 0:
-        raise RuntimeError("Alignment file is empty: %s" % alignment_file)
+        raise RuntimeError(f"Alignment file is empty: {alignment_file}")
     try:
         _align = AlignIO.read(alignment_file, "fasta")
     except ValueError as exc:
         raise ValueError(
-            'Error: one of the entries in the %s file has different length'
-            % alignment_file
+            f'Error: one of the entries in the {alignment_file} file has different length'
         ) from exc
 
     if myoptions.left_reference_offset or myoptions.right_reference_offset:
@@ -235,29 +218,22 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
             int(min(len(reference_as_codons), myoptions.right_reference_offset / 3))
         ]
         if myoptions.debug:
-            print("Info: len(padded_reference_dna_seq)=%s, "
-                  "myoptions.left_reference_offset=%s, "
-                  "myoptions.right_reference_offset=%s" % (
-                      len(padded_reference_dna_seq),
-                      myoptions.left_reference_offset - 1,
-                      myoptions.right_reference_offset))
-            print("Info: After cutting input using offset position: %s" % _padded_reference_dna_seq)
-            print("Info: After cutting input using offset position: %s" % _reference_protein_seq)
-            print("Info: After cutting input using offset position: %s" % _reference_as_codons)
+            print(f"Info: len(padded_reference_dna_seq)={len(padded_reference_dna_seq)}, "
+                  f"myoptions.left_reference_offset={myoptions.left_reference_offset - 1}, "
+                  f"myoptions.right_reference_offset={myoptions.right_reference_offset}")
+            print(f"Info: After cutting input using offset position: {_padded_reference_dna_seq}")
+            print(f"Info: After cutting input using offset position: {_reference_protein_seq}")
+            print(f"Info: After cutting input using offset position: {_reference_as_codons}")
         if not _reference_protein_seq:
             raise ValueError(
                 "Error: No _reference_protein_seq provided or left. Was the "
-                "slicing using myoptions.left_reference_offset-1=%s, "
-                "myoptions.right_reference_offset=%s wrong?" % (
-                    myoptions.left_reference_offset - 1,
-                    myoptions.right_reference_offset))
+                f"slicing using myoptions.left_reference_offset-1={myoptions.left_reference_offset - 1}, "
+                f"myoptions.right_reference_offset={myoptions.right_reference_offset} wrong?")
         if not _reference_as_codons:
             raise ValueError(
                 "Error: No _reference_as_codons provided or left. Was the "
-                "slicing using myoptions.left_reference_offset-1=%s, "
-                "myoptions.right_reference_offset=%s wrong?" % (
-                    myoptions.left_reference_offset - 1,
-                    myoptions.right_reference_offset))
+                f"slicing using myoptions.left_reference_offset-1={myoptions.left_reference_offset - 1}, "
+                f"myoptions.right_reference_offset={myoptions.right_reference_offset} wrong?")
         if myoptions.debug:
             print("Debug2: Depadded reference sequence has length %d, padded "
                   "reference sequence has length %d, each padded entry from %s "
@@ -305,16 +281,14 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
             ].upper()
         except IndexError as exc:
             raise IndexError(
-                'Error: Cannot slice reference protein sequence %s at '
-                'position %s' % (_reference_protein_seq,
-                                 _zero_based_padded_reference_aa_index)
+                f'Error: Cannot slice reference protein sequence {_reference_protein_seq} at '
+                f'position {_zero_based_padded_reference_aa_index}'
             ) from exc
         _current_codon_position = _zero_based_codon_startpos / 3 + 1
         _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3].upper()
         _reference_codon_depadded = _reference_codon.replace('-', '')
         if myoptions.debug:
-            print("Debug3: _start=%s, _padded_reference_dna_seq=%s" % (
-                _zero_based_codon_startpos, _padded_reference_dna_seq))
+            print(f"Debug3: _start={_zero_based_codon_startpos}, _padded_reference_dna_seq={_padded_reference_dna_seq}")
 
         for _aln_line in _align:
             _record_id = _aln_line.id
@@ -325,7 +299,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                 else:
                     try:
                         _record_count = int(_record_id.replace('x', ''))
-                    except ValueError as exc:
+                    except ValueError:
                         # we cannot make an integer from supposedly a string, probably user just enabled x-after-id option but there are just no counts
                         _record_count = 1
             else:
@@ -370,46 +344,34 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
 
             if myoptions.minimum_aln_length and _depadded_aln_line_length < myoptions.minimum_aln_length:
                 if myoptions.debug:
-                    print("Debug5:Here1, _end_of_leading_gaps=%s, "
-                          "_start_of_trailing_gaps=%s, "
-                          "_zero_based_codon_startpos=%s" % (
-                              _end_of_leading_gaps, _start_of_trailing_gaps,
-                              _zero_based_codon_startpos))
+                    print(f"Debug5:Here1, _end_of_leading_gaps={_end_of_leading_gaps}, "
+                          f"_start_of_trailing_gaps={_start_of_trailing_gaps}, "
+                          f"_zero_based_codon_startpos={_zero_based_codon_startpos}")
             elif not _depadded_aln_line_length:
                 if myoptions.debug:
-                    print("Debug6:Here2, _end_of_leading_gaps=%s, "
-                          "_start_of_trailing_gaps=%s, "
-                          "_zero_based_codon_startpos=%s" % (
-                              _end_of_leading_gaps, _start_of_trailing_gaps,
-                              _zero_based_codon_startpos))
+                    print(f"Debug6:Here2, _end_of_leading_gaps={_end_of_leading_gaps}, "
+                          f"_start_of_trailing_gaps={_start_of_trailing_gaps}, "
+                          f"_zero_based_codon_startpos={_zero_based_codon_startpos}")
             elif _end_of_leading_gaps and _zero_based_codon_startpos < _end_of_leading_gaps - 1:
                 if myoptions.debug:
-                    print("Debug7:Here3, _end_of_leading_gaps=%s, "
-                          "_start_of_trailing_gaps=%s, "
-                          "_zero_based_codon_startpos=%s" % (
-                              _end_of_leading_gaps, _start_of_trailing_gaps,
-                              _zero_based_codon_startpos))
+                    print(f"Debug7:Here3, _end_of_leading_gaps={_end_of_leading_gaps}, "
+                          f"_start_of_trailing_gaps={_start_of_trailing_gaps}, "
+                          f"_zero_based_codon_startpos={_zero_based_codon_startpos}")
             elif _start_of_trailing_gaps and _zero_based_codon_startpos + 1 > _start_of_trailing_gaps:
                 if myoptions.debug:
-                    print("Debug8:Here4, _end_of_leading_gaps=%s, "
-                          "_start_of_trailing_gaps=%s, "
-                          "_zero_based_codon_startpos=%s" % (
-                              _end_of_leading_gaps, _start_of_trailing_gaps,
-                              _zero_based_codon_startpos))
+                    print(f"Debug8:Here4, _end_of_leading_gaps={_end_of_leading_gaps}, "
+                          f"_start_of_trailing_gaps={_start_of_trailing_gaps}, "
+                          f"_zero_based_codon_startpos={_zero_based_codon_startpos}")
             elif not _end_of_leading_gaps and _zero_based_codon_startpos + 1 > _start_of_trailing_gaps and _start_of_trailing_gaps:
                 if myoptions.debug:
-                    print("Debug9:Here5, _end_of_leading_gaps=%s, "
-                          "_start_of_trailing_gaps=%s, "
-                          "_zero_based_codon_startpos=%s" % (
-                              _end_of_leading_gaps, _start_of_trailing_gaps,
-                              _zero_based_codon_startpos))
+                    print(f"Debug9:Here5, _end_of_leading_gaps={_end_of_leading_gaps}, "
+                          f"_start_of_trailing_gaps={_start_of_trailing_gaps}, "
+                          f"_zero_based_codon_startpos={_zero_based_codon_startpos}")
             elif not _start_of_trailing_gaps and _zero_based_codon_startpos < _end_of_leading_gaps + 1 and _end_of_leading_gaps:
                 if myoptions.debug:
-                    print("Debug10:Here6, _end_of_leading_gaps=%s, "
-                          "_start_of_trailing_gaps=%s, "
-                          "_zero_based_codon_startpos=%s" % (
-                              _end_of_leading_gaps, _start_of_trailing_gaps,
-                              _zero_based_codon_startpos))
+                    print(f"Debug10:Here6, _end_of_leading_gaps={_end_of_leading_gaps}, "
+                          f"_start_of_trailing_gaps={_start_of_trailing_gaps}, "
+                          f"_zero_based_codon_startpos={_zero_based_codon_startpos}")
             elif _padded_aln_line_length + 1 > _zero_based_codon_startpos + 3:
                 if myoptions.debug:
                     print("Debug11: Rough sample codon at %d is %s, reference "
@@ -547,8 +509,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                             _changed_aa_residues['None'] += _record_count
                             if myoptions.debug > 1:
                                 print("Debug21: Added None to "
-                                      "_changed_aa_residues for codon at %s" % (
-                                          _current_codon_position))
+                                      f"_changed_aa_residues for codon at {_current_codon_position}")
                         if myoptions.debug:
                             print("Debug22: Final codon at %d is %s, reference "
                                   "codon is %s, amplicon region length %s (nt), "
@@ -614,16 +575,14 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
         _total_codons_per_site_sum = sum(_total_codons_per_site_counts.values())
 
         if myoptions.debug:
-            print("Debug26c: _reference_codon was %s" % str(_reference_codon))
+            print(f"Debug26c: _reference_codon was {_reference_codon!s}")
 
         if len(_reference_protein_seq) > _zero_based_padded_reference_aa_index:
             _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index]
         else:
             sys.stderr.write(
-                "Error: Probably _zero_based_padded_reference_aa_index=%s at "
-                "the end of the padded reference sequence which was %s long\n" % (
-                    _zero_based_padded_reference_aa_index,
-                    len(_reference_protein_seq)))
+                f"Error: Probably _zero_based_padded_reference_aa_index={_zero_based_padded_reference_aa_index} at "
+                f"the end of the padded reference sequence which was {len(_reference_protein_seq)} long\n")
             sys.stderr.flush()
 
         if _zero_based_codon_startpos not in _already_checked_starts and len(_reference_codon) == 3:
@@ -649,25 +608,18 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
 
         if myoptions.debug and myoptions.debug > 1:
             for _key in _changed_codons:
-                print("Debug27: {}: {} = {:8.6f} {} {}".format(
-                    _key, _changed_codons[_key],
-                    _changed_codons[_key] / _total_codons_per_site_sum,
-                    set([x for x in _changed_codons]),
-                    set([x for x in _changed_aa_residues])))
+                print(f"Debug27: {_key}: {_changed_codons[_key]} = {_changed_codons[_key] / _total_codons_per_site_sum:8.6f} {set([x for x in _changed_codons])} {set([x for x in _changed_aa_residues])}")
 
         if myoptions.debug:
-            print("Debug27a: _new_gaps_in_reference=%s, "
-                  "_reference_codon_contained_pad=%s, "
-                  "_sample_codon_contained_pad=%s, _reference_codon=%s, "
-                  "_rough_sample_codon=%s" % (
-                      _new_gaps_in_reference, _reference_codon_contained_pad,
-                      _sample_codon_contained_pad, _reference_codon,
-                      _rough_sample_codon))
+            print(f"Debug27a: _new_gaps_in_reference={_new_gaps_in_reference}, "
+                  f"_reference_codon_contained_pad={_reference_codon_contained_pad}, "
+                  f"_sample_codon_contained_pad={_sample_codon_contained_pad}, _reference_codon={_reference_codon}, "
+                  f"_rough_sample_codon={_rough_sample_codon}")
 
         if _new_gaps_in_reference:
             raise ValueError(
-                "Error: _new_gaps_in_reference should be zero but is %s "
-                "instead" % _new_gaps_in_reference)
+                f"Error: _new_gaps_in_reference should be zero but is {_new_gaps_in_reference} "
+                "instead")
         _new_gaps_in_reference = _reference_codon.count('-')
 
         _natural_codon_position_padded = (
@@ -704,7 +656,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
             )
 
         # we add the DEL lines into the main frequencies.tsv file here even without calling write_tsv_line()
-        # the write_tsv_line() accepts list of codons in the sample but here we have a 
+        # the write_tsv_line() accepts list of codons in the sample but here we have a
         if _is_deletion:
             for _some_deleted_codon in _deleted_reference_codons:
                 _observed_codon_count = Decimal(
@@ -770,25 +722,23 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
             break
 
     del _align
-    alnfilename_count.write("%s\n" % _total_aln_entries_used)
+    alnfilename_count.write(f"{_total_aln_entries_used}\n")
     alnfilename_count.close()
     _consensus = ''.join(_top_most_codons).upper()
-    print("Info: consensus = %s" % str(_consensus))
+    print(f"Info: consensus = {_consensus!s}")
     if _consensus in _padded_reference_dna_seq.upper():
         print("Info: Sample consensus sequence should roughly match substring "
-              "inside the reference %s and IT DOES: %s" % (
-                  str(_padded_reference_dna_seq), str(_top_most_codons)))
+              f"inside the reference {str(_padded_reference_dna_seq)} and IT DOES: {str(_top_most_codons)}")
     else:
         print("Info: Sample consensus sequence should roughly match substring "
-              "inside the reference %s BUT IT DOES NOT, maybe due to some true "
-              "major mutations in some codons: %s" % (
-                  str(_padded_reference_dna_seq), str(_top_most_codons)))
+              f"inside the reference {str(_padded_reference_dna_seq)} BUT IT DOES NOT, maybe due to some true "
+              f"major mutations in some codons: {str(_top_most_codons)}")
 
 
 def open_file(outfilename):
     """Open a new file for writing, raising an error if it already exists."""
     if os.path.exists(outfilename):
         raise RuntimeError(
-            "The file %s already exists, will not overwrite it." % outfilename
+            f"The file {outfilename} already exists, will not overwrite it."
         )
     return open(outfilename, 'x')

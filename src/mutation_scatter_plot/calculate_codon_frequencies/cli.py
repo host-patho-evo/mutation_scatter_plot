@@ -22,7 +22,7 @@ class NoWrapFormatter(IndentedHelpFormatter):
     """Help formatter that does not wrap long lines, preserving URLs."""
 
     def format_description(self, description):
-        return description + "\n" if description else ""
+        return f"{description}\n" if description else ""
 
     def format_option(self, option):
         result = []
@@ -46,7 +46,7 @@ class NoWrapFormatter(IndentedHelpFormatter):
 
 def build_option_parser():
     myparser = OptionParser(
-        version="%s version %s" % ('%prog', VERSION),
+        version="{} version {}".format('%prog', VERSION),
         formatter=NoWrapFormatter(),
         description=__import__('mutation_scatter_plot.calculate_codon_frequencies',
                                fromlist=['']).__doc__,
@@ -107,9 +107,9 @@ def main():
     if not myoptions.reference_infilename:
         raise ValueError("Error: Please specify --reference-infile with FASTA sequence")
     elif not os.path.exists(myoptions.reference_infilename):
-        raise ValueError("Error: File %s does not exist" % myoptions.reference_infilename)
+        raise ValueError(f"Error: File {myoptions.reference_infilename} does not exist")
     elif os.path.getsize(myoptions.reference_infilename) == 0:
-        raise ValueError("Error: File %s is empty" % myoptions.reference_infilename)
+        raise ValueError(f"Error: File {myoptions.reference_infilename} is empty")
     else:
         for _record in SeqIO.parse(myoptions.reference_infilename, "fasta"):
             _padded_reference_dna_seq = str(_record.seq)
@@ -120,7 +120,7 @@ def main():
 
     if myoptions.alignment_infilename:
         _alnfilename_count_handle = open(
-            '.'.join(myoptions.alignment_infilename.split('.')[:-1]) + '.count', 'w'
+            f"{'.'.join(myoptions.alignment_infilename.split('.')[:-1])}.count", 'w'
         )
     else:
         raise RuntimeError("Please specify --alignment-file")
@@ -129,12 +129,12 @@ def main():
         if myoptions.outfileprefix.endswith('.tsv'):
             _outfilename_handle = open_file(myoptions.outfileprefix)
             _outfilename_unchanged_codons_handle = open_file(
-                myoptions.outfileprefix[:-4] + '.unchanged_codons.tsv'
+                f"{myoptions.outfileprefix[:-4]}.unchanged_codons.tsv"
             )
         else:
-            _outfilename_handle = open_file(myoptions.outfileprefix + '.tsv')
+            _outfilename_handle = open_file(f"{myoptions.outfileprefix}.tsv")
             _outfilename_unchanged_codons_handle = open_file(
-                myoptions.outfileprefix + '.unchanged_codons.tsv'
+                f"{myoptions.outfileprefix}.unchanged_codons.tsv"
             )
     else:
         raise RuntimeError("Please specify output filename prefix via --outfile-prefix")
@@ -145,7 +145,7 @@ def main():
 
     if myoptions.alignment_infilename and os.path.exists(myoptions.alignment_infilename):
         if os.path.getsize(myoptions.alignment_infilename) == 0:
-            raise RuntimeError("Input file %s is empty" % myoptions.alignment_infilename)
+            raise RuntimeError(f"Input file {myoptions.alignment_infilename} is empty")
         parse_alignment(
             myoptions,
             myoptions.alignment_infilename,
@@ -161,9 +161,9 @@ def main():
         )
     else:
         raise RuntimeError(
-            "Input file %s does not exist or is not defined"
-            % str(myoptions.alignment_infilename)
+            f"Input file {str(myoptions.alignment_infilename)} does not exist or is not defined"
         )
 
 
-# vim:ts=4:sw=4:expandtab:smartindent
+if __name__ == "__main__":
+    main()
