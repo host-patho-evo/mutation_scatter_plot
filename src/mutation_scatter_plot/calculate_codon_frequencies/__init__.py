@@ -329,7 +329,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                 else:
                     try:
                         _record_count = int(_record_id.replace('x', ''))
-                    except ValueError as exc:
+                    except ValueError:
                         # we cannot make an integer from supposedly a string, probably user just enabled x-after-id option but there are just no counts
                         _record_count = 1
             else:

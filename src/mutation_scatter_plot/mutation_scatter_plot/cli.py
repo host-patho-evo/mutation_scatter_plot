@@ -7,7 +7,6 @@ from . import (
     load_matrix,
     load_and_clean_dataframe,
     build_frequency_tables,
-    build_conversion_table,
     setup_matplotlib_figure,
     collect_scatter_data,
     render_bokeh,

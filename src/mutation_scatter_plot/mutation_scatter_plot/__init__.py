@@ -479,8 +479,6 @@ def build_frequency_tables(myoptions, df, padded_position2position):
     _unique_padded_aa_positions = sorted(padded_position2position.keys())
     _min_padded_aa_pos = min(_unique_padded_aa_positions)
     _max_padded_aa_pos = max(_unique_padded_aa_positions)
-    _number_of_insertions = 0
-    _continuous_padded_range = [x for x in range(_min_padded_aa_pos, _max_padded_aa_pos + 1)]
     if myoptions.debug:
         print(f"Debug: len(_unique_padded_aa_positions)={len(_unique_padded_aa_positions)}, _unique_padded_aa_positions: {str(_unique_padded_aa_positions)}")
     _unique_padded_codon_positions = list(set(_unique_padded_aa_positions))
@@ -525,7 +523,6 @@ def build_frequency_tables(myoptions, df, padded_position2position):
     # make tables with yet another number of rows summing up eventually the frequencies
     for _df_index, _row in df.iterrows():
         _padded_position = _row['padded_position']
-        _position = padded_position2position[_padded_position]
         # It is not necessary to skip N-containing codons as we anyway draw just those in codons list. Skipping some rows would make new_aa_table and new_codon_table have a different amount of rows, breaking slicing
         if _very_leftmost_aa_pos is None:
             _very_leftmost_aa_pos = int(_padded_position)
@@ -789,7 +786,6 @@ def collect_scatter_data(
                 if myoptions.debug:
                     print(f"Debug: i: {str(i)}, j: {str(j)}, _padded_position column: {str(_padded_position)}")
                 try:
-                    _real_aa_position = padded_position2position[_padded_position]
                     _aa_position = padded_position2position[_padded_position]
                 except KeyError:
                     continue
@@ -992,7 +988,6 @@ def collect_scatter_data(
                                     _label_observed_codon_count_sum.append('')
                                     _label_total_codons_per_site.append('')
 
-                    _position_in_protein = _aa_position
                     _original_aas = df.loc[(df['padded_position'] == _padded_position)]['original_aa'].to_list()
                     if _original_aas:
                         _original_aa = _original_aas[0]
