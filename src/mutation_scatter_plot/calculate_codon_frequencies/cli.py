@@ -59,7 +59,7 @@ def build_option_parser():
         help="By default we do NOT require the reference sequence to be padded with '-' characters to match the alignment delineating INSertions. If it is not padded [default case] then INSertion will not be reported but gaps parsed in the alignment will be skipped as long until 3 nucleotides are available for codon translation. Regardless of this --padded-reference setting, length of the reference sequence must match length of each alignment line.")
     myparser.add_option("--alignment-file", action="store", type="string",
         dest="alignment_infilename", default=None, metavar="FILE",
-        help="Alignment file in FASTA format with - (minus) chars to adjust the alignment to the --reference-infile")
+        help="ALIGNMENT file in FASTA format with - (minus) chars to adjust the alignment to the --reference-infile")
     myparser.add_option("--outfile-prefix", action="store", type="string",
         dest="outfileprefix", default=None, metavar="FILE",
         help="It assumes *.frequencies.fasta files. The prefix specified should end with .frequencies . The .tsv and .unchanged_codons.tsv will be appended to the prefix.")
@@ -71,13 +71,13 @@ def build_option_parser():
         help="Last nucleotide of the last codon of the REFERENCE of interest to be sliced out from the input sequences. This requires 0-based numbering.")
     myparser.add_option("--aa_start", action="store", type="int",
         dest="aa_start", default=0,
-        help="Real position of the very first codon unless (1 for an initiator ATG). This value is added to the codon position reported in the output TSV file (the ATG position minus one). Use this if you cannot use --left-reference-offset nor --right-reference-offset which would have been used for slicing the input reference. The value provided is decremented by one to match pythonic 0-based numbering.")
+        help="Adjust (padded) real position of the very first codon unless (1 for an initiator ATG). This value is added to the codon position reported in the output TSV file (the ATG position minus one). Use this if you cannot use --left-reference-offset nor --right-reference-offset which would have been used for slicing the input reference. The value provided is decremented by one to match pythonic 0-based numbering.")
     myparser.add_option("--min_start", action="store", type="int",
         dest="min_start", default=0,
-        help="Start parsing the alignment since this position of the amplicon region. This requires 1-based numbering. This is to speedup parsing of input sequences and of the reference by skipping typical leading and trailing padding dashes. Default: 0 (parse since the beginning)")
+        help="Start parsing the alignment since this position of the ALIGNMENT file. This requires 1-based numbering. This is to speedup parsing of input sequences and of the reference by skipping typical leading and trailing padding dashes. Default: 0 (parse since the beginning)")
     myparser.add_option("--max_stop", action="store", type="int",
         dest="max_stop", default=0,
-        help="Stop parsing the alignment at this position of the amplicon region. This requires 1-based numbering. This is to speedup parsing of input sequences and of the reference by skipping typical leading and trailing padding dashes. Default: 0 (parse until the very end)")
+        help="Stop parsing the alignment at this position of the ALIGNMENT file. This requires 1-based numbering. This is to speedup parsing of input sequences and of the reference by skipping typical leading and trailing padding dashes. Default: 0 (parse until the very end)")
     myparser.add_option("--x-after-count", action="store_true",
         dest="x_after_count", default=False,
         help="The FASTA file ID contains the count value followed by lowercase 'x'")
