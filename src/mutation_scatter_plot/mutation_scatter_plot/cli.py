@@ -19,7 +19,7 @@ class NoWrapFormatter(IndentedHelpFormatter):
 
     def format_description(self, description):
         """Return description with a trailing newline, unwrapped."""
-        return description + "\n" if description else ""
+        return f"{description}\n" if description else ""
 
     def format_option(self, option):
         """Format a single option without wrapping the help text."""
@@ -247,7 +247,7 @@ def main():  # pylint: disable=too-many-locals
     )
 
     if '.frequencies.tsv' in myoptions.tsv_file_path:
-        _count_filename = _outfile_prefix + '.count'
+        _count_filename = f"{_outfile_prefix}.count"
         if os.path.exists(_count_filename):
             try:
                 with open(_count_filename, encoding="utf-8") as _aln_handle:
