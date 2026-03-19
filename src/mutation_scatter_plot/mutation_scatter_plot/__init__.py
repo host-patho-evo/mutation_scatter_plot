@@ -417,6 +417,11 @@ def load_and_clean_dataframe(myoptions, infilename, outfile_prefix, padded_posit
             raise RuntimeError("Unexpected number of columns in the %s file" % myoptions.tsv_file_path)
     print(f"Info: The file {myoptions.tsv_file_path} contains now these columns: {str(df.columns)}")
 
+    if 'padded_position' not in df.columns:
+        df['padded_position'] = df['position']
+    if 'mutant_codon' not in df.columns:
+        df['mutant_codon'] = df['mutant_aa']
+
     if myoptions.offset:
         df['position'] = df['position'] + int(myoptions.offset)
         df['padded_position'] = df['padded_position'] + int(myoptions.offset)
@@ -850,7 +855,10 @@ def collect_scatter_data(
                         print(f"Error: Cannot determine original amino acid for padded position {_padded_position}, skipping.")
                         continue
 
-                    _new_codons = _subset['mutant_codon'].to_list()
+                    if 'mutant_codon' in _subset.columns:
+                        _new_codons = _subset['mutant_codon'].to_list()
+                    else:
+                        _new_codons = _subset['mutant_aa'].to_list()
                     if myoptions.aminoacids:
                         if _frequency != table.at[_some_codon_or_aa, _padded_position]:
                             raise ValueError("Values _frequency=%s and table.at[_some_codon_or_aa, _padded_position]=%s should be equal" % (_frequency, table.at[_some_codon_or_aa, _padded_position]))

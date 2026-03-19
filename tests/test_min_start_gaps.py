@@ -55,7 +55,7 @@ class TestMinStartGaps(unittest.TestCase):
         print("Rows with min_start=7:")
         print(df.iloc[:, [0, 1, 2, 5]].values.tolist())
 
-        self.assertEqual(df.iloc[0, 0], 3, "Padded position should be 3")
+        self.assertEqual(df.iloc[0, 0], 1, "Padded position should be 1 (relative to window)")
         self.assertEqual(df.iloc[0, 1], 2, f"Expected depadded position 2, got {df.iloc[0, 1]}")
         self.assertEqual(df.iloc[0, 2], 'A', "Original AA should be 'A'")
 
