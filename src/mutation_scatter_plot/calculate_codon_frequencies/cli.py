@@ -141,7 +141,7 @@ def main():
 
     _aa_start = (myoptions.aa_start - 1) if myoptions.aa_start else 0
     _min_start = (myoptions.min_start - 1) if myoptions.min_start else 0
-    _max_stop  = myoptions.max_stop if myoptions.max_stop else 0
+    _max_stop  = (myoptions.max_stop  + 1) if myoptions.max_stop  else 0
 
     if myoptions.alignment_infilename and os.path.exists(myoptions.alignment_infilename):
         if os.path.getsize(myoptions.alignment_infilename) == 0:

@@ -656,12 +656,10 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
         _gaps_so_far = _padded_reference_dna_seq[:_zero_based_codon_startpos].count("-")
         _natural_codon_position_padded = (
             int((_zero_based_codon_startpos - min_start) / 3) + 1
-            + int(myoptions.left_reference_offset / 3.0)
             + aa_start
         )
         _natural_codon_position_depadded = (
             int((_zero_based_codon_startpos - _gaps_so_far) / 3) + 1
-            + int(myoptions.left_reference_offset / 3.0)
             + aa_start
         )
 
