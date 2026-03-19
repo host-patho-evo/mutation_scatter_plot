@@ -862,9 +862,9 @@ def collect_scatter_data(
                     _new_codons = _sub_df['mutant_codon'].to_list() if not _sub_df.empty and 'mutant_codon' in _sub_df.columns else []
                     if myoptions.aminoacids:
                         if _frequency != table.at[_some_codon_or_aa, _padded_position]:
-                            raise ValueError("Values _frequency=%s and table.at[_some_codon_or_aa, _padded_position]=%s should be equal" % (_frequency, table.at[_some_codon_or_aa, _padded_position]))
+                            raise ValueError(f"Values _frequency={_frequency} and table.at[_some_codon_or_aa, _padded_position]={table.at[_some_codon_or_aa, _padded_position]} should be equal")
                         if len(_new_codons) != len(_frequencies):
-                            raise ValueError("len(_new_codons) != len(_frequencies), specifically: %s != %s" % (len(_new_codons), len(_frequencies)))
+                            raise ValueError(f"len(_new_codons) != len(_frequencies), specifically: {len(_new_codons)} != {len(_frequencies)}")
                         if 'observed_codon_count' in df.columns.values:
                             _observed_codon_counts = _sub_df['observed_codon_count'].to_list() if not _sub_df.empty else []
                             _total_codons_per_site_list = _sub_df['total_codons_per_site'].to_list() if not _sub_df.empty else []
