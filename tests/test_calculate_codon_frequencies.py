@@ -13,6 +13,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
         self.project_root = os.path.dirname(self.tests_dir)
         self.outputs_dir = os.path.join(self.tests_dir, "outputs")
 
+        self.test1_fasta = os.path.join(self.tests_dir, "inputs", "test.fasta")
         self.test2_fasta = os.path.join(self.tests_dir, "inputs", "test2.fasta")
         self.ref_fasta = os.path.join(self.tests_dir, "inputs", "MN908947.3_S.fasta")
 
@@ -94,6 +95,51 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
             self._check_outputs("test2.frequencies_x_after_count_and_min_start", outfile_prefix)
+
+    def test_test1_default_command(self):
+        """Test calculate_codon_frequencies with default parameters for test.fasta."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outfile_prefix = os.path.join(tmpdir, "test.frequencies_default")
+            cmd = self.base_cmd + [
+                "--alignment-file", self.test1_fasta,
+                "--outfile-prefix", outfile_prefix,
+                "--padded-reference",
+                "--reference-infile", self.ref_fasta
+            ]
+            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            self._check_outputs("test.frequencies_default", outfile_prefix)
+
+    def test_test1_x_after_count(self):
+        """Test calculate_codon_frequencies with --x-after-count for test.fasta."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outfile_prefix = os.path.join(tmpdir, "test.frequencies")
+            cmd = self.base_cmd + [
+                "--alignment-file", self.test1_fasta,
+                "--outfile-prefix", outfile_prefix,
+                "--padded-reference",
+                "--reference-infile", self.ref_fasta,
+                "--x-after-count"
+            ]
+            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            self._check_outputs("test.frequencies_x_after_count", outfile_prefix)
+
+    def test_test1_x_after_count_and_min_start(self):
+        """Test calculate_codon_frequencies with --x-after-count and --min_start=7 for test.fasta."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outfile_prefix = os.path.join(tmpdir, "test.frequencies")
+            cmd = self.base_cmd + [
+                "--alignment-file", self.test1_fasta,
+                "--outfile-prefix", outfile_prefix,
+                "--padded-reference",
+                "--reference-infile", self.ref_fasta,
+                "--x-after-count",
+                "--min_start=7"
+            ]
+            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            self._check_outputs("test.frequencies_x_after_count_and_min_start", outfile_prefix)
 
 if __name__ == "__main__":
     unittest.main()
