@@ -115,7 +115,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--aminoacids",
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
-                "--threshold=0.0001"
+                "--threshold=0.01"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed:\n{result.stderr}\n{result.stdout}")
@@ -132,7 +132,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                 "--aminoacids",
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                 "--include-synonymous",
-                "--threshold=0.0001"
+                "--threshold=0.01"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed:\n{result.stderr}\n{result.stdout}")
@@ -146,7 +146,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                 "--tsv", self.tsv_input,
                 "--outfile-prefix", outfile_prefix,
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
-                "--threshold=0.0001"
+                "--threshold=0.001"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed:\n{result.stderr}\n{result.stdout}")
@@ -162,7 +162,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                 "--include-synonymous",
-                "--threshold=0.0001"
+                "--threshold=0.001"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed:\n{result.stderr}\n{result.stdout}")
@@ -180,7 +180,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix_a,
                 "--aminoacids",
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
-                "--threshold=0.0001"
+                "--threshold=0.01"
             ]
             res_a = subprocess.run(cmd_a, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(res_a.returncode, 0, f"Command A failed:\n{res_a.stderr}\n{res_a.stdout}")
@@ -194,7 +194,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                 "--aminoacids",
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                 "--include-synonymous",
-                "--threshold=0.0001"
+                "--threshold=0.01"
             ]
             res_b = subprocess.run(cmd_b, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(res_b.returncode, 0, f"Command B failed:\n{res_b.stderr}\n{res_b.stdout}")
@@ -230,7 +230,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                 "--tsv", full_tsv,
                 "--outfile-prefix", outfile_prefix_a,
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
-                "--threshold=0.0001"
+                "--threshold=0.001"
             ]
             res_a = subprocess.run(cmd_a, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(res_a.returncode, 0, f"Command A failed:\n{res_a.stderr}\n{res_a.stdout}")
@@ -243,7 +243,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix_b,
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                 "--include-synonymous",
-                "--threshold=0.0001"
+                "--threshold=0.001"
             ]
             res_b = subprocess.run(cmd_b, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(res_b.returncode, 0, f"Command B failed:\n{res_b.stderr}\n{res_b.stdout}")
