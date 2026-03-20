@@ -68,6 +68,8 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded,
                    natural_codon_position_depadded, reference_aa,
                    total_codons_per_site_sum, reference_codon, debug=False):
     """Write one or more TSV lines for all codons observed at a site."""
+    if not outfilename:
+        return
     if not total_codons_per_site_sum:
         _total_codons_per_site_sum = 0
     else:

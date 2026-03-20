@@ -82,8 +82,11 @@ def build_option_parser():
         dest="x_after_count", default=False,
         help="The FASTA file ID contains the count value followed by lowercase 'x'")
     myparser.add_option("--print-unchanged-sites", action="store_true",
-        dest="print_unchanged_sites", default=False,
-        help="Print out also sites with unchanged codons in to unchanged_codons.tsv file")
+        dest="print_unchanged_sites", default=True,
+        help="Print out also sites with unchanged codons in to unchanged_codons.tsv file [default]")
+    myparser.add_option("--disable-print-unchanged-sites", action="store_false",
+        dest="print_unchanged_sites",
+        help="Do NOT print out sites with unchanged codons to unchanged_codons.tsv file")
     myparser.add_option("--discard-this-many-leading-nucs", action="store", type="int",
         dest="discard_this_many_leading_nucs", default=0,
         help="Specify how many offending nucleotides are at the front of the FASTA sequences shifting the reading frame of the input FASTA file from frame +1 to either of the two remaining. Count the leading dashes and eventual nucleotides of incomplete codons too and check if it can be divided by 3.0 without slack. By default reading frame +1 is expected and hence no leading nucleotides are discarded. Default: 0")
@@ -135,16 +138,22 @@ def main():
     if myoptions.outfileprefix:
         if myoptions.outfileprefix.endswith('.tsv'):
             _outfilename_handle = open_file(myoptions.outfileprefix, overwrite=myoptions.overwrite)
-            _outfilename_unchanged_codons_handle = open_file(
-                f"{myoptions.outfileprefix[:-4]}.unchanged_codons.tsv",
-                overwrite=myoptions.overwrite
-            )
+            if myoptions.print_unchanged_sites:
+                _outfilename_unchanged_codons_handle = open_file(
+                    f"{myoptions.outfileprefix[:-4]}.unchanged_codons.tsv",
+                    overwrite=myoptions.overwrite
+                )
+            else:
+                _outfilename_unchanged_codons_handle = None
         else:
             _outfilename_handle = open_file(f"{myoptions.outfileprefix}.tsv", overwrite=myoptions.overwrite)
-            _outfilename_unchanged_codons_handle = open_file(
-                f"{myoptions.outfileprefix}.unchanged_codons.tsv",
-                overwrite=myoptions.overwrite
-            )
+            if myoptions.print_unchanged_sites:
+                _outfilename_unchanged_codons_handle = open_file(
+                    f"{myoptions.outfileprefix}.unchanged_codons.tsv",
+                    overwrite=myoptions.overwrite
+                )
+            else:
+                _outfilename_unchanged_codons_handle = None
     else:
         raise RuntimeError("Please specify output filename prefix via --outfile-prefix")
 
