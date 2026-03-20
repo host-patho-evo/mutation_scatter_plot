@@ -379,66 +379,48 @@ Usage: mutation_scatter_plot [options]
 Options:
   --version             show program's version number and exit
   -h, --help            show this help message and exit
-  --tsv=TSV_FILE_PATH   Path to a TAB separated file with 5-columns:
-                        ['position', 'original_aa', 'mutant_aa', 'frequency',
-                        'original_codon', 'mutant_codon',
-                        'coverage_per_codon'] or more up to 11-columns
-                        ['padded_position', 'position', 'original_aa',
-                        'mutant_aa', 'frequency', 'original_codon',
-                        'mutant_codon', 'observed_codon_count',
-                        'total_codons_per_site', 'frequency_parent',
-                        'frequency_selected'] as we kept extending the file
-                        format
+  --tsv=TSV_FILE_PATH   Path to a TAB separated file with 5-columns: ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'coverage_per_codon'] or more up to 11-columns ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'frequency_parent', 'frequency_selected'] as we kept extending the file format
   --column=COLUMN_WITH_FREQUENCIES
-                        Name of a column in input TSV to be used for rendering
-                        frequencies [frequency]
-  --outfile=OUTFILE     Output filename for the PNG image, JPG or PDF or any
-                        other filetype recognized by matplotlib vis file
-                        extension
-  --offset=OFFSET       Define offset value to be added to every amino acid
-                        position in the first column of the TSV input file at
-                        runtime. This is to obtain real amino acid position
-                        within the protein. Normally protein starts at
-                        position 1. Check the first aa in TSV file and provide
-                        whatever number to be added to it to get the desired
-                        amino acid position in the full-length protein.
-  --xmin=XMIN           Define minimum X-axis value
-  --xmax=XMAX           Define maximum X-axis value
-  --aminoacids          Draw chart with amino acid residues on Y-axis instead
-                        of codons
-  --show-STOP           Include STOP codons or '*' in charts on Y-axis
-  --show-INS            Include INS in charts on Y-axis
-  --show-DEL            Include DEL in charts on Y-axis
-  --show-X              Include X in charts on Y-axis in --aminoacids mode
+                        Name of a column in input TSV to be used for rendering frequencies [frequency]
+  --outfile-prefix=OUTFILE_PREFIX
+                        Output file prefix, eventually also with path. Output files will be PNG, JPG or PDF, HTML
+  --offset=OFFSET       Define offset value to be added to every amino acid position in the first column of the TSV input file at runtime. This is to obtain real amino acid position within the protein. Normally protein starts at position 1. Check the first aa in TSV file and provide whatever number to be added to it to get the desired amino acid position in the full-length protein.
+  --xmin=XMIN           Define minimum X-axis value. This should be the position in the padded alignment (using '-').
+  --xmax=XMAX           Define maximum X-axis value. This should be the position in the padded alignment (using '-').
+  --x-axis-bins=XAXIS_BINS
+                        Set number of bins (labels) on the X-axis. Could be used to override the amount of major ticks in a different way. Use 20 for example. [default is 0]
+  --x-axis-major-ticks-spacing=XAXIS_MAJOR_TICKS_SPACING
+                        Set distance between the major ticks on X-axis
+  --x-axis-minor-ticks-spacing=XAXIS_MINOR_TICKS_SPACING
+                        Set distance between the minor ticks on X-axis
+  --x-axis-label-start=XAXIS_LABEL_START
+                        Set first label value on the X-axis
+  --aminoacids          Draw chart with amino acid residues on Y-axis instead of codons. [default is False]
+  --show-STOP           Include STOP codons or '*' in charts on Y-axis. [default is False]
+  --show-INS            Include INS in charts on Y-axis. [default is False]
+  --show-DEL            Include DEL in charts on Y-axis. [default is False]
+  --show-X              Include X in charts on Y-axis in --aminoacids mode. [default is False]
+  --enable-colorbar     Enable colorbar [is Disabled by default]
   --disable-short-legend
-                        Disable short legend in charts on X-axis
-  --include-synonymous  Include synonymous changes in output.
+                        Disable short legend in charts on X-axis. [is Enabled by default]
+  --include-synonymous  Include synonymous changes in --aminoacids output as green diamonds. In codon output they are always shown. [default is False]
   --threshold=THRESHOLD
-                        Define minimum frequency threshold to display a
-                        pictogram in the output. For codon mode use 0.001 and
-                        for aa mode use 0.01. [default: 0.001]
-  --title=TITLE         Set title for the figures, by default trailing
-                        '.frequencies.tsv' is stripped from the end of the
-                        input filename
-  --disable-2nd-Y-axis  Disable rendering of the 2nd Y-axis showing sequencing
-                        coverage
-  --legend              Draw legend chart
-  --matrix=MATRIX       BLOSUM matrix: 45,50,62,80,90 [default is 62]
+                        Define minimum frequency threshold to display a pictogram in the output. For codon mode use 0.001 and for aa mode use 0.01. [default: 0.001]
+  --title=TITLE         Set title for the figures, by default trailing '.frequencies.tsv' is stripped from the end of the input filename
+  --disable-2nd-Y-axis  Disable rendering of the 2nd Y-axis showing sequencing coverage
+  --legend              Draw legend chart. [default is False]
+  --matrix=MATRIX       BLOSUM matrix: BLOSUM45,BLOSUM50,BLOSUM62,BLOSUM80,BLOSUM90 [default is BLOSUM80]
   --matrix-file=MATRIX_FILE
-                        Matrix file compatible with BLOSUM matrices, e.g.
-                        prot26050-sup-0004-Supinfo03.sm from https://www.ncbi.
-                        nlm.nih.gov/pmc/articles/PMC8641535/bin/NIHMS1664401-
-                        supplement-supinfo.rar if you do not like default
-                        BLOSUM62
-  --colormap=COLORMAP   Pick a colormap recognized by matplotlib. See
-                        https://i.sstatic.net/cmk1J.png [default is
-                        coolwarm_r]
+                        Matrix file compatible with BLOSUM matrices, e.g. prot26050-sup-0004-Supinfo03.sm from https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8641535/bin/NIHMS1664401-supplement-supinfo.rar if you do not like default BLOSUM62
+  --colormap=COLORMAP   Pick a colormap recognized by matplotlib. See https://i.sstatic.net/cmk1J.png [default is coolwarm_r but seismic_r and coolwarm_r are great too]
   --dpi=DPI             DPI resolution for images
-  --backend=BACKEND     Matplotlibg backend to render resulting figures: agg,
-                        wxpython, pyqt5, pyqt6, pycairo, cairocffi [default:
-                        unset] To disable Matplolib interactive window being
-                        raised up you can set MPLBACKEND=agg env variable.
+  --backend=BACKEND     Matplotlib backend to render resulting figures: agg, wxpython, pyqt5, pyqt6, pycairo, cairocffi [default: unset]
+To disable Matplotlib interactive window being raised up you can set MPLBACKEND=agg env variable.
   --debug=DEBUG         Set debug to some real number
+  --disable-bokeh-sqrt-size
+                        Disable sqrt scaling for Bokeh circle sizes; size (diameter) will be proportional to frequency, area proportional to frequency². By default sqrt scaling is on, matching the perceptual appearance of the matplotlib figure.
+  --show-invisible-placeholder-dots
+                        Include below-threshold dots in the plot. [default: False]
 $
 ```
 
