@@ -171,11 +171,12 @@ class TestMutationScatterPlot(unittest.TestCase):
     def test4_compare_aminoacids(self):
         """mutation_scatter_plot pairwise compare: --aminoacids vs --aminoacids --include-synonymous HTML JSONs"""
         with tempfile.TemporaryDirectory() as tmpdir:
+            full_tsv = os.path.join(self.outputs_dir, "test2_full.frequencies_default.tsv")
             # Run A
             target_prefix_a = "test_run_test4A"
             outfile_prefix_a = os.path.join(tmpdir, target_prefix_a)
             cmd_a = self.base_cmd + [
-                "--tsv", self.tsv_input,
+                "--tsv", full_tsv,
                 "--outfile-prefix", outfile_prefix_a,
                 "--aminoacids",
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
@@ -188,7 +189,7 @@ class TestMutationScatterPlot(unittest.TestCase):
             target_prefix_b = "test_run_test4B"
             outfile_prefix_b = os.path.join(tmpdir, target_prefix_b)
             cmd_b = self.base_cmd + [
-                "--tsv", self.tsv_input,
+                "--tsv", full_tsv,
                 "--outfile-prefix", outfile_prefix_b,
                 "--aminoacids",
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
@@ -221,11 +222,12 @@ class TestMutationScatterPlot(unittest.TestCase):
     def test5_compare_codons(self):
         """mutation_scatter_plot pairwise compare: codon mode vs codon mode --include-synonymous HTML JSONs"""
         with tempfile.TemporaryDirectory() as tmpdir:
+            full_tsv = os.path.join(self.outputs_dir, "test2_full.frequencies_default.tsv")
             # Run A
             target_prefix_a = "test_run_test5A"
             outfile_prefix_a = os.path.join(tmpdir, target_prefix_a)
             cmd_a = self.base_cmd + [
-                "--tsv", self.tsv_input,
+                "--tsv", full_tsv,
                 "--outfile-prefix", outfile_prefix_a,
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                 "--threshold=0.0001"
@@ -237,7 +239,7 @@ class TestMutationScatterPlot(unittest.TestCase):
             target_prefix_b = "test_run_test5B"
             outfile_prefix_b = os.path.join(tmpdir, target_prefix_b)
             cmd_b = self.base_cmd + [
-                "--tsv", self.tsv_input,
+                "--tsv", full_tsv,
                 "--outfile-prefix", outfile_prefix_b,
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                 "--include-synonymous",
