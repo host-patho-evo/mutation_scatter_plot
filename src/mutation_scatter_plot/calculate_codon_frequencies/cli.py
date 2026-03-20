@@ -128,18 +128,22 @@ def main():
     else:
         raise RuntimeError("Please specify --alignment-file")
 
+    if myoptions.overwrite:
+        _file_openmode='w'
+    else:
+        _file_openmode='x'
     if myoptions.outfileprefix:
         if myoptions.outfileprefix.endswith('.tsv'):
-            _outfilename_handle = open_file(myoptions.outfileprefix, overwrite=myoptions.overwrite)
+            _outfilename_handle = open_file(myoptions.outfileprefix, mode=_file_openmode)
             _outfilename_unchanged_codons_handle = open_file(
                 f"{myoptions.outfileprefix[:-4]}.unchanged_codons.tsv",
-                overwrite=myoptions.overwrite
+                mode=_file_openmode
             )
         else:
-            _outfilename_handle = open_file(f"{myoptions.outfileprefix}.tsv", overwrite=myoptions.overwrite)
+            _outfilename_handle = open_file(f"{myoptions.outfileprefix}.tsv", mode=_file_openmode)
             _outfilename_unchanged_codons_handle = open_file(
                 f"{myoptions.outfileprefix}.unchanged_codons.tsv",
-                overwrite=myoptions.overwrite
+                mode=_file_openmode
             )
     else:
         raise RuntimeError("Please specify output filename prefix via --outfile-prefix")
