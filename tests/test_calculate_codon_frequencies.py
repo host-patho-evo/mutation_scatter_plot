@@ -164,7 +164,8 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
                 "--x-after-count",
-                "--aa_start=413",
+                "--min_start", "4",
+                "--aa_start=414",
                 "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
