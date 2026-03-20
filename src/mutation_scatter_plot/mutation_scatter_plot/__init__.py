@@ -840,185 +840,186 @@ def collect_scatter_data(
                     if myoptions.debug:
                         print(f"Debug: Invisible dot. Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
 
-                if _padded_position not in _warn_once:
-                    try:
-                        _base_df = _df_indexed.loc[[(_padded_position, _some_codon_or_aa)]]
-                    except KeyError:
-                        _base_df = pd.DataFrame()
+                if not np.abs(Decimal(_frequency)) < myoptions.threshold:
+                    if _padded_position not in _warn_once:
+                        try:
+                            _base_df = _df_indexed.loc[[(_padded_position, _some_codon_or_aa)]]
+                        except KeyError:
+                            _base_df = pd.DataFrame()
 
-                    if not _base_df.empty:
-                        _sub_df = _base_df[_base_df[myoptions.column_with_frequencies] >= myoptions.threshold]
-                    else:
-                        _sub_df = pd.DataFrame()
-
-                    _frequencies = [Decimal(x) for x in _sub_df[myoptions.column_with_frequencies].to_list()] if not _sub_df.empty else []
-
-                    try:
-                        _old_amino_acid = _pos_to_old_aa[_padded_position]
-                    except KeyError:
-                        print(f"Error: Cannot slice {str(df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list())}")
-                        _old_amino_acid = _pos_to_old_aa[_padded_position]
-
-                    _new_codons = _sub_df['mutant_codon'].to_list() if not _sub_df.empty and 'mutant_codon' in _sub_df.columns else []
-                    if myoptions.aminoacids:
-                        if _frequency != table.at[_some_codon_or_aa, _padded_position]:
-                            raise ValueError(f"Values _frequency={_frequency} and table.at[_some_codon_or_aa, _padded_position]={table.at[_some_codon_or_aa, _padded_position]} should be equal")
-                        if len(_new_codons) != len(_frequencies):
-                            raise ValueError(f"len(_new_codons) != len(_frequencies), specifically: {len(_new_codons)} != {len(_frequencies)}")
-                        if 'observed_codon_count' in df.columns.values:
-                            _observed_codon_counts = _sub_df['observed_codon_count'].to_list() if not _sub_df.empty else []
-                            _total_codons_per_site_list = _sub_df['total_codons_per_site'].to_list() if not _sub_df.empty else []
-                            if _total_codons_per_site_list:
-                                _total_codons_per_site = _total_codons_per_site_list[0]
+                        if not _base_df.empty:
+                            _sub_df = _base_df[_base_df[myoptions.column_with_frequencies] >= myoptions.threshold]
                         else:
-                            _observed_codon_counts = []
-                            _total_codons_per_site = 0
-                        _observed_codon_count_sum = sum(_observed_codon_counts)
+                            _sub_df = pd.DataFrame()
 
-                        if not _frequency < myoptions.threshold:
-                            _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_some_codon_or_aa} {_new_codons}\n{myoptions.matrix} score: {_score}\nCumulative Frequency: {sum(_frequencies):.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon counts sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
-                            _label_padded_positions.append(f"{_padded_position}")
-                            _label_codon_positions.append(f"{_aa_position}")
-                            _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
-                            _label_new_amino_acids.append(f"{_some_codon_or_aa} {_new_codons}")
-                            _label_cumulative_frequencies.append(f"{sum(_frequencies):.6f}")
-                            _label_codon_frequencies.append(f"{[f'{x:.6f}' for x in _frequencies]}")
-                            if 'observed_codon_count' in df.columns.values:
-                                _label_observed_codon_counts.append(f"{_observed_codon_counts}")
-                                _label_observed_codon_count_sum.append(f"{sum(_observed_codon_counts)}")
-                                _label_total_codons_per_site.append(f"{_total_codons_per_site}")
-                            else:
-                                _label_observed_codon_counts.append(_observed_codon_counts)
-                                _label_observed_codon_count_sum.append(sum(_observed_codon_counts))
-                                _label_total_codons_per_site.append(_total_codons_per_site)
-                            _label_scores.append(_score)
-                            _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Amino Acid: {_old_amino_acid} ({_old_codon})<br>New Amino Acid: {_some_codon_or_aa} {_new_codons}<br>{myoptions.matrix} score: {_score}<br>Cumulative Frequency: {sum(_frequencies):.6f}<br>Codon Frequencies: {[f'{x:.6f}' for x in _frequencies]}<br>Observed codon counts: {_observed_codon_counts}<br>Observed codon count sum: {_observed_codon_count_sum}<br>Total codons per site: {_total_codons_per_site}")
-                            _mutations.append(f"{_old_amino_acid}{_aa_position}{_some_codon_or_aa}")
-                    else:
-                        if _frequency != table.at[_some_codon_or_aa, _padded_position]:
-                            raise ValueError(f"Values _frequency={_frequency} and table.at[_some_codon_or_aa, _padded_position]={table.at[_some_codon_or_aa, _padded_position]} should be equal")
-                        if 'observed_codon_count' in df.columns.values:
-                            _observed_codon_counts = _sub_df['observed_codon_count'].to_list() if not _sub_df.empty else []
-                            if _observed_codon_counts and len(_observed_codon_counts) < 2:
-                                _observed_codon_counts = _observed_codon_counts[0]
-                                _observed_codon_count_sum = _observed_codon_counts
-                            else:
-                                _observed_codon_count_sum = sum(_observed_codon_counts)
-                            _total_codons_per_site_list = _sub_df['total_codons_per_site'].to_list() if not _sub_df.empty else []
-                            if _total_codons_per_site_list:
-                                _total_codons_per_site = _total_codons_per_site_list[0]
-                        else:
-                            _observed_codon_counts = []
-                            _total_codons_per_site = 0
-
-                        _observed_aminoacids = df.loc[df['padded_position'] == _padded_position]['mutant_aa'].to_list()
-                        if myoptions.debug:
-                            print(f"Info: {len(_observed_aminoacids)} aa residues observed in position {_aa_position}:{os.linesep} {str(df.loc[df['padded_position'] == _padded_position][0:])}{os.linesep}")
+                        _frequencies = [Decimal(x) for x in _sub_df[myoptions.column_with_frequencies].to_list()] if not _sub_df.empty else []
 
                         try:
-                            # make sure we dot not fetch also INSertions, which could be even multiple rows in addition to the row with changed_codon, especially if the reference protein and is padded on the right with dashes
-                            # try to switch to 'padded_position' instead of 'position' to fetch a row from Pandas
-                            _new_amino_acid_list = _base_df['mutant_aa'].to_list() if not _base_df.empty and 'mutant_aa' in _base_df.columns else []
-                            if _new_amino_acid_list:
-                                _new_amino_acid = _new_amino_acid_list[0]
+                            _old_amino_acid = _pos_to_old_aa[_padded_position]
+                        except KeyError:
+                            print(f"Error: Cannot slice {str(df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list())}")
+                            _old_amino_acid = _pos_to_old_aa[_padded_position]
+
+                        _new_codons = _sub_df['mutant_codon'].to_list() if not _sub_df.empty and 'mutant_codon' in _sub_df.columns else []
+                        if myoptions.aminoacids:
+                            if _frequency != table.at[_some_codon_or_aa, _padded_position]:
+                                raise ValueError(f"Values _frequency={_frequency} and table.at[_some_codon_or_aa, _padded_position]={table.at[_some_codon_or_aa, _padded_position]} should be equal")
+                            if len(_new_codons) != len(_frequencies):
+                                raise ValueError(f"len(_new_codons) != len(_frequencies), specifically: {len(_new_codons)} != {len(_frequencies)}")
+                            if 'observed_codon_count' in df.columns.values:
+                                _observed_codon_counts = _sub_df['observed_codon_count'].to_list() if not _sub_df.empty else []
+                                _total_codons_per_site_list = _sub_df['total_codons_per_site'].to_list() if not _sub_df.empty else []
+                                if _total_codons_per_site_list:
+                                    _total_codons_per_site = _total_codons_per_site_list[0]
                             else:
-                                _new_amino_acid = None
-                            if myoptions.debug and _new_amino_acid:
-                                print(f"Info: Parsed existing _new_amino_acid '{_new_amino_acid}' for codon position {_aa_position}")
-                        except Exception as exc:
-                            _new_amino_acid = None
+                                _observed_codon_counts = []
+                                _total_codons_per_site = 0
+                            _observed_codon_count_sum = sum(_observed_codon_counts)
 
-                        if _new_amino_acid:
-                            try:
-                                # make sure we dot not fetch also INSertions, which could be even multiple rows in addition to the row with changed_codon
-                                _some_freq_list = _base_df[myoptions.column_with_frequencies].to_list() if not _base_df.empty and myoptions.column_with_frequencies in _base_df.columns else []
-                                _some_frequency = Decimal(_some_freq_list[0]) if _some_freq_list else Decimal('0.00000000009')
-                            except (IndexError, ValueError, TypeError):
-                                _some_frequency = Decimal('0.00000000009')
-                            if _some_frequency != _frequency and (_some_frequency != Decimal('0.00000000009') and _frequency != 0):
-                                # 334	333	R	R	0.432432	AGG	AGA	16	37 # .frequencies.tsv
-                                # 338	333	INS	R	0.027027	---	AGA	1	37 # .frequencies.tsv
-                                # 344	333	INS	R	0.648649	---	AGA	24	37 # .frequencies.tsv
-                                #
-                                # 344	333	INS	R	0.648649	---	AGA	24	37 # .frequencies.unchanged_codons.tsv
-                                raise ValueError(f"Frequency new_codon_table.at[_some_codon_or_aa, _padded_position]={_frequency} _some_codon_or_aa={_some_codon_or_aa}, _padded_position={_padded_position} not same as df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0]={_some_frequency}. Are multiple rows matching? We picked just the first one: df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()={_some_freq_list} for _old_codon={_old_codon}, _old_amino_acid={_old_amino_acid}")
-
-                            if _old_amino_acid and not _frequency < myoptions.threshold and _size:
-                                _label_scores.append(_score)
-
-                                if myoptions.column_with_frequencies == 'neutralized_parent_difference':
-                                    _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nDifference neutralized2parent: {_frequency:.6f}")
-                                    _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Difference neutralized2parent: {_frequency:.6f}")
-                                elif myoptions.column_with_frequencies == 'escape_parent_difference':
-                                    _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nDifference escape2parent: {_frequency:.6f}")
-                                    _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Difference escape2parent: {_frequency:.6f}")
-                                elif myoptions.column_with_frequencies == 'weighted_diff_escape_neutralized':
-                                    _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nWeighted difference escape2neutralized: {_frequency:.6f}")
-                                    _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Weighted difference escape2neutralized: {_frequency:.6f}")
-                                elif myoptions.column_with_frequencies == 'frequency':
-                                    _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_counts}\nTotal codons per site: {_total_codons_per_site}")
-                                    _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Frequency: {_frequency:.6f}<br>Observed codon counts: {_observed_codon_counts}<br>Total codons per site: {_total_codons_per_site}")
-                                    _label_padded_positions.append(f"{_padded_position}")
-                                    _label_codon_positions.append(f"{_aa_position}")
-                                    _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
-                                    _label_new_amino_acids.append(f"{_new_amino_acid} ({_some_codon_or_aa})")
-                                    _label_cumulative_frequencies.append(f"{_frequency:.6f}")
-                                    _label_codon_frequencies.append(f"{_frequency:.6f}")
-                                else:
-                                    _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_counts}\nTotal codons per site: {_total_codons_per_site}")
-                                    _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Frequency: {_frequency:.6f}<br>Observed codon counts: {_observed_codon_counts}<br>Total codons per site: {_total_codons_per_site}")
-                                    _label_padded_positions.append(f"{_padded_position}")
-                                    _label_codon_positions.append(f"{_aa_position}")
-                                    _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
-                                    _label_new_amino_acids.append(f"{_new_amino_acid} ({_some_codon_or_aa})")
-                                    _label_cumulative_frequencies.append(f"{_frequency:.6f}")
-                                    _label_codon_frequencies.append(f"{_frequency:.6f}")
-                                if not _frequency < myoptions.threshold:
-                                    _mutations.append(f"{_old_codon}{_aa_position}{_some_codon_or_aa}")
-                                else:
-                                    _mutations.append('')
+                            if not _frequency < myoptions.threshold:
+                                _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_some_codon_or_aa} {_new_codons}\n{myoptions.matrix} score: {_score}\nCumulative Frequency: {sum(_frequencies):.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon counts sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
+                                _label_padded_positions.append(f"{_padded_position}")
+                                _label_codon_positions.append(f"{_aa_position}")
+                                _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
+                                _label_new_amino_acids.append(f"{_some_codon_or_aa} {_new_codons}")
+                                _label_cumulative_frequencies.append(f"{sum(_frequencies):.6f}")
+                                _label_codon_frequencies.append(f"{[f'{x:.6f}' for x in _frequencies]}")
                                 if 'observed_codon_count' in df.columns.values:
                                     _label_observed_codon_counts.append(f"{_observed_codon_counts}")
-                                    _label_observed_codon_count_sum.append(f"{_observed_codon_count_sum}")
+                                    _label_observed_codon_count_sum.append(f"{sum(_observed_codon_counts)}")
                                     _label_total_codons_per_site.append(f"{_total_codons_per_site}")
                                 else:
-                                    _label_observed_codon_counts.append('')
-                                    _label_observed_codon_count_sum.append('')
-                                    _label_total_codons_per_site.append('')
+                                    _label_observed_codon_counts.append(_observed_codon_counts)
+                                    _label_observed_codon_count_sum.append(sum(_observed_codon_counts))
+                                    _label_total_codons_per_site.append(_total_codons_per_site)
+                                _label_scores.append(_score)
+                                _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Amino Acid: {_old_amino_acid} ({_old_codon})<br>New Amino Acid: {_some_codon_or_aa} {_new_codons}<br>{myoptions.matrix} score: {_score}<br>Cumulative Frequency: {sum(_frequencies):.6f}<br>Codon Frequencies: {[f'{x:.6f}' for x in _frequencies]}<br>Observed codon counts: {_observed_codon_counts}<br>Observed codon count sum: {_observed_codon_count_sum}<br>Total codons per site: {_total_codons_per_site}")
+                                _mutations.append(f"{_old_amino_acid}{_aa_position}{_some_codon_or_aa}")
+                        else:
+                            if _frequency != table.at[_some_codon_or_aa, _padded_position]:
+                                raise ValueError(f"Values _frequency={_frequency} and table.at[_some_codon_or_aa, _padded_position]={table.at[_some_codon_or_aa, _padded_position]} should be equal")
+                            if 'observed_codon_count' in df.columns.values:
+                                _observed_codon_counts = _sub_df['observed_codon_count'].to_list() if not _sub_df.empty else []
+                                if _observed_codon_counts and len(_observed_codon_counts) < 2:
+                                    _observed_codon_counts = _observed_codon_counts[0]
+                                    _observed_codon_count_sum = _observed_codon_counts
+                                else:
+                                    _observed_codon_count_sum = sum(_observed_codon_counts)
+                                _total_codons_per_site_list = _sub_df['total_codons_per_site'].to_list() if not _sub_df.empty else []
+                                if _total_codons_per_site_list:
+                                    _total_codons_per_site = _total_codons_per_site_list[0]
+                            else:
+                                _observed_codon_counts = []
+                                _total_codons_per_site = 0
 
-                    _original_aas = df.loc[(df['padded_position'] == _padded_position)]['original_aa'].to_list()
-                    if _original_aas:
-                        _original_aa = _original_aas[0]
-                    else:
-                        _original_aa = None
-                    _new_amino_acid = _some_codon_or_aa
-                    _mutant_aa = None
-                    if myoptions.aminoacids:
-                        _mutant_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _new_amino_acid)]['mutant_codon'].to_list()
-                    else:
-                        _mutant_codon = _some_codon_or_aa
-                        _mutant_codons = [_mutant_codon]
-                        if _some_codon_or_aa == '---':
-                            _mutant_aa = 'DEL'
-                        elif _some_codon_or_aa == 'INS':
-                            _mutant_aa = 'INS'
-                        elif _some_codon_or_aa == 'DEL':
-                            _mutant_aa = 'DEL'
+                            _observed_aminoacids = df.loc[df['padded_position'] == _padded_position]['mutant_aa'].to_list()
+                            if myoptions.debug:
+                                print(f"Info: {len(_observed_aminoacids)} aa residues observed in position {_aa_position}:{os.linesep} {str(df.loc[df['padded_position'] == _padded_position][0:])}{os.linesep}")
+
+                            try:
+                                # make sure we dot not fetch also INSertions, which could be even multiple rows in addition to the row with changed_codon, especially if the reference protein and is padded on the right with dashes
+                                # try to switch to 'padded_position' instead of 'position' to fetch a row from Pandas
+                                _new_amino_acid_list = _base_df['mutant_aa'].to_list() if not _base_df.empty and 'mutant_aa' in _base_df.columns else []
+                                if _new_amino_acid_list:
+                                    _new_amino_acid = _new_amino_acid_list[0]
+                                else:
+                                    _new_amino_acid = None
+                                if myoptions.debug and _new_amino_acid:
+                                    print(f"Info: Parsed existing _new_amino_acid '{_new_amino_acid}' for codon position {_aa_position}")
+                            except Exception as exc:
+                                _new_amino_acid = None
+
+                            if _new_amino_acid:
+                                try:
+                                    # make sure we dot not fetch also INSertions, which could be even multiple rows in addition to the row with changed_codon
+                                    _some_freq_list = _base_df[myoptions.column_with_frequencies].to_list() if not _base_df.empty and myoptions.column_with_frequencies in _base_df.columns else []
+                                    _some_frequency = Decimal(_some_freq_list[0]) if _some_freq_list else Decimal('0.00000000009')
+                                except (IndexError, ValueError, TypeError):
+                                    _some_frequency = Decimal('0.00000000009')
+                                if _some_frequency != _frequency and (_some_frequency != Decimal('0.00000000009') and _frequency != 0):
+                                    # 334	333	R	R	0.432432	AGG	AGA	16	37 # .frequencies.tsv
+                                    # 338	333	INS	R	0.027027	---	AGA	1	37 # .frequencies.tsv
+                                    # 344	333	INS	R	0.648649	---	AGA	24	37 # .frequencies.tsv
+                                    #
+                                    # 344	333	INS	R	0.648649	---	AGA	24	37 # .frequencies.unchanged_codons.tsv
+                                    raise ValueError(f"Frequency new_codon_table.at[_some_codon_or_aa, _padded_position]={_frequency} _some_codon_or_aa={_some_codon_or_aa}, _padded_position={_padded_position} not same as df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0]={_some_frequency}. Are multiple rows matching? We picked just the first one: df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()={_some_freq_list} for _old_codon={_old_codon}, _old_amino_acid={_old_amino_acid}")
+
+                                if _old_amino_acid and not _frequency < myoptions.threshold and _size:
+                                    _label_scores.append(_score)
+
+                                    if myoptions.column_with_frequencies == 'neutralized_parent_difference':
+                                        _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nDifference neutralized2parent: {_frequency:.6f}")
+                                        _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Difference neutralized2parent: {_frequency:.6f}")
+                                    elif myoptions.column_with_frequencies == 'escape_parent_difference':
+                                        _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nDifference escape2parent: {_frequency:.6f}")
+                                        _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Difference escape2parent: {_frequency:.6f}")
+                                    elif myoptions.column_with_frequencies == 'weighted_diff_escape_neutralized':
+                                        _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nWeighted difference escape2neutralized: {_frequency:.6f}")
+                                        _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Weighted difference escape2neutralized: {_frequency:.6f}")
+                                    elif myoptions.column_with_frequencies == 'frequency':
+                                        _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_counts}\nTotal codons per site: {_total_codons_per_site}")
+                                        _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Frequency: {_frequency:.6f}<br>Observed codon counts: {_observed_codon_counts}<br>Total codons per site: {_total_codons_per_site}")
+                                        _label_padded_positions.append(f"{_padded_position}")
+                                        _label_codon_positions.append(f"{_aa_position}")
+                                        _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
+                                        _label_new_amino_acids.append(f"{_new_amino_acid} ({_some_codon_or_aa})")
+                                        _label_cumulative_frequencies.append(f"{_frequency:.6f}")
+                                        _label_codon_frequencies.append(f"{_frequency:.6f}")
+                                    else:
+                                        _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_counts}\nTotal codons per site: {_total_codons_per_site}")
+                                        _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Frequency: {_frequency:.6f}<br>Observed codon counts: {_observed_codon_counts}<br>Total codons per site: {_total_codons_per_site}")
+                                        _label_padded_positions.append(f"{_padded_position}")
+                                        _label_codon_positions.append(f"{_aa_position}")
+                                        _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
+                                        _label_new_amino_acids.append(f"{_new_amino_acid} ({_some_codon_or_aa})")
+                                        _label_cumulative_frequencies.append(f"{_frequency:.6f}")
+                                        _label_codon_frequencies.append(f"{_frequency:.6f}")
+                                    if not _frequency < myoptions.threshold:
+                                        _mutations.append(f"{_old_codon}{_aa_position}{_some_codon_or_aa}")
+                                    else:
+                                        _mutations.append('')
+                                    if 'observed_codon_count' in df.columns.values:
+                                        _label_observed_codon_counts.append(f"{_observed_codon_counts}")
+                                        _label_observed_codon_count_sum.append(f"{_observed_codon_count_sum}")
+                                        _label_total_codons_per_site.append(f"{_total_codons_per_site}")
+                                    else:
+                                        _label_observed_codon_counts.append('')
+                                        _label_observed_codon_count_sum.append('')
+                                        _label_total_codons_per_site.append('')
+
+                        _original_aas = df.loc[(df['padded_position'] == _padded_position)]['original_aa'].to_list()
+                        if _original_aas:
+                            _original_aa = _original_aas[0]
                         else:
-                            _mutant_aa = alt_translate(_some_codon_or_aa)
-                        _mutant_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)]['mutant_codon'].to_list()
-                    if _original_aa and not _frequency < myoptions.threshold and _size:
-                        if len(_mutant_codons) > 1:
-                            _color_file.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}{}".format(_aa_position, _old_codon, str(_mutant_codons), _original_aa, _some_codon_or_aa, f'{_frequency:.6f}', _color, _score, os.linesep))
-                        elif not myoptions.aminoacids:
-                            _color_file.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}{}".format(_aa_position, _old_codon, _mutant_codon, _original_aa, _mutant_aa, f'{_frequency:.6f}', _color, _score, os.linesep))
-                        elif _mutant_codons:
-                            _color_file.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}{}".format(_aa_position, _old_codon, _mutant_codons[0], _original_aa, _some_codon_or_aa, f'{_frequency:.6f}', _color, _score, os.linesep))
-                    elif myoptions.debug:
+                            _original_aa = None
+                        _new_amino_acid = _some_codon_or_aa
+                        _mutant_aa = None
                         if myoptions.aminoacids:
-                            sys.stderr.write("Debug: Skipped line for _aa_position={} _original_aa={} _old_codon={} _mutant_codons={} _some_codon_or_aa={} _frequency={} score={} myoptions.threshold={}\n".format(_aa_position, _original_aa, _old_codon, str(_mutant_codons), _some_codon_or_aa, f'{_frequency:.6f}', _score, myoptions.threshold))
+                            _mutant_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _new_amino_acid)]['mutant_codon'].to_list()
                         else:
-                            sys.stderr.write("Debug: Skipped line for _aa_position={} _original_aa={} _old_codon={} _mutant_codons={} _some_codon_or_aa={} _frequency={} score={} myoptions.threshold={}\n".format(_aa_position, _original_aa, _old_codon, _mutant_codon, _mutant_aa, f'{_frequency:.6f}', _score, myoptions.threshold))
+                            _mutant_codon = _some_codon_or_aa
+                            _mutant_codons = [_mutant_codon]
+                            if _some_codon_or_aa == '---':
+                                _mutant_aa = 'DEL'
+                            elif _some_codon_or_aa == 'INS':
+                                _mutant_aa = 'INS'
+                            elif _some_codon_or_aa == 'DEL':
+                                _mutant_aa = 'DEL'
+                            else:
+                                _mutant_aa = alt_translate(_some_codon_or_aa)
+                            _mutant_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)]['mutant_codon'].to_list()
+                        if _original_aa and not _frequency < myoptions.threshold and _size:
+                            if len(_mutant_codons) > 1:
+                                _color_file.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}{}".format(_aa_position, _old_codon, str(_mutant_codons), _original_aa, _some_codon_or_aa, f'{_frequency:.6f}', _color, _score, os.linesep))
+                            elif not myoptions.aminoacids:
+                                _color_file.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}{}".format(_aa_position, _old_codon, _mutant_codon, _original_aa, _mutant_aa, f'{_frequency:.6f}', _color, _score, os.linesep))
+                            elif _mutant_codons:
+                                _color_file.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}{}".format(_aa_position, _old_codon, _mutant_codons[0], _original_aa, _some_codon_or_aa, f'{_frequency:.6f}', _color, _score, os.linesep))
+                        elif myoptions.debug:
+                            if myoptions.aminoacids:
+                                sys.stderr.write("Debug: Skipped line for _aa_position={} _original_aa={} _old_codon={} _mutant_codons={} _some_codon_or_aa={} _frequency={} score={} myoptions.threshold={}\n".format(_aa_position, _original_aa, _old_codon, str(_mutant_codons), _some_codon_or_aa, f'{_frequency:.6f}', _score, myoptions.threshold))
+                            else:
+                                sys.stderr.write("Debug: Skipped line for _aa_position={} _original_aa={} _old_codon={} _mutant_codons={} _some_codon_or_aa={} _frequency={} score={} myoptions.threshold={}\n".format(_aa_position, _original_aa, _old_codon, _mutant_codon, _mutant_aa, f'{_frequency:.6f}', _score, myoptions.threshold))
                     _used_colors.add(_color)
 
     print("Info: The following values were collected from matrix %s based on the actual data (some values from matrix might not be needed for your data, hence are not listed here): %s . Range spans %d values (before symmetrization)." % (myoptions.matrix, str(sorted(_matrix_values)), abs(min(_matrix_values)) + 1 + max(_matrix_values)))
