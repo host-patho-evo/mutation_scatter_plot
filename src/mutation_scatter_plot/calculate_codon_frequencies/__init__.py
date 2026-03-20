@@ -25,7 +25,7 @@ from decimal import Decimal
 from Bio import AlignIO
 from Bio import SeqIO
 
-from utils import alt_translate
+from .. import alt_translate
 
 VERSION = "0.3"
 

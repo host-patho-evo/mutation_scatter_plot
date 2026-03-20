@@ -87,7 +87,7 @@ import blosum
 import bokeh.plotting
 import bokeh.models
 
-from ..utils import alt_translate
+from .. import alt_translate
 
 setcontext(ExtendedContext)
 c = getcontext()
@@ -824,20 +824,20 @@ def collect_scatter_data(
                     _bokeh_size = float(np.sqrt(np.abs(_size)) * 100) if myoptions.bokeh_sqrt_size else float(np.abs(_size) * 100)
                     if myoptions.aminoacids:
                         if _score < 0:
-                            _circles_bokeh.append((_padded_position, _some_codon_or_aa, _bokeh_size, 'circle', _color, 0.5, _score, _aa_position))
+                            _circles_bokeh.append((_aa_position, _some_codon_or_aa, _bokeh_size, 'circle', _color, 0.5, _score, _aa_position, _padded_position))
                         else:
-                            _circles_bokeh.append((_padded_position, _some_codon_or_aa, _bokeh_size, 'hex', _color, 0.5, _score, _aa_position))
+                            _circles_bokeh.append((_aa_position, _some_codon_or_aa, _bokeh_size, 'hex', _color, 0.5, _score, _aa_position, _padded_position))
                     else:
                         if _score < 0:
-                            _circles_bokeh.append((_padded_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', _bokeh_size, 'circle_x', _color, 0.5, _score, _aa_position))
+                            _circles_bokeh.append((_aa_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', _bokeh_size, 'circle_x', _color, 0.5, _score, _aa_position, _padded_position))
                         else:
-                            _circles_bokeh.append((_padded_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', _bokeh_size, 'hex', _color, 0.5, _score, _aa_position))
+                            _circles_bokeh.append((_aa_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', _bokeh_size, 'hex', _color, 0.5, _score, _aa_position, _padded_position))
                     if _score < 0:
-                        _circles_matplotlib.append((_padded_position, i, float(np.abs(_size) * 5000), 'circle_x', _color, 0.5, _score, _aa_position)) # 'o' circle shape
-                        _markers.append((_padded_position, i, 1, 'dot', 'black', 0.5))
+                        _circles_matplotlib.append((_aa_position, i, float(np.abs(_size) * 5000), 'circle_x', _color, 0.5, _score, _aa_position, _padded_position)) # 'o' circle shape
+                        _markers.append((_aa_position, i, 1, 'dot', 'black', 0.5))
                     else:
-                        _circles_matplotlib.append((_padded_position, i, float(np.abs(_size) * 5000), 'circle', _color, 0.5, _score, _aa_position)) # 'h' hex shape
-                        _markers.append((_padded_position, i, 1, 'circle', 'black', 0.5))
+                        _circles_matplotlib.append((_aa_position, i, float(np.abs(_size) * 5000), 'circle', _color, 0.5, _score, _aa_position, _padded_position)) # 'h' hex shape
+                        _markers.append((_aa_position, i, 1, 'circle', 'black', 0.5))
                 else:
                     _size, _color = 0, 'black'
                     _score = get_score(myoptions, matrix, _codon_on_input, _old_codon_or_aa, _new_codon_or_aa)
@@ -1108,7 +1108,7 @@ def render_bokeh(
     circles_bokeh : list[tuple]
         One tuple per scatter point with layout::
 
-            (x, y, size, marker, colour_hex, alpha, score)
+            (x, y, size, marker, colour_hex, alpha, score, aa_position, padded_position)
               0  1    2      3           4       5      6
 
         ``colour_hex`` is a hex string already produced by the matplotlib
@@ -1228,19 +1228,19 @@ def render_bokeh(
     * ``--x-axis-label-start``          (default: 0, meaning use xmin)
     """
     if circles_bokeh:
-        x_vals, y_vals, s_vals, m_vals, c_vals, a_vals, score_vals, aaposition_vals = zip(*circles_bokeh)
+        _circles_x, _circles_y, _circles_size, _circles_marker, _circles_color, _circles_alpha, _circles_score, _circles_aa_pos, _circles_padded_pos = zip(*circles_bokeh)
     else:
-        x_vals, y_vals, s_vals, m_vals, c_vals, a_vals, score_vals, aaposition_vals = [], [], [], [], [], [], [], []
+        _circles_x, _circles_y, _circles_size, _circles_marker, _circles_color, _circles_alpha, _circles_score, _circles_aa_pos, _circles_padded_pos = [], [], [], [], [], [], [], [], []
 
     _mysource = bokeh.models.ColumnDataSource(data=dict(
-        x=x_vals,
-        y=y_vals,
-        s=s_vals,
-        m=m_vals,
-        c=c_vals,
-        a=a_vals,
-        score=score_vals,
-        aaposition=aaposition_vals,
+        x=_circles_x,
+        y=_circles_y,
+        s=_circles_size,
+        m=_circles_marker,
+        c=_circles_color,
+        a=_circles_alpha,
+        score=_circles_score,
+        aaposition=_circles_aa_pos,
         label=labels,
         label1=label_padded_positions,
         label2=label_original_amino_acids,
@@ -1252,6 +1252,7 @@ def render_bokeh(
         label8=label_total_codons_per_site,
         label9=label_scores,
         label10=label_codon_positions,
+        padded_pos=_circles_padded_pos,
         mutation=mutations,
     ))
 
@@ -1444,7 +1445,7 @@ def render_matplotlib(
     """
 
     if circles_matplotlib:
-        cm_x, cm_y, cm_s, _, _, _, cm_c, _ = zip(*circles_matplotlib)
+        cm_x, cm_y, cm_s, _, _, _, cm_c, _, _ = zip(*circles_matplotlib)
         _mpl_scatterplot = ax1.scatter(cm_x, cm_y, marker='o', s=cm_s, alpha=0.5, c=cm_c, cmap=cmap, norm=norm)
     else:
         _mpl_scatterplot = ax1.scatter([], [], marker='o', s=[], alpha=0.5, c=[], cmap=cmap, norm=norm)

@@ -15,7 +15,7 @@ from . import (
     parse_alignment,
     open_file,
 )
-from utils import alt_translate
+from .. import alt_translate
 
 
 class NoWrapFormatter(IndentedHelpFormatter):
@@ -134,16 +134,16 @@ def main():
         _file_openmode='x'
     if myoptions.outfileprefix:
         if myoptions.outfileprefix.endswith('.tsv'):
-            _outfilename_handle = open_file(myoptions.outfileprefix, mode=_file_openmode)
+            _outfilename_handle = open_file(myoptions.outfileprefix, overwrite=myoptions.overwrite)
             _outfilename_unchanged_codons_handle = open_file(
                 f"{myoptions.outfileprefix[:-4]}.unchanged_codons.tsv",
-                mode=_file_openmode
+                overwrite=myoptions.overwrite
             )
         else:
-            _outfilename_handle = open_file(f"{myoptions.outfileprefix}.tsv", mode=_file_openmode)
+            _outfilename_handle = open_file(f"{myoptions.outfileprefix}.tsv", overwrite=myoptions.overwrite)
             _outfilename_unchanged_codons_handle = open_file(
                 f"{myoptions.outfileprefix}.unchanged_codons.tsv",
-                mode=_file_openmode
+                overwrite=myoptions.overwrite
             )
     else:
         raise RuntimeError("Please specify output filename prefix via --outfile-prefix")
