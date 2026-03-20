@@ -155,7 +155,9 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
             self._check_outputs("test1.x_after_count_and_min_start.frequencies", outfile_prefix)
 
     def test_test3_default_command(self):
-        """Test calculate_codon_frequencies with default parameters for test3.fasta."""
+        """Test calculate_codon_frequencies with default parameters for test3.fasta.
+        The --min_start=4 is necessary to overcome fake codon at the beginning
+        and the remaining sequence merely matches the reference since 415"""
         with tempfile.TemporaryDirectory() as tmpdir:
             outfile_prefix = os.path.join(tmpdir, "test3.default.frequencies")
             cmd = self.base_cmd + [
@@ -165,7 +167,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--reference-infile", self.ref_fasta,
                 "--x-after-count",
                 "--min_start", "4",
-                "--aa_start=414",
+                "--aa_start", "415",
                 "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
