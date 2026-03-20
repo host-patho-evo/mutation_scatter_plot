@@ -15,7 +15,7 @@ from . import (
     parse_alignment,
     open_file,
 )
-from ..utils import alt_translate
+from utils import alt_translate
 
 
 class NoWrapFormatter(IndentedHelpFormatter):
