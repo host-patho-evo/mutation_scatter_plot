@@ -1,3 +1,4 @@
+padded_position	position	original_aa	mutant_aa	frequency	original_codon	mutant_codon	observed_codon_count	total_codons_per_site
 430	430	M	G	1.000000	ATG	GGG	13	13
 431	430	INS	Q	1.000000	---	CAA	13	13
 432	431	F	T	1.000000	TTT	ACT	13	13

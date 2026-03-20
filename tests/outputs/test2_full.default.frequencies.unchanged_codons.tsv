@@ -1,3 +1,4 @@
+padded_position	position	original_aa	mutant_aa	frequency	original_codon	mutant_codon	observed_codon_count	total_codons_per_site
 447	430	T	T	1.000000	ACA	ACA	9	9
 448	431	G	G	1.000000	GGC	GGC	9	9
 449	432	C	C	1.000000	TGC	TGC	9	9

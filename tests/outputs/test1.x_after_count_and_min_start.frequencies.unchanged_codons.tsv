@@ -1,3 +1,4 @@
+padded_position	position	original_aa	mutant_aa	frequency	original_codon	mutant_codon	observed_codon_count	total_codons_per_site
 481	473	R	R	1.000000	AGA	AGA	69357	69357
 489	481	Q	Q	1.000000	CAG	CAG	69357	69357
 494	486	P	P	1.000000	CCT	CCT	69357	69357

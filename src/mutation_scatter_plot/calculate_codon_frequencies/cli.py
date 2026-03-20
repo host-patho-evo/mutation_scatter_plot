@@ -136,22 +136,27 @@ def main():
     else:
         _file_openmode='x'
     if myoptions.outfileprefix:
+        _tsv_header = "padded_position\tposition\toriginal_aa\tmutant_aa\tfrequency\toriginal_codon\tmutant_codon\tobserved_codon_count\ttotal_codons_per_site\n"
         if myoptions.outfileprefix.endswith('.tsv'):
             _outfilename_handle = open_file(myoptions.outfileprefix, overwrite=myoptions.overwrite)
+            _outfilename_handle.write(_tsv_header)
             if myoptions.print_unchanged_sites:
                 _outfilename_unchanged_codons_handle = open_file(
                     f"{myoptions.outfileprefix[:-4]}.unchanged_codons.tsv",
                     overwrite=myoptions.overwrite
                 )
+                _outfilename_unchanged_codons_handle.write(_tsv_header)
             else:
                 _outfilename_unchanged_codons_handle = None
         else:
             _outfilename_handle = open_file(f"{myoptions.outfileprefix}.tsv", overwrite=myoptions.overwrite)
+            _outfilename_handle.write(_tsv_header)
             if myoptions.print_unchanged_sites:
                 _outfilename_unchanged_codons_handle = open_file(
                     f"{myoptions.outfileprefix}.unchanged_codons.tsv",
                     overwrite=myoptions.overwrite
                 )
+                _outfilename_unchanged_codons_handle.write(_tsv_header)
             else:
                 _outfilename_unchanged_codons_handle = None
     else:
