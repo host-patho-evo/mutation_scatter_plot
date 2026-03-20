@@ -25,7 +25,7 @@ from decimal import Decimal
 from Bio import AlignIO
 from Bio import SeqIO
 
-from ..utils import alt_translate
+from utils import alt_translate
 
 VERSION = "0.3"
 
@@ -101,6 +101,10 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     discard_this_many_trailing_nucs are used to discard offending
     leading/trailing nucleotides.
 
+    If the reference protein is shorter than the sample entries, the trailing codons
+    after reference protein terminated are treated as INSertions with aa position
+    of the aminoacid residue corresponding to the last aminoacid codon of the
+    reference protein. We had to switch to using padded-reference instead.
 
     333	332	R	M	0.108108	AGG	ATG	4	37
     333	332	R	T	0.027027	AGG	ACC	1	37
