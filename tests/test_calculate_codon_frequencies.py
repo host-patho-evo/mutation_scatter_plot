@@ -62,8 +62,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
-                "--min_start", "1339",
-                "--max_stop", "1635"
+                "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
@@ -79,7 +78,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
                 "--x-after-count",
-                "--aa_start=430"
+                "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
@@ -95,7 +94,8 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
                 "--x-after-count",
-                "--aa_start=430"
+                "--aa_start=430",
+                "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
@@ -110,7 +110,8 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
-                "--aa_start=430"
+                "--aa_start=430",
+                "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
@@ -125,9 +126,9 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
+                "--aa_start=430",
                 "--x-after-count",
-                "--min_start", "1339",
-                "--max_stop", "1635"
+                "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
@@ -142,9 +143,10 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
+                "--aa_start=430",
                 "--x-after-count",
-                "--min_start", "1339",
-                "--max_stop", "1635"
+                "--min_start", "7",
+                "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
@@ -159,7 +161,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
-                "--aa_start=1236",
+                "--aa_start=413",
                 "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
@@ -178,9 +180,9 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
                 "--reference-infile", ref_full_fasta,
-                "--aa_start=1",
                 "--x-after-count",
-                "--print-unchanged-sites"
+                "--print-unchanged-sites",
+                "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
@@ -196,7 +198,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
                 "--reference-infile", os.path.join(self.tests_dir, "inputs", "MN908947.3_S.fasta"),
-                "--aa_start=430"
+                "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
