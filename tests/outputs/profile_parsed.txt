@@ -1,4 +1,0 @@
-Fri Mar 20 10:45:33 2026    tests/outputs/profile.stats
-
-         9702021 function calls (9390434 primitive calls) in 19.207 seconds
-

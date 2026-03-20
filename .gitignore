@@ -7,3 +7,5 @@ build/
 *.egg
 .venv/
 venv/
+profile_*.txt
+profile_parsed*.txt
