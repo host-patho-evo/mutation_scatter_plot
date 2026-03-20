@@ -13,7 +13,7 @@ class TestMutationScatterPlot(unittest.TestCase):
         self.project_root = os.path.dirname(self.tests_dir)
         self.outputs_dir = os.path.join(self.tests_dir, "outputs")
 
-        self.tsv_input = os.path.join(self.outputs_dir, "test3.frequencies_default.tsv")
+        self.tsv_input = os.path.join(self.outputs_dir, "test2_full.frequencies_default.tsv")
 
         # Environment to pass to subprocess
         self.env = os.environ.copy()
