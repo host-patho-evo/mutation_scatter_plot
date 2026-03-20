@@ -161,6 +161,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
+                "--x-after-count",
                 "--aa_start=413",
                 "--overwrite"
             ]
