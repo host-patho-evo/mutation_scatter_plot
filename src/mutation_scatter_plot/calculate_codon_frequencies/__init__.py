@@ -253,11 +253,11 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
         _reference_protein_seq = reference_protein_seq
         _reference_as_codons = reference_as_codons
 
-    _previous_gaps = _padded_reference_dna_seq[:min_start].count('-')
-    _zero_based_padded_reference_aa_index = int(min_start / 3)
+    _zero_based_padded_reference_aa_index = 0
     _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index]
-    _reference_codon = _padded_reference_dna_seq[min_start : min_start + 3].upper()
+    _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3].upper()
     _reference_codon_depadded = _reference_codon.replace('-', '')
+    _previous_gaps = 0
     _new_gaps_in_reference = 0
     _re_leading_gaps = re.compile("^[-Nn]+")
     _re_trailing_gaps = re.compile("[-Nn]+$")
@@ -282,6 +282,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
         _is_deletion = False
         _is_insertion = False
         _new_aa_residue = None
+        _zero_based_padded_reference_aa_index = int(_zero_based_codon_startpos / 3)
         try:
             _reference_aa = _reference_protein_seq[
                 _zero_based_padded_reference_aa_index
@@ -293,7 +294,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
                                  _zero_based_padded_reference_aa_index)
             ) from exc
         _current_codon_position = _zero_based_codon_startpos / 3 + 1
-        _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3].upper()
+        _reference_codon = _padded_reference_dna_seq[_zero_based_codon_startpos : _zero_based_codon_startpos + 3].upper()
         _reference_codon_depadded = _reference_codon.replace('-', '')
         if myoptions.debug:
             print("Debug3: _start=%s, _padded_reference_dna_seq=%s" % (
