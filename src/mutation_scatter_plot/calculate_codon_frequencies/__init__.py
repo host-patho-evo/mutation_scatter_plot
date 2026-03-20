@@ -101,14 +101,6 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     discard_this_many_trailing_nucs are used to discard offending
     leading/trailing nucleotides.
 
-    If the reference protein is shorter than the sample entries, the trailing codons
-    after reference protein terminated are treated as INSertions with aa position
-    of the aminoacid residue corresponding to the last aminoacid codon of the
-    reference protein. But provided there are still codon columns to be parsed
-    there are multiple lines in the resulting TSV files, which later on breaks
-    mutation_scatter_plot because multiple lines are retrieved via Pandas instead
-    of just a single row. A workaround so far is to ignore lines with INSertion
-    event from the input .frequency.tsv file.
 
     333	332	R	M	0.108108	AGG	ATG	4	37
     333	332	R	T	0.027027	AGG	ACC	1	37
@@ -685,10 +677,12 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
               f"major mutations in some codons: {str(_top_most_codons)}")
 
 
-def open_file(outfilename):
-    """Open a new file for writing, raising an error if it already exists."""
-    if os.path.exists(outfilename):
+def open_file(outfilename, overwrite=False):
+    """Open a new file for writing, raising an error if it already exists and overwrite is False."""
+    if os.path.exists(outfilename) and not overwrite:
         raise RuntimeError(
             f"The file {outfilename} already exists, will not overwrite it."
         )
+    if overwrite and os.path.exists(outfilename):
+        return open(outfilename, 'w')
     return open(outfilename, 'x')

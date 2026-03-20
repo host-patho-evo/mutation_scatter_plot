@@ -96,6 +96,9 @@ def build_option_parser():
     myparser.add_option("--debug", action="store", type="int",
         dest="debug", default=0,
         help="Set debug level to some real number")
+    myparser.add_option("--overwrite", action="store_true",
+        dest="overwrite", default=False,
+        help="Overwrite existing output files instead of raising RuntimeError")
     return myparser
 
 
@@ -127,14 +130,16 @@ def main():
 
     if myoptions.outfileprefix:
         if myoptions.outfileprefix.endswith('.tsv'):
-            _outfilename_handle = open_file(myoptions.outfileprefix)
+            _outfilename_handle = open_file(myoptions.outfileprefix, overwrite=myoptions.overwrite)
             _outfilename_unchanged_codons_handle = open_file(
-                f"{myoptions.outfileprefix[:-4]}.unchanged_codons.tsv"
+                f"{myoptions.outfileprefix[:-4]}.unchanged_codons.tsv",
+                overwrite=myoptions.overwrite
             )
         else:
-            _outfilename_handle = open_file(f"{myoptions.outfileprefix}.tsv")
+            _outfilename_handle = open_file(f"{myoptions.outfileprefix}.tsv", overwrite=myoptions.overwrite)
             _outfilename_unchanged_codons_handle = open_file(
-                f"{myoptions.outfileprefix}.unchanged_codons.tsv"
+                f"{myoptions.outfileprefix}.unchanged_codons.tsv",
+                overwrite=myoptions.overwrite
             )
     else:
         raise RuntimeError("Please specify output filename prefix via --outfile-prefix")
