@@ -246,9 +246,11 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
         _reference_protein_seq = reference_protein_seq
         _reference_as_codons = reference_as_codons
 
+    _padded_reference_dna_seq = _padded_reference_dna_seq.upper()
+    _reference_protein_seq = _reference_protein_seq.upper()
     _zero_based_padded_reference_aa_index = 0
     _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index]
-    _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3].upper()
+    _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3]
     _reference_codon_depadded = _reference_codon.replace('-', '')
     _previous_gaps = 0
     _new_gaps_in_reference = 0
@@ -260,7 +262,7 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
     _start_from = myoptions.discard_this_many_leading_nucs
     _stop_to = myoptions.discard_this_many_trailing_nucs
 
-    _parsed_alignments = []
+    _parsed_alignments = {}
     for _aln_line in _align:
         _record_id = _aln_line.id
         if myoptions.x_after_count:
@@ -287,26 +289,33 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
         else:
             _aln_line_seq = str(_aln_line.seq)
 
-        _padded_aln_line_length = len(_aln_line_seq)
-        _depadded_aln_line_length = len(
-            _aln_line_seq.replace('-', '').lstrip('Nn').rstrip('Nn')
-        )
+        _aln_line_seq = _aln_line_seq.upper()
 
-        _start_of_trailing_gaps = 0
-        _end_of_leading_gaps = 0
-        for _match in _re_leading_gaps.finditer(_aln_line_seq):
-            _end_of_leading_gaps = _match.end()
-        for _match in _re_trailing_gaps.finditer(_aln_line_seq):
-            _start_of_trailing_gaps = _match.start()
+        if _aln_line_seq in _parsed_alignments:
+            _parsed_alignments[_aln_line_seq]['count'] += _record_count
+        else:
+            _padded_aln_line_length = len(_aln_line_seq)
+            _depadded_aln_line_length = len(
+                _aln_line_seq.replace('-', '').replace('N', '')
+            )
 
-        _parsed_alignments.append({
-            'count': _record_count,
-            'seq': _aln_line_seq,
-            'padded_len': _padded_aln_line_length,
-            'depadded_len': _depadded_aln_line_length,
-            'end_of_leading_gaps': _end_of_leading_gaps,
-            'start_of_trailing_gaps': _start_of_trailing_gaps
-        })
+            _start_of_trailing_gaps = 0
+            _end_of_leading_gaps = 0
+            for _match in _re_leading_gaps.finditer(_aln_line_seq):
+                _end_of_leading_gaps = _match.end()
+            for _match in _re_trailing_gaps.finditer(_aln_line_seq):
+                _start_of_trailing_gaps = _match.start()
+
+            _parsed_alignments[_aln_line_seq] = {
+                'count': _record_count,
+                'seq': _aln_line_seq,
+                'padded_len': _padded_aln_line_length,
+                'depadded_len': _depadded_aln_line_length,
+                'end_of_leading_gaps': _end_of_leading_gaps,
+                'start_of_trailing_gaps': _start_of_trailing_gaps
+            }
+
+    _parsed_alignments_list = list(_parsed_alignments.values())
 
     for _zero_based_codon_startpos in range(
         min_start, max_stop or len(_padded_reference_dna_seq), 3
@@ -326,19 +335,22 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
         try:
             _reference_aa = _reference_protein_seq[
                 _zero_based_padded_reference_aa_index
-            ].upper()
+            ]
         except IndexError as exc:
             raise IndexError(
                 f'Error: Cannot slice reference protein sequence {_reference_protein_seq} at '
                 f'position {_zero_based_padded_reference_aa_index}'
             ) from exc
         _current_codon_position = _zero_based_codon_startpos / 3 + 1
-        _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3].upper()
+        _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3]
         _reference_codon_depadded = _reference_codon.replace('-', '')
         if myoptions.debug:
             print(f"Debug3: _start={_zero_based_codon_startpos}, _padded_reference_dna_seq={_padded_reference_dna_seq}")
 
-        for _parsed_seq in _parsed_alignments:
+        _amplicon_length = (max_stop or len(_padded_reference_dna_seq)) - min_start
+        _reference_codon_contained_pad = '-' in _reference_codon
+
+        for _parsed_seq in _parsed_alignments_list:
             _record_count = _parsed_seq['count']
             _aln_line_seq = _parsed_seq['seq']
             _padded_aln_line_length = _parsed_seq['padded_len']
@@ -346,13 +358,11 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
             _end_of_leading_gaps = _parsed_seq['end_of_leading_gaps']
             _start_of_trailing_gaps = _parsed_seq['start_of_trailing_gaps']
 
-            _amplicon_length = (max_stop or len(_padded_reference_dna_seq)) - min_start
             _new_gaps_in_reference = 0
             _deleted_reference_codon = None
-            _rough_sample_codon = _aln_line_seq[_zero_based_codon_startpos:_zero_based_codon_startpos + 3].upper()
-            _sample_codon_depadded = _rough_sample_codon.replace('-', '')
-            _sample_codon_contained_pad = len(_rough_sample_codon) != len(_sample_codon_depadded)
-            _reference_codon_contained_pad = len(_reference_codon) != len(_reference_codon_depadded)
+            _rough_sample_codon = _aln_line_seq[_zero_based_codon_startpos:_zero_based_codon_startpos + 3]
+            _sample_codon_contained_pad = '-' in _rough_sample_codon
+            _sample_codon_depadded = _rough_sample_codon.replace('-', '') if _sample_codon_contained_pad else _rough_sample_codon
             _new_aa_residue = None
 
             if myoptions.debug:
