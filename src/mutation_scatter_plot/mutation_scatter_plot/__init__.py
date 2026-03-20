@@ -67,6 +67,7 @@ Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxova K., Zoler E., Mokrej
 import os
 import sys
 import re
+import json
 import typing
 
 from decimal import Decimal, ExtendedContext, setcontext, getcontext
@@ -1049,6 +1050,35 @@ def collect_scatter_data(
     )
 
 
+def pretty_print_bokeh_html(filename):
+    """Pretty-print the JSON block inside a Bokeh-generated HTML file."""
+    if not os.path.exists(filename):
+        return
+    with open(filename, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Bokeh embeds JSON in a script tag. Use a regex to find it.
+    # Pattern: <script type="application/json" id="...">JSON_HERE</script>
+    pattern = r'(<script type="application/json"[^>]*>)(.*?)(</script>)'
+
+    def replacer(match):
+        prefix = match.group(1)
+        json_str = match.group(2)
+        suffix = match.group(3)
+        try:
+            data = json.loads(json_str)
+            pretty_json = json.dumps(data, indent=4)
+            return f"{prefix}\n{pretty_json}\n{suffix}"
+        except Exception:
+            return match.group(0)
+
+    new_content = re.sub(pattern, replacer, content, flags=re.DOTALL)
+
+    if new_content != content:
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+
+
 def render_bokeh(
     myoptions,
     outfile_prefix, xmin, xmax, amino_acids, final_sorted_whitelist,
@@ -1337,6 +1367,7 @@ def render_bokeh(
     print(f"Info: Writing into {outfile_prefix} + '.html'")
     bokeh.plotting.output_file(outfile_prefix + '.html')
     bokeh.plotting.show(_p)
+    pretty_print_bokeh_html(outfile_prefix + '.html')
 
 
 def render_matplotlib(
