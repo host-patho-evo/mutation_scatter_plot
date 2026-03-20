@@ -55,7 +55,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
     def test_default_command(self):
         """Test calculate_codon_frequencies with default parameters."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            outfile_prefix = os.path.join(tmpdir, "test2_full.frequencies_default")
+            outfile_prefix = os.path.join(tmpdir, "test2_full.default.frequencies")
             test2_full_fasta = os.path.join(self.tests_dir, "inputs", "test2_full.fasta")
             cmd = self.base_cmd + [
                 "--alignment-file", test2_full_fasta,
@@ -206,6 +206,28 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
             self._check_outputs("test2_short.aa_start.frequencies", outfile_prefix)
+    
+    def test_disable_print_unchanged_sites(self):
+        """Test that --disable-print-unchanged-sites prevents creating the unchanged_codons file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outfile_prefix = os.path.join(tmpdir, "test1.disabled.frequencies")
+            cmd = self.base_cmd + [
+                "--alignment-file", self.test1_fasta,
+                "--outfile-prefix", outfile_prefix,
+                "--padded-reference",
+                "--reference-infile", self.ref_fasta,
+                "--aa_start=430",
+                "--disable-print-unchanged-sites",
+                "--overwrite"
+            ]
+            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}")
+            
+            # Main TSV should exist
+            self.assertTrue(os.path.exists(f"{outfile_prefix}.tsv"))
+            # Unchanged codons file should NOT exist
+            self.assertFalse(os.path.exists(f"{outfile_prefix}.unchanged_codons.tsv"), 
+                             "Unchanged codons file should not have been created with --disable-print-unchanged-sites")
 
 if __name__ == "__main__":
     unittest.main()
