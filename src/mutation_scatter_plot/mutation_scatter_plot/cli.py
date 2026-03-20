@@ -311,6 +311,7 @@ def main():  # pylint: disable=too-many-locals
         myoptions,
         _df, _table, _outfile_prefix, _matrix, _amino_acids,
         _codons_whitelist2, _padded_position2position,
+        _xmin, _xmax,
     )
 
     _xlabel = _ax1.get_xlabel()

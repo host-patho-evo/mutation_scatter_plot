@@ -23,6 +23,7 @@ from collections import Counter
 from decimal import Decimal
 
 from Bio import AlignIO
+from Bio import SeqIO
 
 from ..utils import alt_translate
 
@@ -198,12 +199,8 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         raise RuntimeError(f"Alignment file not found: {alignment_file}")
     if os.path.getsize(alignment_file) == 0:
         raise RuntimeError(f"Alignment file is empty: {alignment_file}")
-    try:
-        _align = AlignIO.read(alignment_file, "fasta")
-    except ValueError as exc:
-        raise ValueError(
-            f'Error: one of the entries in the {alignment_file} file has different length'
-        ) from exc
+    # We use SeqIO.parse for streaming grouping to handle huge files
+    # while only keeping unique sequences in memory.
 
     if myoptions.left_reference_offset or myoptions.right_reference_offset:
         _padded_reference_dna_seq = padded_reference_dna_seq[
@@ -264,57 +261,58 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     _stop_to: int = int(myoptions.discard_this_many_trailing_nucs) if myoptions.discard_this_many_trailing_nucs else 0
 
     _parsed_alignments = {}
-    for _aln_line in _align:
-        _record_id = _aln_line.id
-        if myoptions.x_after_count:
-            if 'x.' in _record_id:
-                _record_count, _ = _record_id.split('x.')
-                _record_count = int(_record_count)
+    with open(alignment_file, "r") as _handle:
+        for _aln_line in SeqIO.parse(_handle, "fasta"):
+            _record_id = _aln_line.id
+            if myoptions.x_after_count:
+                if 'x.' in _record_id:
+                    _record_count, _ = _record_id.split('x.')
+                    _record_count = int(_record_count)
+                else:
+                    try:
+                        _record_count = int(_record_id.replace('x', ''))
+                    except ValueError:
+                        _record_count = 1
             else:
-                try:
-                    _record_count = int(_record_id.replace('x', ''))
-                except ValueError:
-                    _record_count = 1
-        else:
-            _record_count = 1
+                _record_count = 1
 
-        _total_aln_entries_used += _record_count
+            _total_aln_entries_used += _record_count
 
-        if _start_from:
-            if _stop_to:
-                _aln_line_seq = str(_aln_line.seq)[int(_start_from):-int(_stop_to)]
+            if _start_from:
+                if _stop_to:
+                    _aln_line_seq = str(_aln_line.seq)[int(_start_from):-int(_stop_to)]
+                else:
+                    _aln_line_seq = str(_aln_line.seq)[int(_start_from):]
+            elif _stop_to:
+                _aln_line_seq = str(_aln_line.seq)[:-int(_stop_to)]
             else:
-                _aln_line_seq = str(_aln_line.seq)[int(_start_from):]
-        elif _stop_to:
-            _aln_line_seq = str(_aln_line.seq)[:-int(_stop_to)]
-        else:
-            _aln_line_seq = str(_aln_line.seq)
+                _aln_line_seq = str(_aln_line.seq)
 
-        _aln_line_seq = _aln_line_seq.upper()
+            _aln_line_seq = _aln_line_seq.upper()
 
-        if _aln_line_seq in _parsed_alignments:
-            _parsed_alignments[_aln_line_seq]['count'] += _record_count
-        else:
-            _padded_aln_line_length = len(_aln_line_seq)
-            _depadded_aln_line_length = len(
-                _aln_line_seq.replace('-', '').replace('N', '')
-            )
+            if _aln_line_seq in _parsed_alignments:
+                _parsed_alignments[_aln_line_seq]['count'] += _record_count
+            else:
+                _padded_aln_line_length = len(_aln_line_seq)
+                _depadded_aln_line_length = len(
+                    _aln_line_seq.replace('-', '').replace('N', '')
+                )
 
-            _start_of_trailing_gaps = 0
-            _end_of_leading_gaps = 0
-            for _match in _re_leading_gaps.finditer(_aln_line_seq):
-                _end_of_leading_gaps = _match.end()
-            for _match in _re_trailing_gaps.finditer(_aln_line_seq):
-                _start_of_trailing_gaps = _match.start()
+                _start_of_trailing_gaps = 0
+                _end_of_leading_gaps = 0
+                for _match in _re_leading_gaps.finditer(_aln_line_seq):
+                    _end_of_leading_gaps = _match.end()
+                for _match in _re_trailing_gaps.finditer(_aln_line_seq):
+                    _start_of_trailing_gaps = _match.start()
 
-            _parsed_alignments[_aln_line_seq] = {
-                'count': _record_count,
-                'seq': _aln_line_seq,
-                'padded_len': _padded_aln_line_length,
-                'depadded_len': _depadded_aln_line_length,
-                'end_of_leading_gaps': _end_of_leading_gaps,
-                'start_of_trailing_gaps': _start_of_trailing_gaps
-            }
+                _parsed_alignments[_aln_line_seq] = {
+                    'count': _record_count,
+                    'seq': _aln_line_seq,
+                    'padded_len': _padded_aln_line_length,
+                    'depadded_len': _depadded_aln_line_length,
+                    'end_of_leading_gaps': _end_of_leading_gaps,
+                    'start_of_trailing_gaps': _start_of_trailing_gaps
+                }
 
     _parsed_alignments_list = list(_parsed_alignments.values())
 
@@ -351,6 +349,8 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         _amplicon_length = (max_stop or len(_padded_reference_dna_seq)) - min_start
         _reference_codon_contained_pad = '-' in _reference_codon
 
+        # Pass 1: Local Grouping
+        _local_groups = {}
         for _parsed_seq in _parsed_alignments_list:
             _record_count = _parsed_seq['count']
             _aln_line_seq = _parsed_seq['seq']
@@ -359,49 +359,61 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
             _end_of_leading_gaps = _parsed_seq['end_of_leading_gaps']
             _start_of_trailing_gaps = _parsed_seq['start_of_trailing_gaps']
 
+            _rough_sample_codon = _aln_line_seq[_zero_based_codon_startpos:_zero_based_codon_startpos + 3]
+
+            # Determine action type (masked or regular)
+            _action = "regular"
+            if myoptions.minimum_aln_length and _depadded_aln_line_length < myoptions.minimum_aln_length:
+                _action = "min_len_fail"
+            elif not _depadded_aln_line_length:
+                _action = "empty_seq"
+            elif _end_of_leading_gaps and _zero_based_codon_startpos < _end_of_leading_gaps - 1:
+                _action = "leading_gap"
+            elif _start_of_trailing_gaps and _zero_based_codon_startpos + 1 > _start_of_trailing_gaps:
+                _action = "trailing_gap"
+            elif not _end_of_leading_gaps and _start_of_trailing_gaps and _zero_based_codon_startpos + 1 > _start_of_trailing_gaps:
+                _action = "trailing_gap_only"
+            elif not _start_of_trailing_gaps and _end_of_leading_gaps and _zero_based_codon_startpos < _end_of_leading_gaps + 1:
+                _action = "leading_gap_only"
+            elif _padded_aln_line_length + 1 <= _zero_based_codon_startpos + 3:
+                _action = "too_short"
+
+            _key = (_rough_sample_codon, _action)
+            if _key not in _local_groups:
+                _local_groups[_key] = 0
+            _local_groups[_key] += _record_count
+
+        # Pass 2: Process Groups
+        for (_rough_sample_codon, _action), _record_count in _local_groups.items():
             _new_gaps_in_reference = 0
             _deleted_reference_codon = None
-            _rough_sample_codon = _aln_line_seq[_zero_based_codon_startpos:_zero_based_codon_startpos + 3]
             _sample_codon_contained_pad = '-' in _rough_sample_codon
             _sample_codon_depadded = _rough_sample_codon.replace('-', '') if _sample_codon_contained_pad else _rough_sample_codon
             _new_aa_residue = None
 
-            if myoptions.debug:
-                print(f"Debug4: End of leading gaps is at {_end_of_leading_gaps:6d}, "
-                      f"start of trailing gaps is at {_start_of_trailing_gaps:6d}, "
-                      f"{_aln_line_seq}")
-
-            if myoptions.minimum_aln_length and _depadded_aln_line_length < myoptions.minimum_aln_length:
+            if _action == "min_len_fail":
                 if myoptions.debug:
-                    print(f"Debug5:Here1, _end_of_leading_gaps={_end_of_leading_gaps}, "
-                          f"_start_of_trailing_gaps={_start_of_trailing_gaps}, "
-                          f"_zero_based_codon_startpos={_zero_based_codon_startpos}")
-            elif not _depadded_aln_line_length:
+                    print(f"Debug5:Here1, _zero_based_codon_startpos={_zero_based_codon_startpos}")
+            elif _action == "empty_seq":
                 if myoptions.debug:
-                    print(f"Debug6:Here2, _end_of_leading_gaps={_end_of_leading_gaps}, "
-                          f"_start_of_trailing_gaps={_start_of_trailing_gaps}, "
-                          f"_zero_based_codon_startpos={_zero_based_codon_startpos}")
-            elif _end_of_leading_gaps and _zero_based_codon_startpos < _end_of_leading_gaps - 1:
+                    print(f"Debug6:Here2, _zero_based_codon_startpos={_zero_based_codon_startpos}")
+            elif _action == "leading_gap":
                 if myoptions.debug:
-                    print(f"Debug7:Here3, _end_of_leading_gaps={_end_of_leading_gaps}, "
-                          f"_start_of_trailing_gaps={_start_of_trailing_gaps}, "
-                          f"_zero_based_codon_startpos={_zero_based_codon_startpos}")
-            elif _start_of_trailing_gaps and _zero_based_codon_startpos + 1 > _start_of_trailing_gaps:
+                    print(f"Debug7:Here3, _zero_based_codon_startpos={_zero_based_codon_startpos}")
+            elif _action == "trailing_gap":
                 if myoptions.debug:
-                    print(f"Debug8:Here4, _end_of_leading_gaps={_end_of_leading_gaps}, "
-                          f"_start_of_trailing_gaps={_start_of_trailing_gaps}, "
-                          f"_zero_based_codon_startpos={_zero_based_codon_startpos}")
-            elif not _end_of_leading_gaps and _zero_based_codon_startpos + 1 > _start_of_trailing_gaps and _start_of_trailing_gaps:
+                    print(f"Debug8:Here4, _zero_based_codon_startpos={_zero_based_codon_startpos}")
+            elif _action == "trailing_gap_only":
                 if myoptions.debug:
-                    print(f"Debug9:Here5, _end_of_leading_gaps={_end_of_leading_gaps}, "
-                          f"_start_of_trailing_gaps={_start_of_trailing_gaps}, "
-                          f"_zero_based_codon_startpos={_zero_based_codon_startpos}")
-            elif not _start_of_trailing_gaps and _zero_based_codon_startpos < _end_of_leading_gaps + 1 and _end_of_leading_gaps:
+                    print(f"Debug9:Here5, _zero_based_codon_startpos={_zero_based_codon_startpos}")
+            elif _action == "leading_gap_only":
                 if myoptions.debug:
-                    print(f"Debug10:Here6, _end_of_leading_gaps={_end_of_leading_gaps}, "
-                          f"_start_of_trailing_gaps={_start_of_trailing_gaps}, "
-                          f"_zero_based_codon_startpos={_zero_based_codon_startpos}")
-            elif _padded_aln_line_length + 1 > _zero_based_codon_startpos + 3:
+                    print(f"Debug10:Here6, _zero_based_codon_startpos={_zero_based_codon_startpos}")
+            elif _action == "too_short":
+                if myoptions.debug:
+                    print(f"Debug10b:Here7. Leaking sample codon {_rough_sample_codon} at position "
+                          f"{_current_codon_position}, _amplicon_length={_amplicon_length}")
+            elif _action == "regular":
                 if myoptions.debug:
                     print("Debug11: Rough sample codon at %d is %s, reference "
                           "codon is %s, amplicon region length %s (nt), sliced "
@@ -417,9 +429,11 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                               _sample_codon_depadded, _reference_codon_depadded,
                               str(_sample_codon_contained_pad),
                               str(_reference_codon_contained_pad)))
+
                 if _rough_sample_codon == 'NNN' or _reference_codon == 'NNN':
                     if myoptions.debug:
                         print("Debug11: Skipping a codon containing NNN")
+                
                 if _rough_sample_codon == '---' and _reference_codon != '---' and _reference_codon != 'NNN':
                     _is_deletion = True
                     _deleted_reference_codon = str(_reference_codon)
@@ -435,16 +449,6 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                     _deleted_aa_residue = alt_translate(_deleted_reference_codon)
                     _deleted_reference_aa_residues[_deleted_aa_residue] += _record_count
                     _sample_codon_depadded = ''
-                    if myoptions.debug:
-                        print("Debug13: Added DELeted codon at %d is %s, "
-                              "reference codon is %s, amplicon region length %s "
-                              "(nt), sliced [%d:%d] (pythonic slice numbering), "
-                              "aa_residue is %s" % (
-                                  _current_codon_position, '---',
-                                  _reference_codon, _amplicon_length,
-                                  _zero_based_codon_startpos + _previous_gaps,
-                                  _zero_based_codon_startpos + _previous_gaps + 3 + _new_gaps_in_reference,
-                                  _deleted_aa_residue))
                 elif _reference_codon == '---' and _rough_sample_codon != '---':
                     _is_insertion = True
                     _sample_codon_depadded = _rough_sample_codon.replace('-', '')
@@ -452,65 +456,21 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                     _inserted_codons[_sample_codon_depadded] += _record_count
                     _new_aa_residue = alt_translate(_rough_sample_codon)
                     if _new_aa_residue:
-                        _inserted_aa_residues[_new_aa_residue] += _record_count # practically unused so far
-                    if myoptions.debug > 1:
-                        print("Debug14: Added INSerted codon at %d is %s, "
-                              "reference codon is %s, amplicon region length %s "
-                              "(nt), sliced [%d:%d] (pythonic slice numbering), "
-                              "aa_residue is %s" % (
-                                  _current_codon_position, '---',
-                                  _reference_codon, _amplicon_length,
-                                  _zero_based_codon_startpos + _previous_gaps,
-                                  _zero_based_codon_startpos + _previous_gaps + 3 + _new_gaps_in_reference,
-                                  _new_aa_residue))
+                        _inserted_aa_residues[_new_aa_residue] += _record_count
                 else:
                     _sample_codon_depadded = _rough_sample_codon.replace('-', '')
-                    if myoptions.debug > 1:
-                        print("Debug15: Rough sample codon at %d is %s, "
-                              "reference codon is %s, amplicon region length %s "
-                              "(nt), sliced [%d:%d] (pythonic slice numbering), "
-                              "_sample_codon_depadded is %s, "
-                              "_reference_codon_depadded is %s, "
-                              "_sample_codon_contained_pad=%s, "
-                              "_reference_codon_contained_pad=%s" % (
-                                  _current_codon_position, _rough_sample_codon,
-                                  _reference_codon, _amplicon_length,
-                                  _zero_based_codon_startpos + _previous_gaps,
-                                  _zero_based_codon_startpos + _previous_gaps + 3 + _new_gaps_in_reference,
-                                  _sample_codon_depadded, _reference_codon_depadded,
-                                  str(_sample_codon_contained_pad),
-                                  str(_reference_codon_contained_pad)))
-
                     if (_sample_codon_contained_pad and _reference_codon_contained_pad) and not _sample_codon_depadded and not _reference_codon:
                         _unchanged_codons['---'] += _record_count
                         _unchanged_aa_residues['-'] += _record_count
-                        if myoptions.debug > 1:
-                            print("Debug16: Skipping unchanged codon at %d due "
-                                  "to a padding dash in both %s and %s" % (
-                                      _current_codon_position,
-                                      _rough_sample_codon, _reference_codon))
                     elif _rough_sample_codon == '---' and _reference_codon == '---':
                         _unchanged_codons['---'] += _record_count
                         _unchanged_aa_residues['-'] += _record_count
-                        if myoptions.debug > 1:
-                            print("Debug17: Skipping unchanged codon at %d due "
-                                  "to a padding dash in both sample and "
-                                  "reference codon %s" % (
-                                      _current_codon_position, _rough_sample_codon))
                     elif (_sample_codon_contained_pad or _reference_codon_contained_pad) and _sample_codon_depadded == _reference_codon_depadded:
                         _unchanged_codons[_sample_codon_depadded] += _record_count
                         _unchanged_aa_residues[alt_translate(_sample_codon_depadded)] += _record_count
-                        if myoptions.debug > 1:
-                            print("Debug18: Skipping unchanged codon at %d due "
-                                  "to a padding dash in both %s and %s" % (
-                                      _current_codon_position,
-                                      _rough_sample_codon, _reference_codon))
                     elif _sample_codon_depadded == _reference_codon_depadded:
                         _unchanged_codons[_sample_codon_depadded] += _record_count
                         _unchanged_aa_residues[alt_translate(_sample_codon_depadded)] += _record_count
-                        if myoptions.debug > 1:
-                            print("Debug19: Unchanged codon at %d is %s" % (
-                                _current_codon_position, _sample_codon_depadded))
                     elif _sample_codon_depadded != _reference_codon_depadded:
                         _changed_codons[_sample_codon_depadded] += _record_count
                         _new_aa_residue = alt_translate(_rough_sample_codon)
@@ -522,13 +482,6 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                                         _sample_codon_depadded,
                                         _current_codon_position,
                                         _new_aa_residue))
-                            else:
-                                if myoptions.debug > 1:
-                                    print("Debug20: biopython translated codon "
-                                          "%s at %d into %s" % (
-                                              _sample_codon_depadded,
-                                              _current_codon_position,
-                                              _new_aa_residue))
                         if _new_aa_residue:
                             if _new_aa_residue != _reference_aa:
                                 _changed_aa_residues[_new_aa_residue] += _record_count
@@ -536,19 +489,6 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                                 _unchanged_aa_residues[_new_aa_residue] += _record_count
                         else:
                             _changed_aa_residues['None'] += _record_count
-                            if myoptions.debug > 1:
-                                print("Debug21: Added None to "
-                                      f"_changed_aa_residues for codon at {_current_codon_position}")
-                        if myoptions.debug:
-                            print("Debug22: Final codon at %d is %s, reference "
-                                  "codon is %s, amplicon region length %s (nt), "
-                                  "sliced [%d:%d] (pythonic slice numbering), "
-                                  "aa_residue is %s" % (
-                                      _current_codon_position, _rough_sample_codon,
-                                      _reference_codon, _amplicon_length,
-                                      _zero_based_codon_startpos + _previous_gaps,
-                                      _zero_based_codon_startpos + _previous_gaps + 3 + _new_gaps_in_reference,
-                                      _new_aa_residue))
                     else:
                         _unchanged_codons[_rough_sample_codon] += _record_count
                         _new_aa_residue = alt_translate(_rough_sample_codon)
@@ -559,24 +499,6 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                                 _unchanged_aa_residues[_new_aa_residue] += _record_count
                         else:
                             _changed_aa_residues['None'] += _record_count
-                        if myoptions.debug > 1:
-                            print("Debug23: Including frame-breaking codon %s "
-                                  "at %d into per-codon coverage, reference "
-                                  "codon is %s, amplicon region length %s (nt), "
-                                  "sliced [%d:%d] (pythonic slice numbering), "
-                                  "aa_residue is %s" % (
-                                      _rough_sample_codon,
-                                      _current_codon_position, _reference_codon,
-                                      _amplicon_length,
-                                      _zero_based_codon_startpos + _previous_gaps,
-                                      _zero_based_codon_startpos + _previous_gaps + 3 + _new_gaps_in_reference,
-                                      _new_aa_residue))
-            else:
-                if myoptions.debug:
-                    print("Debug10b:Here7. Leaking sample codon %s at position "
-                          "%d, _amplicon_length=%d" % (
-                              _rough_sample_codon, _current_codon_position,
-                              _amplicon_length))
 
         # all entries processed for the current codon column
         if myoptions.debug:
@@ -750,7 +672,6 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         else:
             break
 
-    del _align
     alnfilename_count.write(f"{_total_aln_entries_used}\n")
     alnfilename_count.close()
     _consensus = ''.join(_top_most_codons).upper()

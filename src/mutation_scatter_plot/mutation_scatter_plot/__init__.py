@@ -729,6 +729,7 @@ def collect_scatter_data(
     myoptions: typing.Any,
     df: typing.Any, table: typing.Any, outfile_prefix: str, matrix: typing.Any,
     amino_acids: list[str], codons_whitelist2: list[str], padded_position2position: dict[int, int],
+    xmin: int, xmax: int,
 ):
     "Iterate over frequency tables and collect scatter plot data, labels, and colors."
 
@@ -782,6 +783,8 @@ def collect_scatter_data(
         _df_indexed = df.set_index(['padded_position', _mut_col])
         for i, _some_codon_or_aa in enumerate(table.index): # so _some_codon_or_aa contains the index specified when the table was constructed
             for j, _padded_position in enumerate(table.columns): # so _aa_position contains the real aa_position
+                if not (xmin <= _padded_position <= xmax):
+                    continue
                 if myoptions.debug:
                     print(f"Debug: i: {str(i)}, j: {str(j)}, _padded_position column: {str(_padded_position)}")
                 try:
