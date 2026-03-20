@@ -168,5 +168,103 @@ class TestMutationScatterPlot(unittest.TestCase):
             self.assertEqual(result.returncode, 0, f"Command failed:\n{result.stderr}\n{result.stdout}")
             self._check_outputs(target_prefix, tmpdir, "test2.scatter_codons_synonymous")
 
+    def test4_compare_aminoacids(self):
+        """mutation_scatter_plot pairwise compare: --aminoacids vs --aminoacids --include-synonymous HTML JSONs"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Run A
+            target_prefix_a = "test_run_test4A"
+            outfile_prefix_a = os.path.join(tmpdir, target_prefix_a)
+            cmd_a = self.base_cmd + [
+                "--tsv", self.tsv_input,
+                "--outfile-prefix", outfile_prefix_a,
+                "--aminoacids",
+                "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
+                "--threshold=0.0001"
+            ]
+            res_a = subprocess.run(cmd_a, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+            self.assertEqual(res_a.returncode, 0, f"Command A failed:\n{res_a.stderr}\n{res_a.stdout}")
+            
+            # Run B
+            target_prefix_b = "test_run_test4B"
+            outfile_prefix_b = os.path.join(tmpdir, target_prefix_b)
+            cmd_b = self.base_cmd + [
+                "--tsv", self.tsv_input,
+                "--outfile-prefix", outfile_prefix_b,
+                "--aminoacids",
+                "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
+                "--include-synonymous",
+                "--threshold=0.0001"
+            ]
+            res_b = subprocess.run(cmd_b, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+            self.assertEqual(res_b.returncode, 0, f"Command B failed:\n{res_b.stderr}\n{res_b.stdout}")
+
+            # Extract data
+            html_a = f"{outfile_prefix_a}.BLOSUM80.amino_acid_changes.html"
+            html_b = f"{outfile_prefix_b}.BLOSUM80.amino_acid_changes.html"
+            
+            data_a = self._extract_bokeh_data(html_a)
+            data_b = self._extract_bokeh_data(html_b)
+            
+            if data_a != data_b:
+                with tempfile.NamedTemporaryFile("w", delete=False) as f_a, tempfile.NamedTemporaryFile("w", delete=False) as f_b:
+                    for keys, rows in data_a:
+                        f_a.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
+                    for keys, rows in data_b:
+                        f_b.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
+                
+                diff_res = subprocess.run(
+                    ["diff", "-u", "-w", "--color=always", f_a.name, f_b.name],
+                    capture_output=True, text=True, check=False
+                )
+                self.fail(f"HTML JSON structural mapping differed between --aminoacids and --aminoacids --include-synonymous:\n{diff_res.stdout}")
+
+    def test5_compare_codons(self):
+        """mutation_scatter_plot pairwise compare: codon mode vs codon mode --include-synonymous HTML JSONs"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Run A
+            target_prefix_a = "test_run_test5A"
+            outfile_prefix_a = os.path.join(tmpdir, target_prefix_a)
+            cmd_a = self.base_cmd + [
+                "--tsv", self.tsv_input,
+                "--outfile-prefix", outfile_prefix_a,
+                "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
+                "--threshold=0.0001"
+            ]
+            res_a = subprocess.run(cmd_a, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+            self.assertEqual(res_a.returncode, 0, f"Command A failed:\n{res_a.stderr}\n{res_a.stdout}")
+            
+            # Run B
+            target_prefix_b = "test_run_test5B"
+            outfile_prefix_b = os.path.join(tmpdir, target_prefix_b)
+            cmd_b = self.base_cmd + [
+                "--tsv", self.tsv_input,
+                "--outfile-prefix", outfile_prefix_b,
+                "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
+                "--include-synonymous",
+                "--threshold=0.0001"
+            ]
+            res_b = subprocess.run(cmd_b, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+            self.assertEqual(res_b.returncode, 0, f"Command B failed:\n{res_b.stderr}\n{res_b.stdout}")
+
+            # Extract data
+            html_a = f"{outfile_prefix_a}.BLOSUM80.amino_acid_changes.html"
+            html_b = f"{outfile_prefix_b}.BLOSUM80.amino_acid_changes.html"
+            
+            data_a = self._extract_bokeh_data(html_a)
+            data_b = self._extract_bokeh_data(html_b)
+            
+            if data_a != data_b:
+                with tempfile.NamedTemporaryFile("w", delete=False) as f_a, tempfile.NamedTemporaryFile("w", delete=False) as f_b:
+                    for keys, rows in data_a:
+                        f_a.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
+                    for keys, rows in data_b:
+                        f_b.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
+                
+                diff_res = subprocess.run(
+                    ["diff", "-u", "-w", "--color=always", f_a.name, f_b.name],
+                    capture_output=True, text=True, check=False
+                )
+                self.fail(f"HTML JSON structural mapping differed between codon mode and codon mode --include-synonymous:\n{diff_res.stdout}")
+
 if __name__ == "__main__":
     unittest.main()
