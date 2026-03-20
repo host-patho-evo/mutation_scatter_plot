@@ -48,9 +48,9 @@ class TestMutationScatterPlot(unittest.TestCase):
                 # Compare contents
                 is_match = filecmp.cmp(gen_path, expected_path, shallow=False)
                 if not is_match:
-                    # Run diff -u -w to show the differences
+                    # Run diff -u -w --color=always to show the differences
                     diff_result = subprocess.run(
-                        ["diff", "-u", "-w", expected_path, gen_path],
+                        ["diff", "-u", "-w", "--color=always", expected_path, gen_path],
                         capture_output=True, text=True, check=False
                     )
                     if gen_file.endswith(".html"):
