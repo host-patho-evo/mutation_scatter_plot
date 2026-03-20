@@ -5,9 +5,11 @@
 
 """Shared utilities used by both mutation_scatter_plot and calculate_codon_frequencies."""
 
+import functools
 from Bio.Seq import translate
 
 
+@functools.lru_cache(maxsize=128)
 def alt_translate(seq):
     """Biopython cannot sometimes translate a sequence but one can get around by
     splitting it into codons and merging later back.

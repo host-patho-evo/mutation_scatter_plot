@@ -260,6 +260,54 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
     _start_from = myoptions.discard_this_many_leading_nucs
     _stop_to = myoptions.discard_this_many_trailing_nucs
 
+    _parsed_alignments = []
+    for _aln_line in _align:
+        _record_id = _aln_line.id
+        if myoptions.x_after_count:
+            if 'x.' in _record_id:
+                _record_count, _ = _record_id.split('x.')
+                _record_count = int(_record_count)
+            else:
+                try:
+                    _record_count = int(_record_id.replace('x', ''))
+                except ValueError:
+                    _record_count = 1
+        else:
+            _record_count = 1
+
+        _total_aln_entries_used += _record_count
+
+        if _start_from:
+            if _stop_to:
+                _aln_line_seq = str(_aln_line.seq)[_start_from:-_stop_to]
+            else:
+                _aln_line_seq = str(_aln_line.seq)[_start_from:]
+        elif _stop_to:
+            _aln_line_seq = str(_aln_line.seq)[:-_stop_to]
+        else:
+            _aln_line_seq = str(_aln_line.seq)
+
+        _padded_aln_line_length = len(_aln_line_seq)
+        _depadded_aln_line_length = len(
+            _aln_line_seq.replace('-', '').lstrip('Nn').rstrip('Nn')
+        )
+
+        _start_of_trailing_gaps = 0
+        _end_of_leading_gaps = 0
+        for _match in _re_leading_gaps.finditer(_aln_line_seq):
+            _end_of_leading_gaps = _match.end()
+        for _match in _re_trailing_gaps.finditer(_aln_line_seq):
+            _start_of_trailing_gaps = _match.start()
+
+        _parsed_alignments.append({
+            'count': _record_count,
+            'seq': _aln_line_seq,
+            'padded_len': _padded_aln_line_length,
+            'depadded_len': _depadded_aln_line_length,
+            'end_of_leading_gaps': _end_of_leading_gaps,
+            'start_of_trailing_gaps': _start_of_trailing_gaps
+        })
+
     for _zero_based_codon_startpos in range(
         min_start, max_stop or len(_padded_reference_dna_seq), 3
     ):
@@ -290,39 +338,15 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
         if myoptions.debug:
             print(f"Debug3: _start={_zero_based_codon_startpos}, _padded_reference_dna_seq={_padded_reference_dna_seq}")
 
-        for _aln_line in _align:
-            _record_id = _aln_line.id
-            if myoptions.x_after_count:
-                if 'x.' in _record_id:
-                    _record_count, _ = _record_id.split('x.')
-                    _record_count = int(_record_count)
-                else:
-                    try:
-                        _record_count = int(_record_id.replace('x', ''))
-                    except ValueError:
-                        # we cannot make an integer from supposedly a string, probably user just enabled x-after-id option but there are just no counts
-                        _record_count = 1
-            else:
-                _record_count = 1
-
-            if not _zero_based_codon_startpos or not _total_aln_entries_used:
-                _total_aln_entries_used += _record_count
-
-            if _start_from:
-                if _stop_to:
-                    _aln_line_seq = str(_aln_line.seq)[_start_from:-_stop_to]
-                else:
-                    _aln_line_seq = str(_aln_line.seq)[_start_from:]
-            elif _stop_to:
-                _aln_line_seq = str(_aln_line.seq)[:-_stop_to]
-            else:
-                _aln_line_seq = str(_aln_line.seq)
+        for _parsed_seq in _parsed_alignments:
+            _record_count = _parsed_seq['count']
+            _aln_line_seq = _parsed_seq['seq']
+            _padded_aln_line_length = _parsed_seq['padded_len']
+            _depadded_aln_line_length = _parsed_seq['depadded_len']
+            _end_of_leading_gaps = _parsed_seq['end_of_leading_gaps']
+            _start_of_trailing_gaps = _parsed_seq['start_of_trailing_gaps']
 
             _amplicon_length = (max_stop or len(_padded_reference_dna_seq)) - min_start
-            _padded_aln_line_length = len(_aln_line_seq)
-            _depadded_aln_line_length = len(
-                _aln_line_seq.replace('-', '').lstrip('Nn').rstrip('Nn')
-            )
             _new_gaps_in_reference = 0
             _deleted_reference_codon = None
             _rough_sample_codon = _aln_line_seq[_zero_based_codon_startpos:_zero_based_codon_startpos + 3].upper()
@@ -331,12 +355,6 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
             _reference_codon_contained_pad = len(_reference_codon) != len(_reference_codon_depadded)
             _new_aa_residue = None
 
-            _start_of_trailing_gaps = 0
-            _end_of_leading_gaps = 0
-            for _match in _re_leading_gaps.finditer(_aln_line_seq):
-                _end_of_leading_gaps = _match.end()
-            for _match in _re_trailing_gaps.finditer(_aln_line_seq):
-                _start_of_trailing_gaps = _match.start()
             if myoptions.debug:
                 print(f"Debug4: End of leading gaps is at {_end_of_leading_gaps:6d}, "
                       f"start of trailing gaps is at {_start_of_trailing_gaps:6d}, "
