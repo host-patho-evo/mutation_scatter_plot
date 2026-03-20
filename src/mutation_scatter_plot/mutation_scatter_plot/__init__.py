@@ -1193,15 +1193,20 @@ def render_bokeh(
     * ``--x-axis-minor-ticks-spacing``  (default: 5)
     * ``--x-axis-label-start``          (default: 0, meaning use xmin)
     """
+    if circles_bokeh:
+        x_vals, y_vals, s_vals, m_vals, c_vals, a_vals, score_vals, aaposition_vals = zip(*circles_bokeh)
+    else:
+        x_vals, y_vals, s_vals, m_vals, c_vals, a_vals, score_vals, aaposition_vals = [], [], [], [], [], [], [], []
+
     _mysource = bokeh.models.ColumnDataSource(data=dict(
-        x=[x[0] for x in circles_bokeh],
-        y=[y[1] for y in circles_bokeh],
-        s=[s[2] for s in circles_bokeh],
-        m=[m[3] for m in circles_bokeh],
-        c=[c[4] for c in circles_bokeh],
-        a=[a[5] for a in circles_bokeh],
-        score=[sc[6] for sc in circles_bokeh],
-        aaposition=[aapos[7] for aapos in circles_bokeh],
+        x=x_vals,
+        y=y_vals,
+        s=s_vals,
+        m=m_vals,
+        c=c_vals,
+        a=a_vals,
+        score=score_vals,
+        aaposition=aaposition_vals,
         label=labels,
         label1=label_padded_positions,
         label2=label_original_amino_acids,
@@ -1403,12 +1408,23 @@ def render_matplotlib(
     the correct position and codon/amino-acid.
     """
 
-    _mpl_scatterplot = ax1.scatter([x[0] for x in circles_matplotlib], [x[1] for x in circles_matplotlib], marker='o', s=[x[2] for x in circles_matplotlib], alpha=0.5, c=[x[6] for x in circles_matplotlib], cmap=cmap, norm=norm)
+    if circles_matplotlib:
+        cm_x, cm_y, cm_s, _, _, _, cm_c, _ = zip(*circles_matplotlib)
+        _mpl_scatterplot = ax1.scatter(cm_x, cm_y, marker='o', s=cm_s, alpha=0.5, c=cm_c, cmap=cmap, norm=norm)
+    else:
+        _mpl_scatterplot = ax1.scatter([], [], marker='o', s=[], alpha=0.5, c=[], cmap=cmap, norm=norm)
+
     _colorbar = figure.colorbar(_mpl_scatterplot, cax=ax3, label=f"{matrix_name} score values", location='right', pad=-0.1, alpha=0.5)
     _colorbar.ax.set_yticks(np.arange(-18.5, 18.5, 1), np.arange(-19, 18, 1))
     _colorbar.ax.tick_params(axis='y', which='minor', length=0)
-    ax1.scatter([x[0] for x in markers], [x[1] for x in markers], s=[x[2] for x in markers], marker='x', color='black', alpha=0.5)
-    ax1.scatter([x[0] for x in dots], [x[1] for x in dots], s=[x[2] for x in dots], marker='.', color='black', alpha=0.5)
+    
+    if markers:
+        mk_x, mk_y, mk_s, _, _, _ = zip(*markers)
+        ax1.scatter(mk_x, mk_y, s=mk_s, marker='x', color='black', alpha=0.5)
+    
+    if dots:
+        dt_x, dt_y, dt_s, _, _, _, _ = zip(*dots)
+        ax1.scatter(dt_x, dt_y, s=dt_s, marker='.', color='black', alpha=0.5)
 
     for _label in ax1.get_xticklabels():
         _label.set_rotation(90)
