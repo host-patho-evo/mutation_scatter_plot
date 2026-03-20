@@ -161,5 +161,25 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
             self._check_outputs("test3.frequencies_default", outfile_prefix)
 
+    def test_test2_full_default_command(self):
+        """Test calculate_codon_frequencies with default parameters for test2_full.fasta."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outfile_prefix = os.path.join(tmpdir, "test2_full.frequencies_default")
+            test2_full_fasta = os.path.join(self.tests_dir, "inputs", "test2_full.fasta")
+            ref_full_fasta = os.path.join(self.tests_dir, "inputs", "MN908947.3_S_full.fasta")
+            cmd = self.base_cmd + [
+                "--alignment-file", test2_full_fasta,
+                "--outfile-prefix", outfile_prefix,
+                "--padded-reference",
+                "--reference-infile", ref_full_fasta,
+                "--aa_start=1",
+                "--x-after-count",
+                "--print-unchanged-sites"
+            ]
+            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            # Note: We expect this to fail initially if the baseline is not yet updated for the zapped file.
+            self._check_outputs("test2_full.frequencies_default", outfile_prefix)
+
 if __name__ == "__main__":
     unittest.main()
