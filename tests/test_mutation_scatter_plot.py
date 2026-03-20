@@ -53,10 +53,44 @@ class TestMutationScatterPlot(unittest.TestCase):
                         ["diff", "-u", "-w", expected_path, gen_path],
                         capture_output=True, text=True, check=False
                     )
-                    if any(gen_file.endswith(ext) for ext in [".png", ".pdf", ".html"]):
+                    if gen_file.endswith(".html"):
+                        data_gen = self._extract_bokeh_data(gen_path)
+                        data_exp = self._extract_bokeh_data(expected_path)
+                        self.assertEqual(data_gen, data_exp, f"Bokeh internal data points differ for {gen_file} despite html generation format changes!")
+                        print(f"Info: HTML file {gen_file} byte-mismatch ignored because internal Bokeh JSON structural mapping matched perfectly.")
+                    elif any(gen_file.endswith(ext) for ext in [".png", ".pdf"]):
                         print(f"Warning: {gen_file} plotting artifact differed from strictly byte-for-byte matching golden baseline natively (ignoring natively due to UUIDs/timestamps).\nDifferences:\n{diff_result.stdout}")
                     else:
                         self.fail(f"File {gen_file} does not match golden file {expected_filename}.\nDifferences:\n{diff_result.stdout}")
+
+    def _extract_bokeh_data(self, html_path):
+        import json
+        import re
+        from bokeh.document.document import Document
+
+        with open(html_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+        match = re.search(r'<script type="application/json".*?>(.*?)</script>', content, re.DOTALL)
+        if not match:
+            return []
+            
+        js = json.loads(match.group(1).strip())
+        doc_json = list(js.values())[0] if js else {}
+        
+        doc = Document.from_json(doc_json)
+        all_data = []
+        for model in doc.models:
+            if type(model).__name__ == 'ColumnDataSource':
+                keys = sorted(model.data.keys())
+                if not keys:
+                    continue
+                rows = []
+                for idx in range(len(model.data[keys[0]])):
+                    rows.append(tuple(str(model.data[k][idx]) for k in keys))
+                all_data.append((keys, sorted(rows)))
+        
+        return sorted(all_data)
 
     def test_aminoacids(self):
         """mutation_scatter_plot --aminoacids --show-STOP --show-X --show-DEL --show-INS"""
