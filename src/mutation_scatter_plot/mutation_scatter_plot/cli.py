@@ -221,7 +221,8 @@ def build_option_parser():
              " perceptual appearance of the matplotlib figure.",
     )
     myparser.add_option(
-        "--show-dots", action="store_true", dest="show_dots", default=False,
+        "--show-invisible-placeholder-dots", action="store_true",
+        dest="show_invisible_placeholder_dots", default=False,
         help="Include below-threshold dots in the plot. [default: False]",
     )
     return myparser

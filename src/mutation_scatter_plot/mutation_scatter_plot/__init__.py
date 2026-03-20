@@ -840,7 +840,7 @@ def collect_scatter_data(
                 else:
                     _size, _color = 0, 'black'
                     _score = get_score(myoptions, matrix, _codon_on_input, _old_codon_or_aa, _new_codon_or_aa)
-                    if getattr(myoptions, 'show_dots', False):
+                    if getattr(myoptions, 'show_invisible_placeholder_dots', False):
                         _dots.append((_padded_position, i, _size, 'dot', _color, 0.5, _score))
                     if myoptions.debug:
                         print(f"Debug: Invisible dot. Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
