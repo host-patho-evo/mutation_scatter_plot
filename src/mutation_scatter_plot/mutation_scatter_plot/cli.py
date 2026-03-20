@@ -220,6 +220,10 @@ def build_option_parser():
              " frequency². By default sqrt scaling is on, matching the"
              " perceptual appearance of the matplotlib figure.",
     )
+    myparser.add_option(
+        "--show-dots", action="store_true", dest="show_dots", default=False,
+        help="Include below-threshold dots in the plot. [default: False]",
+    )
     return myparser
 
 
