@@ -56,8 +56,20 @@ class TestMutationScatterPlot(unittest.TestCase):
                     if gen_file.endswith(".html"):
                         data_gen = self._extract_bokeh_data(gen_path)
                         data_exp = self._extract_bokeh_data(expected_path)
-                        self.assertEqual(data_gen, data_exp, f"Bokeh internal data points differ for {gen_file} despite html generation format changes!")
-                        print(f"Info: HTML file {gen_file} byte-mismatch ignored because internal Bokeh JSON structural mapping matched perfectly.")
+                        if data_gen != data_exp:
+                            with tempfile.NamedTemporaryFile("w", delete=False) as f_exp, tempfile.NamedTemporaryFile("w", delete=False) as f_gen:
+                                for keys, rows in data_exp:
+                                    f_exp.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
+                                for keys, rows in data_gen:
+                                    f_gen.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
+                            
+                            diff_res = subprocess.run(
+                                ["diff", "-u", "-w", "--color=always", f_exp.name, f_gen.name],
+                                capture_output=True, text=True, check=False
+                            )
+                            self.fail(f"Bokeh internal data points differ for {gen_file}!\nDifferences:\n{diff_res.stdout}")
+                        else:
+                            print(f"Info: HTML file {gen_file} byte-mismatch ignored because internal Bokeh JSON structural mapping matched perfectly.")
                     elif any(gen_file.endswith(ext) for ext in [".png", ".pdf"]):
                         print(f"Warning: {gen_file} plotting artifact differed from strictly byte-for-byte matching golden baseline natively (ignoring natively due to UUIDs/timestamps).\nDifferences:\n{diff_result.stdout}")
                     else:
@@ -66,7 +78,7 @@ class TestMutationScatterPlot(unittest.TestCase):
     def _extract_bokeh_data(self, html_path):
         import json
         import re
-        from bokeh.document.document import Document
+        from bokeh.document import Document
 
         with open(html_path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -81,13 +93,14 @@ class TestMutationScatterPlot(unittest.TestCase):
         doc = Document.from_json(doc_json)
         all_data = []
         for model in doc.models:
-            if type(model).__name__ == 'ColumnDataSource':
-                keys = sorted(model.data.keys())
+            if type(model).__name__ == 'ColumnDataSource' and hasattr(model, 'data'):
+                model_data = getattr(model, 'data')
+                keys = sorted(model_data.keys())
                 if not keys:
                     continue
                 rows = []
-                for idx in range(len(model.data[keys[0]])):
-                    rows.append(tuple(str(model.data[k][idx]) for k in keys))
+                for idx in range(len(model_data[keys[0]])):
+                    rows.append(tuple(str(model_data[k][idx]) for k in keys))
                 all_data.append((keys, sorted(rows)))
         
         return sorted(all_data)
@@ -124,6 +137,20 @@ class TestMutationScatterPlot(unittest.TestCase):
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed:\n{result.stderr}\n{result.stdout}")
             self._check_outputs(target_prefix, tmpdir, "test2.scatter_aminoacids_synonymous")
+    def test_codons(self):
+        """mutation_scatter_plot --show-STOP --show-X --show-DEL --show-INS"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target_prefix = "test_run_4"
+            outfile_prefix = os.path.join(tmpdir, target_prefix)
+            cmd = self.base_cmd + [
+                "--tsv", self.tsv_input,
+                "--outfile-prefix", outfile_prefix,
+                "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
+                "--threshold=0.0001"
+            ]
+            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, f"Command failed:\n{result.stderr}\n{result.stdout}")
+            self._check_outputs(target_prefix, tmpdir, "test2.scatter_codons")
 
     def test_codons_synonymous(self):
         """mutation_scatter_plot --show-STOP --show-X --show-DEL --show-INS --include-synonymous"""

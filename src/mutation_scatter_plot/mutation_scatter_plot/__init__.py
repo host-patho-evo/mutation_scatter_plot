@@ -67,6 +67,7 @@ Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxova K., Zoler E., Mokrej
 import os
 import sys
 import re
+import typing
 
 from decimal import Decimal, ExtendedContext, setcontext, getcontext
 import pandas as pd
@@ -155,12 +156,12 @@ def get_colormap(myoptions, colormapname):
                                     _cmap_from_palettable = palettable.tableau.get_map(myoptions.colormap)
                                     _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
                                 except (ImportError, Exception):
-                                    _micro_cvd_gray = ("#F5F5F5", "#D6D6D6", "#B7B7B7", "#8B8B8B","#616161")
-                                    _micro_cvd_green = ("#DDFFA0",  "#BDEC6F",  "#97CE2F", "#6D9F06","#4E7705")
-                                    _micro_cvd_orange = ("#FFD5AF",  "#FCB076","#F09163", "#C17754", "#9D654C")
-                                    _micro_cvd_blue = ("#E7F4FF", "#BCE1FF", "#7DCCFF", "#56B4E9","#098BD9")
-                                    _micro_cvd_turquoise = ("#A3E4D7", "#48C9B0",  "#43BA8F",  "#009E73", "#148F77")
-                                    _micro_cvd_purple = ("#EFB6D6", "#E794C1", "#CC79A7", "#A1527F", "#7D3560")
+                                    _micro_cvd_gray = ["#F5F5F5", "#D6D6D6", "#B7B7B7", "#8B8B8B","#616161"]
+                                    _micro_cvd_green = ["#DDFFA0",  "#BDEC6F",  "#97CE2F", "#6D9F06","#4E7705"]
+                                    _micro_cvd_orange = ["#FFD5AF",  "#FCB076","#F09163", "#C17754", "#9D654C"]
+                                    _micro_cvd_blue = ["#E7F4FF", "#BCE1FF", "#7DCCFF", "#56B4E9","#098BD9"]
+                                    _micro_cvd_turquoise = ["#A3E4D7", "#48C9B0",  "#43BA8F",  "#009E73", "#148F77"]
+                                    _micro_cvd_purple = ["#EFB6D6", "#E794C1", "#CC79A7", "#A1527F", "#7D3560"]
                                     _micro_cvd_gray_r = _micro_cvd_gray[::-1]
                                     _micro_cvd_green_r = _micro_cvd_green[::-1]
                                     _micro_cvd_orange_r = _micro_cvd_orange[::-1]
@@ -725,9 +726,9 @@ def setup_matplotlib_figure(
 
 
 def collect_scatter_data(
-    myoptions,
-    df, table, outfile_prefix, matrix,
-    amino_acids, codons_whitelist2, padded_position2position,
+    myoptions: typing.Any,
+    df: typing.Any, table: typing.Any, outfile_prefix: str, matrix: typing.Any,
+    amino_acids: list[str], codons_whitelist2: list[str], padded_position2position: dict[int, int],
 ):
     "Iterate over frequency tables and collect scatter plot data, labels, and colors."
 
@@ -744,26 +745,26 @@ def collect_scatter_data(
 
     _used_colors = set()
     _norm, _cmap, _colors = get_colormap(myoptions, myoptions.colormap)
-    _labels = []
-    _label_padded_positions = []
-    _label_codon_positions = []
-    _label_original_amino_acids = []
-    _label_new_amino_acids = []
-    _label_cumulative_frequencies = []
-    _label_codon_frequencies = []
-    _label_observed_codon_counts = []
-    _label_observed_codon_count_sum = []
-    _label_total_codons_per_site = []
-    _label_scores = []
+    _labels: list[str] = []
+    _label_padded_positions: list[str] = []
+    _label_codon_positions: list[str] = []
+    _label_original_amino_acids: list[str] = []
+    _label_new_amino_acids: list[str] = []
+    _label_cumulative_frequencies: list[str] = []
+    _label_codon_frequencies: list[str] = []
+    _label_observed_codon_counts: list[typing.Any] = []
+    _label_observed_codon_count_sum: list[typing.Any] = []
+    _label_total_codons_per_site: list[typing.Any] = []
+    _label_scores: list[typing.Any] = []
 
-    _html_labels = []
-    _mutations = []
-    _circles_bokeh = []
-    _circles_matplotlib = []
-    _markers = []
-    _dots = []
-    _warn_once = []
-    _matrix_values = set()
+    _html_labels: list[str] = []
+    _mutations: list[str] = []
+    _circles_bokeh: list[tuple[typing.Any, ...]] = []
+    _circles_matplotlib: list[tuple[typing.Any, ...]] = []
+    _markers: list[tuple[typing.Any, ...]] = []
+    _dots: list[tuple[typing.Any, ...]] = []
+    _warn_once: list[int] = []
+    _matrix_values: set[int] = set()
 
     if myoptions.aminoacids:
         _outfilename = outfile_prefix + '.aa.frequencies.colors.tsv'

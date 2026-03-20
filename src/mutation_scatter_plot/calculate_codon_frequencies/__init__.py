@@ -17,6 +17,7 @@ Emergence. https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1
 import os
 import re
 import sys
+import typing
 
 from collections import Counter
 from decimal import Decimal
@@ -88,10 +89,10 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded,
     outfilename.flush()
 
 
-def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
-                    reference_protein_seq, reference_as_codons,
-                    outfilename, outfilename_unchanged_codons,
-                    alnfilename_count, aa_start, min_start, max_stop):
+def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference_dna_seq: str,
+                    reference_protein_seq: str, reference_as_codons: list[str],
+                    outfilename: typing.Any, outfilename_unchanged_codons: typing.Any,
+                    alnfilename_count: typing.Any, aa_start: int, min_start: int, max_stop: int):
     """Parse a padded multi-FASTA alignment and write codon frequency TSV files.
 
     left_reference_offset and right_reference_offset are used to slice the
@@ -248,19 +249,19 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
 
     _padded_reference_dna_seq = _padded_reference_dna_seq.upper()
     _reference_protein_seq = _reference_protein_seq.upper()
-    _zero_based_padded_reference_aa_index = 0
+    _zero_based_padded_reference_aa_index: int = 0
     _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index]
     _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3]
     _reference_codon_depadded = _reference_codon.replace('-', '')
-    _previous_gaps = 0
-    _new_gaps_in_reference = 0
+    _previous_gaps: int = 0
+    _new_gaps_in_reference: int = 0
     _re_leading_gaps = re.compile("^[-Nn]+")
     _re_trailing_gaps = re.compile("[-Nn]+$")
     _already_checked_starts = []
     _top_most_codons = []
-    _total_aln_entries_used = 0
-    _start_from = myoptions.discard_this_many_leading_nucs
-    _stop_to = myoptions.discard_this_many_trailing_nucs
+    _total_aln_entries_used: int = 0
+    _start_from: int = int(myoptions.discard_this_many_leading_nucs) if myoptions.discard_this_many_leading_nucs else 0
+    _stop_to: int = int(myoptions.discard_this_many_trailing_nucs) if myoptions.discard_this_many_trailing_nucs else 0
 
     _parsed_alignments = {}
     for _aln_line in _align:
@@ -281,11 +282,11 @@ def parse_alignment(myoptions, alignment_file, padded_reference_dna_seq,
 
         if _start_from:
             if _stop_to:
-                _aln_line_seq = str(_aln_line.seq)[_start_from:-_stop_to]
+                _aln_line_seq = str(_aln_line.seq)[int(_start_from):-int(_stop_to)]
             else:
-                _aln_line_seq = str(_aln_line.seq)[_start_from:]
+                _aln_line_seq = str(_aln_line.seq)[int(_start_from):]
         elif _stop_to:
-            _aln_line_seq = str(_aln_line.seq)[:-_stop_to]
+            _aln_line_seq = str(_aln_line.seq)[:-int(_stop_to)]
         else:
             _aln_line_seq = str(_aln_line.seq)
 

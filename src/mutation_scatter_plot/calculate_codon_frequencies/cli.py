@@ -25,7 +25,7 @@ class NoWrapFormatter(IndentedHelpFormatter):
         return f"{description}\n" if description else ""
 
     def format_option(self, option):
-        result = []
+        result: list[str] = []
         opts = self.option_strings[option]
         opt_width = self.help_position - self.current_indent - 2
         if len(opts) > opt_width:
