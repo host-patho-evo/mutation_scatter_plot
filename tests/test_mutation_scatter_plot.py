@@ -13,7 +13,7 @@ class TestMutationScatterPlot(unittest.TestCase):
         self.project_root = os.path.dirname(self.tests_dir)
         self.outputs_dir = os.path.join(self.tests_dir, "outputs")
 
-        self.tsv_input = os.path.join(self.outputs_dir, "test2_full.frequencies_default.tsv")
+        self.tsv_input = os.path.join(self.outputs_dir, "test2_full.x_after_count.frequencies.tsv")
 
         # Environment to pass to subprocess
         self.env = os.environ.copy()
@@ -171,7 +171,7 @@ class TestMutationScatterPlot(unittest.TestCase):
     def test4_compare_aminoacids(self):
         """mutation_scatter_plot pairwise compare: --aminoacids vs --aminoacids --include-synonymous HTML JSONs"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            full_tsv = os.path.join(self.outputs_dir, "test2_full.frequencies_default.tsv")
+            full_tsv = os.path.join(self.outputs_dir, "test2_full.x_after_count.frequencies.tsv")
             # Run A
             target_prefix_a = "test_run_test4A"
             outfile_prefix_a = os.path.join(tmpdir, target_prefix_a)
@@ -241,7 +241,7 @@ class TestMutationScatterPlot(unittest.TestCase):
     def test5_compare_codons(self):
         """mutation_scatter_plot pairwise compare: codon mode vs codon mode --include-synonymous HTML JSONs"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            full_tsv = os.path.join(self.outputs_dir, "test2_full.frequencies_default.tsv")
+            full_tsv = os.path.join(self.outputs_dir, "test2_full.x_after_count.frequencies.tsv")
             # Run A
             target_prefix_a = "test_run_test5A"
             outfile_prefix_a = os.path.join(tmpdir, target_prefix_a)
