@@ -105,68 +105,105 @@ class TestMutationScatterPlot(unittest.TestCase):
         
         return sorted(all_data)
 
-    def test_aminoacids(self):
-        """mutation_scatter_plot --aminoacids --show-STOP --show-X --show-DEL --show-INS"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            target_prefix = "test_run_1"
-            outfile_prefix = os.path.join(tmpdir, target_prefix)
-            cmd = self.base_cmd + [
-                "--tsv", self.tsv_input,
-                "--outfile-prefix", outfile_prefix,
-                "--aminoacids",
-                "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
-                "--threshold=0.01"
-            ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed:\n{result.stderr}\n{result.stdout}")
-            self._check_outputs(target_prefix, tmpdir, "test2.scatter_aminoacids")
+    def test_all_inputs_aminoacids(self):
+        """mutation_scatter_plot --aminoacids for all inputs"""
+        test_inputs = [
+            ("test1.default", "test1.default.frequencies.tsv"),
+            ("test2.x_after_count", "test2.x_after_count.frequencies.tsv"),
+            ("test2_full.x_after_count", "test2_full.x_after_count.frequencies.tsv"),
+            ("test3.default", "test3.default.frequencies.tsv"),
+        ]
+        for name, tsv_file in test_inputs:
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    target_prefix = "test_run"
+                    outfile_prefix = os.path.join(tmpdir, target_prefix)
+                    tsv_path = os.path.join(self.outputs_dir, tsv_file)
+                    cmd = self.base_cmd + [
+                        "--tsv", tsv_path,
+                        "--outfile-prefix", outfile_prefix,
+                        "--aminoacids",
+                        "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
+                        "--threshold=0.001"
+                    ]
+                    result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+                    self.assertEqual(result.returncode, 0, f"Command failed for {name}:\n{result.stderr}")
+                    self._check_outputs(target_prefix, tmpdir, f"{name}.scatter_aminoacids")
 
-    def test_aminoacids_synonymous(self):
-        """mutation_scatter_plot --aminoacids --show-STOP --show-X --show-DEL --show-INS --include-synonymous"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            target_prefix = "test_run_2"
-            outfile_prefix = os.path.join(tmpdir, target_prefix)
-            cmd = self.base_cmd + [
-                "--tsv", self.tsv_input,
-                "--outfile-prefix", outfile_prefix,
-                "--aminoacids",
-                "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
-                "--include-synonymous",
-                "--threshold=0.01"
-            ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed:\n{result.stderr}\n{result.stdout}")
-            self._check_outputs(target_prefix, tmpdir, "test2.scatter_aminoacids_synonymous")
-    def test_codons(self):
-        """mutation_scatter_plot --show-STOP --show-X --show-DEL --show-INS"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            target_prefix = "test_run_4"
-            outfile_prefix = os.path.join(tmpdir, target_prefix)
-            cmd = self.base_cmd + [
-                "--tsv", self.tsv_input,
-                "--outfile-prefix", outfile_prefix,
-                "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
-                "--threshold=0.001"
-            ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed:\n{result.stderr}\n{result.stdout}")
-            self._check_outputs(target_prefix, tmpdir, "test2.scatter_codons")
+    def test_all_inputs_aminoacids_synonymous(self):
+        """mutation_scatter_plot --aminoacids --include-synonymous for all inputs"""
+        test_inputs = [
+            ("test1.default", "test1.default.frequencies.tsv"),
+            ("test2.x_after_count", "test2.x_after_count.frequencies.tsv"),
+            ("test2_full.x_after_count", "test2_full.x_after_count.frequencies.tsv"),
+            ("test3.default", "test3.default.frequencies.tsv"),
+        ]
+        for name, tsv_file in test_inputs:
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    target_prefix = "test_run"
+                    outfile_prefix = os.path.join(tmpdir, target_prefix)
+                    tsv_path = os.path.join(self.outputs_dir, tsv_file)
+                    cmd = self.base_cmd + [
+                        "--tsv", tsv_path,
+                        "--outfile-prefix", outfile_prefix,
+                        "--aminoacids",
+                        "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
+                        "--include-synonymous",
+                        "--threshold=0.001"
+                    ]
+                    result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+                    self.assertEqual(result.returncode, 0, f"Command failed for {name}:\n{result.stderr}")
+                    self._check_outputs(target_prefix, tmpdir, f"{name}.scatter_aminoacids_synonymous")
 
-    def test_codons_synonymous(self):
-        """mutation_scatter_plot --show-STOP --show-X --show-DEL --show-INS --include-synonymous"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            target_prefix = "test_run_3"
-            outfile_prefix = os.path.join(tmpdir, target_prefix)
-            cmd = self.base_cmd + [
-                "--tsv", self.tsv_input,
-                "--outfile-prefix", outfile_prefix,
-                "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
-                "--include-synonymous",
-                "--threshold=0.001"
-            ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed:\n{result.stderr}\n{result.stdout}")
-            self._check_outputs(target_prefix, tmpdir, "test2.scatter_codons_synonymous")
+    def test_all_inputs_codons(self):
+        """mutation_scatter_plot codon mode for all inputs"""
+        test_inputs = [
+            ("test1.default", "test1.default.frequencies.tsv"),
+            ("test2.x_after_count", "test2.x_after_count.frequencies.tsv"),
+            ("test2_full.x_after_count", "test2_full.x_after_count.frequencies.tsv"),
+            ("test3.default", "test3.default.frequencies.tsv"),
+        ]
+        for name, tsv_file in test_inputs:
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    target_prefix = "test_run"
+                    outfile_prefix = os.path.join(tmpdir, target_prefix)
+                    tsv_path = os.path.join(self.outputs_dir, tsv_file)
+                    cmd = self.base_cmd + [
+                        "--tsv", tsv_path,
+                        "--outfile-prefix", outfile_prefix,
+                        "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
+                        "--threshold=0.001"
+                    ]
+                    result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+                    self.assertEqual(result.returncode, 0, f"Command failed for {name}:\n{result.stderr}")
+                    self._check_outputs(target_prefix, tmpdir, f"{name}.scatter_codons")
+
+    def test_all_inputs_codons_synonymous(self):
+        """mutation_scatter_plot codon mode --include-synonymous for all inputs"""
+        test_inputs = [
+            ("test1.default", "test1.default.frequencies.tsv"),
+            ("test2.x_after_count", "test2.x_after_count.frequencies.tsv"),
+            ("test2_full.x_after_count", "test2_full.x_after_count.frequencies.tsv"),
+            ("test3.default", "test3.default.frequencies.tsv"),
+        ]
+        for name, tsv_file in test_inputs:
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    target_prefix = "test_run"
+                    outfile_prefix = os.path.join(tmpdir, target_prefix)
+                    tsv_path = os.path.join(self.outputs_dir, tsv_file)
+                    cmd = self.base_cmd + [
+                        "--tsv", tsv_path,
+                        "--outfile-prefix", outfile_prefix,
+                        "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
+                        "--include-synonymous",
+                        "--threshold=0.001"
+                    ]
+                    result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+                    self.assertEqual(result.returncode, 0, f"Command failed for {name}:\n{result.stderr}")
+                    self._check_outputs(target_prefix, tmpdir, f"{name}.scatter_codons_synonymous")
 
     def test4_compare_aminoacids(self):
         """mutation_scatter_plot pairwise compare: --aminoacids vs --aminoacids --include-synonymous HTML JSONs"""

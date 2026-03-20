@@ -78,6 +78,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
                 "--x-after-count",
+                "--aa_start=430",
                 "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
@@ -128,6 +129,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--reference-infile", self.ref_fasta,
                 "--aa_start=430",
                 "--x-after-count",
+                "--print-unchanged-sites",
                 "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
