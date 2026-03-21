@@ -245,9 +245,12 @@ def main():  # pylint: disable=too-many-locals
     )
 
     print(f"Info: Writing into {_outfile_prefix}.actually_rendered.tsv")
-    _df.to_csv(
+    # Speedup 6: Export Decimal to string for reporting while keeping precision
+    _df_to_save = _df.copy()
+    _df_to_save[myoptions.column_with_frequencies] = _df_to_save[myoptions.column_with_frequencies].apply(lambda x: f"{x:.6f}")
+    _df_to_save.to_csv(
         f"{_outfile_prefix}.actually_rendered.tsv",
-        sep='\t', header=None, index=False, float_format='{:7.6f}'.format,
+        sep='\t', header=None, index=False,
     )
 
     if '.frequencies.tsv' in myoptions.tsv_file_path:
