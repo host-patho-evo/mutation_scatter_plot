@@ -541,7 +541,7 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
 
         if myoptions.debug and myoptions.debug > 1:
             for _key in _changed_codons:
-                print(f"Debug27: {_key}: {_changed_codons[_key]} = {_changed_codons[_key] / _total_codons_per_site_sum:8.6f} {set([x for x in _changed_codons])} {set([x for x in _changed_aa_residues])}")
+                print(f"Debug27: {_key}: {_changed_codons[_key]} = {_changed_codons[_key] / _total_codons_per_site_sum:8.6f} {set(_changed_codons)} {set(_changed_aa_residues)}")
 
         if myoptions.debug:
             print(f"Debug27a: _new_gaps_in_reference={_new_gaps_in_reference}, "
