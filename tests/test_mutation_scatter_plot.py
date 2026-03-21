@@ -275,10 +275,13 @@ class TestMutationScatterPlot(unittest.TestCase):
             def filter_synonymous(data):
                 new_data = []
                 for keys, rows in data:
-                    # 'label' index is 3 in rows
-                    # But we can check mutation string (index 15) like 'D1118H'
-                    # Synonymous will be like 'D1146D' or 'I68I'
-                    filtered_rows = [r for r in rows if r[15][0] != r[15][-1]] # First char != last char
+                    # Dynamically find the index of the 'mutation' column
+                    try:
+                        mut_idx = keys.index('mutation')
+                        filtered_rows = [r for r in rows if r[mut_idx][0] != r[mut_idx][-1]]
+                    except (ValueError, IndexError):
+                        # Fallback or handle cases where 'mutation' key is missing
+                        filtered_rows = rows
                     new_data.append((keys, filtered_rows))
                 return new_data
 
@@ -338,7 +341,12 @@ class TestMutationScatterPlot(unittest.TestCase):
             def filter_synonymous(data):
                 new_data = []
                 for keys, rows in data:
-                    filtered_rows = [r for r in rows if r[9] != r[10]]
+                    try:
+                        mut_idx = keys.index('mutation')
+                        # Check first and last characters of the amino acid mutation string (e.g., 'K417N' -> K != N)
+                        filtered_rows = [r for r in rows if r[mut_idx][0] != r[mut_idx][-1]]
+                    except (ValueError, IndexError):
+                        filtered_rows = rows
                     new_data.append((keys, filtered_rows))
                 return new_data
 
