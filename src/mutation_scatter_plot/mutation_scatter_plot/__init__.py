@@ -416,11 +416,11 @@ def load_matrix(myoptions):
         _matrix_type, _matrix_num = re.sub(r'\d+', '', myoptions.matrix), int(re.sub(r'[a-zA-Z]+', '', myoptions.matrix))
         if _matrix_type == 'BLOSUM':
             _matrix = blosum.BLOSUM(_matrix_num)
-            _matrix_name = "BLOSUM%d" % (_matrix_num)
+            _matrix_name = f"BLOSUM{_matrix_num}"
         else:
             sys.stderr.write(f"Warning: Unexpected matrix type {str(_matrix_type)}, falling back to BLOSUM\n")
             _matrix = blosum.BLOSUM(_matrix_num)
-            _matrix_name = "BLOSUM%d" % (_matrix_num)
+            _matrix_name = f"BLOSUM{_matrix_num}"
             myoptions.matrix = _matrix_name
 
     if not myoptions.outfile_prefix:
@@ -506,7 +506,7 @@ def load_and_clean_dataframe(myoptions, infilename, outfile_prefix, padded_posit
     try:
         df = df.loc[_mutant_codon.str.match('[ATGCatgc-][ATGCatgc-][ATGCatgc-]')]
     except Exception as _exc:
-        raise ValueError("Cannot parse column df['mutant_codon']=%s containing %d values" % (str(_mutant_codon), len(_mutant_codon))) from _exc
+        raise ValueError(f"Cannot parse column df['mutant_codon']={str(_mutant_codon)} containing {len(_mutant_codon)} values") from _exc
 
     _mutant_aa = df['mutant_aa']
     _aas_to_filter = ['X']
@@ -520,13 +520,13 @@ def load_and_clean_dataframe(myoptions, infilename, outfile_prefix, padded_posit
     _after = len(df['mutant_codon'])
     if myoptions.showstop:
         if myoptions.showdel:
-            print("Info: Originally there were %d rows but after discarding codons with [N n] there are only %d left" % (_before, _after))
+            print(f"Info: Originally there were {_before} rows but after discarding codons with [N n] there are only {_after} left")
         else:
-            print("Info: Originally there were %d rows but after discarding codons with [N n DEL] there are only %d left" % (_before, _after))
+            print(f"Info: Originally there were {_before} rows but after discarding codons with [N n DEL] there are only {_after} left")
     elif myoptions.showdel:
-        print("Info: Originally there were %d rows but after discarding codons with [N n *] there are only %d left" % (_before, _after))
+        print(f"Info: Originally there were {_before} rows but after discarding codons with [N n *] there are only {_after} left")
     else:
-        print("Info: Originally there were %d rows but after discarding codons with [N n DEL] there are only %d left" % (_before, _after))
+        print(f"Info: Originally there were {_before} rows but after discarding codons with [N n DEL] there are only {_after} left")
     return df, padded_position2position
 
 
@@ -569,7 +569,7 @@ def build_frequency_tables(myoptions, df, padded_position2position):
         _codons_whitelist_aa.append('DEL')
 
     if len(_codons_whitelist) != len(_codons_whitelist_aa):
-        raise ValueError("Length of _codons_whitelist is %d which is not equal to _codons_whitelist_aa with %d" % (len(_codons_whitelist), len(_codons_whitelist_aa)))
+        raise ValueError(f"Length of _codons_whitelist is {len(_codons_whitelist)} which is not equal to _codons_whitelist_aa with {len(_codons_whitelist_aa)}")
     _sorted_whitelist = sorted(zip(_codons_whitelist, _codons_whitelist_aa), key=lambda x: x[1])
 
     if myoptions.debug:
@@ -811,10 +811,10 @@ def collect_scatter_data(
 
     if not myoptions.aminoacids:
         if list(table.index) != codons_whitelist2:
-            raise ValueError("Both lists should be equal: {}={}, {}={}".format('table.index', str(table.index), 'codons_whitelist2', codons_whitelist2))
+            raise ValueError(f"Both lists should be equal: table.index={str(table.index)}, codons_whitelist2={codons_whitelist2}")
     else:
         if list(table.index) != amino_acids:
-            raise ValueError("Both lists should be equal: {}={}, {}={}".format('table.index', str(table.index), 'amino_acids', amino_acids))
+            raise ValueError(f"Both lists should be equal: table.index={str(table.index)}, amino_acids={amino_acids}")
 
     _used_colors = set()
     _norm, _cmap, _colors = get_colormap(myoptions, myoptions.colormap)
@@ -969,6 +969,7 @@ def collect_scatter_data(
                             if 'observed_codon_count' in df.columns.values:
                                 _observed_codon_counts = _sub_df['observed_codon_count'].to_list() if not _sub_df.empty else []
                                 _total_codons_per_site_list = _sub_df['total_codons_per_site'].to_list() if not _sub_df.empty else []
+                                _total_codons_per_site = 0
                                 if _total_codons_per_site_list:
                                     _total_codons_per_site = _total_codons_per_site_list[0]
                             else:
@@ -1110,19 +1111,19 @@ def collect_scatter_data(
                             _mutant_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)]['mutant_codon'].to_list()
                         if _original_aa and not _frequency < myoptions.threshold and _size:
                             if len(_mutant_codons) > 1:
-                                _color_file.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}{}".format(_aa_position, _old_codon, str(_mutant_codons), _original_aa, _some_codon_or_aa, f'{_frequency:.6f}', _color, _score, os.linesep))
+                                _color_file.write(f"{_aa_position}\t{_old_codon}\t{str(_mutant_codons)}\t{_original_aa}\t{_some_codon_or_aa}\t{_frequency:.6f}\t{_color}\t{_score}{os.linesep}")
                             elif not myoptions.aminoacids:
-                                _color_file.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}{}".format(_aa_position, _old_codon, _mutant_codon, _original_aa, _mutant_aa, f'{_frequency:.6f}', _color, _score, os.linesep))
+                                _color_file.write(f"{_aa_position}\t{_old_codon}\t{_mutant_codon}\t{_original_aa}\t{_mutant_aa}\t{_frequency:.6f}\t{_color}\t{_score}{os.linesep}")
                             elif _mutant_codons:
-                                _color_file.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}{}".format(_aa_position, _old_codon, _mutant_codons[0], _original_aa, _some_codon_or_aa, f'{_frequency:.6f}', _color, _score, os.linesep))
+                                _color_file.write(f"{_aa_position}\t{_old_codon}\t{_mutant_codons[0]}\t{_original_aa}\t{_some_codon_or_aa}\t{_frequency:.6f}\t{_color}\t{_score}{os.linesep}")
                         elif myoptions.debug:
                             if myoptions.aminoacids:
-                                sys.stderr.write("Debug: Skipped line for _aa_position={} _original_aa={} _old_codon={} _mutant_codons={} _some_codon_or_aa={} _frequency={} score={} myoptions.threshold={}\n".format(_aa_position, _original_aa, _old_codon, str(_mutant_codons), _some_codon_or_aa, f'{_frequency:.6f}', _score, myoptions.threshold))
+                                sys.stderr.write(f"Debug: Skipped line for _aa_position={_aa_position} _original_aa={_original_aa} _old_codon={_old_codon} _mutant_codons={str(_mutant_codons)} _some_codon_or_aa={_some_codon_or_aa} _frequency={_frequency:.6f} score={_score} myoptions.threshold={myoptions.threshold}\n")
                             else:
-                                sys.stderr.write("Debug: Skipped line for _aa_position={} _original_aa={} _old_codon={} _mutant_codons={} _some_codon_or_aa={} _frequency={} score={} myoptions.threshold={}\n".format(_aa_position, _original_aa, _old_codon, _mutant_codon, _mutant_aa, f'{_frequency:.6f}', _score, myoptions.threshold))
+                                sys.stderr.write(f"Debug: Skipped line for _aa_position={_aa_position} _original_aa={_original_aa} _old_codon={_old_codon} _mutant_codons={_mutant_codon} _some_codon_or_aa={_mutant_aa} _frequency={_frequency:.6f} score={_score} myoptions.threshold={myoptions.threshold}\n")
                     _used_colors.add(_color)
 
-    print("Info: The following values were collected from matrix %s based on the actual data (some values from matrix might not be needed for your data, hence are not listed here): %s . Range spans %d values (before symmetrization)." % (myoptions.matrix, str(sorted(_matrix_values)), abs(min(_matrix_values)) + 1 + max(_matrix_values)))
+    print(f"Info: The following values were collected from matrix {myoptions.matrix} based on the actual data (some values from matrix might not be needed for your data, hence are not listed here): {str(sorted(_matrix_values))} . Range spans {abs(min(_matrix_values)) + 1 + max(_matrix_values)} values (before symmetrization).")
     if myoptions.debug:
         print(f"Debug: {len(_used_colors)} _used_colors used: {str(_used_colors)}")
 

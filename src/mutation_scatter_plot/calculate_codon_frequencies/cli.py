@@ -29,16 +29,16 @@ class NoWrapFormatter(IndentedHelpFormatter):
         opts = self.option_strings[option]
         opt_width = self.help_position - self.current_indent - 2
         if len(opts) > opt_width:
-            opts = "%*s%s\n" % (self.current_indent, "", opts)
+            opts = f"{' ' * self.current_indent}{opts}\n"
             indent_first = self.help_position
         else:
-            opts = "%*s%-*s  " % (self.current_indent, "", opt_width, opts)
+            opts = f"{' ' * self.current_indent}{opts:<{opt_width}}  "
             indent_first = 0
         result.append(opts)
         if option.help:
             help_text = self.expand_default(option)
             # Do not wrap — emit the full help string as a single line
-            result.append("%*s%s\n" % (indent_first, "", help_text))
+            result.append(f"{' ' * indent_first}{help_text}\n")
         elif opts[-1] != "\n":
             result.append("\n")
         return "".join(result)
@@ -46,7 +46,7 @@ class NoWrapFormatter(IndentedHelpFormatter):
 
 def build_option_parser():
     myparser = OptionParser(
-        version="{} version {}".format('%prog', VERSION),
+        version=f"%prog version {VERSION}",
         formatter=NoWrapFormatter(),
         description=__import__('mutation_scatter_plot.calculate_codon_frequencies',
                                fromlist=['']).__doc__,

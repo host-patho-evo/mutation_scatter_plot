@@ -52,9 +52,9 @@ def get_codons(seq, debug=False):
         if _seq_depadded_len % 3 == 0:
             _codons = [seq[_i:_i+3] for _i in range(0, _seq_depadded_len, 3)]
             if debug:
-                print("Debug: Detected {} minus signs in the sequence but after all "
+                print(f"Debug: Detected {seq.count('-')} minus signs in the sequence but after all "
                       "the nucleotide sequence can be divided by three when they are "
-                      "omitted, good.".format(seq.count('-')))
+                      "omitted, good.")
         else:
             raise ValueError(
                 f"Error: Sequence {seq} cannot be divided by 3 and removing minus "
@@ -183,15 +183,10 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     360	333	INS	H	1.000000	---	CAT	37	37
     """
     if myoptions.debug:
-        print("Debug0: Depadded reference sequence has length %d, padded "
-              "reference sequence has length %d, each entry from %s must also "
-              "have same padded length %d" % (
-                  len(padded_reference_dna_seq.replace('-', '')),
-                  len(padded_reference_dna_seq),
-                  alignment_file,
-                  len(padded_reference_dna_seq)))
-        print("Debug1: reference_protein_seq=%s with length %d" % (
-            str(reference_protein_seq), len(reference_protein_seq)))
+        print(f"Debug0: Depadded reference sequence has length {len(padded_reference_dna_seq.replace('-', ''))}, padded "
+              f"reference sequence has length {len(padded_reference_dna_seq)}, each entry from {alignment_file} must also "
+              f"have same padded length {len(padded_reference_dna_seq)}")
+        print(f"Debug1: reference_protein_seq={str(reference_protein_seq)} with length {len(reference_protein_seq)}")
     if not os.path.exists(alignment_file):
         raise RuntimeError(f"Alignment file not found: {alignment_file}")
     if os.path.getsize(alignment_file) == 0:
@@ -230,12 +225,9 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                 f"slicing using myoptions.left_reference_offset-1={myoptions.left_reference_offset - 1}, "
                 f"myoptions.right_reference_offset={myoptions.right_reference_offset} wrong?")
         if myoptions.debug:
-            print("Debug2: Depadded reference sequence has length %d, padded "
-                  "reference sequence has length %d, each padded entry from %s "
-                  "must also have same padded length" % (
-                      len(_padded_reference_dna_seq.replace('-', '')),
-                      len(_padded_reference_dna_seq),
-                      alignment_file))
+            print(f"Debug2: Depadded reference sequence has length {len(_padded_reference_dna_seq.replace('-', ''))}, padded "
+                  f"reference sequence has length {len(_padded_reference_dna_seq)}, each padded entry from {alignment_file} "
+                  f"must also have same padded length")
     else:
         _padded_reference_dna_seq = padded_reference_dna_seq
         _reference_protein_seq = reference_protein_seq
@@ -428,20 +420,13 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                           f"{_current_codon_position}, _amplicon_length={_amplicon_length}")
             elif _action == "regular":
                 if myoptions.debug:
-                    print("Debug11: Rough sample codon at %d is %s, reference "
-                          "codon is %s, amplicon region length %s (nt), sliced "
-                          "[%d:%d] (pythonic slice numbering), "
-                          "_sample_codon_depadded is %s, "
-                          "_reference_codon_depadded is %s, "
-                          "_sample_codon_contained_pad=%s, "
-                          "_reference_codon_contained_pad=%s" % (
-                              _current_codon_position, _rough_sample_codon,
-                              _reference_codon, _amplicon_length,
-                              _zero_based_codon_startpos + _previous_gaps,
-                              _zero_based_codon_startpos + _previous_gaps + 3 + _new_gaps_in_reference,
-                              _sample_codon_depadded, _reference_codon_depadded,
-                              str(_sample_codon_contained_pad),
-                              str(_reference_codon_contained_pad)))
+                    print(f"Debug11: Rough sample codon at {_current_codon_position} is {_rough_sample_codon}, reference "
+                          f"codon is {_reference_codon}, amplicon region length {_amplicon_length} (nt), sliced "
+                          f"[{_zero_based_codon_startpos + _previous_gaps}:{_zero_based_codon_startpos + _previous_gaps + 3 + _new_gaps_in_reference}] (pythonic slice numbering), "
+                          f"_sample_codon_depadded is {_sample_codon_depadded}, "
+                          f"_reference_codon_depadded is {_reference_codon_depadded}, "
+                          f"_sample_codon_contained_pad={str(_sample_codon_contained_pad)}, "
+                          f"_reference_codon_contained_pad={str(_reference_codon_contained_pad)}")
 
                 if _rough_sample_codon == 'NNN' or _reference_codon == 'NNN':
                     if myoptions.debug:
@@ -451,13 +436,9 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                     _is_deletion = True
                     _deleted_reference_codon = str(_reference_codon)
                     if myoptions.debug > 1:
-                        print("Debug12: Padded DELeted codon at %d is %s, "
-                              "original reference codon is %s, amplicon region "
-                              "length %s (nt), end of slice is %d" % (
-                                  _current_codon_position,
-                                  _deleted_reference_codon,
-                                  _reference_codon, _amplicon_length,
-                                  _zero_based_codon_startpos + _previous_gaps + 3 + _new_gaps_in_reference))
+                        print(f"Debug12: Padded DELeted codon at {_current_codon_position} is {_deleted_reference_codon}, "
+                              f"original reference codon is {_reference_codon}, amplicon region "
+                              f"length {_amplicon_length} (nt), end of slice is {_zero_based_codon_startpos + _previous_gaps + 3 + _new_gaps_in_reference}")
                     _deleted_reference_codons[_deleted_reference_codon] += _record_count
                     _deleted_aa_residue = alt_translate(_deleted_reference_codon)
                     _deleted_reference_aa_residues[_deleted_aa_residue] += _record_count
@@ -490,11 +471,8 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                         if 'N' in _sample_codon_depadded and _new_aa_residue != 'X':
                             if _sample_codon_depadded not in ('TCN', 'CTN', 'GTN', 'CCN', 'ACN', 'GCN', 'CGN', 'GGN'):
                                 raise ValueError(
-                                    "Error: biopython translated codon %s at "
-                                    "%d into %s" % (
-                                        _sample_codon_depadded,
-                                        _current_codon_position,
-                                        _new_aa_residue))
+                                    f"Error: biopython translated codon {_sample_codon_depadded} at "
+                                    f"{_current_codon_position} into {_new_aa_residue}")
                         if _new_aa_residue:
                             if _new_aa_residue != _reference_aa:
                                 _changed_aa_residues[_new_aa_residue] += _record_count
@@ -515,22 +493,16 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
 
         # all entries processed for the current codon column
         if myoptions.debug:
-            print("Debug24: Lists at %d of changed codons and aminoacid "
-                  "residues: %s-%s %s %s" % (
-                      _current_codon_position,
-                      _zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 1,
-                      _zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 3,
-                      _changed_codons, _changed_aa_residues))
-            print("Debug25: Lists at %d of unchanged codons and aminoacid "
-                  "residues: %s-%s %s %s" % (
-                      _current_codon_position,
-                      _zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 1,
-                      _zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 3,
-                      _unchanged_codons, _unchanged_aa_residues))
-            print("Debug26a: DELeted codons at %d: %s" % (
-                _current_codon_position, _deleted_reference_codons))
-            print("Debug26b: INSerted codons at %d: %s" % (
-                _current_codon_position, _inserted_codons))
+            print(f"Debug24: Lists at {_current_codon_position} of changed codons and aminoacid "
+                  f"residues: {_zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 1}-"
+                  f"{_zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 3} "
+                  f"{_changed_codons} {_changed_aa_residues}")
+            print(f"Debug25: Lists at {_current_codon_position} of unchanged codons and aminoacid "
+                  f"residues: {_zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 1}-"
+                  f"{_zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 3} "
+                  f"{_unchanged_codons} {_unchanged_aa_residues}")
+            print(f"Debug26a: DELeted codons at {_current_codon_position}: {_deleted_reference_codons}")
+            print(f"Debug26b: INSerted codons at {_current_codon_position}: {_inserted_codons}")
 
         _total_codons_per_site_counts = (
             _inserted_codons + _deleted_reference_codons
@@ -561,12 +533,9 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
             if _current_aa != _reference_aa:
                 if not min_start:
                     raise ValueError(
-                        "Error: The reference aa at %d should be '%s' but "
-                        "parsed reference codon '%s' encodes '%s'. The "
-                        "_zero_based_codon_startpos = %s" % (
-                            _current_codon_position, _reference_aa,
-                            _reference_codon, _current_aa,
-                            _zero_based_codon_startpos))
+                        f"Error: The reference aa at {_current_codon_position} should be '{_reference_aa}' but "
+                        f"parsed reference codon '{_reference_codon}' encodes '{_current_aa}'. The "
+                        f"_zero_based_codon_startpos = {_zero_based_codon_startpos}")
             else:
                 _already_checked_starts.append(_zero_based_codon_startpos)
 
@@ -628,26 +597,18 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                 )
                 _observed_codon_count2 = _observed_codon_count if _observed_codon_count else 0
                 outfilename.write(
-                    "{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\t{}\n".format(
-                        _natural_codon_position_padded,
-                        _natural_codon_position_depadded,
-                        _reference_aa, 'DEL',
-                        Decimal(_deleted_reference_codons[_some_deleted_codon])
-                        / Decimal(_total_codons_per_site_sum),
-                        _some_deleted_codon, '---',
-                        _observed_codon_count2, _total_codons_per_site_sum,
-                    )
+                    f"{_natural_codon_position_padded}\t{_natural_codon_position_depadded}\t"
+                    f"{_reference_aa}\tDEL\t"
+                    f"{Decimal(_deleted_reference_codons[_some_deleted_codon]) / Decimal(_total_codons_per_site_sum):8.6f}\t"
+                    f"{_some_deleted_codon}\t---\t"
+                    f"{_observed_codon_count2}\t{_total_codons_per_site_sum}\n"
                 )
                 if myoptions.debug:
-                    print("TESTING2:\t{}\t{}\t{}\t{}\t{:8.6f}\t{}\t{}\t{}\t{}".format(
-                        _natural_codon_position_padded,
-                        _natural_codon_position_depadded,
-                        _reference_aa, 'DEL',
-                        Decimal(_deleted_reference_codons[_some_deleted_codon])
-                        / Decimal(_total_codons_per_site_sum),
-                        _some_deleted_codon, '---',
-                        _observed_codon_count2, _total_codons_per_site_sum,
-                    ))
+                    print(f"TESTING2:\t{_natural_codon_position_padded}\t{_natural_codon_position_depadded}\t"
+                          f"{_reference_aa}\tDEL\t"
+                          f"{Decimal(_deleted_reference_codons[_some_deleted_codon]) / Decimal(_total_codons_per_site_sum):8.6f}\t"
+                          f"{_some_deleted_codon}\t---\t"
+                          f"{_observed_codon_count2}\t{_total_codons_per_site_sum}")
         outfilename.flush()
 
         _previous_gaps += _new_gaps_in_reference
@@ -664,24 +625,22 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
             if _is_insertion:
                 _zero_based_padded_reference_aa_index += 1
                 if myoptions.debug:
-                    print("Debug33: Increased _zero_based_padded_reference_aa_index "
-                          "to %d, moving to next codon" % _zero_based_padded_reference_aa_index)
+                    print(f"Debug33: Increased _zero_based_padded_reference_aa_index "
+                          f"to {_zero_based_padded_reference_aa_index}, moving to next codon")
             elif _is_deletion:
                 _zero_based_padded_reference_aa_index += 1
                 if myoptions.debug:
-                    print("Debug31: Increased _zero_based_padded_reference_aa_index "
-                          "to %d, moving to next codon" % _zero_based_padded_reference_aa_index)
+                    print(f"Debug31: Increased _zero_based_padded_reference_aa_index "
+                          f"to {_zero_based_padded_reference_aa_index}, moving to next codon")
             else:
                 _zero_based_padded_reference_aa_index += 1
                 if myoptions.debug:
-                    print("Debug32: Increased _zero_based_padded_reference_aa_index "
-                          "to %d, moving to next codon" % _zero_based_padded_reference_aa_index)
+                    print(f"Debug32: Increased _zero_based_padded_reference_aa_index "
+                          f"to {_zero_based_padded_reference_aa_index}, moving to next codon")
             if myoptions.debug:
                 print("Debug33: After increments: "
-                      "_natural_codon_position_depadded=%d "
-                      "_previous_gaps=%d _new_gaps_in_reference=%d" % (
-                          _natural_codon_position_depadded,
-                          _previous_gaps, _new_gaps_in_reference))
+                      f"_natural_codon_position_depadded={_natural_codon_position_depadded} "
+                      f"_previous_gaps={_previous_gaps} _new_gaps_in_reference={_new_gaps_in_reference}")
         else:
             break
 
