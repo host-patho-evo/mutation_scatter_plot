@@ -445,7 +445,13 @@ def load_matrix(myoptions):
 
 
 def load_and_clean_dataframe(myoptions, infilename, padded_position2position):
-    """Load the input TSV, normalise column names for legacy formats, and filter noisy rows.
+    """
+    Load the input TSV, normalise column names for legacy formats, and filter noisy rows.
+    
+    Optimization:
+    - Speedup 6: Uses Decimal(str) for all frequency parsing to maintain 
+      high precision and bit-identical output across platforms.
+
     Parse only rows with codons [ATGCatgc-], so not those with more exotic IUPAC codes.
     Provided we discard some data on-the-fly, we have to create the mapping dictionary
     ideally before that.
@@ -815,8 +821,14 @@ def collect_scatter_data(
     amino_acids: list[str], codons_whitelist2: list[str], padded_position2position: dict[int, int],
     xmin: int, xmax: int,
 ):
-    """Iterate over frequency tables and collect scatter plot data, labels, and colors.
-    Synonymous mutations will be represented like 'D1146D' or 'I68I'."""
+    """
+    Iterate over frequency tables and collect scatter plot data, labels, and colors.
+    Synonymous mutations will be represented like 'D1146D' or 'I68I'.
+
+    Optimization:
+    - Speedup 3: Implements an O(1) hover text pipeline for Bokeh by pre-formatting 
+      metadata in ColumnDataSource, avoiding heavy per-dot calculation during rendering.
+    """
 
     _real_aa_positions = sorted(padded_position2position.values()) # better extract it dynamically from the table then from the dictionary just in case some values would be discarded while parsing on-the-fly
     if myoptions.debug:
