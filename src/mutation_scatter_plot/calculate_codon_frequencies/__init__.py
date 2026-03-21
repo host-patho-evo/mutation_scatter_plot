@@ -657,12 +657,12 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
               f"major mutations in some codons: {str(_top_most_codons)}")
 
 
-def open_file(outfilename, overwrite=False):
+def open_file(outfilename, overwrite=False, encoding=None):
     """Open a new file for writing, raising an error if it already exists and overwrite is False."""
     if os.path.exists(outfilename) and not overwrite:
         raise RuntimeError(
             f"The file {outfilename} already exists, will not overwrite it."
         )
     if overwrite and os.path.exists(outfilename):
-        return open(outfilename, 'w')
-    return open(outfilename, 'x')
+        return open(outfilename, 'w', encoding=encoding)
+    return open(outfilename, 'x', encoding=encoding)

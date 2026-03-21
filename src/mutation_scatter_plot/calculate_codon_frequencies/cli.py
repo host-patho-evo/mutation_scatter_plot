@@ -1,10 +1,11 @@
+"""Command-line interface for calculate_codon_frequencies."""
 # This work © 2025 by Jiří Zahradník and Martin Mokrejš
 # (First Medical Faculty - Charles University in Prague) is licensed under
 # Creative Commons Attribution 4.0 International. To view a copy of this
 # license, visit https://creativecommons.org/licenses/by/4.0/
 
 import os
-
+from contextlib import ExitStack
 from optparse import OptionParser, IndentedHelpFormatter
 
 from Bio import SeqIO
@@ -22,9 +23,11 @@ class NoWrapFormatter(IndentedHelpFormatter):
     """Help formatter that does not wrap long lines, preserving URLs."""
 
     def format_description(self, description):
+        """Do not wrap description text."""
         return f"{description}\n" if description else ""
 
     def format_option(self, option):
+        """Format options without wrapping help text."""
         result: list[str] = []
         opts = self.option_strings[option]
         opt_width = self.help_position - self.current_indent - 2
@@ -45,11 +48,12 @@ class NoWrapFormatter(IndentedHelpFormatter):
 
 
 def build_option_parser():
+    """Build the option parser for calculate_codon_frequencies."""
     myparser = OptionParser(
         version=f"%prog version {VERSION}",
         formatter=NoWrapFormatter(),
         description=__import__('mutation_scatter_plot.calculate_codon_frequencies',
-                               fromlist=['']).__doc__,
+                                fromlist=['']).__doc__,
     )
     myparser.add_option("--reference-infile", action="store", type="string",
         dest="reference_infilename", default=None, metavar="FILE",
@@ -106,82 +110,80 @@ def build_option_parser():
 
 
 def main():
+    """Main function for calculate_codon_frequencies CLI."""
     myparser = build_option_parser()
-    myoptions, myargs = myparser.parse_args()
+    myoptions, _ = myparser.parse_args()
 
     # parse the reference DNA
     if not myoptions.reference_infilename:
         raise ValueError("Error: Please specify --reference-infile with FASTA sequence")
-    elif not os.path.exists(myoptions.reference_infilename):
+    if not os.path.exists(myoptions.reference_infilename):
         raise ValueError(f"Error: File {myoptions.reference_infilename} does not exist")
-    elif os.path.getsize(myoptions.reference_infilename) == 0:
+    if os.path.getsize(myoptions.reference_infilename) == 0:
         raise ValueError(f"Error: File {myoptions.reference_infilename} is empty")
-    else:
-        for _record in SeqIO.parse(myoptions.reference_infilename, "fasta"):
-            _padded_reference_dna_seq = str(_record.seq)
-            break  # parse only the first and supposedly the only entry
-        _reference_protein_seq = alt_translate(_padded_reference_dna_seq)
-        _reference_as_codons = get_codons(_padded_reference_dna_seq,
-                                          debug=myoptions.debug)
 
-    if myoptions.alignment_infilename:
-        _alnfilename_count_handle = open(
-            f"{'.'.join(myoptions.alignment_infilename.split('.')[:-1])}.count", 'w'
-        )
-    else:
+    for _record in SeqIO.parse(myoptions.reference_infilename, "fasta"):
+        _padded_reference_dna_seq = str(_record.seq)
+        break  # parse only the first and supposedly the only entry
+    _reference_protein_seq = alt_translate(_padded_reference_dna_seq)
+    _reference_as_codons = get_codons(_padded_reference_dna_seq,
+                                      debug=myoptions.debug)
+
+    if not myoptions.alignment_infilename:
         raise RuntimeError("Please specify --alignment-file")
-
-    if myoptions.outfileprefix:
-        _tsv_header = "padded_position\tposition\toriginal_aa\tmutant_aa\tfrequency\toriginal_codon\tmutant_codon\tobserved_codon_count\ttotal_codons_per_site\n"
-        if myoptions.outfileprefix.endswith('.tsv'):
-            _outfilename_handle = open_file(myoptions.outfileprefix, overwrite=myoptions.overwrite)
-            _outfilename_handle.write(_tsv_header)
-            if myoptions.print_unchanged_sites:
-                _outfilename_unchanged_codons_handle = open_file(
-                    f"{myoptions.outfileprefix[:-4]}.unchanged_codons.tsv",
-                    overwrite=myoptions.overwrite
-                )
-                _outfilename_unchanged_codons_handle.write(_tsv_header)
-            else:
-                _outfilename_unchanged_codons_handle = None
-        else:
-            _outfilename_handle = open_file(f"{myoptions.outfileprefix}.tsv", overwrite=myoptions.overwrite)
-            _outfilename_handle.write(_tsv_header)
-            if myoptions.print_unchanged_sites:
-                _outfilename_unchanged_codons_handle = open_file(
-                    f"{myoptions.outfileprefix}.unchanged_codons.tsv",
-                    overwrite=myoptions.overwrite
-                )
-                _outfilename_unchanged_codons_handle.write(_tsv_header)
-            else:
-                _outfilename_unchanged_codons_handle = None
-    else:
+    if not myoptions.outfileprefix:
         raise RuntimeError("Please specify output filename prefix via --outfile-prefix")
 
-    _aa_start = (myoptions.aa_start - 1) if myoptions.aa_start else 0
-    _min_start = (myoptions.min_start - 1) if myoptions.min_start else 0
-    _max_stop  = (myoptions.max_stop  + 1) if myoptions.max_stop  else 0
+    with ExitStack() as stack:
+        _count_filename = f"{'.'.join(myoptions.alignment_infilename.split('.')[:-1])}.count"
+        _alnfilename_count_handle = stack.enter_context(open(_count_filename, 'w', encoding="utf-8"))
 
-    if myoptions.alignment_infilename and os.path.exists(myoptions.alignment_infilename):
-        if os.path.getsize(myoptions.alignment_infilename) == 0:
-            raise RuntimeError(f"Input file {myoptions.alignment_infilename} is empty")
-        parse_alignment(
-            myoptions,
-            myoptions.alignment_infilename,
-            _padded_reference_dna_seq,
-            _reference_protein_seq,
-            _reference_as_codons,
-            _outfilename_handle,
-            _outfilename_unchanged_codons_handle,
-            _alnfilename_count_handle,
-            _aa_start,
-            _min_start,
-            _max_stop,
+        _tsv_header = "padded_position\tposition\toriginal_aa\tmutant_aa\tfrequency\toriginal_codon\tmutant_codon\tobserved_codon_count\ttotal_codons_per_site\n"
+
+        if myoptions.outfileprefix.endswith('.tsv'):
+            _out_name = myoptions.outfileprefix
+            _unchanged_name = f"{myoptions.outfileprefix[:-4]}.unchanged_codons.tsv"
+        else:
+            _out_name = f"{myoptions.outfileprefix}.tsv"
+            _unchanged_name = f"{myoptions.outfileprefix}.unchanged_codons.tsv"
+
+        _outfilename_handle = stack.enter_context(
+            open_file(_out_name, overwrite=myoptions.overwrite, encoding="utf-8")
         )
-    else:
-        raise RuntimeError(
-            f"Input file {str(myoptions.alignment_infilename)} does not exist or is not defined"
-        )
+        _outfilename_handle.write(_tsv_header)
+
+        if myoptions.print_unchanged_sites:
+            _outfilename_unchanged_codons_handle = stack.enter_context(
+                open_file(_unchanged_name, overwrite=myoptions.overwrite, encoding="utf-8")
+            )
+            _outfilename_unchanged_codons_handle.write(_tsv_header)
+        else:
+            _outfilename_unchanged_codons_handle = None
+
+        _aa_start = (myoptions.aa_start - 1) if myoptions.aa_start else 0
+        _min_start = (myoptions.min_start - 1) if myoptions.min_start else 0
+        _max_stop  = (myoptions.max_stop  + 1) if myoptions.max_stop  else 0
+
+        if os.path.exists(myoptions.alignment_infilename):
+            if os.path.getsize(myoptions.alignment_infilename) == 0:
+                raise RuntimeError(f"Input file {myoptions.alignment_infilename} is empty")
+            parse_alignment(
+                myoptions,
+                myoptions.alignment_infilename,
+                _padded_reference_dna_seq,
+                _reference_protein_seq,
+                _reference_as_codons,
+                _outfilename_handle,
+                _outfilename_unchanged_codons_handle,
+                _alnfilename_count_handle,
+                _aa_start,
+                _min_start,
+                _max_stop,
+            )
+        else:
+            raise RuntimeError(
+                f"Input file {str(myoptions.alignment_infilename)} does not exist or is not defined"
+            )
 
 
 if __name__ == "__main__":
