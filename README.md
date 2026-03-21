@@ -461,7 +461,6 @@ Options:
                         Full length required for perfect alignment [0]
   --format=FORMAT       Input file format.
   --debug=DEBUG         Set debug to some value
->>>>>>> 4ff8db1 (Update README with latest command-line documentation and test2_full examples)
 ```
 
 ## Version 0.2 supports DELetions and INSertions relative to the (padded) reference sequence
