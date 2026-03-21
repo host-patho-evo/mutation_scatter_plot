@@ -7,6 +7,42 @@ import tempfile
 import unittest
 
 class TestCalculateCodonFrequencies(unittest.TestCase):
+    coverage_results = []
+    golden_mutations = set()
+    project_root = ""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.coverage_results = []
+        cls.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        golden_path = os.path.join(cls.project_root, "data", "golden_mutations.json")
+        try:
+            import json
+            with open(golden_path, 'r') as f:
+                cls.golden_mutations = set(json.load(f))
+        except Exception:
+            cls.golden_mutations = set()
+
+    @classmethod
+    def tearDownClass(cls):
+        if not cls.coverage_results:
+            return
+        
+        table = []
+        table.append("\n" + "="*77)
+        table.append(f"{'GOLDEN DICTIONARY COVERAGE':^77}")
+        table.append("="*77)
+        table.append(f"| {'File':<45} | {'Total':<7} | {'Confirmed':<9} | {'%':<5} |")
+        table.append("|" + "-"*47 + "|" + "-"*9 + "|" + "-"*11 + "|" + "-"*7 + "|")
+        for res in sorted(cls.coverage_results, key=lambda x: x[0]):
+            filename, total, confirmed, pct = res
+            table.append(f"| {filename:<45} | {total:<7} | {confirmed:<9} | {pct:>5.1f}% |")
+        table.append("="*77 + "\n")
+        
+        sys.stderr.write("\n".join(table) + "\n")
+        # Ensure it gets flushed
+        sys.stderr.flush()
+
     def setUp(self):
         # Determine the root directory of the project and paths to test inputs
         self.tests_dir = os.path.dirname(os.path.abspath(__file__))
@@ -51,6 +87,26 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                         capture_output=True, text=True, check=False
                     )
                     self.fail(f"File {generated_file} does not match golden file {expected_file}.\nDifferences:\n{diff_result.stdout}")
+
+            # Append coverage tracking metrics to our teardown table
+            if suffix == ".tsv" and self.__class__.golden_mutations:
+                try:
+                    with open(generated_file, 'r') as f:
+                        lines = f.readlines()[1:] # skip header
+                    total = len(lines)
+                    confirmed = 0
+                    for line in lines:
+                        parts = line.strip().split('\t')
+                        if len(parts) >= 4:
+                            pos = parts[1].strip()
+                            orig = parts[2].strip()
+                            mut = parts[3].strip()
+                            if f"{orig}{pos}{mut}" in self.__class__.golden_mutations:
+                                confirmed += 1
+                    pct = (confirmed / total) * 100 if total > 0 else 0.0
+                    self.__class__.coverage_results.append((f"{expected_prefix}{suffix}", total, confirmed, pct))
+                except Exception as e:
+                    sys.stderr.write(f"Failed to calculate coverage for {generated_file}: {e}\n")
 
     # --- test.fasta ---
 
