@@ -597,56 +597,60 @@ def build_frequency_tables(myoptions, df, padded_position2position):
     _very_leftmost_aa_pos = None
     _calculated_aa_offset = 0
     # make tables with yet another number of rows summing up eventually the frequencies
-    for _df_index, _row in df.iterrows():
-        _padded_position = _row['padded_position']
-        # It is not necessary to skip N-containing codons as we anyway draw just those in codons list. Skipping some rows would make new_aa_table and new_codon_table have a different amount of rows, breaking slicing
-        if _very_leftmost_aa_pos is None:
-            _very_leftmost_aa_pos = int(_padded_position)
-            # # if AA positions in the input file do NOT start from the first-one the numbering of sites gets shifted, so calculate the offset
-            _calculated_aa_offset = _very_leftmost_aa_pos - myoptions.offset + 1
-            if myoptions.debug:
-                print(f"Debug: calculated offset is {_calculated_aa_offset}")
-        _old_amino_acid = _row['original_aa']
-        _new_amino_acid = _row['mutant_aa']
-        _frequency = Decimal(_row[myoptions.column_with_frequencies])
-        _old_codon = _row['original_codon'].upper()
-        _new_codon = _row['mutant_codon'].upper()
+    # Pass 1: Filter and group by mutations
+    # We use float casting for the threshold check to avoid Decimal vs float comparison overhead
+    _freq_col = myoptions.column_with_frequencies
+    # Condition 1: Keep row if (not aminoacid mode) OR (AA changed) OR (including synonymous)
+    if myoptions.include_synonymous or not myoptions.aminoacids:
+        _cond_mutation = True
+    else:
+        _cond_mutation = (df['original_aa'] != df['mutant_aa'])
 
-        if (not myoptions.aminoacids or _old_amino_acid != _new_amino_acid or myoptions.include_synonymous) and not np.abs(_frequency) < myoptions.threshold:
-            _old_value = Decimal(0)
-            try:
-                _old_value = _new_aa_table.at[_new_amino_acid, _padded_position]
-            except KeyError:
-                _new_aa_table.at[_new_amino_acid, _padded_position] = Decimal(_frequency)
-            except TypeError as exc:
-                raise TypeError(f"Weird value {_new_aa_table.at[_new_amino_acid, _padded_position]}") from exc
-            else:
-                _new_aa_table.at[_new_amino_acid, _padded_position] = Decimal(_old_value) + Decimal(_frequency)
+    # Condition 2: Frequencies above threshold
+    _cond_threshold = (df[_freq_col].astype(float).abs() >= myoptions.threshold)
 
-            _old_value = Decimal(0)
-            try:
-                _old_value = _old_aa_table.at[_old_amino_acid, _padded_position]
-            except KeyError:
-                _old_aa_table.at[_old_amino_acid, _padded_position] = Decimal(_frequency)
-            except TypeError as exc:
-                raise TypeError(f"Weird value {_old_aa_table.at[_old_amino_acid, _padded_position]}") from exc
-            else:
-                _old_aa_table.at[_old_amino_acid, _padded_position] = Decimal(_old_value) + Decimal(_frequency)
+    _mask = _cond_mutation & _cond_threshold
+    _filtered_df = df.loc[_mask]
 
-            _old_value = Decimal(0)
-            try:
-                _old_value = Decimal(_old_codon_table.at[_old_codon, _padded_position])
-            except KeyError:
-                _old_codon_table.at[_old_codon, _padded_position] = Decimal(_frequency)
-            except TypeError as exc:
-                raise TypeError(f"Weird value {_old_codon_table.at[_old_codon, _padded_position]}") from exc
-            else:
-                _old_codon_table.at[_old_codon, _padded_position] = Decimal(_old_codon_table.at[_old_codon, _padded_position]) + Decimal(_frequency)
+    if myoptions.debug:
+        print(f"Debug: build_frequency_tables processing {len(_filtered_df)} valid rows out of {len(df)}")
 
-            _old_value = Decimal(0)
-            _new_codon_table.at[_new_codon, _padded_position] = Decimal(_frequency)
-            if myoptions.debug:
-                print(f"Debug: OriginalDataFrameRowNumber: {_df_index}, Old: {_old_amino_acid}, New: {_new_amino_acid}, Frequency: {_frequency}")
+    # Pass 2: Vectorized aggregation
+    # Grouping by (mutant/original, position) and summing frequencies.
+    # We use these intermediate series to update our pre-allocated Decimal tables.
+    _new_aa_sums = _filtered_df.groupby(['mutant_aa', 'padded_position'])[_freq_col].sum()
+    _old_aa_sums = _filtered_df.groupby(['original_aa', 'padded_position'])[_freq_col].sum()
+    _new_codon_sums = _filtered_df.groupby(['mutant_codon', 'padded_position'])[_freq_col].sum()
+    _old_codon_sums = _filtered_df.groupby(['original_codon', 'padded_position'])[_freq_col].sum()
+
+    # Pass 3: Update pre-allocated Decimal tables
+    # While we still iterate over unique (aa/codon, pos) pairs, this is far fewer visits
+    # than the original O(N_rows) iterrows() loop.
+    for (_aa, _pos), _val in _new_aa_sums.items():
+        if _aa in _new_aa_table.index and _pos in _new_aa_table.columns:
+            _new_aa_table.at[_aa, _pos] = Decimal(_val)
+
+    for (_aa, _pos), _val in _old_aa_sums.items():
+        if _aa in _old_aa_table.index and _pos in _old_aa_table.columns:
+            _old_aa_table.at[_aa, _pos] = Decimal(_val)
+
+    for (_codon, _pos), _val in _new_codon_sums.items():
+        _codon = _codon.upper()
+        if _codon in _new_codon_table.index and _pos in _new_codon_table.columns:
+            _new_codon_table.at[_codon, _pos] = Decimal(_val)
+
+    for (_codon, _pos), _val in _old_codon_sums.items():
+        _codon = _codon.upper()
+        if _codon in _old_codon_table.index and _pos in _old_codon_table.columns:
+            _old_codon_table.at[_codon, _pos] = Decimal(_val)
+
+    # Finalize offset and debug info
+    if not _filtered_df.empty:
+        _first_row = _filtered_df.iloc[0]
+        _very_leftmost_aa_pos = int(_first_row['padded_position'])
+        _calculated_aa_offset = _very_leftmost_aa_pos - myoptions.offset + 1
+        if myoptions.debug:
+            print(f"Debug: calculated offset is {_calculated_aa_offset}")
 
     if myoptions.debug:
         for t in (_old_aa_table, _new_aa_table, _old_codon_table, _new_codon_table):
