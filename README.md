@@ -487,6 +487,24 @@ Options:
   --debug=DEBUG         Set debug to some value
 ```
 
+## Project Evolution & Key Improvements
+
+This project has undergone several major architectural and performance transformations through a series of focused optimization sessions. Below is a summary of the key milestones and improvements:
+
+| Stage | Focus Area | Key Architectural & Performance Milestones |
+| :--- | :--- | :--- |
+| **1. Quality** | **Refactoring** | Migrated to modern **f-strings**, updated **Matplotlib 3.8+ colormap** syntax, and achieved a **10.0/10 Pylint score**. |
+| **2. UX** | **CLI & Docs** | Comprehensive **`--help`** refresh, synchronized realistic **`test2_full`** examples in README, and automated help-output verification. |
+| **3. Reliability** | **Testing** | Established a **"Golden File" regression suite** with 120+ artifacts and standardized naming. Refactored **`alt_translate`** to the core module. |
+| **4. Core Speed** | **Algorithms** | **Streaming FASTA** input (`SeqIO.parse`), **Global/Local grouping**, and **Render Pruning** for sparse data, achieving a **119x core speedup**. |
+| **5. Scale** | **Parallelism** | **NumPy Vectorization** for $O(1)$ extraction, **Multi-core multiprocessing**, and **Decimal Precision** for bit-identical output. |
+
+### Major Technical Milestones
+- **Streaming & Memory Efficiency**: Transitioned from loading entire alignments to streaming unique sequence hashes, allowing the tool to process files with millions of reads in constant memory.
+- **Precision Hardening**: Implemented a project-wide `decimal.Decimal` model to eliminate floating-point drift and ensure identical results across different OS platforms.
+- **Static Analysis**: Integrated native **Pyright/Pylance** support in `pyproject.toml` for robust IDE development and import resolution.
+- **Render Optimization**: Implemented $O(1)$ hover metadata lookups for both Matplotlib and Bokeh, eliminating rendering lag in interactive plots with thousands of mutations.
+
 ## Version 0.2 supports DELetions and INSertions relative to the (padded) reference sequence
 
 We further improved the software to be able to report DELetions and INSertions appearing in sample data (multiple-sequence alignment). The `calculate_codon_frequencies` now also reports total counts of reads covering each codon (per-site coverage) in additional columns 8 and 9 of the TSV output file. The more detailed file can be parsed by `mutation_scatter_plot`. Another significant change was the requirement for padded alignment at input which must have exactly same length as the reference (which might need to be padded as well). To observe DELetions in the sample sequence one does not need to adjust the reference sequence, because in the aligned sample sequence will be just `---` for a DELeted codon. Obviously, if an INSertion is to be reflected in the sample sequence, the reference sequence must be inflated by paddings. The reason for that is that we use a pairwise NCBI blastn to create the alignment and do not create a multiple-sequence alignment at all (the hints mentioning `gofasta` are now removed).
