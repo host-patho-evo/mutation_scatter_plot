@@ -75,7 +75,7 @@ import pandas as pd
 
 import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
+from matplotlib import ticker
 
 import numpy as np
 import mplcursors
