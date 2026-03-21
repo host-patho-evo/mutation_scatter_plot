@@ -156,7 +156,7 @@ count_motifs_in_sequences --infilename=data/intermediates/"$prefix".scores_above
 
 ## Performance & Precision Optimizations
 
-The `mutation_scatter_plot` and `calculate_codon_frequencies` pipelines have been significantly enhanced with the following optimizations:
+The `calculate_codon_frequencies` and `mutation_scatter_plot` pipelines have been significantly enhanced with the following optimizations:
 
 ### Key Improvements
 - **Speedup 4: NumPy Vectorized Slicing**: Refactored core alignment parsing to use NumPy arrays and `np.bincount` aggregation, eliminating O(N_sequences) Python loops.
