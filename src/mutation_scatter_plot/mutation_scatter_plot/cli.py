@@ -250,7 +250,7 @@ def main():  # pylint: disable=too-many-locals
     _df_to_save[myoptions.column_with_frequencies] = _df_to_save[myoptions.column_with_frequencies].apply(lambda x: f"{x:.6f}")
     _df_to_save.to_csv(
         f"{_outfile_prefix}.actually_rendered.tsv",
-        sep='\t', header=None, index=False, float_format='{:7.6f}'.format,
+        sep='\t', header=None, index=False, float_format='{:.6f}'.format,
     )
 
     if '.frequencies.tsv' in myoptions.tsv_file_path:

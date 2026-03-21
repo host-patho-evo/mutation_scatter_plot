@@ -189,7 +189,7 @@ def replace_unchanged_chars(
                 elif myoptions.debug:
                     print(
                         f"Debug: Below threshold:"
-                        f" {Decimal(_count) / Decimal(_highest_count):8.6f}"
+                        f" {Decimal(_count) / Decimal(_highest_count):.6f}"
                         f" is < {myoptions.relative_threshold}"
                     )
 
