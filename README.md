@@ -1,6 +1,6 @@
-## Calculate in each position frequency of codons and amino acids from a multiple sequence alignment and draw an interactive scatter plot
+## Calculate in each codon position frequency of codons and respective amino acids from a multiple sequence alignment and draw an interactive scatter plot in GUI and as HTML with Javascript annotation and static images in JPG, PNG and PDF
 
-The software code and data contained in this folder were used during the work published in **In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence** publication by Shoshany et al. (submitted, see [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)). Original input data, calculated frequencies in TSV files and also the ready-made figures in JPG/PNG/PDF/HTML+Javascript can be found at [DOI:10.5281/zenodo.17252728](https://zenodo.org/records/17252728) meanwhile. One does not need to install these two utilities to study the results. However, we provide our code to facilitate similar studies of other datasets.
+The software code and data contained in this folder were used during the work published in **In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence** publication by Shoshany et al. (submitted, see [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)). Original input data, calculated frequencies in TSV files and also the ready-made figures in JPG/PNG/PDF/HTML+Javascript can be found at [DOI:10.5281/zenodo.18601695](https://zenodo.org/records/18601695) meanwhile. One does not need to install these two utilities to study the results. However, we provide our code to facilitate similar studies of other datasets.
 
 We developed two standalone programs:
 `calculate_codon_frequencies` takes a multiple sequence alignment file in a FASTA format (possibly padded with `-` as gaps) and calculates frequencies of the codons. It parses a reference nucleotide sequence of the respective protein to stay in the reading frame (only reading frame +1 is supported). Therefore it is best to map sequencing reads (notably including amplification primer sequences to anchor the alignment ends perfectly) to a complete open reading frame (ORF) sequence encoding the protein (incl. START and STOP codons) although only part of it may have been studied. When this is followed the nucleotide or amino acid positions can be easily calculated from the padding with dashes (`-`) in a multi-FASTA 2-line file (input multiple-sequence alignment file). Otherwise the program allows to specify an arbitrary offset (to be added to the output codon position values) to output native coordinates despite short sequence provided. One can also specify some narrow regions (multiples of three) so that not all columns are to be inspected and codon frequencies calculated.
@@ -32,24 +32,23 @@ The package is installed with a single command that handles all dependencies aut
 
 After installation the following commands are available on your `PATH`: `mutation_scatter_plot`, `calculate_codon_frequencies`, `count_motifs_in_sequences`, `alignment2dots`, and `split_fasta_entries_by_lengths`.
 
-The top-level `scripts/` directory contains shell helper scripts (`render-figures.sh`, `per_residue_frequencies.sh`, `create_per_residue_tables.sh`, `split_fasta_entries_by_lengths.sh`) that are **not** installed by `pip install .` — they are provided as reference workflows and must be run directly from the `scripts/` directory or copied manually to a location on your `PATH`.
+The top-level `scripts/` directory contains shell helper scripts (`render-figures.sh`, `per_residue_frequencies.sh`, `create_per_residue_tables.sh`, `split_fasta_entries_by_lengths.sh`) that are **not** installed by `pip install -e .` — they are provided as reference workflows and must be run directly from the `scripts/` directory or copied manually to a location on your `PATH`.
 
 **A.1 Install using pip into a virtual environment**
 
-```
-cd $HOME
-mkdir -p .virtualenvs && cd .virtualenvs
-virtualenv mutation_scatter_plot
-. ~/.virtualenvs/mutation_scatter_plot/bin/activate
-cd /path/to/mutation_scatter_plot   # directory containing pyproject.toml
-pip install .
+```bash
+git clone https://github.com/host-patho-evo/mutation_scatter_plot.git
+cd mutation_scatter_plot
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
 ```
 
-Later you can re-enter this virtual environment by `. ~/.virtualenvs/mutation_scatter_plot/bin/activate`. To leave it call `deactivate`.
+Later you can re-enter this virtual environment by `source .venv/bin/activate`. To leave it call `deactivate`.
 
 To yield interactive matplotlib figures one of the following backends must also be installed:
 
-```
+```bash
 pip install wxpython
 pip install pyqt5
 pip install pyqt6
@@ -59,16 +58,17 @@ pip install cairocffi
 
 **A.2 Install using conda**
 
-```
-conda create -n mutation_scatter_plot
+```bash
+git clone https://github.com/host-patho-evo/mutation_scatter_plot.git
+cd mutation_scatter_plot
+conda create -n mutation_scatter_plot python=3.13
 conda activate mutation_scatter_plot
-cd /path/to/mutation_scatter_plot   # directory containing pyproject.toml
-pip install .
+pip install -e .
 ```
 
 To yield interactive figures, one of the matplotlib backends listed above must also be available. For the wxagg backend `wxpython` is needed:
 
-```
+```bash
 conda install wxpython
 ```
 
@@ -106,39 +106,39 @@ Below we explain what happens further upon the execution. Not only there is help
 
 One can calculate the codon frequencies from a provided FASTA input file. The sequence must be in frame +1. In version 0.1 the padding dashes `-` are ignored and the software keeps fetches next() nucleotides as long until there are three nucleotides representing the codon to be translated. In the `main` branch there is now a version which requires the inut sequence to be fully aligned to codons. 
 
-```
+```bash
 calculate_codon_frequencies --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/inputs/test.fasta \
-    --outfile-prefix=tests/outputs/test.frequencies --min_start=1 --max_stop=3873 --print-unchanged-sites --x-after-count --padded-reference
+    --outfile-prefix=tests/outputs/test1.default.frequencies --padded-reference --print-unchanged-sites
 
-prefix='tests/outputs/test.frequencies'
-mutation_scatter_plot --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".aa.frequencies.png --aminoacids
-mutation_scatter_plot --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".codon.frequencies.png
+prefix='tests/outputs/test1.default.frequencies'
+mutation_scatter_plot --xmin 340 --xmax 516 --tsv "${prefix}.tsv" --outfile "${prefix}.aa.frequencies.png" --aminoacids
+mutation_scatter_plot --xmin 340 --xmax 516 --tsv "${prefix}.tsv" --outfile "${prefix}.codon.frequencies.png"
 ```
 
 **More complex testing**
+
+We have several native alignment scenarios tracked locally in `tests/inputs/`. The following commands illustrate how testing edge case variations are parsed, specifically involving missing reference frames or padded alignments triggering `--aa_start` and `--min_start` coordinate shifts:
+
+```bash
+# test2.fasta evaluation:
+calculate_codon_frequencies --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/inputs/test2.fasta --outfile-prefix=tests/outputs/test2.x_after_count.frequencies --padded-reference --x-after-count --aa_start=413
+
+# test2.fasta (with an internal alignment shift via min_start):
+calculate_codon_frequencies --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/inputs/test2.fasta --outfile-prefix=tests/outputs/test2.x_after_count_and_min_start.frequencies --padded-reference --x-after-count --min_start=7 --aa_start=413
+
+# test3.fasta (overcoming a fake early codon sequence):
+calculate_codon_frequencies --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/inputs/test3.fasta --outfile-prefix=tests/outputs/test3.default.frequencies --padded-reference --x-after-count --min_start=4 --aa_start=413
 ```
-calculate_codon_frequencies --reference-infile=MN908947.3_S.fasta --alignment-file=test5.amplicons.clean.counts.filtered.fasta --outfile-prefix=test5.amplicons.frequencies --left-reference-offset=1288 --right-reference-offset=1584 --min_start=1288 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
 
-calculate_codon_frequencies --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test6.amplicons.frequencies --left-reference-offset=1288 --right-reference-offset=1584 --min_start=1288 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
-
-calculate_codon_frequencies --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test7.amplicons.frequencies --left-reference-offset=1297 --right-reference-offset=1584 --min_start=1297 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
-
-calculate_codon_frequencies --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test8.amplicons.frequencies --print-unchanged-sites --x-after-count --padded-reference
-
-diff -u -w tests/outputs/test5.amplicons.frequencies.tsv test5.amplicons.frequencies.tsv
-diff -u -w tests/outputs/test5.amplicons.frequencies.tsv test6.amplicons.frequencies.tsv # you should see some DELetion events for codons 430, 431, 432
-diff -u -w tests/outputs/test5.amplicons.frequencies.tsv test7.amplicons.frequencies.tsv # you should see lines starting with 430, 431 and 432 are gone because first 9 nulecotides were skipped when parsing the alignment
-diff -u -w tests/outputs/test6.amplicons.frequencies.tsv test8.amplicons.frequencies.tsv # you should see NO DIFFERENCE
-
-```
+You can view the resulting output coordinate lists populated cleanly inside the `tests/outputs/` directory.
 
 
 **More realistic usage example**
 
-Although we provide already the input, intermediate and resulting files in their respective ZIP bundles for download, to repeat the work or process other data one can take the following procedure to re-create our results. Download real data from [Zenodo https://doi.org/10.5281/zenodo.17252728](https://zenodo.org/records/17252728/files/per_sample_observed_codon_frequencies.zip?download=1). Unpack the ZIP file and pick any from the TSV files, for example `data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.frequencies.tsv`.
+Although we provide already the input, intermediate and resulting files in their respective ZIP bundles for download, to repeat the work or process other data one can take the following procedure to re-create our results. Download real data from [Zenodo https://doi.org/10.5281/zenodo.18601695](https://zenodo.org/records/18601695/files/per_sample_observed_codon_frequencies.zip?download=1). Unpack the ZIP file and pick any from the TSV files, for example `data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.frequencies.tsv`.
 
 ```
-curl -o per_sample_observed_codon_frequencies.zip "https://zenodo.org/records/17252728/files/per_sample_observed_codon_frequencies.zip?download=1"
+curl -o per_sample_observed_codon_frequencies.zip "https://zenodo.org/records/18601695/files/per_sample_observed_codon_frequencies.zip?download=1"
 unzip per_sample_observed_codon_frequencies.zip
 prefix='BA2-4th-round-of-sort__G6.BA2.WTref'
 mkdir -p data/outputs/aa/
@@ -147,9 +147,9 @@ mutation_scatter_plot --xmin 430 --xmax 528 --tsv data/intermediates/"$prefix".f
 mutation_scatter_plot --xmin 430 --xmax 528 --tsv data/intermediates/"$prefix".frequencies.tsv --outfile data/outputs/codon/"$prefix".codon.frequencies.png
 ```
 
-We also provide a utility to count motifs in [per_sample_unique_sequences_in_FASTA.zip](https://zenodo.org/records/17252728/files/per_sample_unique_sequences_in_FASTA.zip?download=1)
+We also provide a utility to count motifs in [per_sample_unique_sequences_in_FASTA.zip](https://zenodo.org/records/18601695/files/per_sample_unique_sequences_in_FASTA.zip?download=1)
 ```
-curl -o per_sample_unique_sequences_in_FASTA.zip "https://zenodo.org/records/17252728/files/per_sample_unique_sequences_in_FASTA.zip?download=1"
+curl -o per_sample_unique_sequences_in_FASTA.zip "https://zenodo.org/records/18601695/files/per_sample_unique_sequences_in_FASTA.zip?download=1"
 unzip per_sample_unique_sequences_in_FASTA.zip
 count_motifs_in_sequences --infilename=data/intermediates/"$prefix".scores_above_84.fastp.amplicons.clean.prot.counts.fasta --motif=RPTY
 ```
@@ -202,97 +202,44 @@ Browse the live HTML with Javascript file contents at:
 
 [data/outputs/codon/html/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.html](https://host-patho-evo.github.io/mutation_scatter_plot/codon/html/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.html)
 
-## Command line output
+#### Command line output
 
 Both `calculate_codon_frequencies` and `mutation_scatter_plot` output some helpful _Info:_ text on their STDOUT. One can also enable `--debug` option with debugging level.
 
 When matplotlib raises its interactive image window and user points the mouse pointer some circular object in the chart (triggering the mouse `hover()` event) the `mutation_scatter_plot` writes on the STDOUT the values parsed for the codon or amino acid, for example:
 
 ```
-$ mutation_scatter_plot --xmin 430 --xmax 528 --tsv  data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.frequencies.tsv --outfile /tmp/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.png 
-Info: Using BLOSUM62 now. Minimum score is -4, maximum score is 11
-Info: Parsing input file data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.frequencies.tsv
-Info: Autodetected old TSV file format without a header in data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.frequencies.tsv, assigning default column names
-Info: The file data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.frequencies.tsv contains these columns: Index(['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon',
-       'mutant_codon'],
-      dtype='object')
-Info: Originally there were 3484 rows but after discarding codons with [N n DEL] there are only 2787 left
-Info: Writing into data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.frequencies.actually_rendered.tsv
-Info: Title will be data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref
-Debug: final_sorted_whitelist=[('TGT', 'C'), ('TGC', 'C'), ('CGT', 'R'), ('CGC', 'R'), ('CGA', 'R'), ('CGG', 'R'), ('AGA', 'R'), ('AGG', 'R'), ('AAA', 'K'), ('AAG', 'K'), ('GAA', 'E'), ('GAG', 'E'), ('CAA', 'Q'), ('CAG', 'Q'), ('GAT', 'D'), ('GAC', 'D'), ('AAT', 'N'), ('AAC', 'N'), ('ACT', 'T'), ('ACC', 'T'), ('ACA', 'T'), ('ACG', 'T'), ('TCT', 'S'), ('TCC', 'S'), ('TCA', 'S'), ('TCG', 'S'), ('AGT', 'S'), ('AGC', 'S'), ('CAT', 'H'), ('CAC', 'H'), ('ATG', 'M'), ('CCT', 'P'), ('CCC', 'P'), ('CCA', 'P'), ('CCG', 'P'), ('TGG', 'W'), ('TAT', 'Y'), ('TAC', 'Y'), ('TTT', 'F'), ('TTC', 'F'), ('GTT', 'V'), ('GTC', 'V'), ('GTA', 'V'), ('GTG', 'V'), ('TTA', 'L'), ('TTG', 'L'), ('CTT', 'L'), ('CTC', 'L'), ('CTA', 'L'), ('CTG', 'L'), ('ATT', 'I'), ('ATC', 'I'), ('ATA', 'I'), ('GCT', 'A'), ('GCC', 'A'), ('GCA', 'A'), ('GCG', 'A'), ('GGT', 'G'), ('GGC', 'G'), ('GGA', 'G'), ('GGG', 'G')]
-Debug: codons_whitelist2=['TGT', 'TGC', 'CGT', 'CGC', 'CGA', 'CGG', 'AGA', 'AGG', 'AAA', 'AAG', 'GAA', 'GAG', 'CAA', 'CAG', 'GAT', 'GAC', 'AAT', 'AAC', 'ACT', 'ACC', 'ACA', 'ACG', 'TCT', 'TCC', 'TCA', 'TCG', 'AGT', 'AGC', 'CAT', 'CAC', 'ATG', 'CCT', 'CCC', 'CCA', 'CCG', 'TGG', 'TAT', 'TAC', 'TTT', 'TTC', 'GTT', 'GTC', 'GTA', 'GTG', 'TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG', 'ATT', 'ATC', 'ATA', 'GCT', 'GCC', 'GCA', 'GCG', 'GGT', 'GGC', 'GGA', 'GGG']
-Info: matplotlib.get_backend=qtagg
-Info: Writing into data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.colors.tsv
-Info: Writing into /tmp/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.html
-Info: Writing into /tmp/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.png
-Info: Writing into /tmp/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.jpg
-Info: Writing into /tmp/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.pdf
-Info: xpos=498, ypos=4, _calculated_aa_offset=431
-Info: position_in_protein=498, frequency=0.97750000000000003552713678800500929355621337890625
-Info: 28 aa residues observed in position 498:
-       position original_aa mutant_aa  frequency original_codon mutant_codon
-2458       498           Q         K   0.000002            CAA          AAA
-2459       498           Q         T   0.000011            CAA          ACA
-2460       498           Q         R   0.010990            CAA          AGA
-2461       498           Q         R   0.000218            CAA          AGG
-2463       498           Q         S   0.000009            CAA          AGT
-2464       498           Q         I   0.000016            CAA          ATA
-2465       498           Q         Q   0.000001            CAA          CAG
-2466       498           Q         H   0.000002            CAA          CAT
-2467       498           Q         P   0.000418            CAA          CCA
-2468       498           Q         P   0.000001            CAA          CCG
-2469       498           Q         P   0.000004            CAA          CCT
-2470       498           Q         R   0.977500            CAA          CGA
-2471       498           Q         R   0.000348            CAA          CGC
-2472       498           Q         R   0.002592            CAA          CGG
-2474       498           Q         R   0.005219            CAA          CGT
-2476       498           Q         L   0.000418            CAA          CTA
-2477       498           Q         L   0.000002            CAA          CTC
-2478       498           Q         L   0.000002            CAA          CTG
-2479       498           Q         L   0.000007            CAA          CTT
-2480       498           Q         E   0.000001            CAA          GAA
-2481       498           Q         A   0.000017            CAA          GCA
-2482       498           Q         G   0.000560            CAA          GGA
-2483       498           Q         G   0.000002            CAA          GGG
-2484       498           Q         G   0.000013            CAA          GGT
-2485       498           Q         V   0.000007            CAA          GTA
-2486       498           Q         V   0.000001            CAA          GTT
-2490       498           Q         W   0.000005            CAA          TGG
-2491       498           Q         L   0.000001            CAA          TTA
-Info: xpos=501, ypos=36, _calculated_aa_offset=431
-Info: position_in_protein=501, frequency=0.98164799999999996504840282796067185699939727783203125
-Info: 28 aa residues observed in position 501:
-       position original_aa mutant_aa  frequency original_codon mutant_codon
-2564       501           N         K   0.000016            AAT          AAA
-2565       501           N         N   0.000007            AAT          AAC
-2566       501           N         K   0.000001            AAT          AAG
-2567       501           N         T   0.000002            AAT          ACT
-2568       501           N         I   0.000001            AAT          ATA
-2569       501           N         I   0.000001            AAT          ATC
-2570       501           N         I   0.000005            AAT          ATT
-2571       501           N         H   0.001372            AAT          CAT
-2572       501           N         P   0.000001            AAT          CCT
-2573       501           N         R   0.000001            AAT          CGT
-2574       501           N         L   0.000001            AAT          CTT
-2575       501           N         D   0.000003            AAT          GAC
-2576       501           N         E   0.000001            AAT          GAG
-2577       501           N         D   0.000059            AAT          GAT
-2578       501           N         A   0.000001            AAT          GCG
-2579       501           N         V   0.000001            AAT          GTC
-2580       501           N         V   0.000001            AAT          GTT
-2583       501           N         Y   0.012727            AAT          TAC
-2586       501           N         Y   0.981648            AAT          TAT
-2587       501           N         S   0.000001            AAT          TCA
-2588       501           N         S   0.000001            AAT          TCC
-2589       501           N         S   0.000001            AAT          TCG
-2590       501           N         S   0.000626            AAT          TCT
-2591       501           N         C   0.000091            AAT          TGT
-2593       501           N         L   0.000003            AAT          TTA
-2594       501           N         F   0.000005            AAT          TTC
-2595       501           N         L   0.000001            AAT          TTG
-2596       501           N         F   0.001463            AAT          TTT
-Info: Writing into /tmp/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.legend.png
+$ calculate_codon_frequencies --alignment-file tests/inputs/test2_full.fasta --outfile-prefix tests/outputs/test2_full.x_after_count.frequencies --padded-reference --reference-infile tests/inputs/MN908947.3_S_full.fasta --x-after-count --overwrite
+Info: consensus = ACAGGCTGCGTTATAGCTTGGAATTCTAACAAGCTTGATTCTAAGGTTGGTGGTAATTATAATTACCTGTATAGATTGTTTAGGAAGTCTAATCTCAAACCTTTTGAGAGAGATATTTCAACTGAAATCTATCAGGCCGGTAACAAACCTTGTAATGGTGTTGCAGGTTTTAATTGTTACTTTCCTTTACAATCATATGGTTTCCGACCCACTTATGGTGTTGGTCACCAACCATACAGAGTAGTAGTACTTTCTTTTGAACTTCTACATGCACCAGCAACTGTTTGTGGACCTAAA
+Info: Sample consensus sequence should roughly match substring inside the reference ATG---...
 ```
+
+```
+$ mutation_scatter_plot --tsv tests/outputs/test2_full.x_after_count.frequencies.tsv --outfile-prefix tests/outputs/test2_full.x_after_count.scatter_codons --show-STOP --show-X --show-DEL --show-INS --threshold=0.001
+Info: Using BLOSUM80 matrix now. Theoretical minimum score is -6.0, theoretical maximum score is 11.0, values are {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 11.0, -1.0, -6.0, -5.0, -4.0, -3.0, -2.0}
+Info: Parsing input file tests/outputs/test2_full.x_after_count.frequencies.tsv
+Info: Autodetected new TSV file format with a header in tests/outputs/test2_full.x_after_count.frequencies.tsv
+Info: The file tests/outputs/test2_full.x_after_count.frequencies.tsv contains now these columns: Index(['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency',
+       'original_codon', 'mutant_codon', 'observed_codon_count',
+       'total_codons_per_site'],
+      dtype='object')
+Info: Originally there were 23 rows but after discarding codons with [N n] there are only 21 left
+Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.actually_rendered.tsv
+Info: Title will be tests/outputs/test2_full.x_after_count
+Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.codon.frequencies.colors.tsv
+Info: The following values were collected from matrix BLOSUM80 based on the actual data (some values from matrix might not be needed for your data, hence are not listed here): [-6, -4, -3, -2, -1, 0, 1, 2] . Range spans 9 values (before symmetrization).
+Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.html
+Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.png, figure size is [16.  9.] inches and [1600.  900.] dpi
+Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.pdf, figure size is [16.  9.] inches and [1600.  900.] dpi
+
+$ # Example hover output for position 498
+Info: _padded_position=515, ypos=21
+Info: _new_codon=CGA, _padded_position=515, _position_in_protein=498, _frequency=0.700161
+Info: 1 aa residues observed in position 498:
+       padded_position  position original_aa mutant_aa  frequency original_codon mutant_codon  observed_codon_count  total_codons_per_site
+21                 515       498           Q         R   0.700161            CAA          CGA               1103909                1576651
+```
+`
 
 ## Command line arguments
 
@@ -300,7 +247,19 @@ Info: Writing into /tmp/BA2-4th-round-of-sort__G6.BA2.WTref.codon.frequencies.le
 $ calculate_codon_frequencies --help
 Usage: calculate_codon_frequencies [options]
 
+calculate_codon_frequencies — parse multi-FASTA alignments and calculate
+codon/amino-acid frequencies per site relative to a reference sequence.
+
+Please cite our article if you use our data or software in your work:
+
+Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxova K., Zoler E.,
+Mokrejš M., Schreiber G., Zahradník J. (submitted) In Vitro and Viral
+Evolution Convergence Reveal the Selective Pressures Driving Omicron
+Emergence. https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1
+
+
 Options:
+  --version             show program's version number and exit
   -h, --help            show this help message and exit
   --reference-infile=FILE
                         FASTA formatted input file with reference padded
@@ -315,7 +274,7 @@ Options:
                         of the reference sequence must match length of each
                         alignment line.
   --alignment-file=FILE
-                        Alignment file in FASTA format with - (minus) chars to
+                        ALIGNMENT file in FASTA format with - (minus) chars to
                         adjust the alignment to the --reference-infile
   --outfile-prefix=FILE
                         It assumes *.frequencies.fasta files. The prefix
@@ -329,22 +288,22 @@ Options:
                         Last nucleotide of the last codon of the REFERENCE of
                         interest to be sliced out from the input sequences.
                         This requires 0-based numbering.
-  --aa_start=AA_START   Real position of the very first codon unless (1 for an
-                        initiator ATG). This value is added to the codon
-                        position reported in the output TSV file (the ATG
-                        position minus one). Use this if you cannot use
-                        --left-reference-offset nor --right-reference-offset
+  --aa_start=AA_START   Adjust (padded) real position of the very first codon
+                        unless (1 for an initiator ATG). This value is added
+                        to the codon position reported in the output TSV file
+                        (the ATG position minus one). Use this if you cannot
+                        use --left-reference-offset nor --right-reference-offset
                         which would have been used for slicing the input
                         reference. The value provided is decremented by one to
                         match pythonic 0-based numbering.
   --min_start=MIN_START
                         Start parsing the alignment since this position of the
-                        amplicon region. This requires 1-based numbering. This
+                        ALIGNMENT file. This requires 1-based numbering. This
                         is to speedup parsing of input sequences and of the
                         reference by skipping typical leading and trailing
                         padding dashes. Default: 0 (parse since the beginning)
   --max_stop=MAX_STOP   Stop parsing the alignment at this position of the
-                        amplicon region. This requires 1-based numbering. This
+                        ALIGNMENT file. This requires 1-based numbering. This
                         is to speedup parsing of input sequences and of the
                         reference by skipping typical leading and trailing
                         padding dashes. Default: 0 (parse until the very end)
@@ -352,6 +311,9 @@ Options:
                         lowercase 'x'
   --print-unchanged-sites
                         Print out also sites with unchanged codons in to
+                        unchanged_codons.tsv file [default]
+  --disable-print-unchanged-sites
+                        Do NOT print out sites with unchanged codons to
                         unchanged_codons.tsv file
   --discard-this-many-leading-nucs=DISCARD_THIS_MANY_LEADING_NUCS
                         Specify how many offending nucleotides are at the
@@ -369,7 +331,8 @@ Options:
                         Minimum length of aligned NGS read to be used for
                         calculations
   --debug=DEBUG         Set debug level to some real number
-$
+  --overwrite           Overwrite existing output files instead of raising
+                        RuntimeError
 ```
 
 ```
@@ -379,67 +342,125 @@ Usage: mutation_scatter_plot [options]
 Options:
   --version             show program's version number and exit
   -h, --help            show this help message and exit
-  --tsv=TSV_FILE_PATH   Path to a TAB separated file with 5-columns:
-                        ['position', 'original_aa', 'mutant_aa', 'frequency',
-                        'original_codon', 'mutant_codon',
-                        'coverage_per_codon'] or more up to 11-columns
-                        ['padded_position', 'position', 'original_aa',
-                        'mutant_aa', 'frequency', 'original_codon',
-                        'mutant_codon', 'observed_codon_count',
-                        'total_codons_per_site', 'frequency_parent',
-                        'frequency_selected'] as we kept extending the file
-                        format
+  --tsv=TSV_FILE_PATH   Path to a TAB separated file with 5-columns: ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'coverage_per_codon'] or more up to 11-columns ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'frequency_parent', 'frequency_selected'] as we kept extending the file format
   --column=COLUMN_WITH_FREQUENCIES
-                        Name of a column in input TSV to be used for rendering
-                        frequencies [frequency]
-  --outfile=OUTFILE     Output filename for the PNG image, JPG or PDF or any
-                        other filetype recognized by matplotlib vis file
-                        extension
-  --offset=OFFSET       Define offset value to be added to every amino acid
-                        position in the first column of the TSV input file at
-                        runtime. This is to obtain real amino acid position
-                        within the protein. Normally protein starts at
-                        position 1. Check the first aa in TSV file and provide
-                        whatever number to be added to it to get the desired
-                        amino acid position in the full-length protein.
-  --xmin=XMIN           Define minimum X-axis value
-  --xmax=XMAX           Define maximum X-axis value
-  --aminoacids          Draw chart with amino acid residues on Y-axis instead
-                        of codons
-  --show-STOP           Include STOP codons or '*' in charts on Y-axis
-  --show-INS            Include INS in charts on Y-axis
-  --show-DEL            Include DEL in charts on Y-axis
-  --show-X              Include X in charts on Y-axis in --aminoacids mode
+                        Name of a column in input TSV to be used for rendering frequencies [frequency]
+  --outfile-prefix=OUTFILE_PREFIX
+                        Output file prefix, eventually also with path. Output files will be PNG, JPG or PDF, HTML
+  --offset=OFFSET       Define offset value to be added to every amino acid position in the first column of the TSV input file at runtime. This is to obtain real amino acid position within the protein. Normally protein starts at position 1. Check the first aa in TSV file and provide whatever number to be added to it to get the desired amino acid position in the full-length protein.
+  --xmin=XMIN           Define minimum X-axis value. This should be the position in the padded alignment (using '-').
+  --xmax=XMAX           Define maximum X-axis value. This should be the position in the padded alignment (using '-').
+  --x-axis-bins=XAXIS_BINS
+                        Set number of bins (labels) on the X-axis. Could be used to override the amount of major ticks in a different way. Use 20 for example. [default is 0]
+  --x-axis-major-ticks-spacing=XAXIS_MAJOR_TICKS_SPACING
+                        Set distance between the major ticks on X-axis
+  --x-axis-minor-ticks-spacing=XAXIS_MINOR_TICKS_SPACING
+                        Set distance between the minor ticks on X-axis
+  --x-axis-label-start=XAXIS_LABEL_START
+                        Set first label value on the X-axis
+  --aminoacids          Draw chart with amino acid residues on Y-axis instead of codons. [default is False]
+  --show-STOP           Include STOP codons or '*' in charts on Y-axis. [default is False]
+  --show-INS            Include INS in charts on Y-axis. [default is False]
+  --show-DEL            Include DEL in charts on Y-axis. [default is False]
+  --show-X              Include X in charts on Y-axis in --aminoacids mode. [default is False]
+  --enable-colorbar     Enable colorbar [is Disabled by default]
   --disable-short-legend
-                        Disable short legend in charts on X-axis
-  --include-synonymous  Include synonymous changes in output.
+                        Disable short legend in charts on X-axis. [is Enabled by default]
+  --include-synonymous  Include synonymous changes in --aminoacids output as green diamonds. In codon output they are always shown. [default is False]
   --threshold=THRESHOLD
-                        Define minimum frequency threshold to display a
-                        pictogram in the output. For codon mode use 0.001 and
-                        for aa mode use 0.01. [default: 0.001]
-  --title=TITLE         Set title for the figures, by default trailing
-                        '.frequencies.tsv' is stripped from the end of the
-                        input filename
-  --disable-2nd-Y-axis  Disable rendering of the 2nd Y-axis showing sequencing
-                        coverage
-  --legend              Draw legend chart
-  --matrix=MATRIX       BLOSUM matrix: 45,50,62,80,90 [default is 62]
+                        Define minimum frequency threshold to display a pictogram in the output. For codon mode use 0.001 and for aa mode use 0.01. [default: 0.001]
+  --title=TITLE         Set title for the figures, by default trailing '.frequencies.tsv' is stripped from the end of the input filename
+  --disable-2nd-Y-axis  Disable rendering of the 2nd Y-axis showing sequencing coverage
+  --legend              Draw legend chart. [default is False]
+  --matrix=MATRIX       BLOSUM matrix: BLOSUM45,BLOSUM50,BLOSUM62,BLOSUM80,BLOSUM90 [default is BLOSUM80]
   --matrix-file=MATRIX_FILE
-                        Matrix file compatible with BLOSUM matrices, e.g.
-                        prot26050-sup-0004-Supinfo03.sm from https://www.ncbi.
-                        nlm.nih.gov/pmc/articles/PMC8641535/bin/NIHMS1664401-
-                        supplement-supinfo.rar if you do not like default
-                        BLOSUM62
-  --colormap=COLORMAP   Pick a colormap recognized by matplotlib. See
-                        https://i.sstatic.net/cmk1J.png [default is
-                        coolwarm_r]
+                        Matrix file compatible with BLOSUM matrices, e.g. prot26050-sup-0004-Supinfo03.sm from https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8641535/bin/NIHMS1664401-supplement-supinfo.rar if you do not like default BLOSUM62
+  --colormap=COLORMAP   Pick a colormap recognized by matplotlib. See https://i.sstatic.net/cmk1J.png [default is coolwarm_r but seismic_r and coolwarm_r are great too]
   --dpi=DPI             DPI resolution for images
-  --backend=BACKEND     Matplotlibg backend to render resulting figures: agg,
-                        wxpython, pyqt5, pyqt6, pycairo, cairocffi [default:
-                        unset] To disable Matplolib interactive window being
-                        raised up you can set MPLBACKEND=agg env variable.
+  --backend=BACKEND     Matplotlib backend to render resulting figures: agg, wxpython, pyqt5, pyqt6, pycairo, cairocffi [default: unset]
+To disable Matplotlib interactive window being raised up you can set MPLBACKEND=agg env variable.
   --debug=DEBUG         Set debug to some real number
-$
+  --disable-bokeh-sqrt-size
+                        Disable sqrt scaling for Bokeh circle sizes; size (diameter) will be proportional to frequency, area proportional to frequency². By default sqrt scaling is on, matching the perceptual appearance of the matplotlib figure.
+  --show-invisible-placeholder-dots
+                        Include below-threshold dots in the plot. [default: False]
+```
+
+```
+$ count_motifs_in_sequences --help
+Usage: count_motifs_in_sequences [options]
+
+Options:
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+  --infilename=INFILENAME
+                        Input FASTA/Q file path.
+  --infile-format=INFILE_FORMAT
+                        Input FASTA/Q file format [default: fasta]. Outfile is
+                        always fasta.
+  --motif=MOTIF         Protein or nucleotide motif to count. No REGEXPs
+                        allowed (yet)
+  --start-position=STARTPOS
+                        Exact start position of the query
+  --end-position=ENDPOS
+                        Exact end position of the query
+  --debug=DEBUG         Set debug to some value
+```
+
+```
+$ alignment2dots --help
+Usage: alignment2dots [options]
+
+Options:
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+  --reference-infile=FILE
+                        FASTA formatted input file with reference padded
+                        sequence or not
+  --alignment-file=FILE
+                        FASTA formatted input file with padded sequence or not
+  --aminoacids          FASTA formatted input files are protein sequences
+                        instead of DNA [default: DNA]
+  --outfilename=FILE    Output filename. If the filename ends with .tsv the
+                        output lines will be split using TABs and original
+                        FASTA ID will be on the same line with the split
+                        sequence
+  --aln_start=ALN_START
+                        First nucleotide of the ORF region of interest to be
+                        sliced out from the input sequences
+  --aln_stop=ALN_STOP   Last nucleotide of the last codon of interest to be
+                        sliced out from the input sequences
+  --print-fasta-ids     The FASTA file ID should be printed for each aligned
+                        entry
+  --threshold=THRESHOLD
+                        Set the minimum absolute count of different characters
+                        in sequence to be output. Set this to 1 or higher if
+                        you want to see at least 2 aa residues being changed
+                        and in turn, do not want to see just dashes in some
+                        cases for synonymous changes [default: 0].
+  --relative_threshold=RELATIVE_THRESHOLD
+                        Set the minimum relative incidence threshold of the
+                        whole sequence hash. Maybe you want something like
+                        0.001 [default: 0].
+  --top_n=TOP_N         Write only first N entries containing some difference
+                        [default: all]
+  --debug=DEBUG         Set debug level to some real number
+```
+
+```
+$ split_fasta_entries_by_lengths --help
+Usage: split_fasta_entries_by_lengths [options]
+
+Options:
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+  --infile=INFILE       Input FASTA/Q file path.
+  --outfile-prefix=OUTFILE_PREFIX
+                        Output file path prefix.
+  --full-length=FULL_LENGTH
+                        Full length required for perfect alignment [0]
+  --format=FORMAT       Input file format.
+  --debug=DEBUG         Set debug to some value
 ```
 
 ## Version 0.2 supports DELetions and INSertions relative to the (padded) reference sequence
@@ -453,7 +474,7 @@ We further improved the software to be able to report DELetions and INSertions a
 
 Please cite the following article if you use our data or software in your research:
 
-Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxova K., Zoler E., Mokrejš M., Schreiber G., Zahradník J. (submitted) In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence. [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)
+Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxová K., Zoler E., Mokrejš M., Schreiber G., Zahradník J. (submitted) In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence. [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)
 
 
 ## Website
@@ -463,7 +484,7 @@ https://github.com/host-patho-evo/mutation_scatter_plot
 
 ## License
 
-This work © 2025 by Jiří Zahradník and Martin Mokrejš (First Medical Faculty - Charles University in Prague) is licensed under Creative Commons Attribution 4.0 International (CC BY 4.0). To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/
+This work © 2025-2026 by Jiří Zahradník and Martin Mokrejš (First Medical Faculty - Charles University in Prague) is licensed under Creative Commons Attribution 4.0 International (CC BY 4.0). To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/
 
 
 ## Acknowledgements

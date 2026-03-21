@@ -7,7 +7,6 @@ from . import (
     load_matrix,
     load_and_clean_dataframe,
     build_frequency_tables,
-    build_conversion_table,
     setup_matplotlib_figure,
     collect_scatter_data,
     render_bokeh,
@@ -20,7 +19,7 @@ class NoWrapFormatter(IndentedHelpFormatter):
 
     def format_description(self, description):
         """Return description with a trailing newline, unwrapped."""
-        return description + "\n" if description else ""
+        return f"{description}\n" if description else ""
 
     def format_option(self, option):
         """Format a single option without wrapping the help text."""
@@ -221,6 +220,11 @@ def build_option_parser():
              " frequency². By default sqrt scaling is on, matching the"
              " perceptual appearance of the matplotlib figure.",
     )
+    myparser.add_option(
+        "--show-invisible-placeholder-dots", action="store_true",
+        dest="show_invisible_placeholder_dots", default=False,
+        help="Include below-threshold dots in the plot. [default: False]",
+    )
     return myparser
 
 
@@ -237,8 +241,7 @@ def main():  # pylint: disable=too-many-locals
 
     # parse the .frequencies.tsv contents and fill-in the conversion dictionary
     _df, _padded_position2position = load_and_clean_dataframe(
-        myoptions, myoptions.tsv_file_path, _outfile_prefix,
-        _padded_position2position,
+        myoptions, myoptions.tsv_file_path, _padded_position2position,
     )
 
     print(f"Info: Writing into {_outfile_prefix}.actually_rendered.tsv")
@@ -248,7 +251,7 @@ def main():  # pylint: disable=too-many-locals
     )
 
     if '.frequencies.tsv' in myoptions.tsv_file_path:
-        _count_filename = _outfile_prefix + '.count'
+        _count_filename = f"{_outfile_prefix}.count"
         if os.path.exists(_count_filename):
             try:
                 with open(_count_filename, encoding="utf-8") as _aln_handle:
@@ -272,9 +275,9 @@ def main():  # pylint: disable=too-many-locals
         '.frequencies.tsv', '.frequencies.unchanged_codons.tsv'
     )
     _df_frequencies_unchanged_codons, _padded_position2position = load_and_clean_dataframe(
-        myoptions, _unchanged_tsv, _outfile_prefix, _padded_position2position,
+        myoptions, _unchanged_tsv, _padded_position2position,
     )
-    del(_df_frequencies_unchanged_codons)
+    del _df_frequencies_unchanged_codons
 
     (
         _amino_acids, _codons_whitelist, _codons_whitelist2,
@@ -290,14 +293,14 @@ def main():  # pylint: disable=too-many-locals
             _title_data, _aln_rows, _matrix_name, _amino_acids,
             _codons_whitelist, _final_sorted_whitelist,
             _unique_aa_padded_positions, _unique_codon_padded_positions,
-            _new_aa_table, _new_codon_table, _padded_position2position,
+            _new_aa_table, _new_codon_table,
         )
 
     _table = _new_aa_table if myoptions.aminoacids else _new_codon_table
 
     (
         _norm, _cmap, _colors, _used_colors, _matrix_values,
-        _labels, _html_labels, _mutations,
+        _mutations,
         _circles_bokeh, _circles_matplotlib, _markers, _dots, _label_padded_positions,
         _label_codon_positions, _label_original_amino_acids,
         _label_new_amino_acids,
@@ -308,6 +311,7 @@ def main():  # pylint: disable=too-many-locals
         myoptions,
         _df, _table, _outfile_prefix, _matrix, _amino_acids,
         _codons_whitelist2, _padded_position2position,
+        _xmin, _xmax,
     )
 
     _xlabel = _ax1.get_xlabel()
@@ -317,14 +321,14 @@ def main():  # pylint: disable=too-many-locals
             myoptions,
             _outfile_prefix, _xmin, _xmax, _amino_acids,
             _final_sorted_whitelist,
-            _circles_bokeh, _labels, _html_labels, _mutations, _label_padded_positions,
+            _circles_bokeh, _mutations, _label_padded_positions,
             _label_codon_positions, _label_original_amino_acids,
             _label_new_amino_acids,
             _label_cumulative_frequencies, _label_codon_frequencies,
             _label_observed_codon_counts, _label_observed_codon_count_sum,
             _label_total_codons_per_site, _label_scores,
             _title_data, _xlabel,
-            _matrix_name, _colors, _norm, _cmap,_padded_position2position,
+            _matrix_name, _colors, _norm, _cmap,
         )
 
     render_matplotlib(
@@ -334,7 +338,7 @@ def main():  # pylint: disable=too-many-locals
         _matrix, _matrix_name,
         _new_aa_table, _new_codon_table, _df, _codons_whitelist2,
         _final_sorted_whitelist,
-        _calculated_aa_offset, _padded_position2position,
+        _padded_position2position,
     )
 
 
