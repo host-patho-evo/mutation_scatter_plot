@@ -848,6 +848,7 @@ def collect_scatter_data(
     _dots: list[tuple[typing.Any, ...]] = []
     _warn_once: list[int] = []
     _matrix_values: set[int] = set()
+    _hover_text_bokeh: list[str] = []
 
     if myoptions.aminoacids:
         _outfilename = outfile_prefix + '.aa.frequencies.colors.tsv'
@@ -1012,15 +1013,22 @@ def collect_scatter_data(
                     # --- End Hover Reconstruction ---
 
                     if myoptions.aminoacids:
+                        _mutation_str = f"{_old_amino_acid}{_aa_position}{_some_codon_or_aa}"
                         if _score < 0:
                             _circles_bokeh.append((_aa_position, _some_codon_or_aa, _bokeh_size, 'circle', _color, 0.5, _score, _aa_position, _padded_position))
                         else:
                             _circles_bokeh.append((_aa_position, _some_codon_or_aa, _bokeh_size, 'hex', _color, 0.5, _score, _aa_position, _padded_position))
                     else:
+                        _mutation_str = f"{_old_codon}{_aa_position}{_some_codon_or_aa}"
+                        _y_label_bokeh = _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')'
                         if _score < 0:
-                            _circles_bokeh.append((_aa_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', _bokeh_size, 'circle_x', _color, 0.5, _score, _aa_position, _padded_position))
+                            _circles_bokeh.append((_aa_position, _y_label_bokeh, _bokeh_size, 'circle_x', _color, 0.5, _score, _aa_position, _padded_position))
                         else:
-                            _circles_bokeh.append((_aa_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', _bokeh_size, 'hex', _color, 0.5, _score, _aa_position, _padded_position))
+                            _circles_bokeh.append((_aa_position, _y_label_bokeh, _bokeh_size, 'hex', _color, 0.5, _score, _aa_position, _padded_position))
+
+                    _mutations.append(_mutation_str)
+                    _hover_text_bokeh.append(_hover_text)
+
                     if _score < 0:
                         _circles_matplotlib.append((_aa_position, i, float(np.abs(_size) * 5000), 'circle_x', _color, 0.5, _score, _aa_position, _padded_position, _hover_text))
                         _markers.append((_aa_position, i, 1, 'dot', 'black', 0.5))
@@ -1035,46 +1043,6 @@ def collect_scatter_data(
                     if myoptions.debug:
                         print(f"Debug: Invisible dot. Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
 
-                if not abs(Decimal(_frequency)) < myoptions.threshold:
-                    if _padded_position not in _warn_once:
-                        if myoptions.aminoacids:
-                            _observed_codon_count_sum = sum(_observed_codon_counts)
-
-                            if not _frequency < myoptions.threshold:
-                                _label_padded_positions.append(f"{_padded_position}")
-                                _label_codon_positions.append(f"{_aa_position}")
-                                _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
-                                _label_new_amino_acids.append(f"{_some_codon_or_aa} {_new_codons}")
-                                _label_cumulative_frequencies.append(f"{sum(_frequencies):.6f}")
-                                _label_codon_frequencies.append(f"{[f'{x:.6f}' for x in _frequencies]}")
-                                if 'observed_codon_count' in df.columns.values:
-                                    _label_observed_codon_counts.append(f"{_observed_codon_counts}")
-                                    _label_observed_codon_count_sum.append(f"{_observed_codon_count_sum}")
-                                    _label_total_codons_per_site.append(f"{_total_codons_per_site}")
-                                else:
-                                    _label_observed_codon_counts.append('')
-                                    _label_observed_codon_count_sum.append('')
-                                    _label_total_codons_per_site.append('')
-                                _label_scores.append(_score)
-                                _mutations.append(f"{_old_amino_acid}{_aa_position}{_some_codon_or_aa}")
-                        else:
-                            if _padded_position not in _warn_once:
-                                _label_padded_positions.append(f"{_padded_position}")
-                                _label_codon_positions.append(f"{_aa_position}")
-                                _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
-                                _label_new_amino_acids.append(f"{_new_amino_acid} ({_some_codon_or_aa})")
-                                _label_cumulative_frequencies.append(f"{_frequency:.6f}")
-                                _label_codon_frequencies.append(f"{_frequency:.6f}")
-                                if 'observed_codon_count' in df.columns.values:
-                                    _label_observed_codon_counts.append(f"{_observed_codon_count}")
-                                    _label_observed_codon_count_sum.append(f"{_observed_codon_count}")
-                                    _label_total_codons_per_site.append(f"{_total_codons_per_site}")
-                                else:
-                                    _label_observed_codon_counts.append('')
-                                    _label_observed_codon_count_sum.append('')
-                                    _label_total_codons_per_site.append('')
-                                _label_scores.append(_score)
-                                _mutations.append(f"{_old_codon}{_aa_position}{_some_codon_or_aa}")
 
                         if myoptions.aminoacids:
                             _mutant_codons = _new_codons
@@ -1105,11 +1073,8 @@ def collect_scatter_data(
     return (
         _norm, _cmap, _colors, _used_colors, _matrix_values,
         _mutations,
-        _circles_bokeh, _circles_matplotlib, _markers, _dots, _label_padded_positions,
-        _label_codon_positions, _label_original_amino_acids, _label_new_amino_acids,
-        _label_cumulative_frequencies, _label_codon_frequencies,
-        _label_observed_codon_counts, _label_observed_codon_count_sum,
-        _label_total_codons_per_site, _label_scores,
+        _circles_bokeh, _circles_matplotlib, _markers, _dots,
+        _hover_text_bokeh,
     )
 
 
@@ -1145,11 +1110,7 @@ def pretty_print_bokeh_html(filename):
 def render_bokeh(
     myoptions,
     outfile_prefix, xmin, xmax, amino_acids, final_sorted_whitelist,
-    circles_bokeh, mutations, label_padded_positions,
-    label_codon_positions, label_original_amino_acids, label_new_amino_acids,
-    label_cumulative_frequencies, label_codon_frequencies,
-    label_observed_codon_counts, label_observed_codon_count_sum,
-    label_total_codons_per_site, label_scores,
+    circles_bokeh, mutations, hover_texts,
     title_data, xlabel,
     matrix_name, colors, norm, cmap,
 ):
@@ -1307,46 +1268,16 @@ def render_bokeh(
         "a": _circles_alpha,
         "score": _circles_score,
         "aaposition": _circles_aa_pos,
-        "label1": label_padded_positions,
-        "label2": label_original_amino_acids,
-        "label3": label_new_amino_acids,
-        "label4": label_cumulative_frequencies,
-        "label5": label_codon_frequencies,
-        "label6": label_observed_codon_counts,
-        "label7": label_observed_codon_count_sum,
-        "label8": label_total_codons_per_site,
-        "label9": label_scores,
-        "label10": label_codon_positions,
+        "hover_text": [x.replace('\n', '<br>') for x in hover_texts],
         "padded_pos": _circles_padded_pos,
         "mutation": mutations,
     })
 
 
     if myoptions.aminoacids:
-        _tooltips = [
-            ("Padded Codon Position", "@label1"),
-            ("Codon Position", "@label10"),
-            ("Original Amino Acid", "@label2"),
-            ("New Amino Acid", "@label3"),
-            ("Cumulative Frequency", "@label4"),
-            ("Codon Frequencies", "@label5"),
-            ("Observed codon counts", "@label6"),
-            ("Observed codon count sum", "@label7"),
-            ("Total codons per site", "@label8"),
-            (f"{myoptions.matrix} score", "@label9"),
-        ]
+        _tooltips = "@hover_text{safe}"
     else:
-        _tooltips = [
-            ("Padded Codon Position", "@label1"),
-            ("Codon Position", "@label10"),
-            ("Original Amino Acid", "@label2"),
-            ("New Amino Acid", "@label3"),
-            ("Cumulative Frequency", "@label4"),
-            ("Codon Frequencies", "@label5"),
-            ("Observed codon count", "@label6"),
-            ("Total codons per site", "@label8"),
-            (f"{myoptions.matrix} score", "@label9"),
-        ]
+        _tooltips = "@hover_text{safe}"
     if myoptions.aminoacids:
         _p = bokeh.plotting.figure(x_range=(xmin, xmax), y_range=amino_acids, tooltips=_tooltips, title=title_data, x_axis_label=xlabel, y_axis_label='Introduced amino acid changes', width=2000, height=1200, sizing_mode='stretch_width')
     else:
