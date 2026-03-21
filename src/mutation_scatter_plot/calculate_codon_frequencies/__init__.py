@@ -313,18 +313,29 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                 }
 
     _parsed_alignments_list = list(_parsed_alignments.values())
+    _amplicon_length = (max_stop or len(_padded_reference_dna_seq)) - min_start
+
+    # Pre-allocate counters once and clear() each iteration to avoid 8 * N_sites constructor calls
+    _unchanged_codons = Counter()
+    _changed_codons = Counter()
+    _deleted_reference_codons = Counter()
+    _inserted_codons = Counter()
+    _unchanged_aa_residues = Counter()
+    _changed_aa_residues = Counter()
+    _inserted_aa_residues = Counter()  # practically unused
+    _deleted_reference_aa_residues = Counter()
 
     for _zero_based_codon_startpos in range(
         min_start, max_stop or len(_padded_reference_dna_seq), 3
     ):
-        _unchanged_codons = Counter()
-        _changed_codons = Counter()
-        _deleted_reference_codons = Counter()
-        _inserted_codons = Counter()
-        _unchanged_aa_residues = Counter()
-        _changed_aa_residues = Counter()
-        _inserted_aa_residues = Counter() # practically unused
-        _deleted_reference_aa_residues = Counter()
+        _unchanged_codons.clear()
+        _changed_codons.clear()
+        _deleted_reference_codons.clear()
+        _inserted_codons.clear()
+        _unchanged_aa_residues.clear()
+        _changed_aa_residues.clear()
+        _inserted_aa_residues.clear()
+        _deleted_reference_aa_residues.clear()
         _new_gaps_in_reference = 0
         _is_deletion = False
         _is_insertion = False
@@ -344,7 +355,6 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         if myoptions.debug:
             print(f"Debug3: _start={_zero_based_codon_startpos}, _padded_reference_dna_seq={_padded_reference_dna_seq}")
 
-        _amplicon_length = (max_stop or len(_padded_reference_dna_seq)) - min_start
         _reference_codon_contained_pad = '-' in _reference_codon
 
         # Pass 1: Local Grouping
