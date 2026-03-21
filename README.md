@@ -1,6 +1,6 @@
-## Calculate in each position frequency of codons and amino acids from a multiple sequence alignment and draw an interactive scatter plot
+## Calculate in each codon position frequency of codons and respective amino acids from a multiple sequence alignment and draw an interactive scatter plot in GUI and as HTML with Javascript annotation and static images in JPG, PNG and PDF
 
-The software code and data contained in this folder were used during the work published in **In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence** publication by Shoshany et al. (submitted, see [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)). Original input data, calculated frequencies in TSV files and also the ready-made figures in JPG/PNG/PDF/HTML+Javascript can be found at [DOI:10.5281/zenodo.17252728](https://zenodo.org/records/17252728) meanwhile. One does not need to install these two utilities to study the results. However, we provide our code to facilitate similar studies of other datasets.
+The software code and data contained in this folder were used during the work published in **In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence** publication by Shoshany et al. (submitted, see [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)). Original input data, calculated frequencies in TSV files and also the ready-made figures in JPG/PNG/PDF/HTML+Javascript can be found at [DOI:10.5281/zenodo.18601695](https://zenodo.org/records/18601695) meanwhile. One does not need to install these two utilities to study the results. However, we provide our code to facilitate similar studies of other datasets.
 
 We developed two standalone programs:
 `calculate_codon_frequencies` takes a multiple sequence alignment file in a FASTA format (possibly padded with `-` as gaps) and calculates frequencies of the codons. It parses a reference nucleotide sequence of the respective protein to stay in the reading frame (only reading frame +1 is supported). Therefore it is best to map sequencing reads (notably including amplification primer sequences to anchor the alignment ends perfectly) to a complete open reading frame (ORF) sequence encoding the protein (incl. START and STOP codons) although only part of it may have been studied. When this is followed the nucleotide or amino acid positions can be easily calculated from the padding with dashes (`-`) in a multi-FASTA 2-line file (input multiple-sequence alignment file). Otherwise the program allows to specify an arbitrary offset (to be added to the output codon position values) to output native coordinates despite short sequence provided. One can also specify some narrow regions (multiples of three) so that not all columns are to be inspected and codon frequencies calculated.
@@ -135,10 +135,10 @@ You can view the resulting output coordinate lists populated cleanly inside the 
 
 **More realistic usage example**
 
-Although we provide already the input, intermediate and resulting files in their respective ZIP bundles for download, to repeat the work or process other data one can take the following procedure to re-create our results. Download real data from [Zenodo https://doi.org/10.5281/zenodo.17252728](https://zenodo.org/records/17252728/files/per_sample_observed_codon_frequencies.zip?download=1). Unpack the ZIP file and pick any from the TSV files, for example `data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.frequencies.tsv`.
+Although we provide already the input, intermediate and resulting files in their respective ZIP bundles for download, to repeat the work or process other data one can take the following procedure to re-create our results. Download real data from [Zenodo https://doi.org/10.5281/zenodo.18601695](https://zenodo.org/records/18601695/files/per_sample_observed_codon_frequencies.zip?download=1). Unpack the ZIP file and pick any from the TSV files, for example `data/intermediates/BA2-4th-round-of-sort__G6.BA2.WTref.frequencies.tsv`.
 
 ```
-curl -o per_sample_observed_codon_frequencies.zip "https://zenodo.org/records/17252728/files/per_sample_observed_codon_frequencies.zip?download=1"
+curl -o per_sample_observed_codon_frequencies.zip "https://zenodo.org/records/18601695/files/per_sample_observed_codon_frequencies.zip?download=1"
 unzip per_sample_observed_codon_frequencies.zip
 prefix='BA2-4th-round-of-sort__G6.BA2.WTref'
 mkdir -p data/outputs/aa/
@@ -147,9 +147,9 @@ mutation_scatter_plot --xmin 430 --xmax 528 --tsv data/intermediates/"$prefix".f
 mutation_scatter_plot --xmin 430 --xmax 528 --tsv data/intermediates/"$prefix".frequencies.tsv --outfile data/outputs/codon/"$prefix".codon.frequencies.png
 ```
 
-We also provide a utility to count motifs in [per_sample_unique_sequences_in_FASTA.zip](https://zenodo.org/records/17252728/files/per_sample_unique_sequences_in_FASTA.zip?download=1)
+We also provide a utility to count motifs in [per_sample_unique_sequences_in_FASTA.zip](https://zenodo.org/records/18601695/files/per_sample_unique_sequences_in_FASTA.zip?download=1)
 ```
-curl -o per_sample_unique_sequences_in_FASTA.zip "https://zenodo.org/records/17252728/files/per_sample_unique_sequences_in_FASTA.zip?download=1"
+curl -o per_sample_unique_sequences_in_FASTA.zip "https://zenodo.org/records/18601695/files/per_sample_unique_sequences_in_FASTA.zip?download=1"
 unzip per_sample_unique_sequences_in_FASTA.zip
 count_motifs_in_sequences --infilename=data/intermediates/"$prefix".scores_above_84.fastp.amplicons.clean.prot.counts.fasta --motif=RPTY
 ```
@@ -474,7 +474,7 @@ We further improved the software to be able to report DELetions and INSertions a
 
 Please cite the following article if you use our data or software in your research:
 
-Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxova K., Zoler E., Mokrejš M., Schreiber G., Zahradník J. (submitted) In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence. [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)
+Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxová K., Zoler E., Mokrejš M., Schreiber G., Zahradník J. (submitted) In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence. [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)
 
 
 ## Website
@@ -484,7 +484,7 @@ https://github.com/host-patho-evo/mutation_scatter_plot
 
 ## License
 
-This work © 2025 by Jiří Zahradník and Martin Mokrejš (First Medical Faculty - Charles University in Prague) is licensed under Creative Commons Attribution 4.0 International (CC BY 4.0). To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/
+This work © 2025-2026 by Jiří Zahradník and Martin Mokrejš (First Medical Faculty - Charles University in Prague) is licensed under Creative Commons Attribution 4.0 International (CC BY 4.0). To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/
 
 
 ## Acknowledgements

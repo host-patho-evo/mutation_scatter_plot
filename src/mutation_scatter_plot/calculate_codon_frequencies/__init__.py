@@ -1,4 +1,4 @@
-# This work © 2025 by Jiří Zahradník and Martin Mokrejš
+# This work © 2025-2026 by Jiří Zahradník and Martin Mokrejš
 # (First Medical Faculty - Charles University in Prague) is licensed under
 # Creative Commons Attribution 4.0 International. To view a copy of this
 # license, visit https://creativecommons.org/licenses/by/4.0/
@@ -250,7 +250,7 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     _stop_to: int = int(myoptions.discard_this_many_trailing_nucs) if myoptions.discard_this_many_trailing_nucs else 0
 
     _parsed_alignments = {}
-    with open(alignment_file, "r") as _handle:
+    with open(alignment_file, "r", encoding="utf-8") as _handle:
         for _aln_line in SeqIO.parse(_handle, "fasta"):
             _record_id = _aln_line.id
             if myoptions.x_after_count:

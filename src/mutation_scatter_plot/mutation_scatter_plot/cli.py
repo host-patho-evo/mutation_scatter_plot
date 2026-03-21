@@ -241,8 +241,7 @@ def main():  # pylint: disable=too-many-locals
 
     # parse the .frequencies.tsv contents and fill-in the conversion dictionary
     _df, _padded_position2position = load_and_clean_dataframe(
-        myoptions, myoptions.tsv_file_path, _outfile_prefix,
-        _padded_position2position,
+        myoptions, myoptions.tsv_file_path, _padded_position2position,
     )
 
     print(f"Info: Writing into {_outfile_prefix}.actually_rendered.tsv")
@@ -276,7 +275,7 @@ def main():  # pylint: disable=too-many-locals
         '.frequencies.tsv', '.frequencies.unchanged_codons.tsv'
     )
     _df_frequencies_unchanged_codons, _padded_position2position = load_and_clean_dataframe(
-        myoptions, _unchanged_tsv, _outfile_prefix, _padded_position2position,
+        myoptions, _unchanged_tsv, _padded_position2position,
     )
     del _df_frequencies_unchanged_codons
 
@@ -294,7 +293,7 @@ def main():  # pylint: disable=too-many-locals
             _title_data, _aln_rows, _matrix_name, _amino_acids,
             _codons_whitelist, _final_sorted_whitelist,
             _unique_aa_padded_positions, _unique_codon_padded_positions,
-            _new_aa_table, _new_codon_table, _padded_position2position,
+            _new_aa_table, _new_codon_table,
         )
 
     _table = _new_aa_table if myoptions.aminoacids else _new_codon_table

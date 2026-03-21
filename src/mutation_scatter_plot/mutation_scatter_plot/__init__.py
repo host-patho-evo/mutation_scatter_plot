@@ -1,4 +1,5 @@
-# This work © 2025 by Jiří Zahradník and Martin Mokrejš
+# pylint: disable=too-many-lines
+# This work © 2025-2026 by Jiří Zahradník and Martin Mokrejš
 # (First Medical Faculty - Charles University in Prague) is licensed under
 # Creative Commons Attribution 4.0 International. To view a copy of this
 # license, visit https://creativecommons.org/licenses/by/4.0/
@@ -116,6 +117,8 @@ __all__ = [
 
 
 def get_colormap(myoptions, colormapname):
+    """Retrieve or create a matplotlib colormap and normalization object."""
+
     _norm = None
     _colors = None
     try:
@@ -202,6 +205,8 @@ def get_colormap(myoptions, colormapname):
 
 
 def resolve_codon_or_aa(myoptions, old_codon_or_aa, new_codon_or_aa):
+    """Determine the codon or amino acid labels to use based on mode."""
+
     _len_new_codon_or_aa = len(new_codon_or_aa)
 
     if myoptions.aminoacids:
@@ -318,12 +323,12 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
 
     if not codon_on_input:
         if not _old_codon_or_aa:
-            raise ValueError(f"Aieee, old_codon_or_aa='{str(old_codon_or_aa)}' is empty")
-        elif not _new_codon_or_aa:
-            raise ValueError(f"Aieee, new_codon_or_aa='{str(new_codon_or_aa)}' is empty")
-        else:
-            if myoptions.debug:
-                print(f"Info: some single-letter but neither asterisk nor dash amino acid residue: _old_codon_or_aa={str(_old_codon_or_aa)}, new_codon_or_aa='{str(new_codon_or_aa)}'")
+            raise ValueError(f"Aieee, old_codon_or_aa='{old_codon_or_aa}' is empty")
+        if not _new_codon_or_aa:
+            raise ValueError(f"Aieee, new_codon_or_aa='{new_codon_or_aa}' is empty")
+
+        if myoptions.debug:
+            print(f"Info: some single-letter but neither asterisk nor dash amino acid residue: _old_codon_or_aa='{_old_codon_or_aa}', new_codon_or_aa='{new_codon_or_aa}'")
 
     if _new_codon_or_aa in ('---', 'DEL', 'INS'):
         _score = -11
@@ -351,7 +356,7 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
             _color = 'gray'
         else:
             if myoptions.debug:
-                sys.stdout.write(f"Info: Translating {_old_codon_or_aa} to {_new_codon_or_aa} to fetch color from _colors,")
+                sys.stdout.write(f"Info: Translating {_old_codon_or_aa} to {_new_codon_or_aa} to fetch color from _colors," )
             _color = colors[_colorindex]
             if myoptions.debug:
                 sys.stdout.write(f" which has yielded {_colorindex} and {str(_color)}{os.linesep}")
@@ -387,13 +392,13 @@ def adjust_size_and_color_weighted(weighted_diff_escape_neutralized, generic_cir
     "Used only for weighted_diff_escape_neutralized figure type."
 
     if weighted_diff_escape_neutralized > 1:
-        _size = (weighted_diff_escape_neutralized) * generic_circle_size
+        _size = weighted_diff_escape_neutralized * generic_circle_size
         _color = 'black'
     elif weighted_diff_escape_neutralized > 0.1:
-        _size = (weighted_diff_escape_neutralized) * weighted_diff_escape_neutralized_size1
+        _size = weighted_diff_escape_neutralized * weighted_diff_escape_neutralized_size1
         _color = 'darkblue'
     elif weighted_diff_escape_neutralized > 0.01:
-        _size = (weighted_diff_escape_neutralized) * weighted_diff_escape_neutralized_size2
+        _size = weighted_diff_escape_neutralized * weighted_diff_escape_neutralized_size2
         _color = 'skyblue'
     else:
         _size = abs(weighted_diff_escape_neutralized) * 0
@@ -425,13 +430,13 @@ def load_matrix(myoptions):
 
     if not myoptions.outfile_prefix:
         raise RuntimeError("Please provide output filename prefix via --outfile-prefix")
-    else:
-        _outfile_prefix = myoptions.outfile_prefix + '.' + _matrix_name + '.' + myoptions.colormap
-        print(f"Info: _outfile_prefix={_outfile_prefix}")
+
+    _outfile_prefix = myoptions.outfile_prefix + '.' + _matrix_name + '.' + myoptions.colormap
+    print(f"Info: _outfile_prefix={_outfile_prefix}")
 
     _theoretical_scores = set()
-    for _aa in _matrix.keys():
-        for _score in _matrix[_aa].values():
+    for _scores_dict in _matrix.values():
+        for _score in _scores_dict.values():
             _theoretical_scores.add(_score)
     print(f"Info: Using {_matrix_name} matrix now. Theoretical minimum score is {min(_theoretical_scores)}, theoretical maximum score is {max(_theoretical_scores)}, values are {str(_theoretical_scores)}")
     _min_theoretical_score, _max_theoretical_score = int(min(_theoretical_scores)), int(max(_theoretical_scores))
@@ -439,7 +444,7 @@ def load_matrix(myoptions):
     return _matrix, _matrix_name, _min_theoretical_score, _max_theoretical_score, _outfile_prefix
 
 
-def load_and_clean_dataframe(myoptions, infilename, outfile_prefix, padded_position2position):
+def load_and_clean_dataframe(myoptions, infilename, padded_position2position):
     """Load the input TSV, normalise column names for legacy formats, and filter noisy rows.
     Parse only rows with codons [ATGCatgc-], so not those with more exotic IUPAC codes.
     Provided we discard some data on-the-fly, we have to create the mapping dictionary
@@ -461,21 +466,21 @@ def load_and_clean_dataframe(myoptions, infilename, outfile_prefix, padded_posit
     It would return much much results if there were more INSertions after each other.
     """
 
-    print(f"Info: Parsing input file {myoptions.tsv_file_path}")
-    if not myoptions.tsv_file_path:
-        raise RuntimeError("Please provide an input TSV file via --tsv")
-    if not os.path.exists(myoptions.tsv_file_path):
-        raise RuntimeError(f"Input file not found: {myoptions.tsv_file_path}")
-    if os.path.getsize(myoptions.tsv_file_path) == 0:
-        raise RuntimeError(f"Input file is empty: {myoptions.tsv_file_path}")
+    print(f"Info: Parsing input file {infilename}")
+    if not infilename:
+        raise RuntimeError("Please provide an input TSV file")
+    if not os.path.exists(infilename):
+        raise RuntimeError(f"Input file not found: {infilename}")
+    if os.path.getsize(infilename) == 0:
+        raise RuntimeError(f"Input file is empty: {infilename}")
 
-    df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header='infer', na_filter=False, na_values=[None])
+    df = pd.read_csv(infilename, sep='\t', header='infer', na_filter=False, na_values=[None])
 
     if 'position' in df.columns:
-        print(f"Info: Autodetected new TSV file format with a header in {myoptions.tsv_file_path}")
+        print(f"Info: Autodetected new TSV file format with a header in {infilename}")
     else:
-        print(f"Info: Autodetected old TSV file format without a header in {myoptions.tsv_file_path}, assigning default column names")
-        df = pd.read_csv(myoptions.tsv_file_path, sep='\t', header=None, na_filter=False, na_values=[None])
+        print(f"Info: Autodetected old TSV file format without a header in {infilename}, assigning default column names")
+        df = pd.read_csv(infilename, sep='\t', header=None, na_filter=False, na_values=[None])
         _count_columns = len(df.columns.values)
         if _count_columns == 9:
             df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site']
@@ -488,9 +493,9 @@ def load_and_clean_dataframe(myoptions, infilename, outfile_prefix, padded_posit
         elif _count_columns == 6:
             df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon']
         else:
-            raise RuntimeError(f"Unexpected number of columns in the {myoptions.tsv_file_path} file")
+            raise RuntimeError(f"Unexpected number of columns in the {infilename} file")
 
-    print(f"Info: The file {myoptions.tsv_file_path} contains now these columns: {str(df.columns)}")
+    print(f"Info: The file {infilename} contains now these columns: {str(df.columns)}")
 
     if 'padded_position' not in df.columns:
         df['padded_position'] = df['position']
@@ -506,7 +511,7 @@ def load_and_clean_dataframe(myoptions, infilename, outfile_prefix, padded_posit
     try:
         df = df.loc[_mutant_codon.str.match('[ATGCatgc-][ATGCatgc-][ATGCatgc-]')]
     except Exception as _exc:
-        raise ValueError(f"Cannot parse column df['mutant_codon']={str(_mutant_codon)} containing {len(_mutant_codon)} values") from _exc
+        raise ValueError(f"Cannot parse column df['mutant_codon']={_mutant_codon} containing {len(_mutant_codon)} values") from _exc
 
     _mutant_aa = df['mutant_aa']
     _aas_to_filter = ['X']
@@ -684,7 +689,7 @@ def setup_matplotlib_figure(
     myoptions,
     title_data, aln_rows, matrix_name, amino_acids, codons_whitelist,
     final_sorted_whitelist, unique_aa_padded_positions, unique_padded_codon_positions,
-    new_aa_table, new_codon_table, padded_position2position,
+    new_aa_table, new_codon_table,
 ):
     """Configure matplotlib figure, axes, labels, ticks, and the frequency bar chart."""
     matplotlib.rcParams['font.family'] = 'monospace'
@@ -771,7 +776,6 @@ def setup_matplotlib_figure(
         _ax2.set_xlim(_xmin, _xmax)
         _ax2.set_ylim(0, 1)
 
-        x1, x2 = _ax2.get_xlim()
         _ax2.set_ylabel(f'Cumulative frequency of mutations above threshold {myoptions.threshold:.2%} per codon', fontsize=12)
         _ax1.figure.canvas.draw()
         _ax2.figure.canvas.draw()
@@ -781,7 +785,6 @@ def setup_matplotlib_figure(
         else:
             _ax2.bar(unique_padded_codon_positions, _total_frequencies, color='black', alpha=0.5, width=0.8, align='center')
 
-        x1, x2 = _ax2.get_xlim()
 
     if myoptions.aminoacids:
         _table = new_aa_table
@@ -876,25 +879,25 @@ def collect_scatter_data(
         _score_cache.clear()
         for i, _some_codon_or_aa in enumerate(table.index): # so _some_codon_or_aa contains the index specified when the table was constructed
             for j, _padded_position in enumerate(table.columns): # so _aa_position contains the real aa_position
-                if not (xmin <= _padded_position <= xmax):
+                if not xmin <= _padded_position <= xmax:
                     continue
                 if myoptions.debug:
-                    print(f"Debug: i: {str(i)}, j: {str(j)}, _padded_position column: {str(_padded_position)}")
+                    print(f"Debug: i: {i}, j: {j}, _padded_position column: {_padded_position}")
                 try:
                     _aa_position = padded_position2position[_padded_position]
                 except KeyError:
                     continue
                 if myoptions.debug:
-                    print(f"Debug0: _padded_positions (typically will not be contiguous and will contain multiplicates): {str(sorted(list(table.columns)))}{os.linesep}")
+                    print(f"Debug0: _padded_positions (typically will not be contiguous and will contain multiplicates): {sorted(list(table.columns))}{os.linesep}")
                     print(f"Debug0:     _aa_positions (typically will not be contiguous and will contain multiplicates): {sorted(padded_position2position.values())}{os.linesep}")
                 _frequency = table.loc[_some_codon_or_aa, _padded_position]
                 if myoptions.debug and _frequency:
-                    print(f"Debug0: _padded_position={_padded_position}, _aa_position={_aa_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={str(_frequency)}")
+                    print(f"Debug0: _padded_position={_padded_position}, _aa_position={_aa_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={_frequency}")
                 try:
                     _old_codon = _pos_to_old_codon[_padded_position]
                 except KeyError:
                     if _frequency and myoptions.debug:
-                        print(f"Debug0b: _padded_position={_padded_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={str(_frequency)}")
+                        print(f"Debug0b: _padded_position={_padded_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={_frequency}")
                     if _padded_position not in _warn_once:
                         sys.stderr.write(f"Warning: Cannot determine original codon for position {_padded_position}, seems missing from input TSV{os.linesep}")
                         _warn_once.append(_padded_position)
@@ -940,10 +943,7 @@ def collect_scatter_data(
 
                 if not np.abs(Decimal(_frequency)) < myoptions.threshold:
                     if _padded_position not in _warn_once:
-                        try:
-                            _base_df = _df_groups.get((_padded_position, _some_codon_or_aa), pd.DataFrame())
-                        except KeyError:
-                            _base_df = pd.DataFrame()
+                        _base_df = _df_groups.get((_padded_position, _some_codon_or_aa), pd.DataFrame())
 
                         if not _base_df.empty:
                             _sub_df = _base_df[_base_df[myoptions.column_with_frequencies] >= myoptions.threshold]
@@ -955,7 +955,7 @@ def collect_scatter_data(
                         try:
                             _old_amino_acid = _pos_to_old_aa[_padded_position]
                         except KeyError:
-                            print(f"Error: Cannot slice {str(df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list())}")
+                            print(f"Error: Cannot slice {df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list()}")
                             _old_amino_acid = _pos_to_old_aa[_padded_position]
 
                         _new_codons = _sub_df['mutant_codon'].to_list() if not _sub_df.empty and 'mutant_codon' in _sub_df.columns else []
@@ -1011,7 +1011,7 @@ def collect_scatter_data(
 
                             _observed_aminoacids = df.loc[df['padded_position'] == _padded_position]['mutant_aa'].to_list()
                             if myoptions.debug:
-                                print(f"Info: {len(_observed_aminoacids)} aa residues observed in position {_aa_position}:{os.linesep} {str(df.loc[df['padded_position'] == _padded_position][0:])}{os.linesep}")
+                                print(f"Info: {len(_observed_aminoacids)} aa residues observed in position {_aa_position}:{os.linesep} {df.loc[df['padded_position'] == _padded_position][0:]}{os.linesep}")
 
                             try:
                                 # make sure we dot not fetch also INSertions, which could be even multiple rows in addition to the row with changed_codon, especially if the reference protein and is padded on the right with dashes
@@ -1303,31 +1303,32 @@ def render_bokeh(
     else:
         _circles_x, _circles_y, _circles_size, _circles_marker, _circles_color, _circles_alpha, _circles_score, _circles_aa_pos, _circles_padded_pos = [], [], [], [], [], [], [], [], []
 
-    _mysource = bokeh.models.ColumnDataSource(data=dict(
-        x=_circles_x,
-        y=_circles_y,
-        s=_circles_size,
-        m=_circles_marker,
-        c=_circles_color,
-        a=_circles_alpha,
-        score=_circles_score,
-        aaposition=_circles_aa_pos,
-        label1=label_padded_positions,
-        label2=label_original_amino_acids,
-        label3=label_new_amino_acids,
-        label4=label_cumulative_frequencies,
-        label5=label_codon_frequencies,
-        label6=label_observed_codon_counts,
-        label7=label_observed_codon_count_sum,
-        label8=label_total_codons_per_site,
-        label9=label_scores,
-        label10=label_codon_positions,
-        padded_pos=_circles_padded_pos,
-        mutation=mutations,
-    ))
+    _mysource = bokeh.models.ColumnDataSource(data={
+        "x": _circles_x,
+        "y": _circles_y,
+        "s": _circles_size,
+        "m": _circles_marker,
+        "c": _circles_color,
+        "a": _circles_alpha,
+        "score": _circles_score,
+        "aaposition": _circles_aa_pos,
+        "label1": label_padded_positions,
+        "label2": label_original_amino_acids,
+        "label3": label_new_amino_acids,
+        "label4": label_cumulative_frequencies,
+        "label5": label_codon_frequencies,
+        "label6": label_observed_codon_counts,
+        "label7": label_observed_codon_count_sum,
+        "label8": label_total_codons_per_site,
+        "label9": label_scores,
+        "label10": label_codon_positions,
+        "padded_pos": _circles_padded_pos,
+        "mutation": mutations,
+    })
+
 
     if myoptions.aminoacids:
-        TOOLTIPS = [
+        _tooltips = [
             ("Padded Codon Position", "@label1"),
             ("Codon Position", "@label10"),
             ("Original Amino Acid", "@label2"),
@@ -1340,7 +1341,7 @@ def render_bokeh(
             (f"{myoptions.matrix} score", "@label9"),
         ]
     else:
-        TOOLTIPS = [
+        _tooltips = [
             ("Padded Codon Position", "@label1"),
             ("Codon Position", "@label10"),
             ("Original Amino Acid", "@label2"),
@@ -1352,9 +1353,9 @@ def render_bokeh(
             (f"{myoptions.matrix} score", "@label9"),
         ]
     if myoptions.aminoacids:
-        _p = bokeh.plotting.figure(x_range=(xmin, xmax), y_range=amino_acids, tooltips=TOOLTIPS, title=title_data, x_axis_label=xlabel, y_axis_label='Introduced amino acid changes', width=2000, height=1200, sizing_mode='stretch_width')
+        _p = bokeh.plotting.figure(x_range=(xmin, xmax), y_range=amino_acids, tooltips=_tooltips, title=title_data, x_axis_label=xlabel, y_axis_label='Introduced amino acid changes', width=2000, height=1200, sizing_mode='stretch_width')
     else:
-        _p = bokeh.plotting.figure(x_range=(xmin, xmax), y_range=[_pairs[0] + ' (' + _pairs[1] + ')' for _pairs in final_sorted_whitelist], tooltips=TOOLTIPS, title=title_data, x_axis_label=xlabel, y_axis_label='Introduced codon changes', height=1200, width=2000, sizing_mode='stretch_width')
+        _p = bokeh.plotting.figure(x_range=(xmin, xmax), y_range=[_pairs[0] + ' (' + _pairs[1] + ')' for _pairs in final_sorted_whitelist], tooltips=_tooltips, title=title_data, x_axis_label=xlabel, y_axis_label='Introduced codon changes', height=1200, width=2000, sizing_mode='stretch_width')
 
     # Mirror matplotlib's xaxis_major_ticks_spacing / xaxis_minor_ticks_spacing.
     # Major ticks carry labels; minor ticks are unlabelled.
@@ -1548,15 +1549,37 @@ def render_matplotlib(
             _padded_position = _pt[0]  # stored as _padded_position when appended
             ypos = _pt[1]              # stored as i (row index in new_aa_table)
             _new_amino_acid = new_aa_table.index[ypos]
-            _position_in_protein = padded_position2position[_padded_position]
+            try:
+                _position_in_protein = padded_position2position[_padded_position]
+            except KeyError:
+                _position_in_protein = f"ProgrammingError: Padded position {_padded_position} not in Coordinate Map"
+
             _frequency = new_aa_table.at[_new_amino_acid, _padded_position]
-            _frequencies = [Decimal(x) for x in df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _new_amino_acid) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)][myoptions.column_with_frequencies].to_list()]
-            _old_amino_acid = df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list()[0]
-            _old_codon = df.loc[df['padded_position'] == _padded_position]['original_codon'].to_list()[0]
+            _matching_rows = df.loc[(df['padded_position'] == _padded_position)]
+            if _matching_rows.empty:
+                # This can happen if the dot was added but the position is missing in df (e.g. from unchanged_codons)
+                _old_amino_acid = "Valid Unchanged Site"
+                _old_codon = "N/A"
+                _frequencies = []
+                _observed_codon_counts = []
+                _observed_codon_count_sum = 0
+            else:
+                _old_amino_acid = _matching_rows['original_aa'].to_list()[0]
+                _old_codon = _matching_rows['original_codon'].to_list()[0]
+                _frequencies = [Decimal(x) for x in _matching_rows.loc[(_matching_rows['mutant_aa'] == _new_amino_acid) & (_matching_rows[myoptions.column_with_frequencies] >= myoptions.threshold)][myoptions.column_with_frequencies].to_list()]
+                _observed_codon_counts = _matching_rows.loc[(_matching_rows['mutant_aa'] == _new_amino_acid) & (_matching_rows[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()
+                _observed_codon_count_sum = sum(_observed_codon_counts)
+                if not _frequencies:
+                    # If we have rows for the position but none for this specific mutation, it's missing data
+                    _old_amino_acid = f"ProgrammingError: Missing Mutation Data for PaddedPosition {_padded_position}"
+
+
             _new_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _new_amino_acid) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['mutant_codon'].to_list()
-            _new_codon = _new_codons[0]
-            _observed_codon_counts = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _new_amino_acid) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()
-            _observed_codon_count_sum = sum(_observed_codon_counts)
+            if not _new_codons:
+                _new_codon = "N/A"
+            else:
+                _new_codon = _new_codons[0]
+
             _total_codons_per_site = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon)]['total_codons_per_site'].to_list()
             if len(_total_codons_per_site):
                 _total_codons_per_site = _total_codons_per_site[0]
@@ -1586,18 +1609,41 @@ def render_matplotlib(
             ypos = _pt[1]              # stored as i (row index in new_codon_table)
             print(f"Info: _padded_position={_padded_position}, ypos={ypos}")
             _new_codon = new_codon_table.index[ypos]
-            _position_in_protein = padded_position2position[_padded_position]
+            try:
+                _position_in_protein = padded_position2position[_padded_position]
+            except KeyError:
+                _position_in_protein = f"ProgrammingError: Padded position {_padded_position} not in Coordinate Map"
+
             _frequency = new_codon_table.at[_new_codon, _padded_position]
             print(f"Info: _new_codon={_new_codon}, _padded_position={_padded_position}, _position_in_protein={_position_in_protein}, _frequency={_frequency}")
-            _old_codon = df.loc[df['padded_position'] == _padded_position]['original_codon'].to_list()[0]
-            _old_amino_acid = df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list()[0]
-            _observed_codon_count = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()[0]
-            _total_codons_per_site = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['total_codons_per_site'].to_list()[0]
-            print(f"Info: {len(df.loc[df['padded_position'] == _padded_position]['position'])} aa residues observed in position {_position_in_protein}:{os.linesep} {str(df.loc[df['padded_position'] == _padded_position][0:])}{os.linesep}")
-            try:
-                _new_amino_acid = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon)]['mutant_aa'].to_list()[0]
-            except IndexError:
-                _new_amino_acid = f"Failed to find, the {_new_codon} is wrong and too far from original codon"
+            _matching_rows = df.loc[df['padded_position'] == _padded_position]
+            if _matching_rows.empty:
+                _old_codon = "Valid Unchanged Site"
+                _old_amino_acid = "N/A"
+                _observed_codon_count = 0
+                _total_codons_per_site = 0
+                _new_amino_acid = "N/A"
+            else:
+                _old_codon = _matching_rows['original_codon'].to_list()[0]
+                _old_amino_acid = _matching_rows['original_aa'].to_list()[0]
+                _codon_matches = _matching_rows.loc[(_matching_rows['mutant_codon'] == _new_codon) & (_matching_rows[myoptions.column_with_frequencies] >= myoptions.threshold)]
+                if _codon_matches.empty:
+                    _observed_codon_count = 0
+                    _total_codons_per_site = 0
+                    # This is likely an error if we have other data for this position but not this specifically
+                    _old_codon = f"ProgrammingError: Missing Codon Data for PaddedPosition {_padded_position}"
+
+
+                else:
+                    _observed_codon_count = _codon_matches['observed_codon_count'].to_list()[0]
+                    _total_codons_per_site = _codon_matches['total_codons_per_site'].to_list()[0]
+
+                print(f"Info: {len(_matching_rows['position'])} aa residues observed in position {_position_in_protein}:{os.linesep} {str(_matching_rows[0:])}{os.linesep}")
+                try:
+                    _new_amino_acid = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon)]['mutant_aa'].to_list()[0]
+                except IndexError:
+                    _new_amino_acid = f"Failed to find, the {_new_codon} is wrong and too far from original codon"
+
             _score = matrix[_old_amino_acid][_new_amino_acid]
             try:
                 _some_frequency = Decimal(df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon)][myoptions.column_with_frequencies].to_list()[0])
@@ -1646,23 +1692,35 @@ def render_matplotlib(
 
     if myoptions.debug or os.environ.get('PYTEST_CURRENT_TEST'):
         _mpl_hovers = []
-        class MockAnnotation:
+        class MockAnnotation: # pylint: disable=too-few-public-methods
+            """Internal mock of an annotation object for hover generation."""
             def __init__(self):
+                """Initialize with empty text."""
                 self.text = ""
             def set_text(self, t):
+                """Set the annotation text."""
                 self.text = t
-        class MockSel:
+        class MockSel: # pylint: disable=too-few-public-methods
+            """Internal mock of a selection object for hover generation."""
             def __init__(self, idx):
+                """Initialize with a specific index and mock annotation."""
                 self.index = idx
                 self.annotation = MockAnnotation()
+
         for i in range(len(circles_matplotlib)):
             mock_sel = MockSel(i)
             try:
                 on_add(mock_sel)
-                _mpl_hovers.append({'index': i, 'text': mock_sel.annotation.text})
+                # Only include entries that are clearly described mutations (not "N/A", "Valid Unchanged Site", or "ProgrammingError")
+                if all(x not in mock_sel.annotation.text for x in ["(N/A)", "N/A", "Valid Unchanged Site", "ProgrammingError"]):
+                    _mpl_hovers.append({'index': i, 'text': mock_sel.annotation.text})
+
+
             except Exception as e:
-                _mpl_hovers.append({'index': i, 'error': str(e)})
-        import json
+                # Skip errors as well, as they indicate broken/incomplete hover data
+                if myoptions.debug:
+                    print(f"Debug: Skipping hover index {i} due to error: {str(e)}")
+
         with open(outfile_prefix + ".matplotlib_hovers.json", "w", encoding="utf-8") as f:
             json.dump(_mpl_hovers, f, indent=2)
 

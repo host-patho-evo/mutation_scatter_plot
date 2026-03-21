@@ -1,5 +1,5 @@
 """Command-line interface for calculate_codon_frequencies."""
-# This work © 2025 by Jiří Zahradník and Martin Mokrejš
+# This work © 2025-2026 by Jiří Zahradník and Martin Mokrejš
 # (First Medical Faculty - Charles University in Prague) is licensed under
 # Creative Commons Attribution 4.0 International. To view a copy of this
 # license, visit https://creativecommons.org/licenses/by/4.0/
