@@ -815,7 +815,8 @@ def collect_scatter_data(
     amino_acids: list[str], codons_whitelist2: list[str], padded_position2position: dict[int, int],
     xmin: int, xmax: int,
 ):
-    "Iterate over frequency tables and collect scatter plot data, labels, and colors."
+    """Iterate over frequency tables and collect scatter plot data, labels, and colors.
+    Synonymous mutations will be represented like 'D1146D' or 'I68I'."""
 
     _real_aa_positions = sorted(padded_position2position.values()) # better extract it dynamically from the table then from the dictionary just in case some values would be discarded while parsing on-the-fly
     if myoptions.debug:
