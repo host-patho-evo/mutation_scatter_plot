@@ -31,6 +31,7 @@ import os
 import sys
 from optparse import OptionParser
 
+from decimal import Decimal
 from Bio import SeqIO
 
 VERSION = "0.3"
@@ -146,8 +147,8 @@ def replace_unchanged_chars(
                     elif 'x' in _seq_record.id:
                         _count = int(_seq_record.id.split('x')[0])
                 if (not myoptions.relative_threshold
-                        or float(_count) / float(_highest_count)
-                        > myoptions.relative_threshold):
+                        or Decimal(_count) / Decimal(_highest_count)
+                        > Decimal(str(myoptions.relative_threshold))):
                     _aligned_sequence = _seq_record.seq.upper()
                     _output = ''
                     for _i in range(aln_start, aln_stop or len(_refseq_sequence) - 1):
@@ -188,7 +189,7 @@ def replace_unchanged_chars(
                 elif myoptions.debug:
                     print(
                         f"Debug: Below threshold:"
-                        f" {float(_count) / float(_highest_count):.6f}"
+                        f" {Decimal(_count) / Decimal(_highest_count):8.6f}"
                         f" is < {myoptions.relative_threshold}"
                     )
 

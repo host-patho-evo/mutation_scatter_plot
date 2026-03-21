@@ -84,10 +84,10 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded,
         else:
             _observed_codon_count2 = _observed_codon_count
         outfilename.write(
-            f"{natural_codon_position_padded}\t{natural_codon_position_depadded}\t{reference_aa}\t{_some_aa}\t{_observed_codon_count2 / Decimal(total_codons_per_site_sum):8.6f}\t{reference_codon}\t{_some_codon}\t{_observed_codon_count2}\t{_total_codons_per_site_sum}\n"
+            f"{natural_codon_position_padded}\t{natural_codon_position_depadded}\t{reference_aa}\t{_some_aa}\t{Decimal(_observed_codon_count2) / Decimal(total_codons_per_site_sum):8.6f}\t{reference_codon}\t{_some_codon}\t{_observed_codon_count2}\t{_total_codons_per_site_sum}\n"
         )
         if debug:
-            print(f"TESTING1:\t{natural_codon_position_padded}\t{natural_codon_position_depadded}\t{reference_aa}\t{_some_aa}\t{_observed_codon_count2 / Decimal(total_codons_per_site_sum):8.6f}\t{reference_codon}\t{_some_codon}\t{_observed_codon_count2}\t{_total_codons_per_site_sum}")
+            print(f"TESTING1:\t{natural_codon_position_padded}\t{natural_codon_position_depadded}\t{reference_aa}\t{_some_aa}\t{Decimal(_observed_codon_count2) / Decimal(total_codons_per_site_sum):8.6f}\t{reference_codon}\t{_some_codon}\t{_observed_codon_count2}\t{_total_codons_per_site_sum}")
     outfilename.flush()
 
 
@@ -539,9 +539,8 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
             else:
                 _already_checked_starts.append(_zero_based_codon_startpos)
 
-        if myoptions.debug and myoptions.debug > 1:
             for _key in _changed_codons:
-                print(f"Debug27: {_key}: {_changed_codons[_key]} = {_changed_codons[_key] / _total_codons_per_site_sum:8.6f} {set(_changed_codons)} {set(_changed_aa_residues)}")
+                print(f"Debug27: {_key}: {_changed_codons[_key]} = {Decimal(_changed_codons[_key]) / Decimal(_total_codons_per_site_sum):8.6f} {set(_changed_codons)} {set(_changed_aa_residues)}")
 
         if myoptions.debug:
             print(f"Debug27a: _new_gaps_in_reference={_new_gaps_in_reference}, "
