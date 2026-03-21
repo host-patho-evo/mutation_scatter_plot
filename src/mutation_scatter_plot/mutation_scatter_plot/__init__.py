@@ -229,12 +229,73 @@ def resolve_codon_or_aa(myoptions, old_codon_or_aa, new_codon_or_aa):
     return _codon_on_input, _old_codon_or_aa, _new_codon_or_aa
 
 
-# Module-level cache for substitution scores — cleared at the start of each plot run.
-# Avoids repeated BLOSUM matrix lookups for the same (old_aa, new_aa) pairs.
+# Module-level cache for BLOSUM substitution scores.
+#
+# Performance rationale
+# ---------------------
+# blosum.BLOSUM is a subclass of collections.defaultdict and stores scores in a
+# nested dict of dicts. Individual lookups (matrix[aa1][aa2]) are O(1) at the
+# Python dict level, so the structure itself is not the bottleneck.
+#
+# The problem is that our caller loop is O(N_codons_or_aa x N_positions), and
+# with standard amino acid alphabets there are at most 20x20 = 400 distinct
+# (old_aa, new_aa) pairs regardless of how many positions the alignment has.
+# Before this cache was added, every cell in that loop independently called
+# matrix[old_aa][new_aa], meaning the same pairs were looked up thousands of
+# times (e.g. 2331 calls observed during profiling of a real dataset).
+#
+# Additionally, when codon_on_input=True, each call also invoked alt_translate()
+# twice to convert codons to amino acids before doing the matrix lookup. While
+# alt_translate() is itself cached via @functools.lru_cache, two extra function
+# calls and cache lookups per score request still accumulate when multiplied
+# across all positions.
+#
+# The dictionary is keyed by (old_aa, new_aa) string tuples — always single
+# uppercase amino acid letters after translation. functools.lru_cache is not
+# used here because the matrix object (blosum.BLOSUM) is not hashable, so a
+# module-level plain dict is the simplest correct solution.
+#
+# The cache is cleared at the start of each collect_scatter_data() call to
+# ensure correctness when different matrices (e.g. BLOSUM62 vs BLOSUM80) are
+# used in successive calls within the same Python process.
 _score_cache: dict = {}
 
 
 def get_score(myoptions, matrix, codon_on_input, old_codon_or_aa, new_codon_or_aa):
+    """Return the integer substitution score for an amino acid (or codon) pair.
+
+    Parameters
+    ----------
+    myoptions : argparse.Namespace
+        CLI options; only used for error messages (myoptions.matrix name).
+    matrix : blosum.BLOSUM
+        The substitution scoring matrix (a nested defaultdict subclass).
+        blosum.BLOSUM stores precomputed scores in plain Python dicts, so
+        individual lookups are O(1) and the library has no caching of its own
+        — it simply does not know whether the caller will repeat the same pair.
+    codon_on_input : bool
+        If True, old_codon_or_aa and new_codon_or_aa are 3-nt codons that must
+        be translated to amino acids before the matrix lookup.
+    old_codon_or_aa : str
+        The reference codon or amino acid (before mutation).
+    new_codon_or_aa : str
+        The observed codon or amino acid (after mutation).
+
+    Returns
+    -------
+    int
+        The BLOSUM (or custom matrix) substitution score, clipped to -11 on
+        arithmetic overflow.
+
+    Performance notes
+    -----------------
+    Results are cached in the module-level ``_score_cache`` dict, keyed by the
+    (old_aa, new_aa) pair after translation. With a standard 20-amino-acid
+    alphabet there are at most 400 unique pairs, so the cache saturates quickly
+    and subsequent calls for the same pair cost only a single dict lookup.
+    The cache must be cleared (via ``_score_cache.clear()``) before each
+    independent plot run when the matrix may change.
+    """
     if codon_on_input:
         _old_aa = alt_translate(old_codon_or_aa)
         _new_aa = alt_translate(new_codon_or_aa)
@@ -794,7 +855,24 @@ def collect_scatter_data(
         _pos_to_old_aa = df.groupby('padded_position')['original_aa'].first().to_dict()
         _mut_col = 'mutant_aa' if myoptions.aminoacids else 'mutant_codon'
         _df_indexed = df.set_index(['padded_position', _mut_col])
-        # Pre-build a dict for O(1) per-cell lookup instead of repeated .loc[] calls
+        # Pre-build a plain dict mapping (padded_position, codon_or_aa) -> DataFrame
+        # for O(1) per-cell lookup instead of repeated pandas .loc[] calls.
+        #
+        # Performance rationale
+        # ---------------------
+        # The main loop below is O(N_rows x N_positions) where N_rows is the
+        # number of distinct codon or amino acid rows in the frequency table.
+        # Profiling showed 2676 calls to pandas DataFrame.loc/__getitem__ during
+        # a single plot run (test3.default, aminoacids mode), each of which
+        # traverses the pandas index machinery even though the result is always
+        # a single row or an empty frame.
+        #
+        # pandas.DataFrame.loc[] is designed for flexible, label-based access
+        # with type coercion and index alignment, all of which add overhead on
+        # every call. Using a pre-built plain Python dict eliminates this:
+        # _df_groups.get(key, pd.DataFrame()) is a single hash lookup with no
+        # pandas indexing overhead, and construction of the dict (one pass
+        # through groupby) is O(N_rows_in_df), done once before the main loop.
         _df_groups: dict = {}
         for _key, _sub in _df_indexed.groupby(level=[0, 1]):
             _df_groups[_key] = _sub
