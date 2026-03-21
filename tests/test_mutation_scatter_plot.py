@@ -1,21 +1,26 @@
-import matplotlib
-matplotlib.use('Agg')
+"""Unit tests for mutation_scatter_plot."""
 import contextlib
 import filecmp
 import io
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import traceback
 import unittest
-
 from unittest.mock import patch
 
-from mutation_scatter_plot.mutation_scatter_plot.cli import main as mutation_scatter_plot_main
+import matplotlib
+matplotlib.use('Agg')
+from bokeh.document import Document # pylint: disable=wrong-import-position
+
+from mutation_scatter_plot.mutation_scatter_plot.cli import main as mutation_scatter_plot_main # pylint: disable=wrong-import-position
 
 class TestMutationScatterPlot(unittest.TestCase):
+    """Test cases for the mutation_scatter_plot CLI and rendering logic."""
     def setUp(self):
         # Determine the root directory of the project and paths to test inputs
         self.tests_dir = os.path.dirname(os.path.abspath(__file__))
@@ -43,12 +48,14 @@ class TestMutationScatterPlot(unittest.TestCase):
                     return 0, f.getvalue()
                 except SystemExit as e:
                     return e.code, f.getvalue()
-                except Exception:
-                    return 1, f.getvalue() + "\n" + traceback.format_exc()
+                except Exception as e: # pylint: disable=broad-exception-caught
+                    return 1, f.getvalue() + "\n" + str(e) + "\n" + traceback.format_exc()
 
 
     def _check_outputs(self, target_prefix, tmpdir, expected_basename_prefix):
         """Helper to compare all generated files with golden files stored in tests/outputs/"""
+        # pylint: disable=too-many-locals
+        os.makedirs(self.outputs_dir, exist_ok=True)
         os.makedirs(self.outputs_dir, exist_ok=True)
 
         # Discover all files generated in tmpdir
@@ -94,10 +101,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                         self.fail(f"File {gen_file} does not match golden file {expected_filename}.\nDifferences:\nNone (diff unavailable without filecmp debug)")
 
     def _extract_bokeh_data(self, html_path):
-        import json
-        import re
-        from bokeh.document import Document
-
+        """Extract data from Bokeh HTML file for comparison."""
         with open(html_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
@@ -225,6 +229,7 @@ class TestMutationScatterPlot(unittest.TestCase):
 
     def test4_compare_aminoacids(self):
         """mutation_scatter_plot pairwise compare: --aminoacids vs --aminoacids --include-synonymous HTML JSONs"""
+        # pylint: disable=too-many-locals
         with tempfile.TemporaryDirectory() as tmpdir:
             full_tsv = os.path.join(self.outputs_dir, "test2_full.x_after_count.frequencies.tsv")
             # Run A
@@ -295,6 +300,7 @@ class TestMutationScatterPlot(unittest.TestCase):
 
     def test5_compare_codons(self):
         """mutation_scatter_plot pairwise compare: codon mode vs codon mode --include-synonymous HTML JSONs"""
+        # pylint: disable=too-many-locals
         with tempfile.TemporaryDirectory() as tmpdir:
             full_tsv = os.path.join(self.outputs_dir, "test2_full.x_after_count.frequencies.tsv")
             # Run A

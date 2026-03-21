@@ -1,4 +1,6 @@
+"""Unit tests for calculate_codon_frequencies."""
 import filecmp
+import json
 import os
 import shutil
 import subprocess
@@ -7,6 +9,8 @@ import tempfile
 import unittest
 
 class TestCalculateCodonFrequencies(unittest.TestCase):
+    """Test cases for the calculate_codon_frequencies CLI and core logic."""
+    # pylint: disable=too-many-instance-attributes
     coverage_results = []
     golden_mutations = set()
     project_root = ""
@@ -17,10 +21,9 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
         cls.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         golden_path = os.path.join(cls.project_root, "data", "golden_mutations.json")
         try:
-            import json
-            with open(golden_path, 'r') as f:
+            with open(golden_path, 'r', encoding='utf-8') as f:
                 cls.golden_mutations = set(json.load(f))
-        except Exception:
+        except (FileNotFoundError, json.JSONDecodeError):
             cls.golden_mutations = set()
 
     @classmethod
@@ -65,6 +68,8 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
 
     def _check_outputs(self, expected_prefix, generated_prefix):
         """Helper to compare generated TSVs with golden files stored in tests/outputs/"""
+        # pylint: disable=too-many-locals
+        os.makedirs(self.outputs_dir, exist_ok=True)
         os.makedirs(self.outputs_dir, exist_ok=True)
 
         for suffix in [".tsv", ".unchanged_codons.tsv"]:
@@ -91,7 +96,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
             # Append coverage tracking metrics to our teardown table
             if suffix == ".tsv" and self.__class__.golden_mutations:
                 try:
-                    with open(generated_file, 'r') as f:
+                    with open(generated_file, 'r', encoding='utf-8') as f:
                         lines = f.readlines()[1:] # skip header
                     total = len(lines)
                     confirmed = 0
@@ -105,7 +110,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                                 confirmed += 1
                     pct = (confirmed / total) * 100 if total > 0 else 0.0
                     self.__class__.coverage_results.append((f"{expected_prefix}{suffix}", total, confirmed, pct))
-                except Exception as e:
+                except (OSError, ValueError) as e:
                     sys.stderr.write(f"Failed to calculate coverage for {generated_file}: {e}\n")
 
     # --- test.fasta ---
