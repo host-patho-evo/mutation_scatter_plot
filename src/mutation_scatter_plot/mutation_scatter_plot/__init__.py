@@ -476,6 +476,11 @@ def load_and_clean_dataframe(myoptions, infilename, padded_position2position):
 
     df = pd.read_csv(infilename, sep='\t', header='infer', na_filter=False, na_values=[None])
 
+    _freq_col = myoptions.column_with_frequencies
+    if _freq_col in df.columns:
+        # High precision: Convert to Decimal from string to avoid float64 drift
+        df[_freq_col] = df[_freq_col].astype(str).apply(Decimal)
+
     if 'position' in df.columns:
         print(f"Info: Autodetected new TSV file format with a header in {infilename}")
     else:
@@ -926,7 +931,7 @@ def collect_scatter_data(
                         _matrix_values.add(_score)
                     if myoptions.debug:
                         print(f"Debug: Padded AA position: {_padded_position}, Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
-                    _bokeh_size = float(np.sqrt(np.abs(_size)) * 100) if myoptions.bokeh_sqrt_size else float(np.abs(_size) * 100)
+                    _bokeh_size = float(np.sqrt(abs(_size)) * 100) if myoptions.bokeh_sqrt_size else float(abs(_size) * 100)
 
                     # --- O(1) Hover Metadata Reconstruction (Matplotlib) ---
                     _base_df = _df_groups.get((_padded_position, _some_codon_or_aa), pd.DataFrame())
