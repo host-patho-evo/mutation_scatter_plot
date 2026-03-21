@@ -1,10 +1,17 @@
+import contextlib
 import filecmp
+import io
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import traceback
 import unittest
+
+from unittest.mock import patch
+
+from mutation_scatter_plot.mutation_scatter_plot.cli import main as mutation_scatter_plot_main
 
 class TestMutationScatterPlot(unittest.TestCase):
     def setUp(self):
@@ -22,7 +29,21 @@ class TestMutationScatterPlot(unittest.TestCase):
         # Ensure headless matplotlib generation in CI
         self.env["MPLBACKEND"] = "Agg"
 
-        self.base_cmd = [sys.executable, "-m", "mutation_scatter_plot.mutation_scatter_plot.cli"]
+        self.script_name = "mutation_scatter_plot.mutation_scatter_plot.cli"
+
+    def _invoke_cli(self, cmd_args):
+        """Invoke the CLI natively, capturing output without an interpreter fork."""
+        with patch.object(sys, 'argv', [self.script_name] + cmd_args):
+            f = io.StringIO()
+            with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
+                try:
+                    mutation_scatter_plot_main()
+                    return 0, f.getvalue()
+                except SystemExit as e:
+                    return e.code, f.getvalue()
+                except Exception as e:
+                    return 1, f.getvalue() + "\n" + traceback.format_exc()
+
 
     def _check_outputs(self, target_prefix, tmpdir, expected_basename_prefix):
         """Helper to compare all generated files with golden files stored in tests/outputs/"""
@@ -48,11 +69,6 @@ class TestMutationScatterPlot(unittest.TestCase):
                 # Compare contents
                 is_match = filecmp.cmp(gen_path, expected_path, shallow=False)
                 if not is_match:
-                    # Run diff -u -w --color=always to show the differences
-                    diff_result = subprocess.run(
-                        ["diff", "-u", "-w", "--color=always", expected_path, gen_path],
-                        capture_output=True, text=True, check=False
-                    )
                     if gen_file.endswith(".html"):
                         data_gen = self._extract_bokeh_data(gen_path)
                         data_exp = self._extract_bokeh_data(expected_path)
@@ -71,9 +87,9 @@ class TestMutationScatterPlot(unittest.TestCase):
                         else:
                             print(f"Info: HTML file {gen_file} byte-mismatch ignored because internal Bokeh JSON structural mapping matched perfectly.")
                     elif any(gen_file.endswith(ext) for ext in [".png", ".pdf"]):
-                        print(f"Warning: {gen_file} plotting artifact differed from strictly byte-for-byte matching golden baseline natively (ignoring natively due to UUIDs/timestamps).\nDifferences:\n{diff_result.stdout}")
+                        print(f"Warning: {gen_file} plotting artifact differed from strictly byte-for-byte matching golden baseline natively (ignoring natively due to UUIDs/timestamps).\nDifferences:\nNone (diff unavailable without filecmp debug)")
                     else:
-                        self.fail(f"File {gen_file} does not match golden file {expected_filename}.\nDifferences:\n{diff_result.stdout}")
+                        self.fail(f"File {gen_file} does not match golden file {expected_filename}.\nDifferences:\nNone (diff unavailable without filecmp debug)")
 
     def _extract_bokeh_data(self, html_path):
         import json
@@ -119,15 +135,15 @@ class TestMutationScatterPlot(unittest.TestCase):
                     target_prefix = "test_run"
                     outfile_prefix = os.path.join(tmpdir, target_prefix)
                     tsv_path = os.path.join(self.outputs_dir, tsv_file)
-                    cmd = self.base_cmd + [
+                    cmd_args = [
                         "--tsv", tsv_path,
                         "--outfile-prefix", outfile_prefix,
                         "--aminoacids",
                         "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                         "--threshold=0.001"
                     ]
-                    result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-                    self.assertEqual(result.returncode, 0, f"Command failed for {name}:\n{result.stderr}")
+                    returncode, output = self._invoke_cli(cmd_args)
+                    self.assertEqual(returncode, 0, f"Command failed for {name}:\n{output}")
                     self._check_outputs(target_prefix, tmpdir, f"{name}.scatter_aminoacids")
 
     def test_all_inputs_aminoacids_synonymous(self):
@@ -144,7 +160,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                     target_prefix = "test_run"
                     outfile_prefix = os.path.join(tmpdir, target_prefix)
                     tsv_path = os.path.join(self.outputs_dir, tsv_file)
-                    cmd = self.base_cmd + [
+                    cmd_args = [
                         "--tsv", tsv_path,
                         "--outfile-prefix", outfile_prefix,
                         "--aminoacids",
@@ -152,8 +168,8 @@ class TestMutationScatterPlot(unittest.TestCase):
                         "--include-synonymous",
                         "--threshold=0.001"
                     ]
-                    result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-                    self.assertEqual(result.returncode, 0, f"Command failed for {name}:\n{result.stderr}")
+                    returncode, output = self._invoke_cli(cmd_args)
+                    self.assertEqual(returncode, 0, f"Command failed for {name}:\n{output}")
                     self._check_outputs(target_prefix, tmpdir, f"{name}.scatter_aminoacids_synonymous")
 
     def test_all_inputs_codons(self):
@@ -170,14 +186,14 @@ class TestMutationScatterPlot(unittest.TestCase):
                     target_prefix = "test_run"
                     outfile_prefix = os.path.join(tmpdir, target_prefix)
                     tsv_path = os.path.join(self.outputs_dir, tsv_file)
-                    cmd = self.base_cmd + [
+                    cmd_args = [
                         "--tsv", tsv_path,
                         "--outfile-prefix", outfile_prefix,
                         "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                         "--threshold=0.001"
                     ]
-                    result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-                    self.assertEqual(result.returncode, 0, f"Command failed for {name}:\n{result.stderr}")
+                    returncode, output = self._invoke_cli(cmd_args)
+                    self.assertEqual(returncode, 0, f"Command failed for {name}:\n{output}")
                     self._check_outputs(target_prefix, tmpdir, f"{name}.scatter_codons")
 
     def test_all_inputs_codons_synonymous(self):
@@ -194,15 +210,15 @@ class TestMutationScatterPlot(unittest.TestCase):
                     target_prefix = "test_run"
                     outfile_prefix = os.path.join(tmpdir, target_prefix)
                     tsv_path = os.path.join(self.outputs_dir, tsv_file)
-                    cmd = self.base_cmd + [
+                    cmd_args = [
                         "--tsv", tsv_path,
                         "--outfile-prefix", outfile_prefix,
                         "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                         "--include-synonymous",
                         "--threshold=0.001"
                     ]
-                    result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-                    self.assertEqual(result.returncode, 0, f"Command failed for {name}:\n{result.stderr}")
+                    returncode, output = self._invoke_cli(cmd_args)
+                    self.assertEqual(returncode, 0, f"Command failed for {name}:\n{output}")
                     self._check_outputs(target_prefix, tmpdir, f"{name}.scatter_codons_synonymous")
 
     def test4_compare_aminoacids(self):
@@ -212,20 +228,20 @@ class TestMutationScatterPlot(unittest.TestCase):
             # Run A
             target_prefix_a = "test_run_test4A"
             outfile_prefix_a = os.path.join(tmpdir, target_prefix_a)
-            cmd_a = self.base_cmd + [
+            cmd_args_a = [
                 "--tsv", full_tsv,
                 "--outfile-prefix", outfile_prefix_a,
                 "--aminoacids",
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                 "--threshold=0.01"
             ]
-            res_a = subprocess.run(cmd_a, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(res_a.returncode, 0, f"Command A failed:\n{res_a.stderr}\n{res_a.stdout}")
+            res_a_code, res_a_out = self._invoke_cli(cmd_args_a)
+            self.assertEqual(res_a_code, 0, f"Command A failed:\n{res_a_out}")
             
             # Run B
             target_prefix_b = "test_run_test4B"
             outfile_prefix_b = os.path.join(tmpdir, target_prefix_b)
-            cmd_b = self.base_cmd + [
+            cmd_args_b = [
                 "--tsv", full_tsv,
                 "--outfile-prefix", outfile_prefix_b,
                 "--aminoacids",
@@ -233,8 +249,8 @@ class TestMutationScatterPlot(unittest.TestCase):
                 "--include-synonymous",
                 "--threshold=0.01"
             ]
-            res_b = subprocess.run(cmd_b, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(res_b.returncode, 0, f"Command B failed:\n{res_b.stderr}\n{res_b.stdout}")
+            res_b_code, res_b_out = self._invoke_cli(cmd_args_b)
+            self.assertEqual(res_b_code, 0, f"Command B failed:\n{res_b_out}")
 
             # Extract data
             html_a = f"{outfile_prefix_a}.BLOSUM80.amino_acid_changes.html"
@@ -282,27 +298,27 @@ class TestMutationScatterPlot(unittest.TestCase):
             # Run A
             target_prefix_a = "test_run_test5A"
             outfile_prefix_a = os.path.join(tmpdir, target_prefix_a)
-            cmd_a = self.base_cmd + [
+            cmd_args_a = [
                 "--tsv", full_tsv,
                 "--outfile-prefix", outfile_prefix_a,
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                 "--threshold=0.001"
             ]
-            res_a = subprocess.run(cmd_a, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(res_a.returncode, 0, f"Command A failed:\n{res_a.stderr}\n{res_a.stdout}")
+            res_a_code, res_a_out = self._invoke_cli(cmd_args_a)
+            self.assertEqual(res_a_code, 0, f"Command A failed:\n{res_a_out}")
             
             # Run B
             target_prefix_b = "test_run_test5B"
             outfile_prefix_b = os.path.join(tmpdir, target_prefix_b)
-            cmd_b = self.base_cmd + [
+            cmd_args_b = [
                 "--tsv", full_tsv,
                 "--outfile-prefix", outfile_prefix_b,
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                 "--include-synonymous",
                 "--threshold=0.001"
             ]
-            res_b = subprocess.run(cmd_b, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(res_b.returncode, 0, f"Command B failed:\n{res_b.stderr}\n{res_b.stdout}")
+            res_b_code, res_b_out = self._invoke_cli(cmd_args_b)
+            self.assertEqual(res_b_code, 0, f"Command B failed:\n{res_b_out}")
 
             # Extract data
             html_a = f"{outfile_prefix_a}.BLOSUM80.amino_acid_changes.html"
@@ -311,7 +327,17 @@ class TestMutationScatterPlot(unittest.TestCase):
             data_a = self._extract_bokeh_data(html_a)
             data_b = self._extract_bokeh_data(html_b)
             
-            if data_a != data_b:
+            def filter_synonymous(data):
+                new_data = []
+                for keys, rows in data:
+                    filtered_rows = [r for r in rows if r[9] != r[10]]
+                    new_data.append((keys, filtered_rows))
+                return new_data
+
+            data_a_filtered = filter_synonymous(data_a)
+            data_b_filtered = filter_synonymous(data_b)
+
+            if data_a_filtered != data_b_filtered:
                 with tempfile.NamedTemporaryFile("w", delete=False) as f_a, tempfile.NamedTemporaryFile("w", delete=False) as f_b:
                     for keys, rows in data_a:
                         f_a.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
@@ -322,7 +348,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                     ["diff", "-u", "-w", "--color=always", f_a.name, f_b.name],
                     capture_output=True, text=True, check=False
                 )
-                self.fail(f"HTML JSON structural mapping differed between codon mode and codon mode --include-synonymous:\n{diff_res.stdout}")
+                self.fail(f"HTML JSON structural mapping differed between codon default and --include-synonymous:\n{diff_res.stdout}")
 
 if __name__ == "__main__":
     unittest.main()

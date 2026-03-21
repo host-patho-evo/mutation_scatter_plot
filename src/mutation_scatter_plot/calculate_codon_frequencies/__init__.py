@@ -325,6 +325,12 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     _inserted_aa_residues = Counter()  # practically unused
     _deleted_reference_aa_residues = Counter()
 
+    # Initializes the starting amino-acid index used to map substitutions back to the
+    # un-chopped original reference protein sequence. This must mathematically mirror 
+    # the nucleotide offset imposed by `min_start`, otherwise truncated sample sequences 
+    # will be falsely aligned against index 0 of the reference and trigger mass mutations.
+    _zero_based_padded_reference_aa_index = int(min_start / 3)
+
     for _zero_based_codon_startpos in range(
         min_start, max_stop or len(_padded_reference_dna_seq), 3
     ):

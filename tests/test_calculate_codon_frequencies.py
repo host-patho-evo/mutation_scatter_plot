@@ -16,7 +16,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
         self.test1_fasta = os.path.join(self.tests_dir, "inputs", "test.fasta")
         self.test2_fasta = os.path.join(self.tests_dir, "inputs", "test2.fasta")
         self.test3_fasta = os.path.join(self.tests_dir, "inputs", "test3.fasta")
-        self.ref_fasta = os.path.join(self.tests_dir, "inputs", "MN908947.3_S_full.fasta")
+        self.ref_fasta = os.path.join(self.tests_dir, "inputs", "MN908947.3_S.fasta")
 
         # Environment to pass to subprocess
         self.env = os.environ.copy()
@@ -63,7 +63,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
-                "--aa_start=430",
+                "--aa_start=413",
                 "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
@@ -79,7 +79,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
-                "--aa_start=430",
+                "--aa_start=413",
                 "--x-after-count",
                 "--overwrite"
             ]
@@ -96,7 +96,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
-                "--aa_start=430",
+                "--aa_start=413",
                 "--x-after-count",
                 "--min_start", "7",
                 "--overwrite"
@@ -114,7 +114,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
-                "--aa_start=430",
+                "--aa_start=413",
                 "--disable-print-unchanged-sites",
                 "--overwrite"
             ]
@@ -139,7 +139,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
                 "--x-after-count",
-                "--aa_start=430",
+                "--aa_start=413",
                 "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
@@ -156,7 +156,8 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--padded-reference",
                 "--reference-infile", self.ref_fasta,
                 "--x-after-count",
-                "--aa_start=430",
+                "--min_start", "7",
+                "--aa_start=413",
                 "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
@@ -164,7 +165,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
             self._check_outputs("test2.x_after_count_and_min_start.frequencies", outfile_prefix)
 
     def test_short_alignment_aa_start(self):
-        """Test calculate_codon_frequencies with short alignment and --aa_start=430."""
+        """Test calculate_codon_frequencies with short alignment and --aa_start=413."""
         with tempfile.TemporaryDirectory() as tmpdir:
             outfile_prefix = os.path.join(tmpdir, "test2_short.aa_start.frequencies")
             cmd = self.base_cmd + [
@@ -172,6 +173,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
                 "--reference-infile", os.path.join(self.tests_dir, "inputs", "MN908947.3_S.fasta"),
+                "--aa_start=413",
                 "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
@@ -185,11 +187,12 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             outfile_prefix = os.path.join(tmpdir, "test2_full.default.frequencies")
             test2_full_fasta = os.path.join(self.tests_dir, "inputs", "test2_full.fasta")
+            ref_full_fasta = os.path.join(self.tests_dir, "inputs", "MN908947.3_S_full.fasta")
             cmd = self.base_cmd + [
                 "--alignment-file", test2_full_fasta,
                 "--outfile-prefix", outfile_prefix,
                 "--padded-reference",
-                "--reference-infile", self.ref_fasta,
+                "--reference-infile", ref_full_fasta,
                 "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
@@ -230,7 +233,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--reference-infile", self.ref_fasta,
                 "--x-after-count",
                 "--min_start", "4",
-                "--aa_start", "415",
+                "--aa_start", "413",
                 "--overwrite"
             ]
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)

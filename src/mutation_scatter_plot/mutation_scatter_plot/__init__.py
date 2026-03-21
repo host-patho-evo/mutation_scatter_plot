@@ -83,9 +83,7 @@ import mplcursors
 # https://pypi.org/project/blosum/
 import blosum
 
-# https://docs.bokeh.org/en/latest/docs/user_guide/interaction/tools.html#ug-interaction-tools-hover-tool
-import bokeh.plotting
-import bokeh.models
+# bokeh is imported lazily inside render_bokeh()
 
 from .. import alt_translate
 
@@ -1323,6 +1321,9 @@ def render_bokeh(
     * ``--x-axis-minor-ticks-spacing``  (default: 5)
     * ``--x-axis-label-start``          (default: 0, meaning use xmin)
     """
+    import bokeh.plotting
+    import bokeh.models
+
     if circles_bokeh:
         _circles_x, _circles_y, _circles_size, _circles_marker, _circles_color, _circles_alpha, _circles_score, _circles_aa_pos, _circles_padded_pos = zip(*circles_bokeh)
     else:
