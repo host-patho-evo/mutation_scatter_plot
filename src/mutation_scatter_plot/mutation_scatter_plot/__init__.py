@@ -1177,13 +1177,13 @@ def pretty_print_bokeh_html(filename):
 def render_bokeh(
     myoptions,
     outfile_prefix, xmin, xmax, amino_acids, final_sorted_whitelist,
-    circles_bokeh, labels, _html_labels, mutations, label_padded_positions,
+    circles_bokeh, labels, mutations, label_padded_positions,
     label_codon_positions, label_original_amino_acids, label_new_amino_acids,
     label_cumulative_frequencies, label_codon_frequencies,
     label_observed_codon_counts, label_observed_codon_count_sum,
     label_total_codons_per_site, label_scores,
     title_data, xlabel,
-    matrix_name, colors, norm, cmap, _padded_position2position,
+    matrix_name, colors, norm, cmap,
 ):
     """Build and save the interactive Bokeh HTML scatter plot.
 
@@ -1209,7 +1209,7 @@ def render_bokeh(
         ``colour_hex`` is a hex string already produced by the matplotlib
         ``cmap(norm(score))`` pipeline in ``collect_scatter_data``.
         ``score`` is the integer substitution-matrix score for that mutation.
-    labels, html_labels, mutations : list[str]
+    labels, mutations : list[str]
         Per-point annotation strings.
     label_codon_positions … label_scores : list
         Per-point tooltip field values (see TOOLTIPS definition in the body).
@@ -1475,7 +1475,7 @@ def render_matplotlib(
     circles_matplotlib, markers, dots, cmap, norm, colors,
     matrix, matrix_name,
     new_aa_table, new_codon_table, df, codons_whitelist2, final_sorted_whitelist,
-    _calculated_aa_offset, padded_position2position,
+    padded_position2position,
 ):
     """Render the matplotlib scatter figure with hover callbacks and save to PNG/PDF.
 
