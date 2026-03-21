@@ -229,16 +229,28 @@ def resolve_codon_or_aa(myoptions, old_codon_or_aa, new_codon_or_aa):
     return _codon_on_input, _old_codon_or_aa, _new_codon_or_aa
 
 
+# Module-level cache for substitution scores — cleared at the start of each plot run.
+# Avoids repeated BLOSUM matrix lookups for the same (old_aa, new_aa) pairs.
+_score_cache: dict = {}
+
+
 def get_score(myoptions, matrix, codon_on_input, old_codon_or_aa, new_codon_or_aa):
+    if codon_on_input:
+        _old_aa = alt_translate(old_codon_or_aa)
+        _new_aa = alt_translate(new_codon_or_aa)
+    else:
+        _old_aa = old_codon_or_aa
+        _new_aa = new_codon_or_aa
+    _cache_key = (_old_aa, _new_aa)
+    if _cache_key in _score_cache:
+        return _score_cache[_cache_key]
     try:
-        if codon_on_input:
-            _score = int(matrix[alt_translate(old_codon_or_aa)][alt_translate(new_codon_or_aa)])
-        else:
-            _score = int(matrix[old_codon_or_aa][new_codon_or_aa])
+        _score = int(matrix[_old_aa][_new_aa])
     except OverflowError:
         _score = -11
     except KeyError as exc:
         raise ValueError(f"Cannot get a score for myoptions.matrix='{myoptions.matrix}', old_codon_or_aa='{old_codon_or_aa}', new_codon_or_aa='{new_codon_or_aa}'") from exc
+    _score_cache[_cache_key] = _score
     return _score
 
 
@@ -782,6 +794,12 @@ def collect_scatter_data(
         _pos_to_old_aa = df.groupby('padded_position')['original_aa'].first().to_dict()
         _mut_col = 'mutant_aa' if myoptions.aminoacids else 'mutant_codon'
         _df_indexed = df.set_index(['padded_position', _mut_col])
+        # Pre-build a dict for O(1) per-cell lookup instead of repeated .loc[] calls
+        _df_groups: dict = {}
+        for _key, _sub in _df_indexed.groupby(level=[0, 1]):
+            _df_groups[_key] = _sub
+        # Clear the score cache so each plot run starts fresh (matrix may differ)
+        _score_cache.clear()
         for i, _some_codon_or_aa in enumerate(table.index): # so _some_codon_or_aa contains the index specified when the table was constructed
             for j, _padded_position in enumerate(table.columns): # so _aa_position contains the real aa_position
                 if not (xmin <= _padded_position <= xmax):
@@ -849,7 +867,7 @@ def collect_scatter_data(
                 if not np.abs(Decimal(_frequency)) < myoptions.threshold:
                     if _padded_position not in _warn_once:
                         try:
-                            _base_df = _df_indexed.loc[[(_padded_position, _some_codon_or_aa)]]
+                            _base_df = _df_groups.get((_padded_position, _some_codon_or_aa), pd.DataFrame())
                         except KeyError:
                             _base_df = pd.DataFrame()
 
