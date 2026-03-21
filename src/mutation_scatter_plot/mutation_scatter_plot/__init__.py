@@ -818,7 +818,6 @@ def collect_scatter_data(
 
     _used_colors = set()
     _norm, _cmap, _colors = get_colormap(myoptions, myoptions.colormap)
-    _labels: list[str] = []
     _label_padded_positions: list[str] = []
     _label_codon_positions: list[str] = []
     _label_original_amino_acids: list[str] = []
@@ -830,7 +829,6 @@ def collect_scatter_data(
     _label_total_codons_per_site: list[typing.Any] = []
     _label_scores: list[typing.Any] = []
 
-    _html_labels: list[str] = []
     _mutations: list[str] = []
     _circles_bokeh: list[tuple[typing.Any, ...]] = []
     _circles_matplotlib: list[tuple[typing.Any, ...]] = []
@@ -978,7 +976,6 @@ def collect_scatter_data(
                             _observed_codon_count_sum = sum(_observed_codon_counts)
 
                             if not _frequency < myoptions.threshold:
-                                _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_some_codon_or_aa} {_new_codons}\n{myoptions.matrix} score: {_score}\nCumulative Frequency: {sum(_frequencies):.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon counts sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
                                 _label_padded_positions.append(f"{_padded_position}")
                                 _label_codon_positions.append(f"{_aa_position}")
                                 _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
@@ -994,7 +991,6 @@ def collect_scatter_data(
                                     _label_observed_codon_count_sum.append(sum(_observed_codon_counts))
                                     _label_total_codons_per_site.append(_total_codons_per_site)
                                 _label_scores.append(_score)
-                                _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Amino Acid: {_old_amino_acid} ({_old_codon})<br>New Amino Acid: {_some_codon_or_aa} {_new_codons}<br>{myoptions.matrix} score: {_score}<br>Cumulative Frequency: {sum(_frequencies):.6f}<br>Codon Frequencies: {[f'{x:.6f}' for x in _frequencies]}<br>Observed codon counts: {_observed_codon_counts}<br>Observed codon count sum: {_observed_codon_count_sum}<br>Total codons per site: {_total_codons_per_site}")
                                 _mutations.append(f"{_old_amino_acid}{_aa_position}{_some_codon_or_aa}")
                         else:
                             if _frequency != table.at[_some_codon_or_aa, _padded_position]:
@@ -1048,33 +1044,12 @@ def collect_scatter_data(
                                 if _old_amino_acid and not _frequency < myoptions.threshold and _size:
                                     _label_scores.append(_score)
 
-                                    if myoptions.column_with_frequencies == 'neutralized_parent_difference':
-                                        _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nDifference neutralized2parent: {_frequency:.6f}")
-                                        _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Difference neutralized2parent: {_frequency:.6f}")
-                                    elif myoptions.column_with_frequencies == 'escape_parent_difference':
-                                        _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nDifference escape2parent: {_frequency:.6f}")
-                                        _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Difference escape2parent: {_frequency:.6f}")
-                                    elif myoptions.column_with_frequencies == 'weighted_diff_escape_neutralized':
-                                        _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nWeighted difference escape2neutralized: {_frequency:.6f}")
-                                        _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Weighted difference escape2neutralized: {_frequency:.6f}")
-                                    elif myoptions.column_with_frequencies == 'frequency':
-                                        _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_counts}\nTotal codons per site: {_total_codons_per_site}")
-                                        _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Frequency: {_frequency:.6f}<br>Observed codon counts: {_observed_codon_counts}<br>Total codons per site: {_total_codons_per_site}")
-                                        _label_padded_positions.append(f"{_padded_position}")
-                                        _label_codon_positions.append(f"{_aa_position}")
-                                        _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
-                                        _label_new_amino_acids.append(f"{_new_amino_acid} ({_some_codon_or_aa})")
-                                        _label_cumulative_frequencies.append(f"{_frequency:.6f}")
-                                        _label_codon_frequencies.append(f"{_frequency:.6f}")
-                                    else:
-                                        _labels.append(f"Padded position: {_padded_position}\nPosition: {_aa_position}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_some_codon_or_aa} ({_new_amino_acid})\n{myoptions.matrix} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_counts}\nTotal codons per site: {_total_codons_per_site}")
-                                        _html_labels.append(f"Padded position: {_padded_position}<br>Position: {_aa_position}<br>Original Codon: {_old_codon} ({_old_amino_acid})<br>New Codon: {_some_codon_or_aa} ({_new_amino_acid})<br>{myoptions.matrix} score: {_score}<br>Frequency: {_frequency:.6f}<br>Observed codon counts: {_observed_codon_counts}<br>Total codons per site: {_total_codons_per_site}")
-                                        _label_padded_positions.append(f"{_padded_position}")
-                                        _label_codon_positions.append(f"{_aa_position}")
-                                        _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
-                                        _label_new_amino_acids.append(f"{_new_amino_acid} ({_some_codon_or_aa})")
-                                        _label_cumulative_frequencies.append(f"{_frequency:.6f}")
-                                        _label_codon_frequencies.append(f"{_frequency:.6f}")
+                                    _label_padded_positions.append(f"{_padded_position}")
+                                    _label_codon_positions.append(f"{_aa_position}")
+                                    _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
+                                    _label_new_amino_acids.append(f"{_new_amino_acid} ({_some_codon_or_aa})")
+                                    _label_cumulative_frequencies.append(f"{_frequency:.6f}")
+                                    _label_codon_frequencies.append(f"{_frequency:.6f}")
                                     if not _frequency < myoptions.threshold:
                                         _mutations.append(f"{_old_codon}{_aa_position}{_some_codon_or_aa}")
                                     else:
@@ -1128,15 +1103,13 @@ def collect_scatter_data(
         print(f"Debug: {len(_used_colors)} _used_colors used: {str(_used_colors)}")
 
     if myoptions.debug:
-        print(f"Debug: {len(_labels)} _labels={str(_labels)}")
-        print(f"Debug: {len(_html_labels)} _html_labels={str(_html_labels)}")
         print(f"Debug: {len(_circles_bokeh)} _circles_bokeh={str(_circles_bokeh)}")
         print(f"Debug: {len(_markers)} _markers={str(_markers)}")
         print(f"Debug: {len(_dots)} _dots={str(_dots)}")
 
     return (
         _norm, _cmap, _colors, _used_colors, _matrix_values,
-        _labels, _html_labels, _mutations,
+        _mutations,
         _circles_bokeh, _circles_matplotlib, _markers, _dots, _label_padded_positions,
         _label_codon_positions, _label_original_amino_acids, _label_new_amino_acids,
         _label_cumulative_frequencies, _label_codon_frequencies,
@@ -1177,7 +1150,7 @@ def pretty_print_bokeh_html(filename):
 def render_bokeh(
     myoptions,
     outfile_prefix, xmin, xmax, amino_acids, final_sorted_whitelist,
-    circles_bokeh, labels, mutations, label_padded_positions,
+    circles_bokeh, mutations, label_padded_positions,
     label_codon_positions, label_original_amino_acids, label_new_amino_acids,
     label_cumulative_frequencies, label_codon_frequencies,
     label_observed_codon_counts, label_observed_codon_count_sum,
@@ -1209,7 +1182,7 @@ def render_bokeh(
         ``colour_hex`` is a hex string already produced by the matplotlib
         ``cmap(norm(score))`` pipeline in ``collect_scatter_data``.
         ``score`` is the integer substitution-matrix score for that mutation.
-    labels, mutations : list[str]
+    mutations : list[str]
         Per-point annotation strings.
     label_codon_positions … label_scores : list
         Per-point tooltip field values (see TOOLTIPS definition in the body).
@@ -1339,7 +1312,6 @@ def render_bokeh(
         a=_circles_alpha,
         score=_circles_score,
         aaposition=_circles_aa_pos,
-        label=labels,
         label1=label_padded_positions,
         label2=label_original_amino_acids,
         label3=label_new_amino_acids,
@@ -1593,11 +1565,11 @@ def render_matplotlib(
                 raise ValueError(f"The new codon {_new_codon} is not in the list of all codons {str(_new_codons)} encoding this aa {_new_amino_acid}")
 
             if myoptions.column_with_frequencies == 'neutralized_parent_difference':
-                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}")
+                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nDifference neutralized2parent: {_frequency:.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}")
             elif myoptions.column_with_frequencies == 'escape_parent_difference':
-                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}")
+                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nDifference escape2parent: {_frequency:.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}")
             elif myoptions.column_with_frequencies == 'weighted_diff_escape_neutralized':
-                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}")
+                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nWeighted difference escape2neutralized: {_frequency:.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}")
             elif myoptions.column_with_frequencies == 'frequency':
                 sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon count sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
             else:

@@ -301,7 +301,7 @@ def main():  # pylint: disable=too-many-locals
 
     (
         _norm, _cmap, _colors, _used_colors, _matrix_values,
-        _labels, _html_labels, _mutations,
+        _mutations,
         _circles_bokeh, _circles_matplotlib, _markers, _dots, _label_padded_positions,
         _label_codon_positions, _label_original_amino_acids,
         _label_new_amino_acids,
@@ -322,7 +322,7 @@ def main():  # pylint: disable=too-many-locals
             myoptions,
             _outfile_prefix, _xmin, _xmax, _amino_acids,
             _final_sorted_whitelist,
-            _circles_bokeh, _labels, _mutations, _label_padded_positions,
+            _circles_bokeh, _mutations, _label_padded_positions,
             _label_codon_positions, _label_original_amino_acids,
             _label_new_amino_acids,
             _label_cumulative_frequencies, _label_codon_frequencies,
