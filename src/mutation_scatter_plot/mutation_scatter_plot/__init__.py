@@ -175,15 +175,15 @@ def get_colormap(myoptions, colormapname):
                                         _colors = list(_micro_cvd_orange_r) + list(_micro_cvd_turquoise_r) + list(_micro_cvd_blue_r) + list(_micro_cvd_purple_r) + list(_micro_cvd_green_r) + list(_micro_cvd_gray_r)
                                         _cmap = matplotlib.colors.ListedColormap(_colors, 'microshades_cvd_palettes_r')
                                     elif myoptions.colormap == 'merged':
-                                        _colors1 = plt.cm.gist_heat(np.linspace(0.2, 0.8, 9))
-                                        _colors2 = plt.cm.cividis_r(np.linspace(0.2, 0.8, 9))
-                                        _colors3 = plt.cm.GnBu_r(np.linspace(0.2, 0.8, 9))
+                                        _colors1 = matplotlib.colormaps['gist_heat'](np.linspace(0.2, 0.8, 9))
+                                        _colors2 = matplotlib.colormaps['cividis_r'](np.linspace(0.2, 0.8, 9))
+                                        _colors3 = matplotlib.colormaps['GnBu_r'](np.linspace(0.2, 0.8, 9))
                                         _colors = np.vstack((_colors1, _colors2, _colors3))
                                         _cmap = matplotlib.colors.LinearSegmentedColormap.from_list('merged', _colors)
                                     elif myoptions.colormap == 'merged1':
-                                        _colors1 = plt.cm.viridis(np.linspace(0.2, 0.8, 9))
-                                        _colors2 = plt.cm.coolwarm_r(np.linspace(0., 1, 9))
-                                        _colors3 = plt.cm.GnBu_r(np.linspace(0.2, 0.8, 9))
+                                        _colors1 = matplotlib.colormaps['viridis'](np.linspace(0.2, 0.8, 9))
+                                        _colors2 = matplotlib.colormaps['coolwarm_r'](np.linspace(0., 1, 9))
+                                        _colors3 = matplotlib.colormaps['GnBu_r'](np.linspace(0.2, 0.8, 9))
                                         _colors = np.vstack((_colors1, _colors2, _colors3))
                                         _cmap = matplotlib.colors.LinearSegmentedColormap.from_list('merged', _colors)
                                     elif myoptions.colormap == 'dkeenan_26cols':
