@@ -36,20 +36,19 @@ The top-level `scripts/` directory contains shell helper scripts (`render-figure
 
 **A.1 Install using pip into a virtual environment**
 
-```
-cd $HOME
-mkdir -p .virtualenvs && cd .virtualenvs
-virtualenv mutation_scatter_plot
-. ~/.virtualenvs/mutation_scatter_plot/bin/activate
-cd /path/to/mutation_scatter_plot   # directory containing pyproject.toml
+```bash
+git clone https://github.com/host-patho-evo/mutation_scatter_plot.git
+cd mutation_scatter_plot
+python3 -m venv .venv
+source .venv/bin/activate
 pip install .
 ```
 
-Later you can re-enter this virtual environment by `. ~/.virtualenvs/mutation_scatter_plot/bin/activate`. To leave it call `deactivate`.
+Later you can re-enter this virtual environment by `source .venv/bin/activate`. To leave it call `deactivate`.
 
 To yield interactive matplotlib figures one of the following backends must also be installed:
 
-```
+```bash
 pip install wxpython
 pip install pyqt5
 pip install pyqt6
@@ -59,16 +58,17 @@ pip install cairocffi
 
 **A.2 Install using conda**
 
-```
-conda create -n mutation_scatter_plot
+```bash
+git clone https://github.com/host-patho-evo/mutation_scatter_plot.git
+cd mutation_scatter_plot
+conda create -n mutation_scatter_plot python=3.13
 conda activate mutation_scatter_plot
-cd /path/to/mutation_scatter_plot   # directory containing pyproject.toml
 pip install .
 ```
 
 To yield interactive figures, one of the matplotlib backends listed above must also be available. For the wxagg backend `wxpython` is needed:
 
-```
+```bash
 conda install wxpython
 ```
 
@@ -106,31 +106,31 @@ Below we explain what happens further upon the execution. Not only there is help
 
 One can calculate the codon frequencies from a provided FASTA input file. The sequence must be in frame +1. In version 0.1 the padding dashes `-` are ignored and the software keeps fetches next() nucleotides as long until there are three nucleotides representing the codon to be translated. In the `main` branch there is now a version which requires the inut sequence to be fully aligned to codons. 
 
-```
+```bash
 calculate_codon_frequencies --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/inputs/test.fasta \
-    --outfile-prefix=tests/outputs/test.frequencies --min_start=1 --max_stop=3873 --print-unchanged-sites --x-after-count --padded-reference
+    --outfile-prefix=tests/outputs/test1.default.frequencies --padded-reference --print-unchanged-sites
 
-prefix='tests/outputs/test.frequencies'
-mutation_scatter_plot --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".aa.frequencies.png --aminoacids
-mutation_scatter_plot --xmin 340 --xmax 516 --tsv "$prefix".frequencies.tsv --outfile "$prefix".codon.frequencies.png
+prefix='tests/outputs/test1.default.frequencies'
+mutation_scatter_plot --xmin 340 --xmax 516 --tsv "${prefix}.tsv" --outfile "${prefix}.aa.frequencies.png" --aminoacids
+mutation_scatter_plot --xmin 340 --xmax 516 --tsv "${prefix}.tsv" --outfile "${prefix}.codon.frequencies.png"
 ```
 
 **More complex testing**
+
+We have several native alignment scenarios tracked locally in `tests/inputs/`. The following commands illustrate how testing edge case variations are parsed, specifically involving missing reference frames or padded alignments triggering `--aa_start` and `--min_start` coordinate shifts:
+
+```bash
+# test2.fasta evaluation:
+calculate_codon_frequencies --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/inputs/test2.fasta --outfile-prefix=tests/outputs/test2.x_after_count.frequencies --padded-reference --x-after-count --aa_start=413
+
+# test2.fasta (with an internal alignment shift via min_start):
+calculate_codon_frequencies --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/inputs/test2.fasta --outfile-prefix=tests/outputs/test2.x_after_count_and_min_start.frequencies --padded-reference --x-after-count --min_start=7 --aa_start=413
+
+# test3.fasta (overcoming a fake early codon sequence):
+calculate_codon_frequencies --reference-infile=tests/inputs/MN908947.3_S.fasta --alignment-file=tests/inputs/test3.fasta --outfile-prefix=tests/outputs/test3.default.frequencies --padded-reference --x-after-count --min_start=4 --aa_start=413
 ```
-calculate_codon_frequencies --reference-infile=MN908947.3_S.fasta --alignment-file=test5.amplicons.clean.counts.filtered.fasta --outfile-prefix=test5.amplicons.frequencies --left-reference-offset=1288 --right-reference-offset=1584 --min_start=1288 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
 
-calculate_codon_frequencies --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test6.amplicons.frequencies --left-reference-offset=1288 --right-reference-offset=1584 --min_start=1288 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
-
-calculate_codon_frequencies --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test7.amplicons.frequencies --left-reference-offset=1297 --right-reference-offset=1584 --min_start=1297 --max_stop=1584 --print-unchanged-sites --x-after-count --padded-reference
-
-calculate_codon_frequencies --reference-infile=MN908947.3_S.fasta --alignment-file=test6.amplicons.clean.counts.filtered.fasta --outfile-prefix=test8.amplicons.frequencies --print-unchanged-sites --x-after-count --padded-reference
-
-diff -u -w tests/outputs/test5.amplicons.frequencies.tsv test5.amplicons.frequencies.tsv
-diff -u -w tests/outputs/test5.amplicons.frequencies.tsv test6.amplicons.frequencies.tsv # you should see some DELetion events for codons 430, 431, 432
-diff -u -w tests/outputs/test5.amplicons.frequencies.tsv test7.amplicons.frequencies.tsv # you should see lines starting with 430, 431 and 432 are gone because first 9 nulecotides were skipped when parsing the alignment
-diff -u -w tests/outputs/test6.amplicons.frequencies.tsv test8.amplicons.frequencies.tsv # you should see NO DIFFERENCE
-
-```
+You can view the resulting output coordinate lists populated cleanly inside the `tests/outputs/` directory.
 
 
 **More realistic usage example**
