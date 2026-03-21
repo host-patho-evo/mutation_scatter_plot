@@ -304,12 +304,8 @@ def main():  # pylint: disable=too-many-locals
     (
         _norm, _cmap, _colors, _used_colors, _matrix_values,
         _mutations,
-        _circles_bokeh, _circles_matplotlib, _markers, _dots, _label_padded_positions,
-        _label_codon_positions, _label_original_amino_acids,
-        _label_new_amino_acids,
-        _label_cumulative_frequencies, _label_codon_frequencies,
-        _label_observed_codon_counts, _label_observed_codon_count_sum,
-        _label_total_codons_per_site, _label_scores,
+        _circles_bokeh, _circles_matplotlib, _markers, _dots,
+        _hover_text_bokeh,
     ) = collect_scatter_data(
         myoptions,
         _df, _table, _outfile_prefix, _matrix, _amino_acids,
@@ -324,12 +320,7 @@ def main():  # pylint: disable=too-many-locals
             myoptions,
             _outfile_prefix, _xmin, _xmax, _amino_acids,
             _final_sorted_whitelist,
-            _circles_bokeh, _mutations, _label_padded_positions,
-            _label_codon_positions, _label_original_amino_acids,
-            _label_new_amino_acids,
-            _label_cumulative_frequencies, _label_codon_frequencies,
-            _label_observed_codon_counts, _label_observed_codon_count_sum,
-            _label_total_codons_per_site, _label_scores,
+            _circles_bokeh, _mutations, _hover_text_bokeh,
             _title_data, _xlabel,
             _matrix_name, _colors, _norm, _cmap,
         )
