@@ -32,7 +32,7 @@ The package is installed with a single command that handles all dependencies aut
 
 After installation the following commands are available on your `PATH`: `mutation_scatter_plot`, `calculate_codon_frequencies`, `count_motifs_in_sequences`, `alignment2dots`, and `split_fasta_entries_by_lengths`.
 
-The top-level `scripts/` directory contains shell helper scripts (`render-figures.sh`, `per_residue_frequencies.sh`, `create_per_residue_tables.sh`, `split_fasta_entries_by_lengths.sh`) that are **not** installed by `pip install .` — they are provided as reference workflows and must be run directly from the `scripts/` directory or copied manually to a location on your `PATH`.
+The top-level `scripts/` directory contains shell helper scripts (`render-figures.sh`, `per_residue_frequencies.sh`, `create_per_residue_tables.sh`, `split_fasta_entries_by_lengths.sh`) that are **not** installed by `pip install -e .` — they are provided as reference workflows and must be run directly from the `scripts/` directory or copied manually to a location on your `PATH`.
 
 **A.1 Install using pip into a virtual environment**
 
@@ -41,7 +41,7 @@ git clone https://github.com/host-patho-evo/mutation_scatter_plot.git
 cd mutation_scatter_plot
 python3 -m venv .venv
 source .venv/bin/activate
-pip install .
+pip install -e .
 ```
 
 Later you can re-enter this virtual environment by `source .venv/bin/activate`. To leave it call `deactivate`.
@@ -63,7 +63,7 @@ git clone https://github.com/host-patho-evo/mutation_scatter_plot.git
 cd mutation_scatter_plot
 conda create -n mutation_scatter_plot python=3.13
 conda activate mutation_scatter_plot
-pip install .
+pip install -e .
 ```
 
 To yield interactive figures, one of the matplotlib backends listed above must also be available. For the wxagg backend `wxpython` is needed:
