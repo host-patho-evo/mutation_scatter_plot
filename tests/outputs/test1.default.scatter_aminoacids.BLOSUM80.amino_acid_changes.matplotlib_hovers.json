@@ -1,0 +1,82 @@
+[
+  {
+    "index": 0,
+    "text": "Padded position: 498\nPosition: 498\nOriginal Amino Acid: Q (CAA)\nNew Amino Acid: R (['CGA'])\nBLOSUM80 score: 1.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 1,
+    "text": "Padded position: 440\nPosition: 440\nOriginal Amino Acid: N (AAT)\nNew Amino Acid: K (['AAG'])\nBLOSUM80 score: 0.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 2,
+    "text": "Padded position: 460\nPosition: 460\nOriginal Amino Acid: N (AAT)\nNew Amino Acid: K (['AAA'])\nBLOSUM80 score: 0.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 3,
+    "text": "Padded position: 478\nPosition: 478\nOriginal Amino Acid: T (ACA)\nNew Amino Acid: K (['AAA'])\nBLOSUM80 score: -1.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 4,
+    "text": "Padded position: 481\nPosition: 481\nOriginal Amino Acid: N (AAT)\nNew Amino Acid: K (['AAA'])\nBLOSUM80 score: 0.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 5,
+    "text": "Padded position: 484\nPosition: 484\nOriginal Amino Acid: E (GAA)\nNew Amino Acid: K (['AAA'])\nBLOSUM80 score: 1.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 6,
+    "text": "Padded position: 490\nPosition: 490\nOriginal Amino Acid: F (TTT)\nNew Amino Acid: K (['AAA'])\nBLOSUM80 score: -4.0\nCumulative Frequency: 0.076923\nCodon Frequencies: ['0.076923']\nObserved codon counts: [1]\nObserved codon count sum: 1\nTotal codons per site: 13"
+  },
+  {
+    "index": 7,
+    "text": "Padded position: 493\nPosition: 493\nOriginal Amino Acid: Q (CAA)\nNew Amino Acid: E (['GAA'])\nBLOSUM80 score: 2.0\nCumulative Frequency: 0.076923\nCodon Frequencies: ['0.076923']\nObserved codon counts: [1]\nObserved codon count sum: 1\nTotal codons per site: 13"
+  },
+  {
+    "index": 8,
+    "text": "Padded position: 450\nPosition: 450\nOriginal Amino Acid: N (AAT)\nNew Amino Acid: D (['GAT'])\nBLOSUM80 score: 1.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 9,
+    "text": "Padded position: 417\nPosition: 417\nOriginal Amino Acid: K (AAG)\nNew Amino Acid: N (['AAT'])\nBLOSUM80 score: 0.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 10,
+    "text": "Padded position: 477\nPosition: 477\nOriginal Amino Acid: S (AGC)\nNew Amino Acid: N (['AAC'])\nBLOSUM80 score: 0.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 11,
+    "text": "Padded position: 446\nPosition: 446\nOriginal Amino Acid: G (GGT)\nNew Amino Acid: S (['AGT'])\nBLOSUM80 score: -1.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 12,
+    "text": "Padded position: 455\nPosition: 455\nOriginal Amino Acid: L (TTG)\nNew Amino Acid: S (['TCG'])\nBLOSUM80 score: -3.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 13,
+    "text": "Padded position: 445\nPosition: 445\nOriginal Amino Acid: V (GTT)\nNew Amino Acid: H (['CAT'])\nBLOSUM80 score: -4.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 14,
+    "text": "Padded position: 505\nPosition: 505\nOriginal Amino Acid: Y (TAC)\nNew Amino Acid: H (['CAC'])\nBLOSUM80 score: 2.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 15,
+    "text": "Padded position: 486\nPosition: 486\nOriginal Amino Acid: F (TTT)\nNew Amino Acid: P (['CCT'])\nBLOSUM80 score: -4.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 16,
+    "text": "Padded position: 452\nPosition: 452\nOriginal Amino Acid: L (CTG)\nNew Amino Acid: W (['TGG'])\nBLOSUM80 score: -2.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 17,
+    "text": "Padded position: 501\nPosition: 501\nOriginal Amino Acid: N (AAT)\nNew Amino Acid: Y (['TAT'])\nBLOSUM80 score: -3.0\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 18,
+    "text": "Padded position: 456\nPosition: 456\nOriginal Amino Acid: F (TTT)\nNew Amino Acid: L (['CTT'])\nBLOSUM80 score: 0.0\nCumulative Frequency: 0.076923\nCodon Frequencies: ['0.076923']\nObserved codon counts: [1]\nObserved codon count sum: 1\nTotal codons per site: 13"
+  },
+  {
+    "index": 19,
+    "text": "Padded position: 483\nPosition: 483\nOriginal Amino Acid: V (GTT)\nNew Amino Acid: DEL (['---'])\nBLOSUM80 score: -inf\nCumulative Frequency: 0.230769\nCodon Frequencies: ['0.230769']\nObserved codon counts: [3]\nObserved codon count sum: 3\nTotal codons per site: 13"
+  }
+]

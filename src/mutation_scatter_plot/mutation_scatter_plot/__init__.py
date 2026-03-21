@@ -1644,6 +1644,28 @@ def render_matplotlib(
     ax4.set_axis_off()
     ax2.legend(loc='upper center', bbox_to_anchor=(1.25, 1.00), labelspacing=3, frameon=False, handletextpad=1.5)
 
+    if myoptions.debug or os.environ.get('PYTEST_CURRENT_TEST'):
+        _mpl_hovers = []
+        class MockAnnotation:
+            def __init__(self):
+                self.text = ""
+            def set_text(self, t):
+                self.text = t
+        class MockSel:
+            def __init__(self, idx):
+                self.index = idx
+                self.annotation = MockAnnotation()
+        for i in range(len(circles_matplotlib)):
+            mock_sel = MockSel(i)
+            try:
+                on_add(mock_sel)
+                _mpl_hovers.append({'index': i, 'text': mock_sel.annotation.text})
+            except Exception as e:
+                _mpl_hovers.append({'index': i, 'error': str(e)})
+        import json
+        with open(outfile_prefix + ".matplotlib_hovers.json", "w", encoding="utf-8") as f:
+            json.dump(_mpl_hovers, f, indent=2)
+
     for _ext in ('.png', '.pdf'):
         _wholefig = plt.gcf()
         _figsize = _wholefig.get_size_inches()*_wholefig.dpi
