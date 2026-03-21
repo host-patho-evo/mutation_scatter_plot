@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 import contextlib
 import filecmp
 import io
@@ -41,23 +43,23 @@ class TestMutationScatterPlot(unittest.TestCase):
                     return 0, f.getvalue()
                 except SystemExit as e:
                     return e.code, f.getvalue()
-                except Exception as e:
+                except Exception:
                     return 1, f.getvalue() + "\n" + traceback.format_exc()
 
 
     def _check_outputs(self, target_prefix, tmpdir, expected_basename_prefix):
         """Helper to compare all generated files with golden files stored in tests/outputs/"""
         os.makedirs(self.outputs_dir, exist_ok=True)
-        
+
         # Discover all files generated in tmpdir
         generated_files = [f for f in os.listdir(tmpdir) if os.path.isfile(os.path.join(tmpdir, f))]
-        
+
         self.assertTrue(len(generated_files) > 0, "No output files were generated in tmpdir")
 
         for gen_file in generated_files:
             # Map the generated filename to expected golden filename
             expected_filename = gen_file.replace(target_prefix, expected_basename_prefix, 1)
-            
+
             gen_path = os.path.join(tmpdir, gen_file)
             expected_path = os.path.join(self.outputs_dir, expected_filename)
 
@@ -78,7 +80,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                                     f_exp.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
                                 for keys, rows in data_gen:
                                     f_gen.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
-                            
+
                             diff_res = subprocess.run(
                                 ["diff", "-u", "-w", "--color=always", f_exp.name, f_gen.name],
                                 capture_output=True, text=True, check=False
@@ -98,14 +100,14 @@ class TestMutationScatterPlot(unittest.TestCase):
 
         with open(html_path, 'r', encoding='utf-8') as f:
             content = f.read()
-            
+
         match = re.search(r'<script type="application/json".*?>(.*?)</script>', content, re.DOTALL)
         if not match:
             return []
-            
+
         js = json.loads(match.group(1).strip())
         doc_json = list(js.values())[0] if js else {}
-        
+
         doc = Document.from_json(doc_json)
         all_data = []
         for model in doc.models:
@@ -118,7 +120,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                 for idx in range(len(model_data[keys[0]])):
                     rows.append(tuple(str(model_data[k][idx]) for k in keys))
                 all_data.append((keys, sorted(rows)))
-        
+
         return sorted(all_data)
 
     def test_all_inputs_aminoacids(self):
@@ -237,7 +239,7 @@ class TestMutationScatterPlot(unittest.TestCase):
             ]
             res_a_code, res_a_out = self._invoke_cli(cmd_args_a)
             self.assertEqual(res_a_code, 0, f"Command A failed:\n{res_a_out}")
-            
+
             # Run B
             target_prefix_b = "test_run_test4B"
             outfile_prefix_b = os.path.join(tmpdir, target_prefix_b)
@@ -255,16 +257,16 @@ class TestMutationScatterPlot(unittest.TestCase):
             # Extract data
             html_a = f"{outfile_prefix_a}.BLOSUM80.amino_acid_changes.html"
             html_b = f"{outfile_prefix_b}.BLOSUM80.amino_acid_changes.html"
-            
+
             data_a = self._extract_bokeh_data(html_a)
             data_b = self._extract_bokeh_data(html_b)
-            
+
             # Filter synonymous mutations from data_b for comparison with data_a
             # Data format: (keys, rows)
-            # Row index 8 is 'label8' which for amino acids contains the introduced AA. 
+            # Row index 8 is 'label8' which for amino acids contains the introduced AA.
             # Row index 6 is 'label6' which contains the original AA.
             # Wait, let's check the extraction logic.
-            
+
             def filter_synonymous(data):
                 new_data = []
                 for keys, rows in data:
@@ -284,7 +286,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                         f_a.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
                     for keys, rows in data_b:
                         f_b.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
-                
+
                 diff_res = subprocess.run(
                     ["diff", "-u", "-w", "--color=always", f_a.name, f_b.name],
                     capture_output=True, text=True, check=False
@@ -306,7 +308,7 @@ class TestMutationScatterPlot(unittest.TestCase):
             ]
             res_a_code, res_a_out = self._invoke_cli(cmd_args_a)
             self.assertEqual(res_a_code, 0, f"Command A failed:\n{res_a_out}")
-            
+
             # Run B
             target_prefix_b = "test_run_test5B"
             outfile_prefix_b = os.path.join(tmpdir, target_prefix_b)
@@ -323,10 +325,10 @@ class TestMutationScatterPlot(unittest.TestCase):
             # Extract data
             html_a = f"{outfile_prefix_a}.BLOSUM80.amino_acid_changes.html"
             html_b = f"{outfile_prefix_b}.BLOSUM80.amino_acid_changes.html"
-            
+
             data_a = self._extract_bokeh_data(html_a)
             data_b = self._extract_bokeh_data(html_b)
-            
+
             def filter_synonymous(data):
                 new_data = []
                 for keys, rows in data:
@@ -343,7 +345,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                         f_a.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
                     for keys, rows in data_b:
                         f_b.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
-                
+
                 diff_res = subprocess.run(
                     ["diff", "-u", "-w", "--color=always", f_a.name, f_b.name],
                     capture_output=True, text=True, check=False

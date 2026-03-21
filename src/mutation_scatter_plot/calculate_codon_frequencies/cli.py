@@ -131,10 +131,6 @@ def main():
     else:
         raise RuntimeError("Please specify --alignment-file")
 
-    if myoptions.overwrite:
-        _file_openmode='w'
-    else:
-        _file_openmode='x'
     if myoptions.outfileprefix:
         _tsv_header = "padded_position\tposition\toriginal_aa\tmutant_aa\tfrequency\toriginal_codon\tmutant_codon\tobserved_codon_count\ttotal_codons_per_site\n"
         if myoptions.outfileprefix.endswith('.tsv'):

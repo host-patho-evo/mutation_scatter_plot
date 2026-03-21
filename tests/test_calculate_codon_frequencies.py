@@ -27,7 +27,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
     def tearDownClass(cls):
         if not cls.coverage_results:
             return
-        
+
         table = []
         table.append("\n" + "="*77)
         table.append(f"{'GOLDEN DICTIONARY COVERAGE':^77}")
@@ -38,7 +38,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
             filename, total, confirmed, pct = res
             table.append(f"| {filename:<45} | {total:<7} | {confirmed:<9} | {pct:>5.1f}% |")
         table.append("="*77 + "\n")
-        
+
         sys.stderr.write("\n".join(table) + "\n")
         # Ensure it gets flushed
         sys.stderr.flush()

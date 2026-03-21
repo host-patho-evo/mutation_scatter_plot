@@ -22,7 +22,6 @@ import typing
 from collections import Counter
 from decimal import Decimal
 
-from Bio import AlignIO
 from Bio import SeqIO
 
 from .. import alt_translate
@@ -326,8 +325,8 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     _deleted_reference_aa_residues = Counter()
 
     # Initializes the starting amino-acid index used to map substitutions back to the
-    # un-chopped original reference protein sequence. This must mathematically mirror 
-    # the nucleotide offset imposed by `min_start`, otherwise truncated sample sequences 
+    # un-chopped original reference protein sequence. This must mathematically mirror
+    # the nucleotide offset imposed by `min_start`, otherwise truncated sample sequences
     # will be falsely aligned against index 0 of the reference and trigger mass mutations.
     _zero_based_padded_reference_aa_index = int(min_start / 3)
 
@@ -447,7 +446,7 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                 if _rough_sample_codon == 'NNN' or _reference_codon == 'NNN':
                     if myoptions.debug:
                         print("Debug11: Skipping a codon containing NNN")
-                
+
                 if _rough_sample_codon == '---' and _reference_codon != '---' and _reference_codon != 'NNN':
                     _is_deletion = True
                     _deleted_reference_codon = str(_reference_codon)

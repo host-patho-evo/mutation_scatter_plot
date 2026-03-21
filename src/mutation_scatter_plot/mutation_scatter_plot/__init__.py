@@ -1026,7 +1026,7 @@ def collect_scatter_data(
                                     _new_amino_acid = None
                                 if myoptions.debug and _new_amino_acid:
                                     print(f"Info: Parsed existing _new_amino_acid '{_new_amino_acid}' for codon position {_aa_position}")
-                            except Exception as exc:
+                            except Exception:
                                 _new_amino_acid = None
 
                             if _new_amino_acid:
@@ -1550,11 +1550,11 @@ def render_matplotlib(
     _colorbar = figure.colorbar(_mpl_scatterplot, cax=ax3, label=f"{matrix_name} score values", location='right', pad=-0.1, alpha=0.5)
     _colorbar.ax.set_yticks(np.arange(-18.5, 18.5, 1), np.arange(-19, 18, 1))
     _colorbar.ax.tick_params(axis='y', which='minor', length=0)
-    
+
     if markers:
         mk_x, mk_y, mk_s, _, _, _ = zip(*markers)
         ax1.scatter(mk_x, mk_y, s=mk_s, marker='x', color='black', alpha=0.5)
-    
+
     if dots:
         dt_x, dt_y, dt_s, _, _, _, _ = zip(*dots)
         ax1.scatter(dt_x, dt_y, s=dt_s, marker='.', color='black', alpha=0.5)
