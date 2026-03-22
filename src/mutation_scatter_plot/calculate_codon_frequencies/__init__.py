@@ -202,13 +202,40 @@ def _process_one_site(
         'deleted': _deleted_reference_codons,
         'is_deletion': _is_deletion,
         'is_insertion': _is_insertion,
+        'counts': _total_counts,
     }
+
+
+def fast_fasta_iter(handle):
+    """
+    A lightweight FASTA iterator that yields (name, sequence) tuples.
+    Significantly faster than Bio.SeqIO.parse for large files.
+    """
+    name, seq = None, []
+    # Using a list and join() is efficient for building sequences
+    for line in handle:
+        if not line.strip():
+            continue
+        if line[0] == ">":
+            if name is not None:
+                yield name, "".join(seq)
+            # Mimic Bio.SeqIO.parse: id is the first word after the '>'
+            _parts = line[1:].split()
+            name = _parts[0] if _parts else ""
+            seq = []
+        else:
+            # We strip trailing newlines; Bio.SeqIO.parse also handles internal spaces
+            # but for performance we assume typical FASTA format.
+            seq.append(line.strip())
+    if name is not None:
+        yield name, "".join(seq)
 
 
 def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference_dna_seq: str,
                     reference_protein_seq: str, reference_as_codons: list[str],
                     outfilename: typing.Any, outfilename_unchanged_codons: typing.Any,
-                    alnfilename_count: typing.Any, aa_start: int, min_start: int, max_stop: int):
+                    alnfilename_count: typing.Any, aa_start: int, min_start: int, max_stop: int,
+                    threads: int = None):
     """
     Parse a padded multi-FASTA alignment and write codon frequency TSV files.
 
@@ -369,59 +396,71 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     _start_from: int = int(myoptions.discard_this_many_leading_nucs) if myoptions.discard_this_many_leading_nucs else 0
     _stop_to: int = int(myoptions.discard_this_many_trailing_nucs) if myoptions.discard_this_many_trailing_nucs else 0
 
-    _parsed_alignments = {}
+    _raw_groups = {}
     with open(alignment_file, "r", encoding="utf-8") as _handle:
-        for _aln_line in SeqIO.parse(_handle, "fasta"):
-            _record_id = _aln_line.id
-            if myoptions.x_after_count:
-                if 'x.' in _record_id:
-                    _record_count, _ = _record_id.split('x.')
-                    _record_count = int(_record_count)
-                else:
+        if myoptions.x_after_count:
+            for _record_id, _seq_str in fast_fasta_iter(_handle):
+                # Faster parsing of x-after-count: assuming count is at the end of the first word
+                if _record_id.endswith('x.'):
                     try:
-                        _record_count = int(_record_id.replace('x', ''))
+                        _record_count = int(_record_id[:-2])
                     except ValueError:
                         _record_count = 1
-            else:
-                _record_count = 1
-
-            _total_aln_entries_used += _record_count
-
-            if _start_from:
-                if _stop_to:
-                    _aln_line_seq = str(_aln_line.seq)[int(_start_from):-int(_stop_to)]
+                elif _record_id.endswith('x'):
+                    try:
+                        _record_count = int(_record_id[:-1])
+                    except ValueError:
+                        _record_count = 1
                 else:
-                    _aln_line_seq = str(_aln_line.seq)[int(_start_from):]
-            elif _stop_to:
-                _aln_line_seq = str(_aln_line.seq)[:-int(_stop_to)]
+                    _record_count = 1
+                
+                if _seq_str in _raw_groups:
+                    _raw_groups[_seq_str][0] += _record_count
+                else:
+                    _raw_groups[_seq_str] = [_record_count, _record_id]
+        else:
+            for _, _seq_str in fast_fasta_iter(_handle):
+                if _seq_str in _raw_groups:
+                    _raw_groups[_seq_str][0] += 1
+                else:
+                    _raw_groups[_seq_str] = [1, ""]
+
+    _parsed_alignments = {}
+    for _raw_seq, (_record_count, _record_id) in _raw_groups.items():
+        _total_aln_entries_used += _record_count
+
+        # Slicing and upper-casing logic
+        if _start_from or _stop_to:
+            if _stop_to:
+                _aln_line_seq = _raw_seq[_start_from:-_stop_to].upper()
             else:
-                _aln_line_seq = str(_aln_line.seq)
+                _aln_line_seq = _raw_seq[_start_from:].upper()
+        else:
+            _aln_line_seq = _raw_seq.upper()
 
-            _aln_line_seq = _aln_line_seq.upper()
+        if _aln_line_seq in _parsed_alignments:
+            _parsed_alignments[_aln_line_seq]['count'] += _record_count
+        else:
+            _padded_aln_line_length = len(_aln_line_seq)
+            _depadded_aln_line_length = len(
+                _aln_line_seq.replace('-', '').replace('N', '')
+            )
+            
+            _end_of_leading_gaps = 0
+            _start_of_trailing_gaps = 0
+            for _match in _re_leading_gaps.finditer(_aln_line_seq):
+                _end_of_leading_gaps = _match.end()
+            for _match in _re_trailing_gaps.finditer(_aln_line_seq):
+                _start_of_trailing_gaps = _match.start()
 
-            if _aln_line_seq in _parsed_alignments:
-                _parsed_alignments[_aln_line_seq]['count'] += _record_count
-            else:
-                _padded_aln_line_length = len(_aln_line_seq)
-                _depadded_aln_line_length = len(
-                    _aln_line_seq.replace('-', '').replace('N', '')
-                )
-
-                _start_of_trailing_gaps = 0
-                _end_of_leading_gaps = 0
-                for _match in _re_leading_gaps.finditer(_aln_line_seq):
-                    _end_of_leading_gaps = _match.end()
-                for _match in _re_trailing_gaps.finditer(_aln_line_seq):
-                    _start_of_trailing_gaps = _match.start()
-
-                _parsed_alignments[_aln_line_seq] = {
-                    'count': _record_count,
-                    'seq': _aln_line_seq,
-                    'padded_len': _padded_aln_line_length,
-                    'depadded_len': _depadded_aln_line_length,
-                    'end_of_leading_gaps': _end_of_leading_gaps,
-                    'start_of_trailing_gaps': _start_of_trailing_gaps
-                }
+            _parsed_alignments[_aln_line_seq] = {
+                'count': _record_count,
+                'seq': _aln_line_seq,
+                'padded_len': _padded_aln_line_length,
+                'depadded_len': _depadded_aln_line_length,
+                'end_of_leading_gaps': _end_of_leading_gaps,
+                'start_of_trailing_gaps': _start_of_trailing_gaps
+            }
 
     _parsed_alignments_list = list(_parsed_alignments.values())
     _num_unique = len(_parsed_alignments_list)
@@ -468,7 +507,7 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     ]
 
     if len(_pool_args) > 0:
-        with multiprocessing.Pool() as _pool:
+        with multiprocessing.Pool(processes=threads) as _pool:
             _all_results = _pool.starmap(_process_one_site, _pool_args)
             
         for _res in _all_results:
