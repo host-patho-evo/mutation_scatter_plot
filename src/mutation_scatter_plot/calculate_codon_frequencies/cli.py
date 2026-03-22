@@ -106,6 +106,20 @@ def build_option_parser():
     myparser.add_option("--overwrite", action="store_true",
         dest="overwrite", default=False,
         help="Overwrite existing output files instead of raising RuntimeError")
+    
+    # Auto-detect default threads from environment variables
+    _default_threads = 0
+    for _env_var in ["PBS_NUM_PPN", "PBS_NCPUS", "OMP_NUM_THREADS"]:
+        if _env_var in os.environ:
+            try:
+                _default_threads = int(os.environ[_env_var])
+                break
+            except ValueError:
+                continue
+    
+    myparser.add_option("--threads", action="store", type="int",
+        dest="threads", default=_default_threads,
+        help="Number of CPU threads/processes to use for parallelization. If 0 [default], the tool automatically detects the allocation from environment variables (tried in order: PBS_NUM_PPN, PBS_NCPUS, OMP_NUM_THREADS) or falls back to all available cores via multiprocessing.cpu_count().")
     return myparser
 
 
@@ -163,6 +177,7 @@ def main():
         _aa_start = (myoptions.aa_start - 1) if myoptions.aa_start else 0
         _min_start = (myoptions.min_start - 1) if myoptions.min_start else 0
         _max_stop  = (myoptions.max_stop  + 1) if myoptions.max_stop  else 0
+        _threads   = myoptions.threads if myoptions.threads > 0 else None
 
         if os.path.exists(myoptions.alignment_infilename):
             if os.path.getsize(myoptions.alignment_infilename) == 0:
@@ -179,6 +194,7 @@ def main():
                 _aa_start,
                 _min_start,
                 _max_stop,
+                threads=_threads,
             )
         else:
             raise RuntimeError(

@@ -175,15 +175,32 @@ The `calculate_codon_frequencies` and `mutation_scatter_plot` pipelines have bee
 | **6** | Numeric Model | High-Precision `Decimal(str)` | Bit-identical, platform-independent output |
 
 
-## Run times
+### Parallelization & Environment Variables
 
-The runtime of `calculate_codon_frequencies` is now highly optimized. By utilizing NumPy-based vectorized operations and multi-core parallelization, the processing of large alignments is significantly faster.
+The `calculate_codon_frequencies` tool is designed for high-performance multi-core execution. By default, it automatically detects the available CPU allocation from common HPC environment variables, falling back to all available cores if none are set.
 
-- **Legacy Performance**: To process ~350nt wide amplicon regions of ~200k sequences (non-unique), it previously required several hours on a 2.3GHz machine (single thread).
-- **New Performance**: With the vectorized NumPy core and multi-core execution enabled, processing the same ~200k sequences now takes just minutes on a modern multi-core machine.
+**Supported Environment Variables (checked in order):**
+1. `PBS_NUM_PPN`
+2. `PBS_NCPUS`
+3. `OMP_NUM_THREADS`
 
-The `mutation_scatter_plot` tool has also been optimized to provide instant interactive hover performance and O(1) data aggregation, reducing total rendering time from minutes to several seconds per dataset.
+You can explicitly control the thread count using the `--threads` option:
+```bash
+# Force use of 8 threads
+calculate_codon_frequencies --threads 8 [other options]
+```
 
+**Benchmarking Results (4-core system):**
+With a high-diversity synthetic dataset (50,000 unique sequences), we measured the following efficiency:| Threads | Time (s) | Speedup | Efficiency |
+| :--- | :--- | :--- | :--- |
+| 1 | 27.31 | 1.00x | 100% |
+| 2 | 28.08 | 0.97x | 49% |
+| 4 | 28.32 | 0.96x | 24% |
+
+**Note on Parallelization Efficiency:** The tool is now so heavily optimized that for most datasets, the **sequential grouping phase** (FASTA parsing and record-to-unique grouping) and **NumPy vectorization** dominate the runtime. The parallelized positional processing typically takes less than 1% of the total execution time. Multi-threading is most beneficial for extremely high-diversity alignments with hundreds of thousands of *unique* sequences.
+e grouping optimization (Speedup 4) is so effective that it handles the majority of the computational load by collapsing redundant sequences. For most datasets, the processing is now dominated by the sequential FASTA parsing and grouping phase (~26s for 50k sequences), while the parallelized positional analysis takes a fraction of a second (~0.26s). Multi-core processing provides additional scaling headroom for extremely large alignments with extremely high unique sequence diversity.
+
+The `mutation_scatter_plot` tool provides instant interactive hover performance and O(1) data aggregation.
 
 
 ## Example static output images (without interactive features)
@@ -357,6 +374,12 @@ Options:
   --debug=DEBUG         Set debug level to some real number
   --overwrite           Overwrite existing output files instead of raising
                         RuntimeError
+  --threads=THREADS     Number of CPU threads/processes to use for
+                        parallelization. If 0 [default], the tool
+                        automatically detects the allocation from environment
+                        variables (tried in order: PBS_NUM_PPN, PBS_NCPUS,
+                        OMP_NUM_THREADS) or falls back to all available cores
+                        via multiprocessing.cpu_count().
 ```
 
 ```
@@ -496,8 +519,8 @@ This project has undergone several major architectural and performance transform
 | **1. Quality** | **Refactoring** | Migrated to modern **f-strings**, updated **Matplotlib 3.8+ colormap** syntax, and achieved a **10.0/10 Pylint score**. |
 | **2. UX** | **CLI & Docs** | Comprehensive **`--help`** refresh, synchronized realistic **`test2_full`** examples in README, and automated help-output verification. |
 | **3. Reliability** | **Testing** | Established a **"Golden File" regression suite** with 120+ artifacts and standardized naming. Refactored **`alt_translate`** to the core module. |
-| **4. Core Speed** | **Algorithms** | **Streaming FASTA** input (`SeqIO.parse`), **Global/Local grouping**, and **Render Pruning** for sparse data, achieving a **119x core speedup**. |
-| **5. Scale** | **Parallelism** | **NumPy Vectorization** for $O(1)$ extraction, **Multi-core multiprocessing**, and **Decimal Precision** for bit-identical output. |
+| **4. Core Speed** | **Algorithms** | **Streaming FASTA** input, **Global/Local grouping**, and **Render Pruning**, achieving a **119x core speedup**. |
+| **5. Scale** | **Parallelism** | **NumPy Vectorization**, **Multi-core multiprocessing**, and **High-speed FASTA parser** with **Raw Grouping**. |
 
 ### Major Technical Milestones
 - **Streaming & Memory Efficiency**: Transitioned from loading entire alignments to streaming unique sequence hashes, allowing the tool to process files with millions of reads in constant memory.
