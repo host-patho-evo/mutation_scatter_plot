@@ -29,74 +29,84 @@ Usage example::
 
 import os
 import sys
-from optparse import OptionParser
-
+import argparse
 from decimal import Decimal
 from Bio import SeqIO
 
 VERSION = "0.3"
 
 
+class NoWrapFormatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
+    """Help formatter that does not wrap long lines, preserving URLs."""
+
+    def _split_lines(self, text, width):
+        return text.splitlines()
+
+
 def build_option_parser():
-    """Build and return the command-line option parser."""
-    myparser = OptionParser(version=f"%prog version {VERSION}")
-    myparser.add_option(
-        "--reference-infile", action="store", type="string",
+    """Build and return the command-line argument parser."""
+    myparser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=NoWrapFormatter,
+    )
+    myparser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
+    myparser.add_argument(
+        "--reference-infile", action="store", type=str,
         dest="reference_infilename", default=None, metavar="FILE",
         help="FASTA formatted input file with reference padded sequence or not",
     )
-    myparser.add_option(
-        "--alignment-file", action="store", type="string",
+    myparser.add_argument(
+        "--alignment-file", action="store", type=str,
         dest="alignment_file", default=None, metavar="FILE",
         help="FASTA formatted input file with padded sequence or not",
     )
-    myparser.add_option(
+    myparser.add_argument(
         "--aminoacids", action="store_true", dest="aminoacids", default=False,
         help="FASTA formatted input files are protein sequences instead of DNA"
              " [default: DNA]",
     )
-    myparser.add_option(
-        "--outfilename", action="store", type="string", dest="outfilename",
+    myparser.add_argument(
+        "--outfilename", action="store", type=str, dest="outfilename",
         default=None, metavar="FILE",
         help="Output filename. If the filename ends with .tsv the output lines"
              " will be split using TABs and original FASTA ID will be on the"
              " same line with the split sequence",
     )
-    myparser.add_option(
-        "--aln_start", action="store", type="int", dest="aln_start", default=1,
+    myparser.add_argument(
+        "--aln_start", action="store", type=int, dest="aln_start", default=1,
         help="First nucleotide of the ORF region of interest to be sliced out"
              " from the input sequences",
     )
-    myparser.add_option(
-        "--aln_stop", action="store", type="int", dest="aln_stop", default=0,
+    myparser.add_argument(
+        "--aln_stop", action="store", type=int, dest="aln_stop", default=0,
         help="Last nucleotide of the last codon of interest to be sliced out"
              " from the input sequences",
     )
-    myparser.add_option(
+    myparser.add_argument(
         "--print-fasta-ids", action="store_true", dest="print_ids",
         default=False,
         help="The FASTA file ID should be printed for each aligned entry",
     )
-    myparser.add_option(
-        "--threshold", action="store", type="int", dest="threshold", default=0,
+    myparser.add_argument(
+        "--threshold", action="store", type=int, dest="threshold", default=0,
         help="Set the minimum absolute count of different characters in"
              " sequence to be output. Set this to 1 or higher if you want to"
              " see at least 2 aa residues being changed and in turn, do not"
              " want to see just dashes in some cases for synonymous changes"
              " [default: 0].",
     )
-    myparser.add_option(
-        "--relative_threshold", action="store", type="float",
+    myparser.add_argument(
+        "--relative_threshold", action="store", type=float,
         dest="relative_threshold", default=0,
         help="Set the minimum relative incidence threshold of the whole"
              " sequence hash. Maybe you want something like 0.001 [default: 0].",
     )
-    myparser.add_option(
-        "--top_n", action="store", type="int", dest="top_n", default=0,
+    myparser.add_argument(
+        "--top_n", action="store", type=int, dest="top_n", default=0,
         help="Write only first N entries containing some difference [default: all]",
     )
-    myparser.add_option(
-        "--debug", action="store", type="int", dest="debug", default=0,
+    myparser.add_argument(
+        "--debug", action="store", type=int, dest="debug", default=0,
         help="Set debug level to some real number",
     )
     return myparser

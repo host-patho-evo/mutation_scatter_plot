@@ -142,22 +142,22 @@ def get_colormap(myoptions, colormapname):
                         import palettable
                         _cmap_from_palettable = palettable.colorbrewer.get_map(_wished_cmapname_prefix, 'sequential', _wished_cmapname_num)
                         _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-                    except (ImportError, Exception):
+                    except (ImportError, AttributeError):
                         try:
-                            import palettable
-                            _cmap_from_palettable = palettable.scientific.get_map(_wished_cmapname_prefix, 'diverging', _wished_cmapname_num)
+                            import palettable.scientific.diverging
+                            _cmap_from_palettable = palettable.scientific.diverging.get_map(_wished_cmapname_prefix)
                             _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-                        except (ImportError, Exception):
+                        except (ImportError, AttributeError):
                             try:
-                                import palettable
-                                _cmap_from_palettable = palettable.scientific.get_map(_wished_cmapname_prefix, 'sequential', _wished_cmapname_num)
+                                import palettable.scientific.sequential
+                                _cmap_from_palettable = palettable.scientific.sequential.get_map(_wished_cmapname_prefix)
                                 _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-                            except (ImportError, Exception):
+                            except (ImportError, AttributeError):
                                 try:
-                                    import palettable
-                                    _cmap_from_palettable = palettable.tableau.get_map(myoptions.colormap)
+                                    import palettable.mygbm
+                                    _cmap_from_palettable = palettable.mygbm.get_map(_wished_cmapname_prefix)
                                     _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-                                except (ImportError, Exception):
+                                except (ImportError, AttributeError):
                                     _micro_cvd_gray = ["#F5F5F5", "#D6D6D6", "#B7B7B7", "#8B8B8B","#616161"]
                                     _micro_cvd_green = ["#DDFFA0",  "#BDEC6F",  "#97CE2F", "#6D9F06","#4E7705"]
                                     _micro_cvd_orange = ["#FFD5AF",  "#FCB076","#F09163", "#C17754", "#9D654C"]
@@ -447,9 +447,9 @@ def load_matrix(myoptions):
 def load_and_clean_dataframe(myoptions, infilename, padded_position2position):
     """
     Load the input TSV, normalise column names for legacy formats, and filter noisy rows.
-    
+
     Optimization:
-    - Speedup 6: Uses Decimal(str) for all frequency parsing to maintain 
+    - Speedup 6: Uses Decimal(str) for all frequency parsing to maintain
       high precision and bit-identical output across platforms.
 
     Parse only rows with codons [ATGCatgc-], so not those with more exotic IUPAC codes.
@@ -615,10 +615,10 @@ def build_frequency_tables(myoptions, df, padded_position2position):
     if myoptions.include_synonymous or not myoptions.aminoacids:
         _cond_mutation = True
     else:
-        _cond_mutation = (df['original_aa'] != df['mutant_aa'])
+        _cond_mutation = df['original_aa'] != df['mutant_aa']
 
     # Condition 2: Frequencies above threshold
-    _cond_threshold = (df[_freq_col].astype(float).abs() >= myoptions.threshold)
+    _cond_threshold = df[_freq_col].astype(float).abs() >= myoptions.threshold
 
     _mask = _cond_mutation & _cond_threshold
     _filtered_df = df.loc[_mask]
@@ -826,7 +826,7 @@ def collect_scatter_data(
     Synonymous mutations will be represented like 'D1146D' or 'I68I'.
 
     Optimization:
-    - Speedup 3: Implements an O(1) hover text pipeline for Bokeh by pre-formatting 
+    - Speedup 3: Implements an O(1) hover text pipeline for Bokeh by pre-formatting
       metadata in ColumnDataSource, avoiding heavy per-dot calculation during rendering.
     """
 
@@ -843,17 +843,6 @@ def collect_scatter_data(
 
     _used_colors = set()
     _norm, _cmap, _colors = get_colormap(myoptions, myoptions.colormap)
-    _label_padded_positions: list[str] = []
-    _label_codon_positions: list[str] = []
-    _label_original_amino_acids: list[str] = []
-    _label_new_amino_acids: list[str] = []
-    _label_cumulative_frequencies: list[str] = []
-    _label_codon_frequencies: list[str] = []
-    _label_observed_codon_counts: list[typing.Any] = []
-    _label_observed_codon_count_sum: list[typing.Any] = []
-    _label_total_codons_per_site: list[typing.Any] = []
-    _label_scores: list[typing.Any] = []
-
     _mutations: list[str] = []
     _circles_bokeh: list[tuple[typing.Any, ...]] = []
     _circles_matplotlib: list[tuple[typing.Any, ...]] = []
@@ -1386,8 +1375,6 @@ def render_matplotlib(
     figure, ax1, ax2, ax3, ax4, outfile_prefix,
     circles_matplotlib, markers, dots, cmap, norm, colors,
     matrix, matrix_name,
-    new_aa_table, new_codon_table, df, codons_whitelist2, final_sorted_whitelist,
-    padded_position2position,
 ):
     """Render the matplotlib scatter figure with hover callbacks and save to PNG/PDF.
 

@@ -13,42 +13,45 @@ count_motifs_in_sequences --infile=$somefile --start-position=498 --end-position
 
 import os
 import sys
+import argparse
 from collections import Counter, OrderedDict
-from optparse import OptionParser
-
 from Bio import SeqIO
 
 VERSION = "0.3"
 
 
 def build_option_parser():
-    """Build and return the command-line option parser."""
-    myparser = OptionParser(version=f"%prog version {VERSION}")
-    myparser.add_option(
-        "--infilename", action="store", type="string", dest="infilename",
+    """Build and return the command-line argument parser."""
+    myparser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    myparser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
+    myparser.add_argument(
+        "--infilename", action="store", type=str, dest="infilename",
         default='stdin.fasta',
         help="Input FASTA/Q file path.",
     )
-    myparser.add_option(
-        "--infile-format", action="store", type="string",
+    myparser.add_argument(
+        "--infile-format", action="store", type=str,
         dest="infile_format", default='fasta',
         help="Input FASTA/Q file format [default: fasta]. Outfile is always fasta.",
     )
-    myparser.add_option(
-        "--motif", action="store", type="string", dest="motif", default='',
+    myparser.add_argument(
+        "--motif", action="store", type=str, dest="motif", default='',
         help="Protein or nucleotide motif to count. No REGEXPs allowed (yet)",
     )
-    myparser.add_option(
-        "--start-position", action="store", type="int", dest="startpos",
+    myparser.add_argument(
+        "--start-position", action="store", type=int, dest="startpos",
         default=0,
         help="Exact start position of the query",
     )
-    myparser.add_option(
-        "--end-position", action="store", type="int", dest="endpos", default=0,
+    myparser.add_argument(
+        "--end-position", action="store", type=int, dest="endpos", default=0,
         help="Exact end position of the query",
     )
-    myparser.add_option(
-        "--debug", action="store", type="int", dest="debug", default=0,
+    myparser.add_argument(
+        "--debug", action="store", type=int, dest="debug", default=0,
         help="Set debug to some value",
     )
     return myparser
@@ -57,7 +60,7 @@ def build_option_parser():
 def main():  # pylint: disable=too-many-locals,too-many-branches
     """Entry point: count motif occurrences in a FASTA alignment file."""
     myparser = build_option_parser()
-    myoptions, _ = myparser.parse_args()
+    myoptions = myparser.parse_args()
 
     if not myoptions.infilename:
         raise RuntimeError("Please provide input filename via --infilename")

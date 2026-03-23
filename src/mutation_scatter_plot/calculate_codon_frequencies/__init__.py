@@ -16,16 +16,13 @@ Emergence. https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1
 
 import os
 import re
-import sys
 import typing
 
-import numpy as np
 import multiprocessing
-
 from collections import Counter
 from decimal import Decimal
 
-from Bio import SeqIO
+import numpy as np
 
 from .. import alt_translate
 
@@ -98,22 +95,20 @@ def _process_one_site(
     _pos, _num_unique, _alignment_len, _aln_array, _counts_array,
     _padded_len_array, _depadded_len_array, _leading_gap_array, _trailing_gap_array,
     _padded_reference_dna_seq, _reference_protein_seq, _ref_gaps_cumulative,
-    min_start, aa_start, myoptions_minimum_aln_length, myoptions_left_reference_offset
+    aa_start, myoptions_minimum_aln_length, myoptions_left_reference_offset
 ):
     """
     Process a single codon position and return the aggregated results.
-    
-    This function implements Speedup 4 (NumPy Vectorization) by using vectorized 
+
+    This function implements Speedup 4 (NumPy Vectorization) by using vectorized
     column slicing and np.bincount to group unique sequences by their (codon, action)
     tuple. It is designed to be picklable for Speedup 5 (Multi-processing).
     """
-    _zero_based_codon_startpos = _pos
     _zero_based_padded_reference_aa_index = int(_pos / 3)
-    _current_codon_position = _pos / 3 + 1
-    
+
     _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3]
     _reference_codon_depadded = _reference_codon.replace('-', '')
-    
+
     _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index] if len(_reference_protein_seq) > _zero_based_padded_reference_aa_index else '?'
 
     # Pass 1: Local Grouping (Vectorized with NumPy)
@@ -123,8 +118,8 @@ def _process_one_site(
         if myoptions_minimum_aln_length:
             _actions[_depadded_len_array < myoptions_minimum_aln_length] = 1
         _actions[_depadded_len_array == 0] = 2
-        
-        _is_masked = (_actions == 0)
+
+        _is_masked = _actions == 0
         if np.any(_is_masked):
             _lead = _leading_gap_array
             _trail = _trailing_gap_array
@@ -136,10 +131,10 @@ def _process_one_site(
             _is_masked &= ~_mask
             _mask = _is_masked & (_padded_len_array + 1 <= _pos + 3)
             _actions[_mask] = 5
-        
+
         _chunks = _aln_array[:, _pos:_pos + 3]
-        _packed = (_chunks[:, 0].astype(np.uint32) << 16 | 
-                   _chunks[:, 1].astype(np.uint32) << 8 | 
+        _packed = (_chunks[:, 0].astype(np.uint32) << 16 |
+                   _chunks[:, 1].astype(np.uint32) << 8 |
                    _chunks[:, 2].astype(np.uint32))
         _combined = _packed | (_actions.astype(np.uint32) << 24)
         _unique_combined, _first_indices, _inverse = np.unique(_combined, return_index=True, return_inverse=True)
@@ -147,12 +142,13 @@ def _process_one_site(
         _appearance_order = np.argsort(_first_indices)
         _unique_combined = _unique_combined[_appearance_order]
         _agg_counts = _agg_counts[_appearance_order]
-        
-        _action_map = {0: "regular", 1: "min_len_fail", 2: "empty_seq", 
+
+        _action_map = {0: "regular", 1: "min_len_fail", 2: "empty_seq",
                        3: "leading_gap", 4: "trailing_gap", 5: "too_short"}
-        
+
         for _val, _count in zip(_unique_combined, _agg_counts):
-            if _count == 0: continue
+            if _count == 0:
+                continue
             _act_code = int(_val >> 24)
             _pck = _val & 0xFFFFFF
             _codon = bytes([(_pck >> 16) & 0xFF, (_pck >> 8) & 0xFF, _pck & 0xFF]).decode()
@@ -382,15 +378,8 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
 
     _padded_reference_dna_seq = _padded_reference_dna_seq.upper()
     _reference_protein_seq = _reference_protein_seq.upper()
-    _zero_based_padded_reference_aa_index: int = 0
-    _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index]
-    _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3]
-    _reference_codon_depadded = _reference_codon.replace('-', '')
-    _previous_gaps: int = 0
-    _new_gaps_in_reference: int = 0
     _re_leading_gaps = re.compile("^[-Nn]+")
     _re_trailing_gaps = re.compile("[-Nn]+$")
-    _already_checked_starts = []
     _top_most_codons = []
     _total_aln_entries_used: int = 0
     _start_from: int = int(myoptions.discard_this_many_leading_nucs) if myoptions.discard_this_many_leading_nucs else 0
@@ -413,7 +402,7 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                         _record_count = 1
                 else:
                     _record_count = 1
-                
+
                 if _seq_str in _raw_groups:
                     _raw_groups[_seq_str][0] += _record_count
                 else:
@@ -445,7 +434,7 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
             _depadded_aln_line_length = len(
                 _aln_line_seq.replace('-', '').replace('N', '')
             )
-            
+
             _end_of_leading_gaps = 0
             _start_of_trailing_gaps = 0
             for _match in _re_leading_gaps.finditer(_aln_line_seq):
@@ -471,7 +460,7 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         # Optimization: use np.frombuffer on a single string join instead of list comprehension
         _all_seqs_str = "".join(item['seq'] for item in _parsed_alignments_list)
         _aln_array = np.frombuffer(_all_seqs_str.encode('ascii'), dtype=np.uint8).reshape(_num_unique, _alignment_len)
-        
+
         _counts_array = np.array([item['count'] for item in _parsed_alignments_list], dtype=np.int64)
         _padded_len_array = np.array([item['padded_len'] for item in _parsed_alignments_list], dtype=np.int32)
         _depadded_len_array = np.array([item['depadded_len'] for item in _parsed_alignments_list], dtype=np.int32)
@@ -488,12 +477,9 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     # Pre-calculate previous gaps in reference to make each loop iteration independent
     _ref_aln_array = np.frombuffer(_padded_reference_dna_seq.encode('ascii'), dtype=np.uint8)
     _ref_gaps_cumulative = np.cumsum(_ref_aln_array == ord('-'))
-    
-    _amplicon_length = (max_stop or len(_padded_reference_dna_seq)) - min_start
 
     # Pre-allocate counters once and clear() each iteration to avoid 8 * N_sites constructor calls
     _top_most_codons = []
-    _already_checked_starts = []
 
     # Parallelize site processing using multiprocessing.Pool
     _pool_args = [
@@ -501,7 +487,7 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
             _pos, _num_unique, _alignment_len, _aln_array, _counts_array,
             _padded_len_array, _depadded_len_array, _leading_gap_array, _trailing_gap_array,
             _padded_reference_dna_seq, _reference_protein_seq, _ref_gaps_cumulative,
-            min_start, aa_start, myoptions.minimum_aln_length, myoptions.left_reference_offset
+            aa_start, myoptions.minimum_aln_length, myoptions.left_reference_offset
         )
         for _pos in range(min_start, max_stop or _alignment_len, 3)
     ]
@@ -509,7 +495,7 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     if len(_pool_args) > 0:
         with multiprocessing.Pool(processes=threads) as _pool:
             _all_results = _pool.starmap(_process_one_site, _pool_args)
-            
+
         for _res in _all_results:
             # Write results
             write_tsv_line(outfilename_unchanged_codons, _res['unchanged'], _res['nat_padded'], _res['nat_depadded'], _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug)
@@ -517,17 +503,17 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                 write_tsv_line(outfilename, _res['changed'], _res['nat_padded'], _res['nat_depadded'], _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug)
             if _res['inserted']:
                 write_tsv_line(outfilename, _res['inserted'], _res['nat_padded'], _res['nat_depadded'], 'INS', _res['total_sum'], _res['ref_codon'], debug=myoptions.debug)
-            
+
             if _res['is_deletion']:
                 for _some_deleted_codon in _res['deleted']:
                     _count = _res['deleted'][_some_deleted_codon]
                     outfilename.write(f"{_res['nat_padded']}\t{_res['nat_depadded']}\t{_res['ref_aa']}\tDEL\t{Decimal(_count) / Decimal(_res['total_sum']):.6f}\t{_some_deleted_codon}\t---\t{_count}\t{_res['total_sum']}\n")
-            
+
             outfilename.flush()
-            
+
             # Update top most codons
             if _res['counts']:
-                _top_most_codon, _Count = _res['counts'].most_common(1)[0]
+                _top_most_codon, _count = _res['counts'].most_common(1)[0]
                 _top_most_codons.append(_top_most_codon)
 
     alnfilename_count.write(f"{_total_aln_entries_used}\n")
