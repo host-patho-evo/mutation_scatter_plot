@@ -1,6 +1,7 @@
 """Command-line interface for mutation_scatter_plot."""
 
 import os
+import sys
 import argparse
 from . import (
     VERSION,
@@ -147,7 +148,20 @@ def build_option_parser():
     myparser.add_argument(
         "--disable-2nd-Y-axis", action="store_true",
         dest="disable_2nd_Y_axis", default=False,
-        help="Disable rendering of the 2nd Y-axis showing sequencing coverage",
+        help="Disable 2nd Y-axis on the right side of the plot."
+             " [default is False]",
+    )
+    myparser.add_argument(
+        "--disable-showing-bokeh", action="store_true",
+        dest="disable_showing_bokeh", default=False,
+        help="Disable calling a GUI or text-based browser TO show the rendered Bokeh HTML+Javascript."
+             " [default is False]",
+    )
+    myparser.add_argument(
+        "--disable-showing-mplcursors", action="store_true",
+        dest="disable_showing_mplcursors", default=False,
+        help="Disable rendering an interactive window WITH hover() events recognized by mplcursors."
+             " [default is False]",
     )
     myparser.add_argument(
         "--legend", action="store_true", dest="legend", default=False,
@@ -229,7 +243,7 @@ def main():  # pylint: disable=too-many-locals
     _df_to_save[myoptions.column_with_frequencies] = _df_to_save[myoptions.column_with_frequencies].apply(lambda x: f"{x:.6f}")
     _df_to_save.to_csv(
         f"{_outfile_prefix}.actually_rendered.tsv",
-        sep='\t', header=None, index=False, float_format='{:.6f}'.format,
+        sep='\t', header=True, index=False, float_format='{:.6f}'.format,
     )
 
     if '.frequencies.tsv' in myoptions.tsv_file_path:
@@ -256,10 +270,13 @@ def main():  # pylint: disable=too-many-locals
     _unchanged_tsv = myoptions.tsv_file_path.replace(
         '.frequencies.tsv', '.frequencies.unchanged_codons.tsv'
     )
-    _df_frequencies_unchanged_codons, _padded_position2position = load_and_clean_dataframe(
-        myoptions, _unchanged_tsv, _padded_position2position,
-    )
-    del _df_frequencies_unchanged_codons
+    if os.path.exists(_unchanged_tsv):
+        _df_frequencies_unchanged_codons, _padded_position2position = load_and_clean_dataframe(
+            myoptions, _unchanged_tsv, _padded_position2position,
+        )
+        del _df_frequencies_unchanged_codons
+    else:
+        sys.stderr.write(f"Warning: File {_unchanged_tsv} not found, skipping supplemental conversion data.{os.linesep}")
 
     (
         _amino_acids, _codons_whitelist, _codons_whitelist2,
@@ -302,6 +319,7 @@ def main():  # pylint: disable=too-many-locals
             _circles_bokeh, _mutations, _hover_text_bokeh,
             _title_data, _xlabel,
             _matrix_name, _colors, _norm, _cmap,
+            show=not myoptions.disable_showing_bokeh,
         )
 
     render_matplotlib(
@@ -309,6 +327,7 @@ def main():  # pylint: disable=too-many-locals
         _figure, _ax1, _ax2, _ax3, _ax4, _outfile_prefix,
         _circles_matplotlib, _markers, _dots, _cmap, _norm, _colors,
         _matrix, _matrix_name,
+        show=not myoptions.disable_showing_mplcursors,
     )
 
 

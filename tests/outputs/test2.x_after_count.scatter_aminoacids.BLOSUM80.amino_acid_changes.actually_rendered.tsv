@@ -1,3 +1,4 @@
+padded_position	position	original_aa	mutant_aa	frequency	original_codon	mutant_codon	observed_codon_count	total_codons_per_site
 417	417	K	N	0.700161	AAG	AAT	1103909	1576651
 440	440	N	K	0.700161	AAT	AAG	1103909	1576651
 445	445	V	H	0.009015	GTT	CAT	14213	1576651
