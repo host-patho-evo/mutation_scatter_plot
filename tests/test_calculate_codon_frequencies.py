@@ -279,6 +279,24 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
             # Note: We expect this to fail initially if the baseline is not yet updated for the zapped file.
             self._check_outputs("test2_full.x_after_count.frequencies", outfile_prefix)
 
+    def test_threads_option(self):
+        """Test calculate_codon_frequencies with --threads option."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outfile_prefix = os.path.join(tmpdir, "test1.threads.frequencies")
+            cmd = self.base_cmd + [
+                "--alignment-file", self.test1_fasta,
+                "--outfile-prefix", outfile_prefix,
+                "--padded-reference",
+                "--reference-infile", self.ref_fasta,
+                "--aa_start=413",
+                "--threads", "2",
+                "--overwrite"
+            ]
+            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            # Compare with the same baseline as test1_default_command
+            self._check_outputs("test1.default.frequencies", outfile_prefix)
+
     # --- test3.fasta ---
 
     def test_test3_default_command(self):

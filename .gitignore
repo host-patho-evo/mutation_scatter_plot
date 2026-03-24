@@ -10,3 +10,5 @@ venv/
 profile_*.txt
 profile_parsed*.txt
 profile_test.*
+full_test_output.txt
+.matplotlib/

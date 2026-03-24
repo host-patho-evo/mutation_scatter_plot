@@ -16,13 +16,13 @@ Emergence. https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1
 
 import os
 import re
-import sys
 import typing
 
+import multiprocessing
 from collections import Counter
 from decimal import Decimal
 
-from Bio import SeqIO
+import numpy as np
 
 from .. import alt_translate
 
@@ -84,18 +84,161 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded,
         else:
             _observed_codon_count2 = _observed_codon_count
         outfilename.write(
-            f"{natural_codon_position_padded}\t{natural_codon_position_depadded}\t{reference_aa}\t{_some_aa}\t{_observed_codon_count2 / Decimal(total_codons_per_site_sum):8.6f}\t{reference_codon}\t{_some_codon}\t{_observed_codon_count2}\t{_total_codons_per_site_sum}\n"
+            f"{natural_codon_position_padded}\t{natural_codon_position_depadded}\t{reference_aa}\t{_some_aa}\t{Decimal(_observed_codon_count2) / Decimal(total_codons_per_site_sum):.6f}\t{reference_codon}\t{_some_codon}\t{_observed_codon_count2}\t{_total_codons_per_site_sum}\n"
         )
         if debug:
-            print(f"TESTING1:\t{natural_codon_position_padded}\t{natural_codon_position_depadded}\t{reference_aa}\t{_some_aa}\t{_observed_codon_count2 / Decimal(total_codons_per_site_sum):8.6f}\t{reference_codon}\t{_some_codon}\t{_observed_codon_count2}\t{_total_codons_per_site_sum}")
+            print(f"TESTING1:\t{natural_codon_position_padded}\t{natural_codon_position_depadded}\t{reference_aa}\t{_some_aa}\t{Decimal(_observed_codon_count2) / Decimal(total_codons_per_site_sum):.6f}\t{reference_codon}\t{_some_codon}\t{_observed_codon_count2}\t{_total_codons_per_site_sum}")
     outfilename.flush()
+
+
+def _process_one_site(
+    _pos, _num_unique, _alignment_len, _aln_array, _counts_array,
+    _padded_len_array, _depadded_len_array, _leading_gap_array, _trailing_gap_array,
+    _padded_reference_dna_seq, _reference_protein_seq, _ref_gaps_cumulative,
+    aa_start, myoptions_minimum_aln_length, myoptions_left_reference_offset
+):
+    """
+    Process a single codon position and return the aggregated results.
+
+    This function implements Speedup 4 (NumPy Vectorization) by using vectorized
+    column slicing and np.bincount to group unique sequences by their (codon, action)
+    tuple. It is designed to be picklable for Speedup 5 (Multi-processing).
+    """
+    _zero_based_padded_reference_aa_index = int(_pos / 3)
+
+    _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3]
+    _reference_codon_depadded = _reference_codon.replace('-', '')
+
+    _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index] if len(_reference_protein_seq) > _zero_based_padded_reference_aa_index else '?'
+
+    # Pass 1: Local Grouping (Vectorized with NumPy)
+    _local_groups = {}
+    if _num_unique > 0:
+        _actions = np.zeros(_num_unique, dtype=np.uint8)
+        if myoptions_minimum_aln_length:
+            _actions[_depadded_len_array < myoptions_minimum_aln_length] = 1
+        _actions[_depadded_len_array == 0] = 2
+
+        _is_masked = _actions == 0
+        if np.any(_is_masked):
+            _lead = _leading_gap_array
+            _trail = _trailing_gap_array
+            _mask = _is_masked & (_lead != 0) & (_pos < _lead - 1)
+            _actions[_mask] = 3
+            _is_masked &= ~_mask
+            _mask = _is_masked & (_trail != 0) & (_pos + 1 > _trail)
+            _actions[_mask] = 4
+            _is_masked &= ~_mask
+            _mask = _is_masked & (_padded_len_array + 1 <= _pos + 3)
+            _actions[_mask] = 5
+
+        _chunks = _aln_array[:, _pos:_pos + 3]
+        _packed = (_chunks[:, 0].astype(np.uint32) << 16 |
+                   _chunks[:, 1].astype(np.uint32) << 8 |
+                   _chunks[:, 2].astype(np.uint32))
+        _combined = _packed | (_actions.astype(np.uint32) << 24)
+        _unique_combined, _first_indices, _inverse = np.unique(_combined, return_index=True, return_inverse=True)
+        _agg_counts = np.bincount(_inverse, weights=_counts_array)
+        _appearance_order = np.argsort(_first_indices)
+        _unique_combined = _unique_combined[_appearance_order]
+        _agg_counts = _agg_counts[_appearance_order]
+
+        _action_map = {0: "regular", 1: "min_len_fail", 2: "empty_seq",
+                       3: "leading_gap", 4: "trailing_gap", 5: "too_short"}
+
+        for _val, _count in zip(_unique_combined, _agg_counts):
+            if _count == 0:
+                continue
+            _act_code = int(_val >> 24)
+            _pck = _val & 0xFFFFFF
+            _codon = bytes([(_pck >> 16) & 0xFF, (_pck >> 8) & 0xFF, _pck & 0xFF]).decode()
+            _action_str = _action_map[_act_code]
+            _local_groups[(_codon, _action_str)] = int(_count)
+
+    _unchanged_codons = Counter()
+    _changed_codons = Counter()
+    _deleted_reference_codons = Counter()
+    _inserted_codons = Counter()
+    _is_deletion = False
+    _is_insertion = False
+
+    for (_rough_sample_codon, _action), _record_count in _local_groups.items():
+        _sample_codon_contained_pad = '-' in _rough_sample_codon
+        _sample_codon_depadded = _rough_sample_codon.replace('-', '') if _sample_codon_contained_pad else _rough_sample_codon
+
+        if _action == "regular":
+            if _rough_sample_codon == '---' and _reference_codon != '---' and _reference_codon != 'NNN':
+                _is_deletion = True
+                _deleted_reference_codons[_reference_codon] += _record_count
+            elif _reference_codon == '---' and _rough_sample_codon != '---':
+                _is_insertion = True
+                _inserted_codons[_sample_codon_depadded] += _record_count
+            elif _sample_codon_depadded == _reference_codon_depadded:
+                _unchanged_codons[_sample_codon_depadded] += _record_count
+            else:
+                _changed_codons[_sample_codon_depadded] += _record_count
+
+    _total_counts = _inserted_codons + _deleted_reference_codons + _changed_codons + _unchanged_codons
+    _total_sum = sum(_total_counts.values())
+    _new_gaps = _reference_codon.count('-')
+    _prev_gaps = int(_ref_gaps_cumulative[_pos - 1]) if _pos > 0 else 0
+    _nat_pos_padded = _zero_based_padded_reference_aa_index + 1 + int(myoptions_left_reference_offset / 3.0) + aa_start
+    _nat_pos_depadded = _nat_pos_padded - int((_prev_gaps + _new_gaps) / 3.0)
+
+    return {
+        'pos': _pos,
+        'nat_padded': _nat_pos_padded,
+        'nat_depadded': _nat_pos_depadded,
+        'ref_aa': _reference_aa,
+        'ref_codon': _reference_codon,
+        'total_sum': int(_total_sum),
+        'unchanged': _unchanged_codons,
+        'changed': _changed_codons,
+        'inserted': _inserted_codons,
+        'deleted': _deleted_reference_codons,
+        'is_deletion': _is_deletion,
+        'is_insertion': _is_insertion,
+        'counts': _total_counts,
+    }
+
+
+def fast_fasta_iter(handle):
+    """
+    A lightweight FASTA iterator that yields (name, sequence) tuples.
+    Significantly faster than Bio.SeqIO.parse for large files.
+    """
+    name, seq = None, []
+    # Using a list and join() is efficient for building sequences
+    for line in handle:
+        if not line.strip():
+            continue
+        if line[0] == ">":
+            if name is not None:
+                yield name, "".join(seq)
+            # Mimic Bio.SeqIO.parse: id is the first word after the '>'
+            _parts = line[1:].split()
+            name = _parts[0] if _parts else ""
+            seq = []
+        else:
+            # We strip trailing newlines; Bio.SeqIO.parse also handles internal spaces
+            # but for performance we assume typical FASTA format.
+            seq.append(line.strip())
+    if name is not None:
+        yield name, "".join(seq)
 
 
 def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference_dna_seq: str,
                     reference_protein_seq: str, reference_as_codons: list[str],
                     outfilename: typing.Any, outfilename_unchanged_codons: typing.Any,
-                    alnfilename_count: typing.Any, aa_start: int, min_start: int, max_stop: int):
-    """Parse a padded multi-FASTA alignment and write codon frequency TSV files.
+                    alnfilename_count: typing.Any, aa_start: int, min_start: int, max_stop: int,
+                    threads: int = None):
+    """
+    Parse a padded multi-FASTA alignment and write codon frequency TSV files.
+
+    Optimizations:
+    - Speedup 4: NumPy-based vectorized column slicing for O(1) site extraction.
+    - Speedup 5: Multi-processing parallelization using multiprocessing.Pool.
+    - Speedup 6: High-precision Decimal(str) formatting for bit-identical output.
 
     left_reference_offset and right_reference_offset are used to slice the
     reference. discard_this_many_leading_nucs and
@@ -235,414 +378,143 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
 
     _padded_reference_dna_seq = _padded_reference_dna_seq.upper()
     _reference_protein_seq = _reference_protein_seq.upper()
-    _zero_based_padded_reference_aa_index: int = 0
-    _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index]
-    _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3]
-    _reference_codon_depadded = _reference_codon.replace('-', '')
-    _previous_gaps: int = 0
-    _new_gaps_in_reference: int = 0
     _re_leading_gaps = re.compile("^[-Nn]+")
     _re_trailing_gaps = re.compile("[-Nn]+$")
-    _already_checked_starts = []
     _top_most_codons = []
     _total_aln_entries_used: int = 0
     _start_from: int = int(myoptions.discard_this_many_leading_nucs) if myoptions.discard_this_many_leading_nucs else 0
     _stop_to: int = int(myoptions.discard_this_many_trailing_nucs) if myoptions.discard_this_many_trailing_nucs else 0
 
-    _parsed_alignments = {}
+    _raw_groups = {}
     with open(alignment_file, "r", encoding="utf-8") as _handle:
-        for _aln_line in SeqIO.parse(_handle, "fasta"):
-            _record_id = _aln_line.id
-            if myoptions.x_after_count:
-                if 'x.' in _record_id:
-                    _record_count, _ = _record_id.split('x.')
-                    _record_count = int(_record_count)
-                else:
+        if myoptions.x_after_count:
+            for _record_id, _seq_str in fast_fasta_iter(_handle):
+                # Faster parsing of x-after-count: assuming count is at the end of the first word
+                if _record_id.endswith('x.'):
                     try:
-                        _record_count = int(_record_id.replace('x', ''))
+                        _record_count = int(_record_id[:-2])
                     except ValueError:
                         _record_count = 1
-            else:
-                _record_count = 1
-
-            _total_aln_entries_used += _record_count
-
-            if _start_from:
-                if _stop_to:
-                    _aln_line_seq = str(_aln_line.seq)[int(_start_from):-int(_stop_to)]
+                elif _record_id.endswith('x'):
+                    try:
+                        _record_count = int(_record_id[:-1])
+                    except ValueError:
+                        _record_count = 1
                 else:
-                    _aln_line_seq = str(_aln_line.seq)[int(_start_from):]
-            elif _stop_to:
-                _aln_line_seq = str(_aln_line.seq)[:-int(_stop_to)]
+                    _record_count = 1
+
+                if _seq_str in _raw_groups:
+                    _raw_groups[_seq_str][0] += _record_count
+                else:
+                    _raw_groups[_seq_str] = [_record_count, _record_id]
+        else:
+            for _, _seq_str in fast_fasta_iter(_handle):
+                if _seq_str in _raw_groups:
+                    _raw_groups[_seq_str][0] += 1
+                else:
+                    _raw_groups[_seq_str] = [1, ""]
+
+    _parsed_alignments = {}
+    for _raw_seq, (_record_count, _record_id) in _raw_groups.items():
+        _total_aln_entries_used += _record_count
+
+        # Slicing and upper-casing logic
+        if _start_from or _stop_to:
+            if _stop_to:
+                _aln_line_seq = _raw_seq[_start_from:-_stop_to].upper()
             else:
-                _aln_line_seq = str(_aln_line.seq)
+                _aln_line_seq = _raw_seq[_start_from:].upper()
+        else:
+            _aln_line_seq = _raw_seq.upper()
 
-            _aln_line_seq = _aln_line_seq.upper()
+        if _aln_line_seq in _parsed_alignments:
+            _parsed_alignments[_aln_line_seq]['count'] += _record_count
+        else:
+            _padded_aln_line_length = len(_aln_line_seq)
+            _depadded_aln_line_length = len(
+                _aln_line_seq.replace('-', '').replace('N', '')
+            )
 
-            if _aln_line_seq in _parsed_alignments:
-                _parsed_alignments[_aln_line_seq]['count'] += _record_count
-            else:
-                _padded_aln_line_length = len(_aln_line_seq)
-                _depadded_aln_line_length = len(
-                    _aln_line_seq.replace('-', '').replace('N', '')
-                )
+            _end_of_leading_gaps = 0
+            _start_of_trailing_gaps = 0
+            for _match in _re_leading_gaps.finditer(_aln_line_seq):
+                _end_of_leading_gaps = _match.end()
+            for _match in _re_trailing_gaps.finditer(_aln_line_seq):
+                _start_of_trailing_gaps = _match.start()
 
-                _start_of_trailing_gaps = 0
-                _end_of_leading_gaps = 0
-                for _match in _re_leading_gaps.finditer(_aln_line_seq):
-                    _end_of_leading_gaps = _match.end()
-                for _match in _re_trailing_gaps.finditer(_aln_line_seq):
-                    _start_of_trailing_gaps = _match.start()
-
-                _parsed_alignments[_aln_line_seq] = {
-                    'count': _record_count,
-                    'seq': _aln_line_seq,
-                    'padded_len': _padded_aln_line_length,
-                    'depadded_len': _depadded_aln_line_length,
-                    'end_of_leading_gaps': _end_of_leading_gaps,
-                    'start_of_trailing_gaps': _start_of_trailing_gaps
-                }
+            _parsed_alignments[_aln_line_seq] = {
+                'count': _record_count,
+                'seq': _aln_line_seq,
+                'padded_len': _padded_aln_line_length,
+                'depadded_len': _depadded_aln_line_length,
+                'end_of_leading_gaps': _end_of_leading_gaps,
+                'start_of_trailing_gaps': _start_of_trailing_gaps
+            }
 
     _parsed_alignments_list = list(_parsed_alignments.values())
-    _amplicon_length = (max_stop or len(_padded_reference_dna_seq)) - min_start
+    _num_unique = len(_parsed_alignments_list)
+    _alignment_len = len(_padded_reference_dna_seq)
+
+    # Pre-allocate NumPy arrays for vectorized operations
+    if _num_unique > 0:
+        # Optimization: use np.frombuffer on a single string join instead of list comprehension
+        _all_seqs_str = "".join(item['seq'] for item in _parsed_alignments_list)
+        _aln_array = np.frombuffer(_all_seqs_str.encode('ascii'), dtype=np.uint8).reshape(_num_unique, _alignment_len)
+
+        _counts_array = np.array([item['count'] for item in _parsed_alignments_list], dtype=np.int64)
+        _padded_len_array = np.array([item['padded_len'] for item in _parsed_alignments_list], dtype=np.int32)
+        _depadded_len_array = np.array([item['depadded_len'] for item in _parsed_alignments_list], dtype=np.int32)
+        _leading_gap_array = np.array([item['end_of_leading_gaps'] for item in _parsed_alignments_list], dtype=np.int32)
+        _trailing_gap_array = np.array([item['start_of_trailing_gaps'] for item in _parsed_alignments_list], dtype=np.int32)
+    else:
+        _aln_array = np.array([], dtype=np.uint8).reshape(0, _alignment_len)
+        _counts_array = np.array([], dtype=np.int64)
+        _padded_len_array = np.array([], dtype=np.int32)
+        _depadded_len_array = np.array([], dtype=np.int32)
+        _leading_gap_array = np.array([], dtype=np.int32)
+        _trailing_gap_array = np.array([], dtype=np.int32)
+
+    # Pre-calculate previous gaps in reference to make each loop iteration independent
+    _ref_aln_array = np.frombuffer(_padded_reference_dna_seq.encode('ascii'), dtype=np.uint8)
+    _ref_gaps_cumulative = np.cumsum(_ref_aln_array == ord('-'))
 
     # Pre-allocate counters once and clear() each iteration to avoid 8 * N_sites constructor calls
-    _unchanged_codons = Counter()
-    _changed_codons = Counter()
-    _deleted_reference_codons = Counter()
-    _inserted_codons = Counter()
-    _unchanged_aa_residues = Counter()
-    _changed_aa_residues = Counter()
-    _inserted_aa_residues = Counter()  # practically unused
-    _deleted_reference_aa_residues = Counter()
+    _top_most_codons = []
 
-    # Initializes the starting amino-acid index used to map substitutions back to the
-    # un-chopped original reference protein sequence. This must mathematically mirror
-    # the nucleotide offset imposed by `min_start`, otherwise truncated sample sequences
-    # will be falsely aligned against index 0 of the reference and trigger mass mutations.
-    _zero_based_padded_reference_aa_index = int(min_start / 3)
-
-    for _zero_based_codon_startpos in range(
-        min_start, max_stop or len(_padded_reference_dna_seq), 3
-    ):
-        _unchanged_codons.clear()
-        _changed_codons.clear()
-        _deleted_reference_codons.clear()
-        _inserted_codons.clear()
-        _unchanged_aa_residues.clear()
-        _changed_aa_residues.clear()
-        _inserted_aa_residues.clear()
-        _deleted_reference_aa_residues.clear()
-        _new_gaps_in_reference = 0
-        _is_deletion = False
-        _is_insertion = False
-        _new_aa_residue = None
-        try:
-            _reference_aa = _reference_protein_seq[
-                _zero_based_padded_reference_aa_index
-            ]
-        except IndexError as exc:
-            raise IndexError(
-                f'Error: Cannot slice reference protein sequence {_reference_protein_seq} at '
-                f'position {_zero_based_padded_reference_aa_index}'
-            ) from exc
-        _current_codon_position = _zero_based_codon_startpos / 3 + 1
-        _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3]
-        _reference_codon_depadded = _reference_codon.replace('-', '')
-        if myoptions.debug:
-            print(f"Debug3: _start={_zero_based_codon_startpos}, _padded_reference_dna_seq={_padded_reference_dna_seq}")
-
-        _reference_codon_contained_pad = '-' in _reference_codon
-
-        # Pass 1: Local Grouping
-        _local_groups = {}
-        for _parsed_seq in _parsed_alignments_list:
-            _record_count = _parsed_seq['count']
-            _aln_line_seq = _parsed_seq['seq']
-            _padded_aln_line_length = _parsed_seq['padded_len']
-            _depadded_aln_line_length = _parsed_seq['depadded_len']
-            _end_of_leading_gaps = _parsed_seq['end_of_leading_gaps']
-            _start_of_trailing_gaps = _parsed_seq['start_of_trailing_gaps']
-
-            _rough_sample_codon = _aln_line_seq[_zero_based_codon_startpos:_zero_based_codon_startpos + 3]
-
-            # Determine action type (masked or regular)
-            _action = "regular"
-            if myoptions.minimum_aln_length and _depadded_aln_line_length < myoptions.minimum_aln_length:
-                _action = "min_len_fail"
-            elif not _depadded_aln_line_length:
-                _action = "empty_seq"
-            elif _end_of_leading_gaps and _zero_based_codon_startpos < _end_of_leading_gaps - 1:
-                _action = "leading_gap"
-            elif _start_of_trailing_gaps and _zero_based_codon_startpos + 1 > _start_of_trailing_gaps:
-                _action = "trailing_gap"
-            elif not _end_of_leading_gaps and _start_of_trailing_gaps and _zero_based_codon_startpos + 1 > _start_of_trailing_gaps:
-                _action = "trailing_gap_only"
-            elif not _start_of_trailing_gaps and _end_of_leading_gaps and _zero_based_codon_startpos < _end_of_leading_gaps + 1:
-                _action = "leading_gap_only"
-            elif _padded_aln_line_length + 1 <= _zero_based_codon_startpos + 3:
-                _action = "too_short"
-
-            _key = (_rough_sample_codon, _action)
-            if _key not in _local_groups:
-                _local_groups[_key] = 0
-            _local_groups[_key] += _record_count
-
-        # Pass 2: Process Groups
-        for (_rough_sample_codon, _action), _record_count in _local_groups.items():
-            _new_gaps_in_reference = 0
-            _deleted_reference_codon = None
-            _sample_codon_contained_pad = '-' in _rough_sample_codon
-            _sample_codon_depadded = _rough_sample_codon.replace('-', '') if _sample_codon_contained_pad else _rough_sample_codon
-            _new_aa_residue = None
-
-            if _action == "min_len_fail":
-                if myoptions.debug:
-                    print(f"Debug5:Here1, _zero_based_codon_startpos={_zero_based_codon_startpos}")
-            elif _action == "empty_seq":
-                if myoptions.debug:
-                    print(f"Debug6:Here2, _zero_based_codon_startpos={_zero_based_codon_startpos}")
-            elif _action == "leading_gap":
-                if myoptions.debug:
-                    print(f"Debug7:Here3, _zero_based_codon_startpos={_zero_based_codon_startpos}")
-            elif _action == "trailing_gap":
-                if myoptions.debug:
-                    print(f"Debug8:Here4, _zero_based_codon_startpos={_zero_based_codon_startpos}")
-            elif _action == "trailing_gap_only":
-                if myoptions.debug:
-                    print(f"Debug9:Here5, _zero_based_codon_startpos={_zero_based_codon_startpos}")
-            elif _action == "leading_gap_only":
-                if myoptions.debug:
-                    print(f"Debug10:Here6, _zero_based_codon_startpos={_zero_based_codon_startpos}")
-            elif _action == "too_short":
-                if myoptions.debug:
-                    print(f"Debug10b:Here7. Leaking sample codon {_rough_sample_codon} at position "
-                          f"{_current_codon_position}, _amplicon_length={_amplicon_length}")
-            elif _action == "regular":
-                if myoptions.debug:
-                    print(f"Debug11: Rough sample codon at {_current_codon_position} is {_rough_sample_codon}, reference "
-                          f"codon is {_reference_codon}, amplicon region length {_amplicon_length} (nt), sliced "
-                          f"[{_zero_based_codon_startpos + _previous_gaps}:{_zero_based_codon_startpos + _previous_gaps + 3 + _new_gaps_in_reference}] (pythonic slice numbering), "
-                          f"_sample_codon_depadded is {_sample_codon_depadded}, "
-                          f"_reference_codon_depadded is {_reference_codon_depadded}, "
-                          f"_sample_codon_contained_pad={str(_sample_codon_contained_pad)}, "
-                          f"_reference_codon_contained_pad={str(_reference_codon_contained_pad)}")
-
-                if _rough_sample_codon == 'NNN' or _reference_codon == 'NNN':
-                    if myoptions.debug:
-                        print("Debug11: Skipping a codon containing NNN")
-
-                if _rough_sample_codon == '---' and _reference_codon != '---' and _reference_codon != 'NNN':
-                    _is_deletion = True
-                    _deleted_reference_codon = str(_reference_codon)
-                    if myoptions.debug > 1:
-                        print(f"Debug12: Padded DELeted codon at {_current_codon_position} is {_deleted_reference_codon}, "
-                              f"original reference codon is {_reference_codon}, amplicon region "
-                              f"length {_amplicon_length} (nt), end of slice is {_zero_based_codon_startpos + _previous_gaps + 3 + _new_gaps_in_reference}")
-                    _deleted_reference_codons[_deleted_reference_codon] += _record_count
-                    _deleted_aa_residue = alt_translate(_deleted_reference_codon)
-                    _deleted_reference_aa_residues[_deleted_aa_residue] += _record_count
-                    _sample_codon_depadded = ''
-                elif _reference_codon == '---' and _rough_sample_codon != '---':
-                    _is_insertion = True
-                    _sample_codon_depadded = _rough_sample_codon.replace('-', '')
-                    _reference_aa = 'INS'
-                    _inserted_codons[_sample_codon_depadded] += _record_count
-                    _new_aa_residue = alt_translate(_rough_sample_codon)
-                    if _new_aa_residue:
-                        _inserted_aa_residues[_new_aa_residue] += _record_count
-                else:
-                    _sample_codon_depadded = _rough_sample_codon.replace('-', '')
-                    if (_sample_codon_contained_pad and _reference_codon_contained_pad) and not _sample_codon_depadded and not _reference_codon:
-                        _unchanged_codons['---'] += _record_count
-                        _unchanged_aa_residues['-'] += _record_count
-                    elif _rough_sample_codon == '---' and _reference_codon == '---':
-                        _unchanged_codons['---'] += _record_count
-                        _unchanged_aa_residues['-'] += _record_count
-                    elif (_sample_codon_contained_pad or _reference_codon_contained_pad) and _sample_codon_depadded == _reference_codon_depadded:
-                        _unchanged_codons[_sample_codon_depadded] += _record_count
-                        _unchanged_aa_residues[alt_translate(_sample_codon_depadded)] += _record_count
-                    elif _sample_codon_depadded == _reference_codon_depadded:
-                        _unchanged_codons[_sample_codon_depadded] += _record_count
-                        _unchanged_aa_residues[alt_translate(_sample_codon_depadded)] += _record_count
-                    elif _sample_codon_depadded != _reference_codon_depadded:
-                        _changed_codons[_sample_codon_depadded] += _record_count
-                        _new_aa_residue = alt_translate(_rough_sample_codon)
-                        if 'N' in _sample_codon_depadded and _new_aa_residue != 'X':
-                            if _sample_codon_depadded not in ('TCN', 'CTN', 'GTN', 'CCN', 'ACN', 'GCN', 'CGN', 'GGN'):
-                                raise ValueError(
-                                    f"Error: biopython translated codon {_sample_codon_depadded} at "
-                                    f"{_current_codon_position} into {_new_aa_residue}")
-                        if _new_aa_residue:
-                            if _new_aa_residue != _reference_aa:
-                                _changed_aa_residues[_new_aa_residue] += _record_count
-                            else:
-                                _unchanged_aa_residues[_new_aa_residue] += _record_count
-                        else:
-                            _changed_aa_residues['None'] += _record_count
-                    else:
-                        _unchanged_codons[_rough_sample_codon] += _record_count
-                        _new_aa_residue = alt_translate(_rough_sample_codon)
-                        if _new_aa_residue:
-                            if _new_aa_residue != _reference_aa:
-                                _changed_aa_residues[_new_aa_residue] += _record_count
-                            else:
-                                _unchanged_aa_residues[_new_aa_residue] += _record_count
-                        else:
-                            _changed_aa_residues['None'] += _record_count
-
-        # all entries processed for the current codon column
-        if myoptions.debug:
-            print(f"Debug24: Lists at {_current_codon_position} of changed codons and aminoacid "
-                  f"residues: {_zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 1}-"
-                  f"{_zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 3} "
-                  f"{_changed_codons} {_changed_aa_residues}")
-            print(f"Debug25: Lists at {_current_codon_position} of unchanged codons and aminoacid "
-                  f"residues: {_zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 1}-"
-                  f"{_zero_based_padded_reference_aa_index + _zero_based_codon_startpos + 3} "
-                  f"{_unchanged_codons} {_unchanged_aa_residues}")
-            print(f"Debug26a: DELeted codons at {_current_codon_position}: {_deleted_reference_codons}")
-            print(f"Debug26b: INSerted codons at {_current_codon_position}: {_inserted_codons}")
-
-        _total_codons_per_site_counts = (
-            _inserted_codons + _deleted_reference_codons
-            + _changed_codons + _unchanged_codons
+    # Parallelize site processing using multiprocessing.Pool
+    _pool_args = [
+        (
+            _pos, _num_unique, _alignment_len, _aln_array, _counts_array,
+            _padded_len_array, _depadded_len_array, _leading_gap_array, _trailing_gap_array,
+            _padded_reference_dna_seq, _reference_protein_seq, _ref_gaps_cumulative,
+            aa_start, myoptions.minimum_aln_length, myoptions.left_reference_offset
         )
-        _total_codons_per_site_sum = sum(_total_codons_per_site_counts.values())
+        for _pos in range(min_start, max_stop or _alignment_len, 3)
+    ]
 
-        if myoptions.debug:
-            print(f"Debug26c: _reference_codon was {_reference_codon!s}")
+    if len(_pool_args) > 0:
+        with multiprocessing.Pool(processes=threads) as _pool:
+            _all_results = _pool.starmap(_process_one_site, _pool_args)
 
-        if len(_reference_protein_seq) > _zero_based_padded_reference_aa_index:
-            _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index]
-        else:
-            sys.stderr.write(
-                f"Error: Probably _zero_based_padded_reference_aa_index={_zero_based_padded_reference_aa_index} at "
-                f"the end of the padded reference sequence which was {len(_reference_protein_seq)} long\n")
-            sys.stderr.flush()
+        for _res in _all_results:
+            # Write results
+            write_tsv_line(outfilename_unchanged_codons, _res['unchanged'], _res['nat_padded'], _res['nat_depadded'], _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug)
+            if _res['changed']:
+                write_tsv_line(outfilename, _res['changed'], _res['nat_padded'], _res['nat_depadded'], _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug)
+            if _res['inserted']:
+                write_tsv_line(outfilename, _res['inserted'], _res['nat_padded'], _res['nat_depadded'], 'INS', _res['total_sum'], _res['ref_codon'], debug=myoptions.debug)
 
-        if _zero_based_codon_startpos not in _already_checked_starts and len(_reference_codon) == 3:
-            if _reference_codon == '---':
-                _reference_aa = '-'
-                _current_aa = '-'
-            else:
-                try:
-                    _current_aa = alt_translate(_reference_codon)
-                except Exception:
-                    _current_aa = 'Biopython failure'
-            if _current_aa != _reference_aa:
-                if not min_start:
-                    raise ValueError(
-                        f"Error: The reference aa at {_current_codon_position} should be '{_reference_aa}' but "
-                        f"parsed reference codon '{_reference_codon}' encodes '{_current_aa}'. The "
-                        f"_zero_based_codon_startpos = {_zero_based_codon_startpos}")
-            else:
-                _already_checked_starts.append(_zero_based_codon_startpos)
+            if _res['is_deletion']:
+                for _some_deleted_codon in _res['deleted']:
+                    _count = _res['deleted'][_some_deleted_codon]
+                    outfilename.write(f"{_res['nat_padded']}\t{_res['nat_depadded']}\t{_res['ref_aa']}\tDEL\t{Decimal(_count) / Decimal(_res['total_sum']):.6f}\t{_some_deleted_codon}\t---\t{_count}\t{_res['total_sum']}\n")
 
-        if myoptions.debug and myoptions.debug > 1:
-            for _key in _changed_codons:
-                print(f"Debug27: {_key}: {_changed_codons[_key]} = {_changed_codons[_key] / _total_codons_per_site_sum:8.6f} {set(_changed_codons)} {set(_changed_aa_residues)}")
+            outfilename.flush()
 
-        if myoptions.debug:
-            print(f"Debug27a: _new_gaps_in_reference={_new_gaps_in_reference}, "
-                  f"_reference_codon_contained_pad={_reference_codon_contained_pad}, "
-                  f"_sample_codon_contained_pad={_sample_codon_contained_pad}, _reference_codon={_reference_codon}, "
-                  f"_rough_sample_codon={_rough_sample_codon}")
-
-        if _new_gaps_in_reference:
-            raise ValueError(
-                f"Error: _new_gaps_in_reference should be zero but is {_new_gaps_in_reference} "
-                "instead")
-        _new_gaps_in_reference = _reference_codon.count('-')
-
-        _natural_codon_position_padded = (
-            _zero_based_padded_reference_aa_index + 1
-            + int(myoptions.left_reference_offset / 3.0)
-            + aa_start
-        )
-        _natural_codon_position_depadded = (
-            _natural_codon_position_padded
-            - int((_previous_gaps + _new_gaps_in_reference) / 3.0)
-        )
-
-        write_tsv_line(
-            outfilename_unchanged_codons, _unchanged_codons,
-            _natural_codon_position_padded, _natural_codon_position_depadded,
-            _reference_aa, _total_codons_per_site_sum, _reference_codon,
-            debug=myoptions.debug,
-        )
-
-        if len(_changed_codons):
-            write_tsv_line(
-                outfilename, _changed_codons,
-                _natural_codon_position_padded, _natural_codon_position_depadded,
-                _reference_aa, _total_codons_per_site_sum, _reference_codon,
-                debug=myoptions.debug,
-            )
-
-        if len(_inserted_codons): # possibly use a different output file for INSertion so that they do not collide with changed codons and add multiple lines
-            write_tsv_line(
-                outfilename, _inserted_codons,
-                _natural_codon_position_padded, _natural_codon_position_depadded,
-                'INS', _total_codons_per_site_sum, _reference_codon,
-                debug=myoptions.debug,
-            )
-
-        # we add the DEL lines into the main frequencies.tsv file here even without calling write_tsv_line()
-        # the write_tsv_line() accepts list of codons in the sample but here we have a
-        if _is_deletion:
-            for _some_deleted_codon in _deleted_reference_codons:
-                _observed_codon_count = Decimal(
-                    _deleted_reference_codons[_some_deleted_codon]
-                )
-                _observed_codon_count2 = _observed_codon_count if _observed_codon_count else 0
-                outfilename.write(
-                    f"{_natural_codon_position_padded}\t{_natural_codon_position_depadded}\t"
-                    f"{_reference_aa}\tDEL\t"
-                    f"{Decimal(_deleted_reference_codons[_some_deleted_codon]) / Decimal(_total_codons_per_site_sum):8.6f}\t"
-                    f"{_some_deleted_codon}\t---\t"
-                    f"{_observed_codon_count2}\t{_total_codons_per_site_sum}\n"
-                )
-                if myoptions.debug:
-                    print(f"TESTING2:\t{_natural_codon_position_padded}\t{_natural_codon_position_depadded}\t"
-                          f"{_reference_aa}\tDEL\t"
-                          f"{Decimal(_deleted_reference_codons[_some_deleted_codon]) / Decimal(_total_codons_per_site_sum):8.6f}\t"
-                          f"{_some_deleted_codon}\t---\t"
-                          f"{_observed_codon_count2}\t{_total_codons_per_site_sum}")
-        outfilename.flush()
-
-        _previous_gaps += _new_gaps_in_reference
-        _new_gaps_in_reference = 0
-
-        try:
-            _top_most_codon, _top_most_count = _total_codons_per_site_counts.most_common()[0]
-        except IndexError:
-            pass
-        else:
-            _top_most_codons.append(_top_most_codon)
-
-        if len(_reference_protein_seq) > _zero_based_padded_reference_aa_index + 1:
-            if _is_insertion:
-                _zero_based_padded_reference_aa_index += 1
-                if myoptions.debug:
-                    print(f"Debug33: Increased _zero_based_padded_reference_aa_index "
-                          f"to {_zero_based_padded_reference_aa_index}, moving to next codon")
-            elif _is_deletion:
-                _zero_based_padded_reference_aa_index += 1
-                if myoptions.debug:
-                    print(f"Debug31: Increased _zero_based_padded_reference_aa_index "
-                          f"to {_zero_based_padded_reference_aa_index}, moving to next codon")
-            else:
-                _zero_based_padded_reference_aa_index += 1
-                if myoptions.debug:
-                    print(f"Debug32: Increased _zero_based_padded_reference_aa_index "
-                          f"to {_zero_based_padded_reference_aa_index}, moving to next codon")
-            if myoptions.debug:
-                print("Debug33: After increments: "
-                      f"_natural_codon_position_depadded={_natural_codon_position_depadded} "
-                      f"_previous_gaps={_previous_gaps} _new_gaps_in_reference={_new_gaps_in_reference}")
-        else:
-            break
+            # Update top most codons
+            if _res['counts']:
+                _top_most_codon, _count = _res['counts'].most_common(1)[0]
+                _top_most_codons.append(_top_most_codon)
 
     alnfilename_count.write(f"{_total_aln_entries_used}\n")
     alnfilename_count.close()

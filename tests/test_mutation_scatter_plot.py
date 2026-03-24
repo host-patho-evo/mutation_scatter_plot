@@ -37,6 +37,7 @@ class TestMutationScatterPlot(unittest.TestCase):
         self.env["MPLBACKEND"] = "Agg"
 
         self.script_name = "mutation_scatter_plot.mutation_scatter_plot.cli"
+        self.regenerate_goldens = os.environ.get("REGENERATE_GOLDENS") == "1"
 
     def _invoke_cli(self, cmd_args):
         """Invoke the CLI natively, capturing output without an interpreter fork."""
@@ -70,10 +71,10 @@ class TestMutationScatterPlot(unittest.TestCase):
             gen_path = os.path.join(tmpdir, gen_file)
             expected_path = os.path.join(self.outputs_dir, expected_filename)
 
-            if not os.path.exists(expected_path):
+            if not os.path.exists(expected_path) or self.regenerate_goldens:
                 # Automatically save as the golden version
                 shutil.copy(gen_path, expected_path)
-                print(f"Created new golden file: {expected_path}")
+                print(f"Updated golden file: {expected_path}")
             else:
                 # Compare contents
                 is_match = filecmp.cmp(gen_path, expected_path, shallow=False)
@@ -146,7 +147,8 @@ class TestMutationScatterPlot(unittest.TestCase):
                         "--outfile-prefix", outfile_prefix,
                         "--aminoacids",
                         "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
-                        "--threshold=0.001"
+                        "--threshold=0.001",
+                        "--disable-showing-bokeh", "--disable-showing-mplcursors"
                     ]
                     returncode, output = self._invoke_cli(cmd_args)
                     self.assertEqual(returncode, 0, f"Command failed for {name}:\n{output}")
@@ -172,7 +174,8 @@ class TestMutationScatterPlot(unittest.TestCase):
                         "--aminoacids",
                         "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                         "--include-synonymous",
-                        "--threshold=0.001"
+                        "--threshold=0.001",
+                        "--disable-showing-bokeh", "--disable-showing-mplcursors"
                     ]
                     returncode, output = self._invoke_cli(cmd_args)
                     self.assertEqual(returncode, 0, f"Command failed for {name}:\n{output}")
@@ -196,7 +199,8 @@ class TestMutationScatterPlot(unittest.TestCase):
                         "--tsv", tsv_path,
                         "--outfile-prefix", outfile_prefix,
                         "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
-                        "--threshold=0.001"
+                        "--threshold=0.001",
+                        "--disable-showing-bokeh", "--disable-showing-mplcursors"
                     ]
                     returncode, output = self._invoke_cli(cmd_args)
                     self.assertEqual(returncode, 0, f"Command failed for {name}:\n{output}")
@@ -221,7 +225,8 @@ class TestMutationScatterPlot(unittest.TestCase):
                         "--outfile-prefix", outfile_prefix,
                         "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                         "--include-synonymous",
-                        "--threshold=0.001"
+                        "--threshold=0.001",
+                        "--disable-showing-bokeh", "--disable-showing-mplcursors"
                     ]
                     returncode, output = self._invoke_cli(cmd_args)
                     self.assertEqual(returncode, 0, f"Command failed for {name}:\n{output}")
@@ -240,7 +245,8 @@ class TestMutationScatterPlot(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix_a,
                 "--aminoacids",
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
-                "--threshold=0.01"
+                "--threshold=0.01",
+                "--disable-showing-bokeh", "--disable-showing-mplcursors"
             ]
             res_a_code, res_a_out = self._invoke_cli(cmd_args_a)
             self.assertEqual(res_a_code, 0, f"Command A failed:\n{res_a_out}")
@@ -254,7 +260,8 @@ class TestMutationScatterPlot(unittest.TestCase):
                 "--aminoacids",
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                 "--include-synonymous",
-                "--threshold=0.01"
+                "--threshold=0.01",
+                "--disable-showing-bokeh", "--disable-showing-mplcursors"
             ]
             res_b_code, res_b_out = self._invoke_cli(cmd_args_b)
             self.assertEqual(res_b_code, 0, f"Command B failed:\n{res_b_out}")
@@ -275,10 +282,13 @@ class TestMutationScatterPlot(unittest.TestCase):
             def filter_synonymous(data):
                 new_data = []
                 for keys, rows in data:
-                    # 'label' index is 3 in rows
-                    # But we can check mutation string (index 15) like 'D1118H'
-                    # Synonymous will be like 'D1146D' or 'I68I'
-                    filtered_rows = [r for r in rows if r[15][0] != r[15][-1]] # First char != last char
+                    # Dynamically find the index of the 'mutation' column
+                    try:
+                        mut_idx = keys.index('mutation')
+                        filtered_rows = [r for r in rows if r[mut_idx][0] != r[mut_idx][-1]]
+                    except (ValueError, IndexError):
+                        # Fallback or handle cases where 'mutation' key is missing
+                        filtered_rows = rows
                     new_data.append((keys, filtered_rows))
                 return new_data
 
@@ -323,7 +333,8 @@ class TestMutationScatterPlot(unittest.TestCase):
                 "--outfile-prefix", outfile_prefix_b,
                 "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
                 "--include-synonymous",
-                "--threshold=0.001"
+                "--threshold=0.001",
+                "--disable-showing-bokeh", "--disable-showing-mplcursors"
             ]
             res_b_code, res_b_out = self._invoke_cli(cmd_args_b)
             self.assertEqual(res_b_code, 0, f"Command B failed:\n{res_b_out}")
@@ -338,7 +349,12 @@ class TestMutationScatterPlot(unittest.TestCase):
             def filter_synonymous(data):
                 new_data = []
                 for keys, rows in data:
-                    filtered_rows = [r for r in rows if r[9] != r[10]]
+                    try:
+                        mut_idx = keys.index('mutation')
+                        # Check first and last characters of the amino acid mutation string (e.g., 'K417N' -> K != N)
+                        filtered_rows = [r for r in rows if r[mut_idx][0] != r[mut_idx][-1]]
+                    except (ValueError, IndexError):
+                        filtered_rows = rows
                     new_data.append((keys, filtered_rows))
                 return new_data
 
@@ -357,6 +373,30 @@ class TestMutationScatterPlot(unittest.TestCase):
                     capture_output=True, text=True, check=False
                 )
                 self.fail(f"HTML JSON structural mapping differed between codon default and --include-synonymous:\n{diff_res.stdout}")
+
+    def test_display_suppression(self):
+        """Verify that --disable-showing-bokeh and --disable-showing-mplcursors work without failure"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target_prefix = "test_suppress"
+            outfile_prefix = os.path.join(tmpdir, target_prefix)
+            tsv_path = os.path.join(self.outputs_dir, "test1.default.frequencies.tsv")
+            cmd_args = [
+                "--tsv", tsv_path,
+                "--outfile-prefix", outfile_prefix,
+                "--disable-showing-bokeh",
+                "--disable-showing-mplcursors",
+                "--threshold=0.001"
+            ]
+            returncode, output = self._invoke_cli(cmd_args)
+            self.assertEqual(returncode, 0, f"Command with suppression flags failed:\n{output}")
+
+            # Check that files were still generated
+            expected_files = [
+                f"{target_prefix}.BLOSUM80.amino_acid_changes.html",
+                f"{target_prefix}.BLOSUM80.amino_acid_changes.png"
+            ]
+            for f in expected_files:
+                self.assertTrue(os.path.exists(os.path.join(tmpdir, f)), f"Output file {f} was not generated")
 
 if __name__ == "__main__":
     unittest.main()

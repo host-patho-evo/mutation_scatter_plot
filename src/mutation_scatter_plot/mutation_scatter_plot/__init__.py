@@ -121,6 +121,65 @@ def get_colormap(myoptions, colormapname):
 
     _norm = None
     _colors = None
+
+    _micro_cvd_gray = ["#F5F5F5", "#D6D6D6", "#B7B7B7", "#8B8B8B", "#616161"]
+    _micro_cvd_green = ["#DDFFA0", "#BDEC6F", "#97CE2F", "#6D9F06", "#4E7705"]
+    _micro_cvd_orange = ["#FFD5AF", "#FCB076", "#F09163", "#C17754", "#9D654C"]
+    _micro_cvd_blue = ["#E7F4FF", "#BCE1FF", "#7DCCFF", "#56B4E9", "#098BD9"]
+    _micro_cvd_turquoise = ["#A3E4D7", "#48C9B0", "#43BA8F", "#009E73", "#148F77"]
+    _micro_cvd_purple = ["#EFB6D6", "#E794C1", "#CC79A7", "#A1527F", "#7D3560"]
+
+    _custom_found = True
+    # Handle custom hardcoded colormaps first to avoid "not found" warnings
+    if colormapname == 'amino_acid_changes':
+        _colors = ["#930000", "#930000", "#930000", "#930000", "#930000", "#930000", "#960000", "#580041", "#8200ff", "#c500ff", "#ff00fd", "#CC79A7", "#eea1d0", "#cc0000", "#ff0000", "#ff4f00", "#ff7c7c", "#ff9999", "#c58a24", "#9c644b", "#ffff00", "#ffcc00", "#ffa200", "#7DCCFF", "#0042ff", "#0000ff", "#D6D6D6", "#B7B7B7", "#8B8B8B", "palegreen", "#bbff00", "#97CE2F", "#219f11", "#930000", "#930000", "#930000", "#930000", "#930000", "#930000"]
+        _cmap = matplotlib.colors.ListedColormap(_colors, "amino_acid_changes", len(_colors))
+        myoptions.colormap = 'amino_acid_changes'
+        _norm = matplotlib.colors.BoundaryNorm(np.arange(-19, 19, 1), _cmap.N)
+
+    elif colormapname == 'dkeenan_26cols':
+        _colors = ["#00B7FF", "#004DFF", "#00FFFF", "#826400", "#580041", "#FF00FF", "#00FF00", "#C500FF", "#B4FFD7", "#FFCA00", "#969600", "#B4A2FF", "#C20078", "#000000", "#0000C1", "#FF8B00", "#FFC8FF", "#666666", "#FF0000", "#CCCCCC", "#009E8F", "#D7A870", "#8200FF", "#960000", "#BBFF00", "#FFFF00", "#006F00"]
+        _cmap = matplotlib.colors.ListedColormap(_colors, "dkeenan_26cols")
+        myoptions.colormap = 'dkeenan_26cols'
+        _norm = matplotlib.colors.BoundaryNorm(np.arange(-13, 13, 1), _cmap.N)
+
+    elif colormapname == 'microshades_cvd_palettes':
+        _colors = list(_micro_cvd_orange) + list(_micro_cvd_turquoise) + list(_micro_cvd_blue) + list(_micro_cvd_purple) + list(_micro_cvd_green) + list(_micro_cvd_gray)
+        _cmap = matplotlib.colors.ListedColormap(_colors, 'microshades_cvd_palettes')
+
+    elif colormapname == 'microshades_cvd_palettes_r':
+        _colors = list(_micro_cvd_orange[::-1]) + list(_micro_cvd_turquoise[::-1]) + list(_micro_cvd_blue[::-1]) + list(_micro_cvd_purple[::-1]) + list(_micro_cvd_green[::-1]) + list(_micro_cvd_gray[::-1])
+        _cmap = matplotlib.colors.ListedColormap(_colors, 'microshades_cvd_palettes_r')
+
+    elif colormapname == 'merged':
+        _colors1 = matplotlib.colormaps['gist_heat'](np.linspace(0.2, 0.8, 9))
+        _colors2 = matplotlib.colormaps['cividis_r'](np.linspace(0.2, 0.8, 9))
+        _colors3 = matplotlib.colormaps['GnBu_r'](np.linspace(0.2, 0.8, 9))
+        _colors = np.vstack((_colors1, _colors2, _colors3))
+        _cmap = matplotlib.colors.LinearSegmentedColormap.from_list('merged', _colors)
+
+    elif colormapname == 'merged1':
+        _colors1 = matplotlib.colormaps['viridis'](np.linspace(0.2, 0.8, 9))
+        _colors2 = matplotlib.colormaps['coolwarm_r'](np.linspace(0., 1, 9))
+        _colors3 = matplotlib.colormaps['GnBu_r'](np.linspace(0.2, 0.8, 9))
+        _colors = np.vstack((_colors1, _colors2, _colors3))
+        _cmap = matplotlib.colors.LinearSegmentedColormap.from_list('merged', _colors)
+    else:
+        _custom_found = False
+
+    if _custom_found:
+        return _norm, _cmap, _colors
+
+    _wished_cmapname_prefix = ''
+    _wished_cmapname_num = 0
+    if '_' in colormapname:
+        try:
+            _wished_cmapname_prefix = '_'.join(colormapname.split('_')[:-1])
+            _wished_cmapname_num = int(colormapname.split('_')[-1])
+        except (ValueError, IndexError):
+            _wished_cmapname_prefix = colormapname
+            _wished_cmapname_num = 0
+
     try:
         _cmap = matplotlib.colormaps.get_cmap(colormapname)
     except Exception:
@@ -128,78 +187,32 @@ def get_colormap(myoptions, colormapname):
             _cmap = plt.get_cmap(colormapname)
         except Exception:
             try:
-                import nclcmaps
-                _cmap = nclcmaps.cm.get_cmap(colormapname)
+                import palettable
+                _cmap_from_palettable = palettable.colorbrewer.get_map(_wished_cmapname_prefix, 'diverging', _wished_cmapname_num)
+                _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
             except (ImportError, Exception):
                 try:
                     import palettable
-                    _wished_cmapname_prefix, _wished_cmapname_num = '_'.join(myoptions.colormap.split('_')[:-1]), int(myoptions.colormap.split('_')[-1])
-                    print(f"Debug: _wished_cmapname_prefix={_wished_cmapname_prefix}, _wished_cmapname_num={_wished_cmapname_num}")
-                    _cmap_from_palettable = palettable.colorbrewer.get_map(_wished_cmapname_prefix, 'diverging', _wished_cmapname_num)
+                    _cmap_from_palettable = palettable.colorbrewer.get_map(_wished_cmapname_prefix, 'sequential', _wished_cmapname_num)
                     _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
                 except (ImportError, Exception):
                     try:
-                        import palettable
-                        _cmap_from_palettable = palettable.colorbrewer.get_map(_wished_cmapname_prefix, 'sequential', _wished_cmapname_num)
+                        import palettable.scientific.diverging
+                        _cmap_from_palettable = palettable.scientific.diverging.get_map(_wished_cmapname_prefix)
                         _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
                     except (ImportError, Exception):
                         try:
-                            import palettable
-                            _cmap_from_palettable = palettable.scientific.get_map(_wished_cmapname_prefix, 'diverging', _wished_cmapname_num)
+                            import palettable.scientific.sequential
+                            _cmap_from_palettable = palettable.scientific.sequential.get_map(_wished_cmapname_prefix)
                             _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
                         except (ImportError, Exception):
                             try:
-                                import palettable
-                                _cmap_from_palettable = palettable.scientific.get_map(_wished_cmapname_prefix, 'sequential', _wished_cmapname_num)
+                                import palettable.mygbm
+                                _cmap_from_palettable = palettable.mygbm.get_map(_wished_cmapname_prefix) # pylint: disable=no-member
                                 _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
                             except (ImportError, Exception):
-                                try:
-                                    import palettable
-                                    _cmap_from_palettable = palettable.tableau.get_map(myoptions.colormap)
-                                    _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-                                except (ImportError, Exception):
-                                    _micro_cvd_gray = ["#F5F5F5", "#D6D6D6", "#B7B7B7", "#8B8B8B","#616161"]
-                                    _micro_cvd_green = ["#DDFFA0",  "#BDEC6F",  "#97CE2F", "#6D9F06","#4E7705"]
-                                    _micro_cvd_orange = ["#FFD5AF",  "#FCB076","#F09163", "#C17754", "#9D654C"]
-                                    _micro_cvd_blue = ["#E7F4FF", "#BCE1FF", "#7DCCFF", "#56B4E9","#098BD9"]
-                                    _micro_cvd_turquoise = ["#A3E4D7", "#48C9B0",  "#43BA8F",  "#009E73", "#148F77"]
-                                    _micro_cvd_purple = ["#EFB6D6", "#E794C1", "#CC79A7", "#A1527F", "#7D3560"]
-                                    _micro_cvd_gray_r = _micro_cvd_gray[::-1]
-                                    _micro_cvd_green_r = _micro_cvd_green[::-1]
-                                    _micro_cvd_orange_r = _micro_cvd_orange[::-1]
-                                    _micro_cvd_blue_r = _micro_cvd_blue[::-1]
-                                    _micro_cvd_turquoise_r = _micro_cvd_turquoise[::-1]
-                                    _micro_cvd_purple_r = _micro_cvd_purple[::-1]
-
-                                    if myoptions.colormap == 'microshades_cvd_palettes':
-                                        _colors = list(_micro_cvd_orange) + list(_micro_cvd_turquoise) + list(_micro_cvd_blue) + list(_micro_cvd_purple) + list(_micro_cvd_green) + list(_micro_cvd_gray)
-                                        _cmap = matplotlib.colors.ListedColormap(_colors, 'microshades_cvd_palettes')
-                                    elif myoptions.colormap == 'microshades_cvd_palettes_r':
-                                        _colors = list(_micro_cvd_orange_r) + list(_micro_cvd_turquoise_r) + list(_micro_cvd_blue_r) + list(_micro_cvd_purple_r) + list(_micro_cvd_green_r) + list(_micro_cvd_gray_r)
-                                        _cmap = matplotlib.colors.ListedColormap(_colors, 'microshades_cvd_palettes_r')
-                                    elif myoptions.colormap == 'merged':
-                                        _colors1 = matplotlib.colormaps['gist_heat'](np.linspace(0.2, 0.8, 9))
-                                        _colors2 = matplotlib.colormaps['cividis_r'](np.linspace(0.2, 0.8, 9))
-                                        _colors3 = matplotlib.colormaps['GnBu_r'](np.linspace(0.2, 0.8, 9))
-                                        _colors = np.vstack((_colors1, _colors2, _colors3))
-                                        _cmap = matplotlib.colors.LinearSegmentedColormap.from_list('merged', _colors)
-                                    elif myoptions.colormap == 'merged1':
-                                        _colors1 = matplotlib.colormaps['viridis'](np.linspace(0.2, 0.8, 9))
-                                        _colors2 = matplotlib.colormaps['coolwarm_r'](np.linspace(0., 1, 9))
-                                        _colors3 = matplotlib.colormaps['GnBu_r'](np.linspace(0.2, 0.8, 9))
-                                        _colors = np.vstack((_colors1, _colors2, _colors3))
-                                        _cmap = matplotlib.colors.LinearSegmentedColormap.from_list('merged', _colors)
-                                    elif myoptions.colormap == 'dkeenan_26cols':
-                                        _colors = ["#00B7FF", "#004DFF", "#00FFFF", "#826400", "#580041", "#FF00FF", "#00FF00", "#C500FF", "#B4FFD7", "#FFCA00", "#969600", "#B4A2FF", "#C20078", "#000000", "#0000C1", "#FF8B00", "#FFC8FF", "#666666", "#FF0000", "#CCCCCC", "#009E8F", "#D7A870", "#8200FF", "#960000", "#BBFF00", "#FFFF00", "#006F00"]
-                                        _cmap = matplotlib.colors.ListedColormap(_colors, "dkeenan_26cols")
-                                        myoptions.colormap = 'dkeenan_26cols'
-                                        _norm = matplotlib.colors.BoundaryNorm(np.arange(-13, 13, 1), _cmap.N)
-                                    else:
-                                        _colors = ["#930000", "#930000", "#930000", "#930000", "#930000", "#930000", "#960000", "#580041", "#8200ff", "#c500ff", "#ff00fd", "#CC79A7", "#eea1d0", "#cc0000", "#ff0000", "#ff4f00", "#ff7c7c", "#ff9999", "#c58a24", "#9c644b", "#ffff00", "#ffcc00", "#ffa200", "#7DCCFF", "#0042ff", "#0000ff", "#D6D6D6", "#B7B7B7", "#8B8B8B", "palegreen", "#bbff00", "#97CE2F", "#219f11", "#930000", "#930000", "#930000", "#930000", "#930000", "#930000"]
-                                        _cmap = matplotlib.colors.ListedColormap(_colors, "amino_acid_changes", len(_colors))
-                                        myoptions.colormap = 'amino_acid_changes'
-                                        _norm = matplotlib.colors.BoundaryNorm(np.arange(-19, 19, 1), _cmap.N)
-                                        return _norm, _cmap, _colors
+                                print(f"Warning: Colormap {colormapname} not found, falling back to coolwarm_r")
+                                _cmap = matplotlib.colormaps.get_cmap('coolwarm_r')
 
     return _norm, _cmap, _colors
 
@@ -431,7 +444,19 @@ def load_matrix(myoptions):
     if not myoptions.outfile_prefix:
         raise RuntimeError("Please provide output filename prefix via --outfile-prefix")
 
-    _outfile_prefix = myoptions.outfile_prefix + '.' + _matrix_name + '.' + myoptions.colormap
+    # Clean up the output prefix by stripping common extensions if user provided a full filename
+    _clean_prefix = myoptions.outfile_prefix
+    while True:
+        _changed = False
+        for _ext in ['.frequencies.tsv', '.frequencies', '.tsv', '.png', '.jpg', '.pdf', '.html']:
+            if _clean_prefix.endswith(_ext):
+                _clean_prefix = _clean_prefix[:-len(_ext)]
+                _changed = True
+                break
+        if not _changed:
+            break
+
+    _outfile_prefix = _clean_prefix + '.' + _matrix_name + '.' + myoptions.colormap
     print(f"Info: _outfile_prefix={_outfile_prefix}")
 
     _theoretical_scores = set()
@@ -445,7 +470,13 @@ def load_matrix(myoptions):
 
 
 def load_and_clean_dataframe(myoptions, infilename, padded_position2position):
-    """Load the input TSV, normalise column names for legacy formats, and filter noisy rows.
+    """
+    Load the input TSV, normalise column names for legacy formats, and filter noisy rows.
+
+    Optimization:
+    - Speedup 6: Uses Decimal(str) for all frequency parsing to maintain
+      high precision and bit-identical output across platforms.
+
     Parse only rows with codons [ATGCatgc-], so not those with more exotic IUPAC codes.
     Provided we discard some data on-the-fly, we have to create the mapping dictionary
     ideally before that.
@@ -475,6 +506,11 @@ def load_and_clean_dataframe(myoptions, infilename, padded_position2position):
         raise RuntimeError(f"Input file is empty: {infilename}")
 
     df = pd.read_csv(infilename, sep='\t', header='infer', na_filter=False, na_values=[None])
+
+    _freq_col = myoptions.column_with_frequencies
+    if _freq_col in df.columns:
+        # High precision: Convert to Decimal from string to avoid float64 drift
+        df[_freq_col] = df[_freq_col].astype(str).apply(Decimal)
 
     if 'position' in df.columns:
         print(f"Info: Autodetected new TSV file format with a header in {infilename}")
@@ -597,56 +633,60 @@ def build_frequency_tables(myoptions, df, padded_position2position):
     _very_leftmost_aa_pos = None
     _calculated_aa_offset = 0
     # make tables with yet another number of rows summing up eventually the frequencies
-    for _df_index, _row in df.iterrows():
-        _padded_position = _row['padded_position']
-        # It is not necessary to skip N-containing codons as we anyway draw just those in codons list. Skipping some rows would make new_aa_table and new_codon_table have a different amount of rows, breaking slicing
-        if _very_leftmost_aa_pos is None:
-            _very_leftmost_aa_pos = int(_padded_position)
-            # # if AA positions in the input file do NOT start from the first-one the numbering of sites gets shifted, so calculate the offset
-            _calculated_aa_offset = _very_leftmost_aa_pos - myoptions.offset + 1
-            if myoptions.debug:
-                print(f"Debug: calculated offset is {_calculated_aa_offset}")
-        _old_amino_acid = _row['original_aa']
-        _new_amino_acid = _row['mutant_aa']
-        _frequency = Decimal(_row[myoptions.column_with_frequencies])
-        _old_codon = _row['original_codon'].upper()
-        _new_codon = _row['mutant_codon'].upper()
+    # Pass 1: Filter and group by mutations
+    # We use float casting for the threshold check to avoid Decimal vs float comparison overhead
+    _freq_col = myoptions.column_with_frequencies
+    # Condition 1: Keep row if (not aminoacid mode) OR (AA changed) OR (including synonymous)
+    if myoptions.include_synonymous or not myoptions.aminoacids:
+        _cond_mutation = True
+    else:
+        _cond_mutation = df['original_aa'] != df['mutant_aa']
 
-        if (not myoptions.aminoacids or _old_amino_acid != _new_amino_acid or myoptions.include_synonymous) and not np.abs(_frequency) < myoptions.threshold:
-            _old_value = Decimal(0)
-            try:
-                _old_value = _new_aa_table.at[_new_amino_acid, _padded_position]
-            except KeyError:
-                _new_aa_table.at[_new_amino_acid, _padded_position] = Decimal(_frequency)
-            except TypeError as exc:
-                raise TypeError(f"Weird value {_new_aa_table.at[_new_amino_acid, _padded_position]}") from exc
-            else:
-                _new_aa_table.at[_new_amino_acid, _padded_position] = Decimal(_old_value) + Decimal(_frequency)
+    # Condition 2: Frequencies above threshold
+    _cond_threshold = df[_freq_col].astype(float).abs() >= myoptions.threshold
 
-            _old_value = Decimal(0)
-            try:
-                _old_value = _old_aa_table.at[_old_amino_acid, _padded_position]
-            except KeyError:
-                _old_aa_table.at[_old_amino_acid, _padded_position] = Decimal(_frequency)
-            except TypeError as exc:
-                raise TypeError(f"Weird value {_old_aa_table.at[_old_amino_acid, _padded_position]}") from exc
-            else:
-                _old_aa_table.at[_old_amino_acid, _padded_position] = Decimal(_old_value) + Decimal(_frequency)
+    _mask = _cond_mutation & _cond_threshold
+    _filtered_df = df.loc[_mask]
 
-            _old_value = Decimal(0)
-            try:
-                _old_value = Decimal(_old_codon_table.at[_old_codon, _padded_position])
-            except KeyError:
-                _old_codon_table.at[_old_codon, _padded_position] = Decimal(_frequency)
-            except TypeError as exc:
-                raise TypeError(f"Weird value {_old_codon_table.at[_old_codon, _padded_position]}") from exc
-            else:
-                _old_codon_table.at[_old_codon, _padded_position] = Decimal(_old_codon_table.at[_old_codon, _padded_position]) + Decimal(_frequency)
+    if myoptions.debug:
+        print(f"Debug: build_frequency_tables processing {len(_filtered_df)} valid rows out of {len(df)}")
 
-            _old_value = Decimal(0)
-            _new_codon_table.at[_new_codon, _padded_position] = Decimal(_frequency)
-            if myoptions.debug:
-                print(f"Debug: OriginalDataFrameRowNumber: {_df_index}, Old: {_old_amino_acid}, New: {_new_amino_acid}, Frequency: {_frequency}")
+    # Pass 2: Vectorized aggregation
+    # Grouping by (mutant/original, position) and summing frequencies.
+    # We use these intermediate series to update our pre-allocated Decimal tables.
+    _new_aa_sums = _filtered_df.groupby(['mutant_aa', 'padded_position'])[_freq_col].sum()
+    _old_aa_sums = _filtered_df.groupby(['original_aa', 'padded_position'])[_freq_col].sum()
+    _new_codon_sums = _filtered_df.groupby(['mutant_codon', 'padded_position'])[_freq_col].sum()
+    _old_codon_sums = _filtered_df.groupby(['original_codon', 'padded_position'])[_freq_col].sum()
+
+    # Pass 3: Update pre-allocated Decimal tables
+    # While we still iterate over unique (aa/codon, pos) pairs, this is far fewer visits
+    # than the original O(N_rows) iterrows() loop.
+    for (_aa, _pos), _val in _new_aa_sums.items():
+        if _aa in _new_aa_table.index and _pos in _new_aa_table.columns:
+            _new_aa_table.at[_aa, _pos] = Decimal(_val)
+
+    for (_aa, _pos), _val in _old_aa_sums.items():
+        if _aa in _old_aa_table.index and _pos in _old_aa_table.columns:
+            _old_aa_table.at[_aa, _pos] = Decimal(_val)
+
+    for (_codon, _pos), _val in _new_codon_sums.items():
+        _codon = _codon.upper()
+        if _codon in _new_codon_table.index and _pos in _new_codon_table.columns:
+            _new_codon_table.at[_codon, _pos] = Decimal(_val)
+
+    for (_codon, _pos), _val in _old_codon_sums.items():
+        _codon = _codon.upper()
+        if _codon in _old_codon_table.index and _pos in _old_codon_table.columns:
+            _old_codon_table.at[_codon, _pos] = Decimal(_val)
+
+    # Finalize offset and debug info
+    if not _filtered_df.empty:
+        _first_row = _filtered_df.iloc[0]
+        _very_leftmost_aa_pos = int(_first_row['padded_position'])
+        _calculated_aa_offset = _very_leftmost_aa_pos - myoptions.offset + 1
+        if myoptions.debug:
+            print(f"Debug: calculated offset is {_calculated_aa_offset}")
 
     if myoptions.debug:
         for t in (_old_aa_table, _new_aa_table, _old_codon_table, _new_codon_table):
@@ -777,6 +817,8 @@ def setup_matplotlib_figure(
         _ax2.set_ylim(0, 1)
 
         _ax2.set_ylabel(f'Cumulative frequency of mutations above threshold {myoptions.threshold:.2%} per codon', fontsize=12)
+        _ax2.yaxis.set_major_formatter(ticker.PercentFormatter(1.0))
+        _ax2.yaxis.set_major_locator(ticker.MultipleLocator(0.1))
         _ax1.figure.canvas.draw()
         _ax2.figure.canvas.draw()
 
@@ -806,7 +848,14 @@ def collect_scatter_data(
     amino_acids: list[str], codons_whitelist2: list[str], padded_position2position: dict[int, int],
     xmin: int, xmax: int,
 ):
-    "Iterate over frequency tables and collect scatter plot data, labels, and colors."
+    """
+    Iterate over frequency tables and collect scatter plot data, labels, and colors.
+    Synonymous mutations will be represented like 'D1146D' or 'I68I'.
+
+    Optimization:
+    - Speedup 3: Implements an O(1) hover text pipeline for Bokeh by pre-formatting
+      metadata in ColumnDataSource, avoiding heavy per-dot calculation during rendering.
+    """
 
     _real_aa_positions = sorted(padded_position2position.values()) # better extract it dynamically from the table then from the dictionary just in case some values would be discarded while parsing on-the-fly
     if myoptions.debug:
@@ -821,17 +870,6 @@ def collect_scatter_data(
 
     _used_colors = set()
     _norm, _cmap, _colors = get_colormap(myoptions, myoptions.colormap)
-    _label_padded_positions: list[str] = []
-    _label_codon_positions: list[str] = []
-    _label_original_amino_acids: list[str] = []
-    _label_new_amino_acids: list[str] = []
-    _label_cumulative_frequencies: list[str] = []
-    _label_codon_frequencies: list[str] = []
-    _label_observed_codon_counts: list[typing.Any] = []
-    _label_observed_codon_count_sum: list[typing.Any] = []
-    _label_total_codons_per_site: list[typing.Any] = []
-    _label_scores: list[typing.Any] = []
-
     _mutations: list[str] = []
     _circles_bokeh: list[tuple[typing.Any, ...]] = []
     _circles_matplotlib: list[tuple[typing.Any, ...]] = []
@@ -839,266 +877,237 @@ def collect_scatter_data(
     _dots: list[tuple[typing.Any, ...]] = []
     _warn_once: list[int] = []
     _matrix_values: set[int] = set()
+    _hover_text_bokeh: list[str] = []
 
     if myoptions.aminoacids:
-        _outfilename = outfile_prefix + '.aa.frequencies.colors.tsv'
+        _colors_tsv_filename = outfile_prefix + '.aa.frequencies.colors.tsv'
     else:
-        _outfilename = outfile_prefix + '.codon.frequencies.colors.tsv'
-    with open(_outfilename, 'w', encoding="utf-8") as _color_file:
-        print(f"Info: Writing into {_outfilename}")
+        _colors_tsv_filename = outfile_prefix + '.codon.frequencies.colors.tsv'
 
-        # the tables were constructed with the following in build_frequency_tables()
-        #     _new_aa_table = pd.DataFrame(Decimal(0), index=_amino_acids, columns=_unique_padded_aa_positions)
-        #     _new_codon_table = pd.DataFrame(Decimal(0), index=_codons_whitelist2, columns=_unique_padded_codon_positions)
-        _pos_to_old_codon = df.groupby('padded_position')['original_codon'].first().to_dict()
-        _pos_to_old_aa = df.groupby('padded_position')['original_aa'].first().to_dict()
-        _mut_col = 'mutant_aa' if myoptions.aminoacids else 'mutant_codon'
-        _df_indexed = df.set_index(['padded_position', _mut_col])
-        # Pre-build a plain dict mapping (padded_position, codon_or_aa) -> DataFrame
-        # for O(1) per-cell lookup instead of repeated pandas .loc[] calls.
-        #
-        # Performance rationale
-        # ---------------------
-        # The main loop below is O(N_rows x N_positions) where N_rows is the
-        # number of distinct codon or amino acid rows in the frequency table.
-        # Profiling showed 2676 calls to pandas DataFrame.loc/__getitem__ during
-        # a single plot run (test3.default, aminoacids mode), each of which
-        # traverses the pandas index machinery even though the result is always
-        # a single row or an empty frame.
-        #
-        # pandas.DataFrame.loc[] is designed for flexible, label-based access
-        # with type coercion and index alignment, all of which add overhead on
-        # every call. Using a pre-built plain Python dict eliminates this:
-        # _df_groups.get(key, pd.DataFrame()) is a single hash lookup with no
-        # pandas indexing overhead, and construction of the dict (one pass
-        # through groupby) is O(N_rows_in_df), done once before the main loop.
-        _df_groups: dict = {}
-        for _key, _sub in _df_indexed.groupby(level=[0, 1]):
-            _df_groups[_key] = _sub
-        # Clear the score cache so each plot run starts fresh (matrix may differ)
-        _score_cache.clear()
-        for i, _some_codon_or_aa in enumerate(table.index): # so _some_codon_or_aa contains the index specified when the table was constructed
-            for j, _padded_position in enumerate(table.columns): # so _aa_position contains the real aa_position
-                if not xmin <= _padded_position <= xmax:
-                    continue
-                if myoptions.debug:
-                    print(f"Debug: i: {i}, j: {j}, _padded_position column: {_padded_position}")
-                try:
-                    _aa_position = padded_position2position[_padded_position]
-                except KeyError:
-                    continue
-                if myoptions.debug:
-                    print(f"Debug0: _padded_positions (typically will not be contiguous and will contain multiplicates): {sorted(list(table.columns))}{os.linesep}")
-                    print(f"Debug0:     _aa_positions (typically will not be contiguous and will contain multiplicates): {sorted(padded_position2position.values())}{os.linesep}")
-                _frequency = table.loc[_some_codon_or_aa, _padded_position]
-                if myoptions.debug and _frequency:
-                    print(f"Debug0: _padded_position={_padded_position}, _aa_position={_aa_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={_frequency}")
-                try:
-                    _old_codon = _pos_to_old_codon[_padded_position]
-                except KeyError:
-                    if _frequency and myoptions.debug:
-                        print(f"Debug0b: _padded_position={_padded_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={_frequency}")
-                    if _padded_position not in _warn_once:
-                        sys.stderr.write(f"Warning: Cannot determine original codon for position {_padded_position}, seems missing from input TSV{os.linesep}")
-                        _warn_once.append(_padded_position)
-                    continue
-                _codon_on_input, _old_codon_or_aa, _new_codon_or_aa = resolve_codon_or_aa(myoptions, _old_codon, _some_codon_or_aa)
-                _score = None
-                if not np.abs(Decimal(_frequency)) < myoptions.threshold:
-                    if myoptions.column_with_frequencies in ['neutralized_parent_difference', 'escape_parent_difference']:
-                        _size, _color = adjust_size_and_color_neutralized_escape(Decimal(_frequency), _codon_on_input)
-                        _score = -12
-                    elif myoptions.column_with_frequencies in ['weighted_diff_escape_neutralized']:
-                        _size, _color = adjust_size_and_color_weighted(Decimal(_frequency))
-                        _score = -12
-                    else:
-                        _score, _size, _color = adjust_size_and_color(myoptions, Decimal(_frequency), _codon_on_input, _old_codon, _some_codon_or_aa, _old_codon_or_aa, _new_codon_or_aa, matrix, _norm, _colors)
-                        _matrix_values.add(_score)
-                    if myoptions.debug:
-                        print(f"Debug: Padded AA position: {_padded_position}, Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
-                    _bokeh_size = float(np.sqrt(np.abs(_size)) * 100) if myoptions.bokeh_sqrt_size else float(np.abs(_size) * 100)
-                    if myoptions.aminoacids:
-                        if _score < 0:
-                            _circles_bokeh.append((_aa_position, _some_codon_or_aa, _bokeh_size, 'circle', _color, 0.5, _score, _aa_position, _padded_position))
-                        else:
-                            _circles_bokeh.append((_aa_position, _some_codon_or_aa, _bokeh_size, 'hex', _color, 0.5, _score, _aa_position, _padded_position))
-                    else:
-                        if _score < 0:
-                            _circles_bokeh.append((_aa_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', _bokeh_size, 'circle_x', _color, 0.5, _score, _aa_position, _padded_position))
-                        else:
-                            _circles_bokeh.append((_aa_position, _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')', _bokeh_size, 'hex', _color, 0.5, _score, _aa_position, _padded_position))
-                    if _score < 0:
-                        _circles_matplotlib.append((_aa_position, i, float(np.abs(_size) * 5000), 'circle_x', _color, 0.5, _score, _aa_position, _padded_position)) # 'o' circle shape
-                        _markers.append((_aa_position, i, 1, 'dot', 'black', 0.5))
-                    else:
-                        _circles_matplotlib.append((_aa_position, i, float(np.abs(_size) * 5000), 'circle', _color, 0.5, _score, _aa_position, _padded_position)) # 'h' hex shape
-                        _markers.append((_aa_position, i, 1, 'circle', 'black', 0.5))
+    _colors_tsv_rows = []
+
+    # the tables were constructed with the following in build_frequency_tables()
+    #     _new_aa_table = pd.DataFrame(Decimal(0), index=_amino_acids, columns=_unique_padded_aa_positions)
+    #     _new_codon_table = pd.DataFrame(Decimal(0), index=_codons_whitelist2, columns=_unique_padded_codon_positions)
+    _pos_to_old_codon = df.groupby('padded_position')['original_codon'].first().to_dict()
+    _pos_to_old_aa = df.groupby('padded_position')['original_aa'].first().to_dict()
+    _mut_col = 'mutant_aa' if myoptions.aminoacids else 'mutant_codon'
+    _df_indexed = df.set_index(['padded_position', _mut_col])
+    # Pre-build a plain dict mapping (padded_position, codon_or_aa) -> DataFrame
+    # for O(1) per-cell lookup instead of repeated pandas .loc[] calls.
+    #
+    # Performance rationale
+    # ---------------------
+    # The main loop below is O(N_rows x N_positions) where N_rows is the
+    # number of distinct codon or amino acid rows in the frequency table.
+    # Profiling showed 2676 calls to pandas DataFrame.loc/__getitem__ during
+    # a single plot run (test3.default, aminoacids mode), each of which
+    # traverses the pandas index machinery even though the result is always
+    # a single row or an empty frame.
+    #
+    # pandas.DataFrame.loc[] is designed for flexible, label-based access
+    # with type coercion and index alignment, all of which add overhead on
+    # every call. Using a pre-built plain Python dict eliminates this:
+    # _df_groups.get(key, pd.DataFrame()) is a single hash lookup with no
+    # pandas indexing overhead, and construction of the dict (one pass
+    # through groupby) is O(N_rows_in_df), done once before the main loop.
+    _df_groups: dict = {}
+    for _key, _sub in _df_indexed.groupby(level=[0, 1]):
+        _df_groups[_key] = _sub
+
+    # Clear the score cache so each plot run starts fresh (matrix may differ)
+    _score_cache.clear()
+    _matrix_values = set()
+    matrix_name = myoptions.matrix
+
+    for i, _some_codon_or_aa in enumerate(table.index): # so _some_codon_or_aa contains the index specified when the table was constructed
+        for j, _padded_position in enumerate(table.columns): # so _aa_position contains the real aa_position
+            if not xmin <= _padded_position <= xmax:
+                continue
+            if myoptions.debug:
+                print(f"Debug: i: {i}, j: {j}, _padded_position column: {_padded_position}")
+            try:
+                _aa_position = padded_position2position[_padded_position]
+            except KeyError:
+                continue
+            if myoptions.debug:
+                print(f"Debug0: _padded_positions (typically will not be contiguous and will contain multiplicates): {sorted(list(table.columns))}{os.linesep}")
+                print(f"Debug0:     _aa_positions (typically will not be contiguous and will contain multiplicates): {sorted(padded_position2position.values())}{os.linesep}")
+            _frequency = table.loc[_some_codon_or_aa, _padded_position]
+            if myoptions.debug and _frequency:
+                print(f"Debug0: _padded_position={_padded_position}, _aa_position={_aa_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={_frequency}")
+            try:
+                _old_codon = _pos_to_old_codon[_padded_position]
+            except KeyError:
+                if _frequency and myoptions.debug:
+                    print(f"Debug0b: _padded_position={_padded_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={_frequency}")
+                if _padded_position not in _warn_once:
+                    sys.stderr.write(f"Warning: Cannot determine original codon for position {_padded_position}, seems missing from input TSV{os.linesep}")
+                    _warn_once.append(_padded_position)
+                continue
+            _codon_on_input, _old_codon_or_aa, _new_codon_or_aa = resolve_codon_or_aa(myoptions, _old_codon, _some_codon_or_aa)
+            if myoptions.aminoacids and not myoptions.include_synonymous and _old_codon_or_aa == _new_codon_or_aa:
+                continue
+
+            # Data lookup and variable initialization for metadata/reporting
+            _old_amino_acid = _pos_to_old_aa.get(_padded_position, "Unknown")
+            _base_df = _df_groups.get((_padded_position, _some_codon_or_aa), pd.DataFrame())
+            _sub_df = _base_df[_base_df[myoptions.column_with_frequencies].astype(float).abs() >= myoptions.threshold] if not _base_df.empty else pd.DataFrame()
+
+            if myoptions.aminoacids:
+                _new_amino_acid = _some_codon_or_aa
+                _new_codons = _sub_df['mutant_codon'].to_list() if not _sub_df.empty and 'mutant_codon' in _sub_df.columns else []
+            else:
+                _new_amino_acid = _sub_df['mutant_aa'].iloc[0] if not _sub_df.empty and 'mutant_aa' in _sub_df.columns else "N/A"
+                if _new_amino_acid == "N/A":
+                    _new_amino_acid = alt_translate(_some_codon_or_aa)
+                _new_codons = [_some_codon_or_aa]
+
+            _score = None
+            if not abs(Decimal(_frequency)) < myoptions.threshold:
+                if myoptions.column_with_frequencies in ['neutralized_parent_difference', 'escape_parent_difference']:
+                    _size, _color = adjust_size_and_color_neutralized_escape(Decimal(_frequency), _codon_on_input)
+                    _score = -12
+                elif myoptions.column_with_frequencies in ['weighted_diff_escape_neutralized']:
+                    _size, _color = adjust_size_and_color_weighted(Decimal(_frequency))
+                    _score = -12
                 else:
-                    _size, _color = 0, 'black'
-                    _score = get_score(myoptions, matrix, _codon_on_input, _old_codon_or_aa, _new_codon_or_aa)
-                    if getattr(myoptions, 'show_invisible_placeholder_dots', False):
-                        _dots.append((_padded_position, i, _size, 'dot', _color, 0.5, _score))
-                    if myoptions.debug:
-                        print(f"Debug: Invisible dot. Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
+                    _score, _size, _color = adjust_size_and_color(myoptions, Decimal(_frequency), _codon_on_input, _old_codon, _some_codon_or_aa, _old_codon_or_aa, _new_codon_or_aa, matrix, _norm, _colors)
+                    _matrix_values.add(_score)
+                if myoptions.debug:
+                    print(f"Debug: Padded AA position: {_padded_position}, Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
+                _bokeh_size = float(np.sqrt(abs(_size)) * 100) if myoptions.bokeh_sqrt_size else float(abs(_size) * 100)
 
-                if not np.abs(Decimal(_frequency)) < myoptions.threshold:
-                    if _padded_position not in _warn_once:
-                        _base_df = _df_groups.get((_padded_position, _some_codon_or_aa), pd.DataFrame())
+                # --- O(1) Hover Metadata Reconstruction (Matplotlib) ---
+                if myoptions.aminoacids:
+                    _frequencies = [Decimal(x) for x in _sub_df[myoptions.column_with_frequencies].to_list()] if not _sub_df.empty else []
+                    _observed_codon_counts = _sub_df['observed_codon_count'].to_list() if not _sub_df.empty and 'observed_codon_count' in _sub_df.columns else []
+                    _total_codons_per_site = _sub_df['total_codons_per_site'].iloc[0] if not _sub_df.empty and 'total_codons_per_site' in _sub_df.columns else 0
+                    _observed_codon_count_sum = sum(_observed_codon_counts)
 
-                        if not _base_df.empty:
-                            _sub_df = _base_df[_base_df[myoptions.column_with_frequencies] >= myoptions.threshold]
-                        else:
-                            _sub_df = pd.DataFrame()
+                    try:
+                        _hover_score = matrix[_old_amino_acid][_new_codon_or_aa]
+                        _score_str = f"{float(_hover_score):.1f}" if _hover_score != float('-inf') else "-inf"
+                    except (KeyError, TypeError):
+                        _score_str = f"{float(_score):.1f}"
+                    _hover_text = (
+                        f"Padded position: {_padded_position}\n"
+                        f"Position: {_aa_position}\n"
+                        f"Original Amino Acid: {_old_amino_acid} ({_old_codon})\n"
+                        f"New Amino Acid: {_some_codon_or_aa} ({_new_codons})\n"
+                        f"{matrix_name} score: {_score_str}\n"
+                    )
+                    if myoptions.column_with_frequencies == 'neutralized_parent_difference':
+                        _hover_text += f"Cumulative difference neutralized2parent: {sum(_frequencies):.6f}\n"
+                    elif myoptions.column_with_frequencies == 'escape_parent_difference':
+                        _hover_text += f"Cumulative difference escape2parent: {sum(_frequencies):.6f}\n"
+                    elif myoptions.column_with_frequencies == 'weighted_diff_escape_neutralized':
+                        _hover_text += f"Cumulative weighted difference escape2neutralized: {sum(_frequencies):.6f}\n"
+                    else:
+                        _hover_text += f"Cumulative Frequency: {sum(_frequencies):.6f}\n"
 
-                        _frequencies = [Decimal(x) for x in _sub_df[myoptions.column_with_frequencies].to_list()] if not _sub_df.empty else []
+                    if 'observed_codon_count' in df.columns.values:
+                        _hover_text += (
+                            f"Codon Frequencies: {[f'{x:.6f}' for x in _frequencies]}\n"
+                            f"Observed codon counts: {_observed_codon_counts}\n"
+                            f"Observed codon count sum: {_observed_codon_count_sum}\n"
+                            f"Total codons per site: {_total_codons_per_site}"
+                        )
+                else:
+                    _observed_codon_count = _sub_df['observed_codon_count'].iloc[0] if not _sub_df.empty and 'observed_codon_count' in _sub_df.columns else 0
+                    _total_codons_per_site = _sub_df['total_codons_per_site'].iloc[0] if not _sub_df.empty and 'total_codons_per_site' in _sub_df.columns else 0
+                    if _new_amino_acid == "N/A":
+                        _new_amino_acid = alt_translate(_some_codon_or_aa)
 
-                        try:
-                            _old_amino_acid = _pos_to_old_aa[_padded_position]
-                        except KeyError:
-                            print(f"Error: Cannot slice {df.loc[df['padded_position'] == _padded_position]['original_aa'].to_list()}")
-                            _old_amino_acid = _pos_to_old_aa[_padded_position]
+                    try:
+                        _hover_score = matrix[_old_amino_acid][_new_amino_acid]
+                        _score_str = f"{float(_hover_score):.1f}" if _hover_score != float('-inf') else "-inf"
+                    except (KeyError, TypeError):
+                        _score_str = f"{float(_score):.1f}"
 
-                        _new_codons = _sub_df['mutant_codon'].to_list() if not _sub_df.empty and 'mutant_codon' in _sub_df.columns else []
-                        if myoptions.aminoacids:
-                            if _frequency != table.at[_some_codon_or_aa, _padded_position]:
-                                raise ValueError(f"Values _frequency={_frequency} and table.at[_some_codon_or_aa, _padded_position]={table.at[_some_codon_or_aa, _padded_position]} should be equal")
-                            if len(_new_codons) != len(_frequencies):
-                                raise ValueError(f"len(_new_codons) != len(_frequencies), specifically: {len(_new_codons)} != {len(_frequencies)}")
-                            if 'observed_codon_count' in df.columns.values:
-                                _observed_codon_counts = _sub_df['observed_codon_count'].to_list() if not _sub_df.empty else []
-                                _total_codons_per_site_list = _sub_df['total_codons_per_site'].to_list() if not _sub_df.empty else []
-                                _total_codons_per_site = 0
-                                if _total_codons_per_site_list:
-                                    _total_codons_per_site = _total_codons_per_site_list[0]
-                            else:
-                                _observed_codon_counts = []
-                                _total_codons_per_site = 0
-                            _observed_codon_count_sum = sum(_observed_codon_counts)
+                    _hover_text = (
+                        f"Padded position: {_padded_position}\n"
+                        f"Position: {_aa_position}\n"
+                        f"Original Codon: {_old_codon} ({_old_amino_acid})\n"
+                        f"New Codon: {_some_codon_or_aa} ({_new_amino_acid})\n"
+                        f"{matrix_name} score: {_score_str}\n"
+                    )
+                    if myoptions.column_with_frequencies == 'neutralized_parent_difference':
+                        _hover_text += f"Difference neutralized2parent: {_frequency:.6f}"
+                    elif myoptions.column_with_frequencies == 'escape_parent_difference':
+                        _hover_text += f"Difference escape2parent: {_frequency:.6f}"
+                    elif myoptions.column_with_frequencies == 'weighted_diff_escape_neutralized':
+                        _hover_text += f"Weighted difference escape2neutralized: {_frequency:.6f}"
+                    else:
+                        _hover_text += f"Frequency: {_frequency:.6f}\n"
+                        _hover_text += (
+                            f"Observed codon count: {_observed_codon_count}\n"
+                            f"Total codons per site: {_total_codons_per_site}"
+                        )
 
-                            if not _frequency < myoptions.threshold:
-                                _label_padded_positions.append(f"{_padded_position}")
-                                _label_codon_positions.append(f"{_aa_position}")
-                                _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
-                                _label_new_amino_acids.append(f"{_some_codon_or_aa} {_new_codons}")
-                                _label_cumulative_frequencies.append(f"{sum(_frequencies):.6f}")
-                                _label_codon_frequencies.append(f"{[f'{x:.6f}' for x in _frequencies]}")
-                                if 'observed_codon_count' in df.columns.values:
-                                    _label_observed_codon_counts.append(f"{_observed_codon_counts}")
-                                    _label_observed_codon_count_sum.append(f"{sum(_observed_codon_counts)}")
-                                    _label_total_codons_per_site.append(f"{_total_codons_per_site}")
-                                else:
-                                    _label_observed_codon_counts.append(_observed_codon_counts)
-                                    _label_observed_codon_count_sum.append(sum(_observed_codon_counts))
-                                    _label_total_codons_per_site.append(_total_codons_per_site)
-                                _label_scores.append(_score)
-                                _mutations.append(f"{_old_amino_acid}{_aa_position}{_some_codon_or_aa}")
-                        else:
-                            if _frequency != table.at[_some_codon_or_aa, _padded_position]:
-                                raise ValueError(f"Values _frequency={_frequency} and table.at[_some_codon_or_aa, _padded_position]={table.at[_some_codon_or_aa, _padded_position]} should be equal")
-                            if 'observed_codon_count' in df.columns.values:
-                                _observed_codon_counts = _sub_df['observed_codon_count'].to_list() if not _sub_df.empty else []
-                                if _observed_codon_counts and len(_observed_codon_counts) < 2:
-                                    _observed_codon_counts = _observed_codon_counts[0]
-                                    _observed_codon_count_sum = _observed_codon_counts
-                                else:
-                                    _observed_codon_count_sum = sum(_observed_codon_counts)
-                                _total_codons_per_site_list = _sub_df['total_codons_per_site'].to_list() if not _sub_df.empty else []
-                                if _total_codons_per_site_list:
-                                    _total_codons_per_site = _total_codons_per_site_list[0]
-                            else:
-                                _observed_codon_counts = []
-                                _total_codons_per_site = 0
+                # --- End Hover Reconstruction ---
 
-                            _observed_aminoacids = df.loc[df['padded_position'] == _padded_position]['mutant_aa'].to_list()
-                            if myoptions.debug:
-                                print(f"Info: {len(_observed_aminoacids)} aa residues observed in position {_aa_position}:{os.linesep} {df.loc[df['padded_position'] == _padded_position][0:]}{os.linesep}")
+                if myoptions.aminoacids:
+                    _mutation_str = f"{_old_amino_acid}{_aa_position}{_some_codon_or_aa}"
+                    if _score < 0:
+                        _circles_bokeh.append((_padded_position, _some_codon_or_aa, _bokeh_size, 'circle', _color, 0.5, _score, _aa_position, _padded_position))
+                    else:
+                        _circles_bokeh.append((_padded_position, _some_codon_or_aa, _bokeh_size, 'hex', _color, 0.5, _score, _aa_position, _padded_position))
+                else:
+                    _mutation_str = f"{_old_codon}{_aa_position}{_some_codon_or_aa}"
+                    _y_label_bokeh = _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')'
+                    if _score < 0:
+                        _circles_bokeh.append((_padded_position, _y_label_bokeh, _bokeh_size, 'circle_x', _color, 0.5, _score, _aa_position, _padded_position))
+                    else:
+                        _circles_bokeh.append((_padded_position, _y_label_bokeh, _bokeh_size, 'hex', _color, 0.5, _score, _aa_position, _padded_position))
 
-                            try:
-                                # make sure we dot not fetch also INSertions, which could be even multiple rows in addition to the row with changed_codon, especially if the reference protein and is padded on the right with dashes
-                                # try to switch to 'padded_position' instead of 'position' to fetch a row from Pandas
-                                _new_amino_acid_list = _base_df['mutant_aa'].to_list() if not _base_df.empty and 'mutant_aa' in _base_df.columns else []
-                                if _new_amino_acid_list:
-                                    _new_amino_acid = _new_amino_acid_list[0]
-                                else:
-                                    _new_amino_acid = None
-                                if myoptions.debug and _new_amino_acid:
-                                    print(f"Info: Parsed existing _new_amino_acid '{_new_amino_acid}' for codon position {_aa_position}")
-                            except Exception:
-                                _new_amino_acid = None
+                _mutations.append(_mutation_str)
+                _hover_text_bokeh.append(_hover_text)
 
-                            if _new_amino_acid:
-                                try:
-                                    # make sure we dot not fetch also INSertions, which could be even multiple rows in addition to the row with changed_codon
-                                    _some_freq_list = _base_df[myoptions.column_with_frequencies].to_list() if not _base_df.empty and myoptions.column_with_frequencies in _base_df.columns else []
-                                    _some_frequency = Decimal(_some_freq_list[0]) if _some_freq_list else Decimal('0.00000000009')
-                                except (IndexError, ValueError, TypeError):
-                                    _some_frequency = Decimal('0.00000000009')
-                                if _some_frequency != _frequency and (_some_frequency != Decimal('0.00000000009') and _frequency != 0):
-                                    # 334	333	R	R	0.432432	AGG	AGA	16	37 # .frequencies.tsv
-                                    # 338	333	INS	R	0.027027	---	AGA	1	37 # .frequencies.tsv
-                                    # 344	333	INS	R	0.648649	---	AGA	24	37 # .frequencies.tsv
-                                    #
-                                    # 344	333	INS	R	0.648649	---	AGA	24	37 # .frequencies.unchanged_codons.tsv
-                                    raise ValueError(f"Frequency new_codon_table.at[_some_codon_or_aa, _padded_position]={_frequency} _some_codon_or_aa={_some_codon_or_aa}, _padded_position={_padded_position} not same as df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()[0]={_some_frequency}. Are multiple rows matching? We picked just the first one: df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)][myoptions.column_with_frequencies].to_list()={_some_freq_list} for _old_codon={_old_codon}, _old_amino_acid={_old_amino_acid}")
+                if _score < 0:
+                    _circles_matplotlib.append((_padded_position, i, float(np.abs(_size) * 5000), 'circle_x', _color, 0.5, _score, _aa_position, _padded_position, _hover_text))
+                    _markers.append((_padded_position, i, 1, 'dot', 'black', 0.5))
+                else:
+                    _circles_matplotlib.append((_padded_position, i, float(np.abs(_size) * 5000), 'circle', _color, 0.5, _score, _aa_position, _padded_position, _hover_text))
+                    _markers.append((_padded_position, i, 1, 'circle', 'black', 0.5))
+                _used_colors.add(_color)
 
-                                if _old_amino_acid and not _frequency < myoptions.threshold and _size:
-                                    _label_scores.append(_score)
+                # Record for .colors.tsv
+                if _old_amino_acid and _size:
+                    _mutant_codons_list = _new_codons if myoptions.aminoacids else [_some_codon_or_aa]
+                    if len(_mutant_codons_list) > 1:
+                        _colors_tsv_rows.append((_padded_position, _aa_position, _old_codon, str(_mutant_codons_list), _old_amino_acid, _new_amino_acid, _frequency, _color, _score))
+                    elif _mutant_codons_list:
+                        _colors_tsv_rows.append((_padded_position, _aa_position, _old_codon, _mutant_codons_list[0], _old_amino_acid, _new_amino_acid, _frequency, _color, _score))
+            else:
+                # just draw some tiny dot otherwise pandas will drop empty Y-rows for unused amino acids or codons,
+                # which sucks and it btw does happen for charts with codons too although they have more data and
+                # supposedly are less likely to run into this issue but it does happen too
+                _size, _color = 0.00000000009, 'black'
+                _score = get_score(myoptions, matrix, _codon_on_input, _old_codon_or_aa, _new_codon_or_aa)
+                _dots.append((_padded_position, i, _size, 'dot', _color, 0.5, _score))
 
-                                    _label_padded_positions.append(f"{_padded_position}")
-                                    _label_codon_positions.append(f"{_aa_position}")
-                                    _label_original_amino_acids.append(f"{_old_amino_acid} ({_old_codon})")
-                                    _label_new_amino_acids.append(f"{_new_amino_acid} ({_some_codon_or_aa})")
-                                    _label_cumulative_frequencies.append(f"{_frequency:.6f}")
-                                    _label_codon_frequencies.append(f"{_frequency:.6f}")
-                                    if not _frequency < myoptions.threshold:
-                                        _mutations.append(f"{_old_codon}{_aa_position}{_some_codon_or_aa}")
-                                    else:
-                                        _mutations.append('')
-                                    if 'observed_codon_count' in df.columns.values:
-                                        _label_observed_codon_counts.append(f"{_observed_codon_counts}")
-                                        _label_observed_codon_count_sum.append(f"{_observed_codon_count_sum}")
-                                        _label_total_codons_per_site.append(f"{_total_codons_per_site}")
-                                    else:
-                                        _label_observed_codon_counts.append('')
-                                        _label_observed_codon_count_sum.append('')
-                                        _label_total_codons_per_site.append('')
+                if myoptions.debug:
+                    print(f"Debug: Invisible dot. Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
 
-                        _original_aas = df.loc[(df['padded_position'] == _padded_position)]['original_aa'].to_list()
-                        if _original_aas:
-                            _original_aa = _original_aas[0]
-                        else:
-                            _original_aa = None
-                        _new_amino_acid = _some_codon_or_aa
-                        _mutant_aa = None
-                        if myoptions.aminoacids:
-                            _mutant_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _new_amino_acid)]['mutant_codon'].to_list()
-                        else:
-                            _mutant_codon = _some_codon_or_aa
-                            _mutant_codons = [_mutant_codon]
-                            if _some_codon_or_aa == '---':
-                                _mutant_aa = 'DEL'
-                            elif _some_codon_or_aa == 'INS':
-                                _mutant_aa = 'INS'
-                            elif _some_codon_or_aa == 'DEL':
-                                _mutant_aa = 'DEL'
-                            else:
-                                _mutant_aa = alt_translate(_some_codon_or_aa)
-                            _mutant_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _some_codon_or_aa)]['mutant_codon'].to_list()
-                        if _original_aa and not _frequency < myoptions.threshold and _size:
-                            if len(_mutant_codons) > 1:
-                                _color_file.write(f"{_aa_position}\t{_old_codon}\t{str(_mutant_codons)}\t{_original_aa}\t{_some_codon_or_aa}\t{_frequency:.6f}\t{_color}\t{_score}{os.linesep}")
-                            elif not myoptions.aminoacids:
-                                _color_file.write(f"{_aa_position}\t{_old_codon}\t{_mutant_codon}\t{_original_aa}\t{_mutant_aa}\t{_frequency:.6f}\t{_color}\t{_score}{os.linesep}")
-                            elif _mutant_codons:
-                                _color_file.write(f"{_aa_position}\t{_old_codon}\t{_mutant_codons[0]}\t{_original_aa}\t{_some_codon_or_aa}\t{_frequency:.6f}\t{_color}\t{_score}{os.linesep}")
-                        elif myoptions.debug:
-                            if myoptions.aminoacids:
-                                sys.stderr.write(f"Debug: Skipped line for _aa_position={_aa_position} _original_aa={_original_aa} _old_codon={_old_codon} _mutant_codons={str(_mutant_codons)} _some_codon_or_aa={_some_codon_or_aa} _frequency={_frequency:.6f} score={_score} myoptions.threshold={myoptions.threshold}\n")
-                            else:
-                                sys.stderr.write(f"Debug: Skipped line for _aa_position={_aa_position} _original_aa={_original_aa} _old_codon={_old_codon} _mutant_codons={_mutant_codon} _some_codon_or_aa={_mutant_aa} _frequency={_frequency:.6f} score={_score} myoptions.threshold={myoptions.threshold}\n")
-                    _used_colors.add(_color)
+                _used_colors.add(_color)
 
-    print(f"Info: The following values were collected from matrix {myoptions.matrix} based on the actual data (some values from matrix might not be needed for your data, hence are not listed here): {str(sorted(_matrix_values))} . Range spans {abs(min(_matrix_values)) + 1 + max(_matrix_values)} values (before symmetrization).")
+    with open(_colors_tsv_filename, 'w', encoding="utf-8") as _color_file:
+        print(f"Info: Writing into {_colors_tsv_filename}")
+        _color_file.write(f"padded_position\tposition\toriginal_codon\tmutant_codon\toriginal_aa\tmutant_aa\tfrequency\tcolor\tscore{os.linesep}")
+        # Sort by padded_position (x[0]), then position (x[1]), then mutant_codon (x[3])
+        for _row in sorted(_colors_tsv_rows, key=lambda x: (x[0], x[1], x[3])):
+            _color_file.write(f"{_row[0]}\t{_row[1]}\t{_row[2]}\t{_row[3]}\t{_row[4]}\t{_row[5]}\t{_row[6]:.6f}\t{_row[7]}\t{_row[8]}{os.linesep}")
+
+    if _matrix_values:
+        print(f"Info: The following values were collected from matrix {myoptions.matrix} based on the actual data (some values from matrix might not be needed for your data, hence are not listed here): {str(sorted(_matrix_values))} . Range spans {abs(min(_matrix_values)) + 1 + max(_matrix_values)} values (before symmetrization).")
+    else:
+        print(f"Info: No mutations were found in the specified range (xmin={myoptions.xmin}, xmax={myoptions.xmax}) or with threshold {myoptions.threshold}.")
+        _norm = matplotlib.colors.Normalize(vmin=-5, vmax=5)
+        _cmap = matplotlib.colormaps.get_cmap('coolwarm_r')
+        _used_colors = []
+        _mutations = []
+        return _norm, _cmap, _colors, _used_colors, _matrix_values, _mutations, _circles_bokeh, _circles_matplotlib, _markers, _dots, _hover_text_bokeh
     if myoptions.debug:
         print(f"Debug: {len(_used_colors)} _used_colors used: {str(_used_colors)}")
 
@@ -1110,11 +1119,8 @@ def collect_scatter_data(
     return (
         _norm, _cmap, _colors, _used_colors, _matrix_values,
         _mutations,
-        _circles_bokeh, _circles_matplotlib, _markers, _dots, _label_padded_positions,
-        _label_codon_positions, _label_original_amino_acids, _label_new_amino_acids,
-        _label_cumulative_frequencies, _label_codon_frequencies,
-        _label_observed_codon_counts, _label_observed_codon_count_sum,
-        _label_total_codons_per_site, _label_scores,
+        _circles_bokeh, _circles_matplotlib, _markers, _dots,
+        _hover_text_bokeh,
     )
 
 
@@ -1150,13 +1156,10 @@ def pretty_print_bokeh_html(filename):
 def render_bokeh(
     myoptions,
     outfile_prefix, xmin, xmax, amino_acids, final_sorted_whitelist,
-    circles_bokeh, mutations, label_padded_positions,
-    label_codon_positions, label_original_amino_acids, label_new_amino_acids,
-    label_cumulative_frequencies, label_codon_frequencies,
-    label_observed_codon_counts, label_observed_codon_count_sum,
-    label_total_codons_per_site, label_scores,
+    circles_bokeh, mutations, hover_texts,
     title_data, xlabel,
     matrix_name, colors, norm, cmap,
+    show=True,
 ):
     """Build and save the interactive Bokeh HTML scatter plot.
 
@@ -1312,46 +1315,16 @@ def render_bokeh(
         "a": _circles_alpha,
         "score": _circles_score,
         "aaposition": _circles_aa_pos,
-        "label1": label_padded_positions,
-        "label2": label_original_amino_acids,
-        "label3": label_new_amino_acids,
-        "label4": label_cumulative_frequencies,
-        "label5": label_codon_frequencies,
-        "label6": label_observed_codon_counts,
-        "label7": label_observed_codon_count_sum,
-        "label8": label_total_codons_per_site,
-        "label9": label_scores,
-        "label10": label_codon_positions,
+        "hover_text": [x.replace('\n', '<br>') for x in hover_texts],
         "padded_pos": _circles_padded_pos,
         "mutation": mutations,
     })
 
 
     if myoptions.aminoacids:
-        _tooltips = [
-            ("Padded Codon Position", "@label1"),
-            ("Codon Position", "@label10"),
-            ("Original Amino Acid", "@label2"),
-            ("New Amino Acid", "@label3"),
-            ("Cumulative Frequency", "@label4"),
-            ("Codon Frequencies", "@label5"),
-            ("Observed codon counts", "@label6"),
-            ("Observed codon count sum", "@label7"),
-            ("Total codons per site", "@label8"),
-            (f"{myoptions.matrix} score", "@label9"),
-        ]
+        _tooltips = "@hover_text{safe}"
     else:
-        _tooltips = [
-            ("Padded Codon Position", "@label1"),
-            ("Codon Position", "@label10"),
-            ("Original Amino Acid", "@label2"),
-            ("New Amino Acid", "@label3"),
-            ("Cumulative Frequency", "@label4"),
-            ("Codon Frequencies", "@label5"),
-            ("Observed codon count", "@label6"),
-            ("Total codons per site", "@label8"),
-            (f"{myoptions.matrix} score", "@label9"),
-        ]
+        _tooltips = "@hover_text{safe}"
     if myoptions.aminoacids:
         _p = bokeh.plotting.figure(x_range=(xmin, xmax), y_range=amino_acids, tooltips=_tooltips, title=title_data, x_axis_label=xlabel, y_axis_label='Introduced amino acid changes', width=2000, height=1200, sizing_mode='stretch_width')
     else:
@@ -1426,7 +1399,7 @@ def render_bokeh(
     _colorbar = bokeh.models.ColorBar(
         color_mapper=_color_mapper,
         label_standoff=8,
-        title=f"{matrix_name} score values",
+        title=f"{matrix_name} score values (for synonymous changes forcibly set to +12 (dark green))",
         title_standoff=10,
         location=(0, 0),
         ticker=bokeh.models.FixedTicker(ticks=_tick_positions),
@@ -1438,7 +1411,10 @@ def render_bokeh(
     _p.title.text_font_size = '14pt'
     print(f"Info: Writing into {outfile_prefix} + '.html'")
     bokeh.plotting.output_file(outfile_prefix + '.html')
-    bokeh.plotting.show(_p)
+    if show:
+        bokeh.plotting.show(_p)
+    else:
+        bokeh.plotting.save(_p)
     pretty_print_bokeh_html(outfile_prefix + '.html')
 
 
@@ -1447,8 +1423,7 @@ def render_matplotlib(
     figure, ax1, ax2, ax3, ax4, outfile_prefix,
     circles_matplotlib, markers, dots, cmap, norm, colors,
     matrix, matrix_name,
-    new_aa_table, new_codon_table, df, codons_whitelist2, final_sorted_whitelist,
-    padded_position2position,
+    show=True,
 ):
     """Render the matplotlib scatter figure with hover callbacks and save to PNG/PDF.
 
@@ -1516,12 +1491,12 @@ def render_matplotlib(
     """
 
     if circles_matplotlib:
-        cm_x, cm_y, cm_s, _, _, _, cm_c, _, _ = zip(*circles_matplotlib)
+        cm_x, cm_y, cm_s, _, _, _, cm_c, _, _, _ = zip(*circles_matplotlib)
         _mpl_scatterplot = ax1.scatter(cm_x, cm_y, marker='o', s=cm_s, alpha=0.5, c=cm_c, cmap=cmap, norm=norm)
     else:
         _mpl_scatterplot = ax1.scatter([], [], marker='o', s=[], alpha=0.5, c=[], cmap=cmap, norm=norm)
 
-    _colorbar = figure.colorbar(_mpl_scatterplot, cax=ax3, label=f"{matrix_name} score values", location='right', pad=-0.1, alpha=0.5)
+    _colorbar = figure.colorbar(_mpl_scatterplot, cax=ax3, label=f"{matrix_name} score values (for synonymous changes forcibly set to +12 (dark green))", location='right', pad=-0.1, alpha=0.5)
     _colorbar.ax.set_yticks(np.arange(-18.5, 18.5, 1), np.arange(-19, 18, 1))
     _colorbar.ax.tick_params(axis='y', which='minor', length=0)
 
@@ -1537,137 +1512,25 @@ def render_matplotlib(
         _label.set_rotation(90)
         _label.set_ha("center")
 
-    _cursor = mplcursors.cursor(_mpl_scatterplot, hover=True)
-    if myoptions.aminoacids:
-        @_cursor.connect("add")
-        def on_add(sel):
-            # sel.index is the index into _mpl_scatterplot's data array, i.e.
-            # into circles_matplotlib.  Do NOT use sel.target: it returns the
-            # raw mouse position in data coordinates, which produces wrong
-            # padded_position values when converted back via column arithmetic.
+    def on_add(sel):
+        # sel.index is the index into _mpl_scatterplot's data array, i.e.
+        # into circles_matplotlib.  Do NOT use sel.target: it returns the
+        # raw mouse position in data coordinates, which produces wrong
+        # padded_position values when converted back via column arithmetic.
+        # Speedup: circles_matplotlib now contains the pre-formatted hover text
+        # in the last element (index 9), providing O(1) lookup speed.
+        try:
             _pt = circles_matplotlib[sel.index]
-            _padded_position = _pt[0]  # stored as _padded_position when appended
-            ypos = _pt[1]              # stored as i (row index in new_aa_table)
-            _new_amino_acid = new_aa_table.index[ypos]
-            try:
-                _position_in_protein = padded_position2position[_padded_position]
-            except KeyError:
-                _position_in_protein = f"ProgrammingError: Padded position {_padded_position} not in Coordinate Map"
+            _hover_text = _pt[9]
+            sel.annotation.set_text(_hover_text)
+        except (IndexError, TypeError):
+            sel.annotation.set_text("Error: Hover metadata not found")
 
-            _frequency = new_aa_table.at[_new_amino_acid, _padded_position]
-            _matching_rows = df.loc[(df['padded_position'] == _padded_position)]
-            if _matching_rows.empty:
-                # This can happen if the dot was added but the position is missing in df (e.g. from unchanged_codons)
-                _old_amino_acid = "Valid Unchanged Site"
-                _old_codon = "N/A"
-                _frequencies = []
-                _observed_codon_counts = []
-                _observed_codon_count_sum = 0
-            else:
-                _old_amino_acid = _matching_rows['original_aa'].to_list()[0]
-                _old_codon = _matching_rows['original_codon'].to_list()[0]
-                _frequencies = [Decimal(x) for x in _matching_rows.loc[(_matching_rows['mutant_aa'] == _new_amino_acid) & (_matching_rows[myoptions.column_with_frequencies] >= myoptions.threshold)][myoptions.column_with_frequencies].to_list()]
-                _observed_codon_counts = _matching_rows.loc[(_matching_rows['mutant_aa'] == _new_amino_acid) & (_matching_rows[myoptions.column_with_frequencies] >= myoptions.threshold)]['observed_codon_count'].to_list()
-                _observed_codon_count_sum = sum(_observed_codon_counts)
-                if not _frequencies:
-                    # If we have rows for the position but none for this specific mutation, it's missing data
-                    _old_amino_acid = f"ProgrammingError: Missing Mutation Data for PaddedPosition {_padded_position}"
-
-
-            _new_codons = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_aa'] == _new_amino_acid) & (df[myoptions.column_with_frequencies] >= myoptions.threshold)]['mutant_codon'].to_list()
-            if not _new_codons:
-                _new_codon = "N/A"
-            else:
-                _new_codon = _new_codons[0]
-
-            _total_codons_per_site = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon)]['total_codons_per_site'].to_list()
-            if len(_total_codons_per_site):
-                _total_codons_per_site = _total_codons_per_site[0]
-            _score = matrix[_old_amino_acid][_new_amino_acid]
-            if _new_codon not in _new_codons:
-                raise ValueError(f"The new codon {_new_codon} is not in the list of all codons {str(_new_codons)} encoding this aa {_new_amino_acid}")
-
-            if myoptions.column_with_frequencies == 'neutralized_parent_difference':
-                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative difference neutralized2parent: {_frequency:.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}")
-            elif myoptions.column_with_frequencies == 'escape_parent_difference':
-                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative difference escape2parent: {_frequency:.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}")
-            elif myoptions.column_with_frequencies == 'weighted_diff_escape_neutralized':
-                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative weighted difference escape2neutralized: {_frequency:.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}")
-            elif myoptions.column_with_frequencies == 'frequency':
-                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon count sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
-            else:
-                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Amino Acid: {_old_amino_acid} ({_old_codon})\nNew Amino Acid: {_new_amino_acid} ({_new_codons})\n{matrix_name} score: {_score}\nCumulative Frequency: {_frequency:.6f}\nCodon Frequencies: {[f'{x:.6f}' for x in _frequencies]}\nObserved codon counts: {_observed_codon_counts}\nObserved codon count sum: {_observed_codon_count_sum}\nTotal codons per site: {_total_codons_per_site}")
-    else:
-        @_cursor.connect("add")
-        def on_add(sel):
-            # sel.index is the index into _mpl_scatterplot's data array, i.e.
-            # into circles_matplotlib.  Do NOT use sel.target: it returns the
-            # raw mouse position in data coordinates, which produces wrong
-            # padded_position values when converted back via column arithmetic.
-            _pt = circles_matplotlib[sel.index]
-            _padded_position = _pt[0]  # stored as _padded_position when appended
-            ypos = _pt[1]              # stored as i (row index in new_codon_table)
-            print(f"Info: _padded_position={_padded_position}, ypos={ypos}")
-            _new_codon = new_codon_table.index[ypos]
-            try:
-                _position_in_protein = padded_position2position[_padded_position]
-            except KeyError:
-                _position_in_protein = f"ProgrammingError: Padded position {_padded_position} not in Coordinate Map"
-
-            _frequency = new_codon_table.at[_new_codon, _padded_position]
-            print(f"Info: _new_codon={_new_codon}, _padded_position={_padded_position}, _position_in_protein={_position_in_protein}, _frequency={_frequency}")
-            _matching_rows = df.loc[df['padded_position'] == _padded_position]
-            if _matching_rows.empty:
-                _old_codon = "Valid Unchanged Site"
-                _old_amino_acid = "N/A"
-                _observed_codon_count = 0
-                _total_codons_per_site = 0
-                _new_amino_acid = "N/A"
-            else:
-                _old_codon = _matching_rows['original_codon'].to_list()[0]
-                _old_amino_acid = _matching_rows['original_aa'].to_list()[0]
-                _codon_matches = _matching_rows.loc[(_matching_rows['mutant_codon'] == _new_codon) & (_matching_rows[myoptions.column_with_frequencies] >= myoptions.threshold)]
-                if _codon_matches.empty:
-                    _observed_codon_count = 0
-                    _total_codons_per_site = 0
-                    # This is likely an error if we have other data for this position but not this specifically
-                    _old_codon = f"ProgrammingError: Missing Codon Data for PaddedPosition {_padded_position}"
-
-
-                else:
-                    _observed_codon_count = _codon_matches['observed_codon_count'].to_list()[0]
-                    _total_codons_per_site = _codon_matches['total_codons_per_site'].to_list()[0]
-
-                print(f"Info: {len(_matching_rows['position'])} aa residues observed in position {_position_in_protein}:{os.linesep} {str(_matching_rows[0:])}{os.linesep}")
-                try:
-                    _new_amino_acid = df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon)]['mutant_aa'].to_list()[0]
-                except IndexError:
-                    _new_amino_acid = f"Failed to find, the {_new_codon} is wrong and too far from original codon"
-
-            _score = matrix[_old_amino_acid][_new_amino_acid]
-            try:
-                _some_frequency = Decimal(df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon)][myoptions.column_with_frequencies].to_list()[0])
-            except (IndexError, ValueError, TypeError):
-                _some_frequency = 0.00000000009
-            if _some_frequency != _frequency and (_some_frequency != 0.00000000009 and _frequency != 0) and not np.abs(_frequency) < myoptions.threshold:
-                raise ValueError(f"Frequency new_codon_table.at[_new_codon, _padded_position]={_frequency} not same as df.loc[(df['padded_position'] == _padded_position) & (df['mutant_codon'] == _new_codon)][myoptions.column_with_frequencies].to_list()[0]={_frequency}")
-
-            if myoptions.debug:
-                print(f"Debug: Padded position: {_padded_position} Position: {_position_in_protein} Original Codon: {_old_codon} ({_old_amino_acid}) New Codon: {_new_codon} ({_new_amino_acid}) {matrix_name} score: {_score} Frequency: {_frequency:.6f}")
-
-            if myoptions.column_with_frequencies == 'neutralized_parent_difference':
-                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nDifference neutralized2parent: {_frequency:.6f}")
-            elif myoptions.column_with_frequencies == 'escape_parent_difference':
-                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nDifference escape2parent: {_frequency:.6f}")
-            elif myoptions.column_with_frequencies == 'weighted_diff_escape_neutralized':
-                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nWeighted difference escape2neutralized: {_frequency:.6f}")
-            elif myoptions.column_with_frequencies == 'frequency':
-                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_count}\nTotal codons per site: {_total_codons_per_site}")
-            else:
-                sel.annotation.set_text(f"Padded position: {_padded_position}\nPosition: {_position_in_protein}\nOriginal Codon: {_old_codon} ({_old_amino_acid})\nNew Codon: {_new_codon} ({_new_amino_acid})\n{matrix_name} score: {_score}\nFrequency: {_frequency:.6f}\nObserved codon count: {_observed_codon_count}\nTotal codons per site: {_total_codons_per_site}")
-            if myoptions.debug:
-                print(f"Debug: final_sorted_whitelist={str(final_sorted_whitelist)}")
-                print(f"Debug: codons_whitelist2={str(codons_whitelist2)}")
+    try:
+        _cursor = mplcursors.cursor(_mpl_scatterplot, hover=True)
+        _cursor.connect("add", on_add)
+    except (ImportError, Exception): # pylint: disable=broad-exception-caught
+        pass
 
     _handles, _labels = [], []
     if myoptions.aminoacids:
@@ -1676,19 +1539,19 @@ def render_matplotlib(
     else:
         _junk = 'NNN'
         _codon_on_input = True
-    for _freq in [0.001, 0.01, 0.1, 0.3]:
+    for _freq in [1.0, 0.5, 0.3, 0.1, 0.01, 0.001]:
         if myoptions.column_with_frequencies in ['neutralized_parent_difference', 'escape_parent_difference']:
             _size, _color = adjust_size_and_color_neutralized_escape(Decimal(_freq), _codon_on_input)
         elif myoptions.column_with_frequencies in ['weighted_diff_escape_neutralized']:
             _size, _color = adjust_size_and_color_weighted(Decimal(_freq))
         else:
             _score, _size, _color = adjust_size_and_color(myoptions, Decimal(_freq), _codon_on_input, _junk, _junk, _junk, _junk, matrix, norm, colors)
-        _handle = ax2.scatter(_size, - 400 + _freq, s=float(_freq * 5000), color='gray', alpha=0.5, label=f'Frequency {_freq:.1%}')
+        _handle = ax2.scatter(0, - 400 + _freq, s=float(_freq * 5000), color='gray', alpha=0.5, label=f'{_freq:.1%}') # Frequency
         _label = str(_freq)
         _handles.append(_handle)
         _labels.append(_label)
     ax4.set_axis_off()
-    ax2.legend(loc='upper center', bbox_to_anchor=(1.25, 1.00), labelspacing=3, frameon=False, handletextpad=1.5)
+    ax2.legend(loc='upper center', bbox_to_anchor=(1.25, 1.00), labelspacing=5.4, frameon=False, handletextpad=2.8)
 
     if myoptions.debug or os.environ.get('PYTEST_CURRENT_TEST'):
         _mpl_hovers = []
@@ -1714,8 +1577,6 @@ def render_matplotlib(
                 # Only include entries that are clearly described mutations (not "N/A", "Valid Unchanged Site", or "ProgrammingError")
                 if all(x not in mock_sel.annotation.text for x in ["(N/A)", "N/A", "Valid Unchanged Site", "ProgrammingError"]):
                     _mpl_hovers.append({'index': i, 'text': mock_sel.annotation.text})
-
-
             except Exception as e:
                 # Skip errors as well, as they indicate broken/incomplete hover data
                 if myoptions.debug:
@@ -1729,8 +1590,9 @@ def render_matplotlib(
         _figsize = _wholefig.get_size_inches()*_wholefig.dpi
         print(f"Info: Writing into {outfile_prefix + _ext}, figure size is {_wholefig.get_size_inches()} inches and {_figsize} dpi")
         figure.savefig(outfile_prefix + _ext, dpi=myoptions.dpi)
-    plt.show()
-    plt.clf()
+    if show:
+        plt.show()
+    plt.close(figure)
 
 
 

@@ -17,37 +17,40 @@ Usage: split_fasta_entries_by_lengths
 """
 
 import os
-from optparse import OptionParser
-
+import argparse
 from Bio import SeqIO
 
 VERSION = "0.3"
 
 
 def build_option_parser():
-    """Build and return the command-line option parser."""
-    myparser = OptionParser(version=f"%prog version {VERSION}")
-    myparser.add_option(
-        "--infile", action="store", type="string", dest="infile", default='',
+    """Build and return the command-line argument parser."""
+    myparser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    myparser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
+    myparser.add_argument(
+        "--infile", action="store", type=str, dest="infile", default='',
         help="Input FASTA/Q file path.",
     )
-    myparser.add_option(
-        "--outfile-prefix", action="store", type="string",
+    myparser.add_argument(
+        "--outfile-prefix", action="store", type=str,
         dest="outfile_prefix", default='',
         help="Output file path prefix.",
     )
-    myparser.add_option(
-        "--full-length", action="store", type="int", dest="full_length",
+    myparser.add_argument(
+        "--full-length", action="store", type=int, dest="full_length",
         default=0,
         help="Full length required for perfect alignment [0]",
     )
-    myparser.add_option(
-        "--format", action="store", type="string", dest="format",
+    myparser.add_argument(
+        "--format", action="store", type=str, dest="format",
         default="fasta",
         help="Input file format.",
     )
-    myparser.add_option(
-        "--debug", action="store", type="int", dest="debug", default=0,
+    myparser.add_argument(
+        "--debug", action="store", type=int, dest="debug", default=0,
         help="Set debug to some value",
     )
     return myparser
@@ -56,7 +59,7 @@ def build_option_parser():
 def main():
     """Entry point: parse arguments and split FASTA file by sequence length."""
     myparser = build_option_parser()
-    myoptions, _ = myparser.parse_args()
+    myoptions = myparser.parse_args()
 
     if not myoptions.infile:
         raise RuntimeError("Please specify --infile")
