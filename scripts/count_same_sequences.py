@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-VERSION = "202603292050"
+VERSION = "202603292100"
 
 from optparse import OptionParser
 import subprocess, shlex
@@ -29,6 +29,9 @@ myparser.add_option("--mapping-outfile", action="store", type="string", dest="ma
         "Defaults to --infilename with '.fasta' (or .fastq/.gz) removed and "
         "'.sha256_to_ids.tsv' appended."
     ))
+myparser.add_option("--overwrite", action="store_true", dest="overwrite", default=False,
+    help="Overwrite output files if they already exist. By default the script aborts "
+         "to prevent accidental data loss.")
 myparser.add_option("--debug", action="store", type="int", dest="debug", default=0,
     help="Set debug to some value")
 (myoptions, myargs) = myparser.parse_args()
@@ -36,8 +39,9 @@ myparser.add_option("--debug", action="store", type="int", dest="debug", default
 from collections import defaultdict
 
 """
-Read a FASTQ file and return a FASTA file with sequence counts. It truncates the output file if it already existed.
-It also discards any description text from input FASTA data due to 'awk 'NR %% 2 == 0' infile | sort -S %s | uniq -c | sort -S %s -nr' .
+Read a FASTQ file and return a FASTA file with sequence counts.
+Aborts if any output file already exists unless --overwrite is given.
+Also discards any description text from input FASTA data due to 'awk 'NR %% 2 == 0' infile | sort -S %s | uniq -c | sort -S %s -nr' .
 
 Usage:
 find . -name *.fastp.amplicons.fasta | sort | uniq | grep -v results | while read f; do
@@ -214,7 +218,16 @@ else:
 # Default mapping outfile: strip known extensions from infilename, append suffix.
 _mapping_outfile = myoptions.mapping_outfile or (_outfile_prefix + '.sha256_to_ids.tsv')
 
-_outfileh = open(_outfile_prefix + '.counts.fasta', 'w') # truncate the output file
+# Guard against accidental clobbering of output files.
+_counts_outfile = _outfile_prefix + '.counts.fasta'
+for _outpath in (_counts_outfile, _mapping_outfile):
+    if os.path.exists(_outpath) and not myoptions.overwrite:
+        raise RuntimeError(
+            "Output file already exists: %s\n"
+            "Use --overwrite to replace it." % _outpath
+        )
+
+_outfileh = open(_counts_outfile, 'w')
 
 if myoptions.min_count > 0:
     read_and_count_sequences(myoptions.infilename, _outfileh, infile_format=myoptions.infile_format, min_count=myoptions.min_count, sort_bucket_size=myoptions.sort_bucket_size)
