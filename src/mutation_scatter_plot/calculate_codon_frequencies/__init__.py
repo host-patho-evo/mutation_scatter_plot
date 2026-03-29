@@ -465,7 +465,7 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                 f"Warning: skipping record at line {_lineno} "
                 f"(ID: '{_record_id}', sequence length {_raw_len} "
                 f"!= reference length {_expected_aln_len}). "
-                f"Use: grep -n '^>{_record_id}' '{alignment_file}'",
+                f"Use: grep -n -A 1 '^>{_record_id}' '{alignment_file}'",
                 file=sys.stderr,
             )
             _total_aln_entries_used -= _record_count
