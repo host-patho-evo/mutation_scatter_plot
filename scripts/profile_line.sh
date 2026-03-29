@@ -91,10 +91,10 @@ lp.add_function(_mod.fast_fasta_iter)
 # Minimal CLI setup to call parse_alignment directly.
 import argparse, io
 from mutation_scatter_plot.calculate_codon_frequencies import open_file
-from mutation_scatter_plot.calculate_codon_frequencies.cli import build_parser
+from mutation_scatter_plot.calculate_codon_frequencies.cli import build_option_parser
 from Bio import SeqIO
 
-myoptions = build_parser().parse_args([
+myoptions = build_option_parser().parse_args([
     "--reference-infile", reference_file,
     "--alignment-file",   alignment_file,
     "--outfile-prefix",   outbase + "_out",
