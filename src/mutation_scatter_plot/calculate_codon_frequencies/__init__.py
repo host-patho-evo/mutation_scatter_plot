@@ -28,6 +28,11 @@ from .. import alt_translate
 
 VERSION = "0.3"
 
+# Module-level dict populated by parse_alignment *before* forking the worker
+# pool.  Forked workers inherit all entries via copy-on-write so tasks only
+# need to send a single integer (_pos) over the IPC pipe.
+_WORKER_SHARED: dict = {}
+
 __all__ = [
     "VERSION",
     "get_codons",
@@ -226,6 +231,33 @@ def fast_fasta_iter(handle):
     if name is not None:
         yield name, "".join(seq)
 
+
+def _process_one_site_wrapper(_pos: int):
+    """Thin IPC wrapper used with the COW-fork optimisation.
+
+    All heavy data (alignment array, reference sequences, etc.) lives in the
+    module-level ``_WORKER_SHARED`` dict which forked workers inherit via
+    copy-on-write.  Only the codon position index ``_pos`` travels over the
+    IPC pipe — reducing per-task payload from ~115 MB to 4 bytes.
+    """
+    _d = _WORKER_SHARED
+    return _process_one_site(
+        _pos,
+        _d['num_unique'],
+        _d['alignment_len'],
+        _d['aln_array'],
+        _d['counts_array'],
+        _d['padded_len_array'],
+        _d['depadded_len_array'],
+        _d['leading_gap_array'],
+        _d['trailing_gap_array'],
+        _d['padded_reference_dna_seq'],
+        _d['reference_protein_seq'],
+        _d['ref_gaps_cumulative'],
+        _d['aa_start'],
+        _d['minimum_aln_length'],
+        _d['left_reference_offset'],
+    )
 
 def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference_dna_seq: str,
                     reference_protein_seq: str, reference_as_codons: list[str],
@@ -483,27 +515,46 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     # Pre-allocate counters once and clear() each iteration to avoid 8 * N_sites constructor calls
     _top_most_codons = []
 
-    # Parallelize site processing using multiprocessing.Pool
-    _pool_args = [
-        (
-            _pos, _num_unique, _alignment_len, _aln_array, _counts_array,
-            _padded_len_array, _depadded_len_array, _leading_gap_array, _trailing_gap_array,
-            _padded_reference_dna_seq, _reference_protein_seq, _ref_gaps_cumulative,
-            aa_start, myoptions.minimum_aln_length, myoptions.left_reference_offset
-        )
-        for _pos in range(min_start, max_stop or _alignment_len, 3)
-    ]
+    # ── COW-fork dispatch ───────────────────────────────────────────────────
+    # Populate the module global *before* creating (forking) the Pool so that
+    # worker processes inherit all large arrays via copy-on-write.  Each task
+    # then only sends _pos (one int, 4 bytes) over the IPC pipe instead of
+    # the full alignment array (~115 MB with 30k unique seqs × 3822 cols).
+    _slim_positions = list(range(min_start, max_stop or _alignment_len, 3))
 
-    if len(_pool_args) > 0:
+    if _slim_positions:
+        global _WORKER_SHARED
+        _WORKER_SHARED = {
+            'num_unique':             _num_unique,
+            'alignment_len':          _alignment_len,
+            'aln_array':              _aln_array,
+            'counts_array':           _counts_array,
+            'padded_len_array':       _padded_len_array,
+            'depadded_len_array':     _depadded_len_array,
+            'leading_gap_array':      _leading_gap_array,
+            'trailing_gap_array':     _trailing_gap_array,
+            'padded_reference_dna_seq': _padded_reference_dna_seq,
+            'reference_protein_seq':  _reference_protein_seq,
+            'ref_gaps_cumulative':    _ref_gaps_cumulative,
+            'aa_start':               aa_start,
+            'minimum_aln_length':     myoptions.minimum_aln_length,
+            'left_reference_offset':  myoptions.left_reference_offset,
+        }
+        # Pool is created AFTER the global is set so forked workers see it.
         _external_pool = pool is not None
-        _pool = pool if _external_pool else multiprocessing.Pool(processes=threads)
+        _active_pool = pool if _external_pool else multiprocessing.Pool(processes=threads)
         try:
-            _all_results = _pool.starmap(_process_one_site, _pool_args,
-                                         chunksize=chunksize)
+            _all_results = _active_pool.starmap(
+                _process_one_site_wrapper,
+                [(_pos,) for _pos in _slim_positions],
+                chunksize=chunksize,
+            )
         finally:
             if not _external_pool:
-                _pool.close()
-                _pool.join()
+                _active_pool.close()
+                _active_pool.join()
+            # Release the shared data so workers (if reused) don't hold stale refs.
+            _WORKER_SHARED = {}
 
         for _res in _all_results:
             # Write results
