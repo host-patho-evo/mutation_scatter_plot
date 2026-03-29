@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-VERSION = "202603292110"
+VERSION = "202603292120"
 
 from optparse import OptionParser
 import subprocess, shlex
@@ -109,6 +109,17 @@ def read_and_count_sequences(infilename, outfileh, infile_format, top_n=0, min_c
             del(_m)
 
 
+
+def _decode_fasta_line(raw: bytes) -> str:
+    """Decode a FASTA line to str, trying UTF-8 first then falling back to
+    Latin-1. Handles GISAID headers that mix UTF-8 and Latin-1/Latin-2
+    encoded characters in sample descriptions."""
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1")
+
+
 def build_sha256_id_mapping(infilename, mapping_outfile):
     """Build a sha256 -> original FASTA IDs translation table.
 
@@ -146,13 +157,9 @@ def build_sha256_id_mapping(infilename, mapping_outfile):
         else:
             _mapping[_digest] = [1, [name]]
 
-    # errors="replace": GISAID FASTA headers can contain non-UTF-8 bytes (e.g.
-    # Latin-1 accented characters in sample descriptions). Only the sequence
-    # (pure ASCII) goes into the sha256 and only the first header word (ASCII
-    # accession) goes into the TSV, so silent replacement is safe here.
-    with open(infilename, "r", encoding="utf-8", errors="replace") as _fh:
-        for _line in _fh:
-            _line = _line.rstrip("\r\n")
+    with open(infilename, "rb") as _fh:
+        for _raw in _fh:
+            _line = _decode_fasta_line(_raw).rstrip("\r\n")
             if not _line:
                 continue
             if _line[0] == ">":
