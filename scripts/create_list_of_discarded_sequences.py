@@ -44,7 +44,7 @@ import os
 import sys
 from optparse import OptionParser
 
-VERSION = "202603291950"
+VERSION = "202603292000"
 
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
 myparser.add_option(
@@ -111,12 +111,18 @@ for _ext in ('.fasta.gz', '.fastq.gz', '.fasta', '.fastq', '.fa', '.fq'):
         _infile_stem = _infile_stem[:-len(_ext)]
         break
 
-# Auto-detect mapping TSV when not provided.
-if not myoptions.mapping_outfile:
+# Auto-detect mapping TSV when not provided (not applicable in --inverted mode).
+if not myoptions.mapping_outfile and not myoptions.inverted:
     _guessed_mapping = _infile_stem + '.sha256_to_ids.tsv'
     if os.path.exists(_guessed_mapping):
         myoptions.mapping_outfile = _guessed_mapping
         print("Info: auto-detected mapping TSV: %s" % _guessed_mapping, file=sys.stderr)
+elif myoptions.mapping_outfile and myoptions.inverted:
+    print(
+        "Warning: --mapping-outfile is ignored in --inverted mode "
+        "(--original-infilename is scanned directly).",
+        file=sys.stderr,
+    )
 
 # Default --outfile to {stem}.discarded_original_ids.txt when not given.
 if not myoptions.outfile:
