@@ -44,7 +44,7 @@ import os
 import sys
 from optparse import OptionParser
 
-VERSION = "202603292020"
+VERSION = "202603292030"
 
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
 myparser.add_option(
@@ -236,6 +236,7 @@ if myoptions.inverted:
         # Note: the TSV covers the full original dataset; scope may be wider than
         # a specific --original-infilename file.
         _n_emitted = 0
+        _n_emitted_total = 0  # sum of TSV count column for discarded groups
         with open(myoptions.mapping_outfile, "r", encoding="utf-8") as _fh:
             for _line in _fh:
                 _fields = _line.rstrip("\n").split("\t")
@@ -246,8 +247,13 @@ if myoptions.inverted:
                     for _orig_id in _fields[2:]:
                         lines_to_emit.append(_orig_id)
                     _n_emitted += len(_fields) - 2
+                    try:
+                        _n_emitted_total += int(_fields[1])
+                    except (ValueError, IndexError):
+                        _n_emitted_total += len(_fields) - 2
         print(
-            f"Info: found {_n_emitted:,} discarded original IDs via mapping TSV",
+            f"Info: found {_n_emitted:,} discarded original IDs"
+            f" (total sequence count: {_n_emitted_total:,}) via mapping TSV",
             file=sys.stderr,
         )
 
@@ -270,6 +276,7 @@ elif myoptions.original_infilename:
 elif myoptions.mapping_outfile and not _ids_computed:
     # Fast path: all IDs had sha256 and we have a pre-built TSV.
     _n_matched = 0
+    _n_matched_total = 0  # sum of TSV count column for matched groups
     with open(myoptions.mapping_outfile, "r", encoding="utf-8") as _fh:
         for _line in _fh:
             _fields = _line.rstrip("\n").split("\t")
@@ -280,8 +287,13 @@ elif myoptions.mapping_outfile and not _ids_computed:
                 for _orig_id in _fields[2:]:
                     lines_to_emit.append(_orig_id)
                 _n_matched += len(_fields) - 2
+                try:
+                    _n_matched_total += int(_fields[1])
+                except (ValueError, IndexError):
+                    _n_matched_total += len(_fields) - 2
     print(
-        f"Info: found {_n_matched:,} original IDs via mapping TSV",
+        f"Info: found {_n_matched:,} original IDs"
+        f" (total sequence count: {_n_matched_total:,}) via mapping TSV",
         file=sys.stderr,
     )
 
