@@ -24,6 +24,16 @@ Usage:
 
 Options:
     --no-discard-stats   Skip the per-step discard-statistics calls entirely.
+    --add-missing-checksums-to-fasta-files
+                         If a pipeline FASTA file has legacy NNNNx IDs (no
+                         sha256 hex in the ID), rewrite it in-place with
+                         NNNNx.sha256hex IDs and rename the original to
+                         .fasta.orig.  This makes all subsequent analyses
+                         faster: sha256 can be read from the ID directly
+                         instead of being recomputed from the sequence.
+                         Skipped if a .fasta.orig backup already exists.
+                         Only applies to deduplicated files whose IDs have
+                         an NNNNx count prefix.
 
 Example:
     summarize_fasta_pipeline.py . spikenuc1207.native2ascii.no_junk
@@ -128,7 +138,17 @@ def _decode_fasta_line(raw: bytes) -> str:
         return raw.decode("latin-1")
 
 
-def _build_tsv(fasta_path: str, tsv_path: str) -> None:
+def _extract_sha256_from_id(record_id: str) -> str | None:
+    """Return the 64-char hex sha256 embedded in a NNNNx.sha256hex ID, or None."""
+    xdot = record_id.find('x.')
+    if xdot >= 0:
+        candidate = record_id[xdot + 2:].split()[0]
+        if len(candidate) == 64 and all(c in '0123456789abcdefABCDEF' for c in candidate):
+            return candidate.lower()
+    return None
+
+
+def _build_tsv(fasta_path: str, tsv_path: str) -> dict:
     """Single-pass scan of *fasta_path* to build a sha256→IDs mapping TSV.
 
     For each record the sha256 is computed over the uppercase, dash-stripped
@@ -136,6 +156,9 @@ def _build_tsv(fasta_path: str, tsv_path: str) -> None:
 
     Output TSV columns (tab-separated, no header):
         sha256hex   count   id_1   id_2   ...
+
+    Returns a dict mapping each original ID to its sha256hex string, which
+    callers can use to rewrite the FASTA with sha256 embedded in the IDs.
     """
     mapping: dict = {}   # sha256 -> [count, [id, ...]]
     name = None
@@ -174,27 +197,116 @@ def _build_tsv(fasta_path: str, tsv_path: str) -> None:
             out.write("\t".join([digest, str(count)] + ids) + "\n")
 
     print(f"    Info: built TSV with {len(mapping):,} unique sequences"
-          f" from {n_in:,} records → {tsv_path}", flush=True)
+          f" from {n_in:,} records \u2192 {tsv_path}", flush=True)
+
+    # Return inverted mapping: id -> sha256 (one entry per original record).
+    return {orig_id: sha for sha, (_, ids) in mapping.items() for orig_id in ids}
 
 
-def _ensure_tsv(parent_path: str) -> str | None:
+def _has_legacy_ids(id_to_sha: dict) -> bool:
+    """Return True if ANY ID in the file lacks an embedded sha256.
+
+    An ID is 'modern' if it matches NNNNx.sha256hex (64-char hex after 'x.').
+    Only files composed entirely of NNNNx-prefix IDs (deduplicated pipeline
+    output) are candidates for enrichment.
+    """
+    return any(_extract_sha256_from_id(rec_id) is None for rec_id in id_to_sha)
+
+
+def _enrich_fasta(fasta_path: str, id_to_sha: dict) -> str | None:
+    """Rewrite *fasta_path* with sha256hex appended to each NNNNx ID.
+
+    The original file is renamed to ``{fasta_path}.orig`` before the new
+    version is written.  If a ``.orig`` backup already exists the enrichment
+    is skipped to avoid overwriting a previous backup.
+
+    Only IDs that lack an embedded sha256 are modified; any ID that already
+    carries sha256 is left unchanged.
+
+    Returns the path of the renamed original on success, or None if skipped.
+    """
+    orig_path = fasta_path + '.orig'
+    if os.path.exists(orig_path):
+        print(f"  [add-missing-checksums] skipping {os.path.basename(fasta_path)}"
+              f" — backup {os.path.basename(orig_path)} already exists", flush=True)
+        return None
+    os.rename(fasta_path, orig_path)
+    print(f"  [add-missing-checksums] renamed {os.path.basename(fasta_path)}"
+          f" -> {os.path.basename(orig_path)}", flush=True)
+
+    enriched = 0
+    with (open(orig_path, "rb") as src,
+          open(fasta_path, "w", encoding="utf-8") as dst):
+        for raw in src:
+            line = _decode_fasta_line(raw).rstrip("\r\n")
+            if not line:
+                dst.write("\n")
+                continue
+            if line[0] == ">":
+                toks = line[1:].split()
+                rec_id = toks[0] if toks else ""
+                if _extract_sha256_from_id(rec_id) is None and rec_id in id_to_sha:
+                    # Keep the description (everything after the ID) intact.
+                    rest = line[1 + len(rec_id):]
+                    dst.write(f">{rec_id}.{id_to_sha[rec_id]}{rest}\n")
+                    enriched += 1
+                else:
+                    dst.write(line + "\n")
+            else:
+                dst.write(line + "\n")
+
+    print(f"  [add-missing-checksums] wrote {enriched:,} enriched IDs"
+          f" -> {os.path.basename(fasta_path)}", flush=True)
+    return orig_path
+
+
+def _ensure_tsv(parent_path: str, add_checksums: bool = False) -> str | None:
     """Return a fresh .sha256_to_ids.tsv for *parent_path*, generating it by
     scanning the FASTA in-process if one does not already exist or is stale.
+
+    When *add_checksums* is True and the file has legacy NNNNx IDs (no sha256
+    embedded), the FASTA is rewritten in-place with NNNNx.sha256hex IDs and
+    the original is renamed to .fasta.orig.  This makes all future analyses
+    faster since sha256 can be read from the ID instead of being recomputed.
 
     Returns the TSV path on success, or None if generation failed.
     """
     tsv = _fresh_tsv(parent_path)
-    if tsv:
+    if tsv and not add_checksums:
         return tsv
+    # If add_checksums: always rebuild the TSV after enrichment so the TSV
+    # reflects the new IDs (which now embed sha256 directly).
+    if tsv and add_checksums:
+        # Check quickly whether the file already has modern IDs.
+        try:
+            with open(parent_path, "rb") as fh:
+                for raw in fh:
+                    line = _decode_fasta_line(raw)
+                    if line.startswith(">"):
+                        first_id = line[1:].split()[0]
+                        if _extract_sha256_from_id(first_id) is not None:
+                            return tsv  # already modern format
+                        break  # first record lacks sha256 — fall through
+        except OSError:
+            return tsv  # can't read, just use existing TSV
 
     candidate = _strip_fasta_suffix(parent_path) + '.sha256_to_ids.tsv'
-    print(f"  [auto-generate TSV] scanning {os.path.basename(parent_path)} …",
+    print(f"  [auto-generate TSV] scanning {os.path.basename(parent_path)} \u2026",
           flush=True)
     try:
-        _build_tsv(parent_path, candidate)
+        id_to_sha = _build_tsv(parent_path, candidate)
     except OSError as exc:
         print(f"    [TSV generation failed: {exc}]", flush=True)
         return None
+
+    if add_checksums and _has_legacy_ids(id_to_sha):
+        _enrich_fasta(parent_path, id_to_sha)
+        # Rebuild the TSV against the new file so IDs match the enriched form.
+        print("  [auto-generate TSV] rebuilding TSV from enriched FASTA …", flush=True)
+        try:
+            _build_tsv(parent_path, candidate)
+        except OSError as exc:
+            print(f"    [TSV rebuild failed: {exc}]", flush=True)
 
     return candidate
 
@@ -216,7 +328,8 @@ def _read_discarded_txt_stats(txt_path: str) -> tuple[int, int]:
 
 # ── per-pair discard stats ────────────────────────────────────────────────────
 
-def _run_discard_stats(parent_path: str, child_path: str) -> None:
+def _run_discard_stats(parent_path: str, child_path: str,
+                       add_checksums: bool = False) -> None:
     """Show discarded-ID stats for a parent->child pipeline pair.
 
     Cache priority (fastest first — checked by timestamp):
@@ -232,7 +345,7 @@ def _run_discard_stats(parent_path: str, child_path: str) -> None:
     if txt:
         n_ids, nnnx_sum = _read_discarded_txt_stats(txt)
         print(
-            f"  ↳ [cached TXT] {os.path.basename(txt)}: "
+            f"  \u21b3 [cached TXT] {os.path.basename(txt)}: "
             f"discarded IDs: {n_ids:,}  NNNNx sum: {nnnx_sum:,}",
             flush=True,
         )
@@ -245,7 +358,7 @@ def _run_discard_stats(parent_path: str, child_path: str) -> None:
 
     # Try to get (or auto-generate) a fresh TSV for the parent — faster than
     # a full FASTA scan and the result is then cached for future calls.
-    tsv = _ensure_tsv(parent_path)
+    tsv = _ensure_tsv(parent_path, add_checksums=add_checksums)
     if tsv:
         source_arg   = f'--mapping-outfile={tsv}'
         source_label = f"TSV: {os.path.basename(tsv)}"
@@ -260,7 +373,7 @@ def _run_discard_stats(parent_path: str, child_path: str) -> None:
         '--inverted',
         '--outfile=/dev/null',
     ]
-    print(f"  ↳ [{source_label}] -> {child_base}", flush=True)
+    print(f"  \u21b3 [{source_label}] -> {child_base}", flush=True)
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     for line in result.stderr.splitlines():
         if line.startswith(('Info:', 'Warning:', 'Error:')):
@@ -280,7 +393,8 @@ def main() -> None:
 
     search_path = args[0]
     prefix      = args[1]
-    do_discard  = '--no-discard-stats' not in args
+    do_discard     = '--no-discard-stats' not in args
+    add_checksums  = '--add-missing-checksums-to-fasta-files' in args
 
     # ── collect matching files ────────────────────────────────────────────────
     found: set[str] = set()
@@ -360,7 +474,7 @@ def main() -> None:
         )
 
         if do_discard and p is not None:
-            _run_discard_stats(files[p], files[i])
+            _run_discard_stats(files[p], files[i], add_checksums=add_checksums)
 
     print(rule)
 
@@ -370,8 +484,8 @@ def main() -> None:
         last_rec,  last_sum  = rows[-1][1], rows[-1][2]
         print()
         print("Overall change  (last vs first):")
-        print(f"  Records : {_delta_str(last_rec, first_rec):>+16}  ({_pct_str(last_rec, first_rec)} of first)")
-        print(f"  Sum     : {_delta_str(last_sum, first_sum):>+16}  ({_pct_str(last_sum, first_sum)} of first)")
+        print(f"  Records : {_delta_str(last_rec, first_rec):>16}  ({_pct_str(last_rec, first_rec)} of first)")
+        print(f"  Sum     : {_delta_str(last_sum, first_sum):>16}  ({_pct_str(last_sum, first_sum)} of first)")
 
 
 if __name__ == '__main__':
