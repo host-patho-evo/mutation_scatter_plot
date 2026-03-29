@@ -487,9 +487,30 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
 
     # Pre-allocate NumPy arrays for vectorized operations
     if _num_unique > 0:
+        # Validate uniform sequence length before reshape.
+        # Sequences shorter/longer than _alignment_len occur when the alignment
+        # file mixes lengths (e.g. 'exactly_or_shorter_3822.fasta').  They would
+        # cause np.frombuffer(...).reshape(_num_unique, _alignment_len) to crash
+        # with a ValueError.  Skip them with an explicit warning.
+        _wrong_len = [item for item in _parsed_alignments_list if item['padded_len'] != _alignment_len]
+        if _wrong_len:
+            _skipped_seqs   = len(_wrong_len)
+            _skipped_counts = sum(item['count'] for item in _wrong_len)
+            print(
+                f"Warning: skipping {_skipped_seqs:,} unique sequence(s) "
+                f"({_skipped_counts:,} total count) whose length "
+                f"!= {_alignment_len} (reference length).",
+                file=sys.stderr,
+            )
+            _parsed_alignments_list = [item for item in _parsed_alignments_list
+                                       if item['padded_len'] == _alignment_len]
+            _num_unique = len(_parsed_alignments_list)
+            _total_aln_entries_used -= _skipped_counts
+
         # Optimization: use np.frombuffer on a single string join instead of list comprehension
         _all_seqs_str = "".join(item['seq'] for item in _parsed_alignments_list)
         _aln_array = np.frombuffer(_all_seqs_str.encode('ascii'), dtype=np.uint8).reshape(_num_unique, _alignment_len)
+
 
         _counts_array = np.array([item['count'] for item in _parsed_alignments_list], dtype=np.int64)
         _padded_len_array = np.array([item['padded_len'] for item in _parsed_alignments_list], dtype=np.int32)
