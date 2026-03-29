@@ -44,7 +44,7 @@ import os
 import sys
 from optparse import OptionParser
 
-VERSION = "202603292050"
+VERSION = "202603292110"
 
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
 myparser.add_option(
@@ -146,7 +146,11 @@ def _iter_fasta(path):
     """
     name = full_header = None
     parts = []
-    with open(path, "r", encoding="utf-8") as fh:
+    # errors="replace": FASTA headers from GISAID can contain non-UTF-8 bytes
+    # (e.g. Latin-1 accented characters in sample descriptions). Sequences and
+    # IDs used for sha256 computation and output are pure ASCII, so silent
+    # replacement of bad bytes is safe and does not affect correctness.
+    with open(path, "r", encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.rstrip("\r\n")
             if not line:

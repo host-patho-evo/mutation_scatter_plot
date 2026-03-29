@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-VERSION = "202603292100"
+VERSION = "202603292110"
 
 from optparse import OptionParser
 import subprocess, shlex
@@ -146,7 +146,11 @@ def build_sha256_id_mapping(infilename, mapping_outfile):
         else:
             _mapping[_digest] = [1, [name]]
 
-    with open(infilename, "r", encoding="utf-8") as _fh:
+    # errors="replace": GISAID FASTA headers can contain non-UTF-8 bytes (e.g.
+    # Latin-1 accented characters in sample descriptions). Only the sequence
+    # (pure ASCII) goes into the sha256 and only the first header word (ASCII
+    # accession) goes into the TSV, so silent replacement is safe here.
+    with open(infilename, "r", encoding="utf-8", errors="replace") as _fh:
         for _line in _fh:
             _line = _line.rstrip("\r\n")
             if not _line:
