@@ -44,7 +44,7 @@ import os
 import sys
 from optparse import OptionParser
 
-VERSION = "202603292040"
+VERSION = "202603292050"
 
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
 myparser.add_option(
@@ -146,7 +146,7 @@ def _iter_fasta(path):
     """
     name = full_header = None
     parts = []
-    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+    with open(path, "r", encoding="utf-8") as fh:
         for line in fh:
             line = line.rstrip("\r\n")
             if not line:
