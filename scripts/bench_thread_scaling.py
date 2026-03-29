@@ -214,7 +214,7 @@ def main():
 
     all_results = []  # (row_size, threads, mn, med, mx, speedup)
 
-    with tempfile.TemporaryDirectory() as subset_dir:
+    with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as subset_dir:
         for row_size in row_sizes:
             # Write the subset FASTA once per row_size (reused across all thread counts)
             if row_size < total_seqs:
