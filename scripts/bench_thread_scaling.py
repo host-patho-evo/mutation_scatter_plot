@@ -158,9 +158,9 @@ def main():
     #                      _max_stop  = user_val + 1  (exclusive)
     # For codon C (1-based): nt start = (C-1)*3+1, exclusive bound uses (C-1)*3.
     if args.min_col > 1:
-        extra += [f"--min-start={(args.min_col - 1) * 3 + 1}"]
+        extra += [f"--min_start={(args.min_col - 1) * 3 + 1}"]
     if args.max_col > 0:
-        extra += [f"--max-stop={(args.max_col - 1) * 3}"]
+        extra += [f"--max_stop={(args.max_col - 1) * 3}"]
 
     # ── Inspect the alignment file ───────────────────────────────────────────
     print("# Inspecting alignment file … ", end="", flush=True)
