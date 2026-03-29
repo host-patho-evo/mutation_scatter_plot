@@ -291,7 +291,7 @@ def _ensure_tsv(parent_path: str, add_checksums: bool = False) -> str | None:
             return tsv  # can't read, just use existing TSV
 
     candidate = _strip_fasta_suffix(parent_path) + '.sha256_to_ids.tsv'
-    print(f"  [auto-generate TSV] scanning {os.path.basename(parent_path)} \u2026",
+    print(f"  [auto-generating TSV] scanning {os.path.basename(parent_path)} \u2026",
           flush=True)
     try:
         id_to_sha = _build_tsv(parent_path, candidate)
@@ -302,7 +302,7 @@ def _ensure_tsv(parent_path: str, add_checksums: bool = False) -> str | None:
     if add_checksums and _has_legacy_ids(id_to_sha):
         _enrich_fasta(parent_path, id_to_sha)
         # Rebuild the TSV against the new file so IDs match the enriched form.
-        print("  [auto-generate TSV] rebuilding TSV from enriched FASTA …", flush=True)
+        print("  [auto-generating TSV] rebuilding TSV from enriched FASTA …", flush=True)
         try:
             _build_tsv(parent_path, candidate)
         except OSError as exc:
