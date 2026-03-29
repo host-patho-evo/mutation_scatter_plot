@@ -137,10 +137,11 @@ def _process_one_site(
             _mask = _is_masked & (_padded_len_array + 1 <= _pos + 3)
             _actions[_mask] = 5
 
-        _chunks = _aln_array[:, _pos:_pos + 3]
-        _packed = (_chunks[:, 0].astype(np.uint32) << 16 |
-                   _chunks[:, 1].astype(np.uint32) << 8 |
-                   _chunks[:, 2].astype(np.uint32))
+        # _aln_array shape: (alignment_len, num_unique)  — row = nt position, col = sequence.
+        # Indexing _aln_array[_pos] returns a contiguous C-array of num_unique bytes.
+        _packed = (_aln_array[_pos    ].astype(np.uint32) << 16 |
+                   _aln_array[_pos + 1].astype(np.uint32) << 8  |
+                   _aln_array[_pos + 2].astype(np.uint32))
         _combined = _packed | (_actions.astype(np.uint32) << 24)
         _unique_combined, _first_indices, _inverse = np.unique(_combined, return_index=True, return_inverse=True)
         _agg_counts = np.bincount(_inverse, weights=_counts_array)
@@ -494,7 +495,12 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     if _num_unique > 0:
         # Optimization: use np.frombuffer on a single string join instead of list comprehension
         _all_seqs_str = "".join(item['seq'] for item in _parsed_alignments_list)
-        _aln_array = np.frombuffer(_all_seqs_str.encode('ascii'), dtype=np.uint8).reshape(_num_unique, _alignment_len)
+        # Transpose to (alignment_len, num_unique): each row is one nucleotide position,
+        # each column is one unique sequence.  _aln_array[_pos] is then a contiguous
+        # C-array of num_unique bytes — cache-friendly for SIMD in _process_one_site.
+        # .T.copy() cost: ~67 ms for 87k seqs (two 336 MB memory passes); well worth it
+        # as it eliminates the strided column-slice in 1274 worker calls.
+        _aln_array = np.frombuffer(_all_seqs_str.encode('ascii'), dtype=np.uint8).reshape(_num_unique, _alignment_len).T.copy()
 
         _counts_array = np.array([item['count'] for item in _parsed_alignments_list], dtype=np.int64)
         _padded_len_array = np.array([item['padded_len'] for item in _parsed_alignments_list], dtype=np.int32)
@@ -502,7 +508,7 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         _leading_gap_array = np.array([item['end_of_leading_gaps'] for item in _parsed_alignments_list], dtype=np.int32)
         _trailing_gap_array = np.array([item['start_of_trailing_gaps'] for item in _parsed_alignments_list], dtype=np.int32)
     else:
-        _aln_array = np.array([], dtype=np.uint8).reshape(0, _alignment_len)
+        _aln_array = np.array([], dtype=np.uint8).reshape(_alignment_len, 0)
         _counts_array = np.array([], dtype=np.int64)
         _padded_len_array = np.array([], dtype=np.int32)
         _depadded_len_array = np.array([], dtype=np.int32)
