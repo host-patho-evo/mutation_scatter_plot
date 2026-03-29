@@ -348,7 +348,16 @@ def main():
     # ── Step 3: write output ──────────────────────────────────────────────────
     total_count = sum(_line_count(ln) for ln in lines_to_emit)
 
-    if myoptions.outfile:
+    if myoptions.outfile == '/dev/null':
+        # Stats-only mode: summarize_fasta_pipeline.py uses --outfile=/dev/null
+        # because it only wants the counts, not a persistent list of IDs.
+        print(
+            f"Info: {len(lines_to_emit):,} FASTA ID tags"
+            f" (total sum of the count values in the FASTA IDs: {total_count:,})"
+            " — stats only, IDs not saved (pass a real --outfile to persist them)",
+            file=sys.stderr,
+        )
+    elif myoptions.outfile:
         with open(myoptions.outfile, "w", encoding="utf-8") as out:
             for line in lines_to_emit:
                 out.write(line + "\n")
