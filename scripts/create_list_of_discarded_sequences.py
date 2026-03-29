@@ -44,7 +44,7 @@ import os
 import sys
 from optparse import OptionParser
 
-VERSION = "202603292000"
+VERSION = "202603292010"
 
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
 myparser.add_option(
@@ -96,8 +96,8 @@ if myoptions.mapping_outfile and not os.path.exists(myoptions.mapping_outfile):
     myparser.error("Mapping TSV does not exist: %s" % myoptions.mapping_outfile)
 if myoptions.original_infilename and not os.path.exists(myoptions.original_infilename):
     myparser.error("Original FASTA does not exist: %s" % myoptions.original_infilename)
-if myoptions.inverted and not myoptions.original_infilename:
-    myparser.error("--inverted requires --original-infilename")
+if myoptions.inverted and not myoptions.original_infilename and not myoptions.mapping_outfile:
+    myparser.error("--inverted requires --original-infilename or --mapping-outfile")
 
 # Derive the stem from --infilename by stripping backup suffix + FASTA extension.
 # Used for auto-detecting the mapping TSV and defaulting --outfile.
@@ -111,18 +111,12 @@ for _ext in ('.fasta.gz', '.fastq.gz', '.fasta', '.fastq', '.fa', '.fq'):
         _infile_stem = _infile_stem[:-len(_ext)]
         break
 
-# Auto-detect mapping TSV when not provided (not applicable in --inverted mode).
-if not myoptions.mapping_outfile and not myoptions.inverted:
+# Auto-detect mapping TSV when not provided.
+if not myoptions.mapping_outfile:
     _guessed_mapping = _infile_stem + '.sha256_to_ids.tsv'
     if os.path.exists(_guessed_mapping):
         myoptions.mapping_outfile = _guessed_mapping
         print("Info: auto-detected mapping TSV: %s" % _guessed_mapping, file=sys.stderr)
-elif myoptions.mapping_outfile and myoptions.inverted:
-    print(
-        "Warning: --mapping-outfile is ignored in --inverted mode "
-        "(--original-infilename is scanned directly).",
-        file=sys.stderr,
-    )
 
 # Default --outfile to {stem}.discarded_original_ids.txt when not given.
 if not myoptions.outfile:
@@ -211,20 +205,41 @@ _target_sha256s = set(infile_sha256s.keys())
 lines_to_emit = []
 
 if myoptions.inverted:
-    # Emit originals NOT in infile (infile = kept, output = discarded).
-    _n_scanned = _n_emitted = 0
-    for _name, _header, _seq in _iter_fasta(myoptions.original_infilename):
-        _sha = hashlib.sha256(_seq.upper().encode()).hexdigest()
-        _n_scanned += 1
-        if _sha not in _target_sha256s:
-            lines_to_emit.append(_header)
-            _n_emitted += 1
-        if myoptions.debug and _n_scanned % 500_000 == 0:
-            print(f"Info: scanned {_n_scanned:,}, emitted {_n_emitted:,}", file=sys.stderr)
-    print(
-        f"Info: scanned {_n_scanned:,} original records, {_n_emitted:,} not in infilename (discarded)",
-        file=sys.stderr,
-    )
+    if myoptions.original_infilename:
+        # Preferred path: scan the provided original FASTA for records NOT in kept set.
+        _n_scanned = _n_emitted = 0
+        for _name, _header, _seq in _iter_fasta(myoptions.original_infilename):
+            _sha = hashlib.sha256(_seq.upper().encode()).hexdigest()
+            _n_scanned += 1
+            if _sha not in _target_sha256s:
+                lines_to_emit.append(_header)
+                _n_emitted += 1
+            if myoptions.debug and _n_scanned % 500_000 == 0:
+                print(f"Info: scanned {_n_scanned:,}, emitted {_n_emitted:,}", file=sys.stderr)
+        print(
+            f"Info: scanned {_n_scanned:,} original records, {_n_emitted:,} not in infilename (discarded)",
+            file=sys.stderr,
+        )
+    else:
+        # Fast path: no --original-infilename given — use the mapping TSV instead.
+        # Emit all original IDs from the TSV whose sha256 is NOT in the kept set.
+        # Note: the TSV covers the full original dataset; scope may be wider than
+        # a specific --original-infilename file.
+        _n_emitted = 0
+        with open(myoptions.mapping_outfile, "r", encoding="utf-8") as _fh:
+            for _line in _fh:
+                _fields = _line.rstrip("\n").split("\t")
+                if len(_fields) < 3:
+                    continue
+                _digest = _fields[0]
+                if _digest not in _target_sha256s:
+                    for _orig_id in _fields[2:]:
+                        lines_to_emit.append(_orig_id)
+                    _n_emitted += len(_fields) - 2
+        print(
+            f"Info: found {_n_emitted:,} discarded original IDs via mapping TSV",
+            file=sys.stderr,
+        )
 
 elif myoptions.original_infilename:
     # Default mode: emit originals whose sha256 IS in infile.
