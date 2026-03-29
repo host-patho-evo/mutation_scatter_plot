@@ -90,7 +90,9 @@ class TestMutationScatterPlot(unittest.TestCase):
                                     f_gen.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
 
                             diff_res = subprocess.run(
-                                ["diff", "-u", "-w", "--color=always", f_exp.name, f_gen.name],
+                                ["git", "diff", "--no-index", "--word-diff=color",
+                                 "--word-diff-regex=.", "--color=always",
+                                 f_exp.name, f_gen.name],
                                 capture_output=True, text=True, check=False
                             )
                             self.fail(f"Bokeh internal data points differ for {gen_file}!\nDifferences:\n{diff_res.stdout}")
@@ -303,7 +305,9 @@ class TestMutationScatterPlot(unittest.TestCase):
                         f_b.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
 
                 diff_res = subprocess.run(
-                    ["diff", "-u", "-w", "--color=always", f_a.name, f_b.name],
+                    ["git", "diff", "--no-index", "--word-diff=color",
+                     "--word-diff-regex=.", "--color=always",
+                     f_a.name, f_b.name],
                     capture_output=True, text=True, check=False
                 )
                 self.fail(f"HTML JSON structural mapping differed between --aminoacids and --aminoacids --include-synonymous:\n{diff_res.stdout}")
@@ -369,7 +373,9 @@ class TestMutationScatterPlot(unittest.TestCase):
                         f_b.write(str(keys) + "\n" + "\n".join(map(str, rows)) + "\n")
 
                 diff_res = subprocess.run(
-                    ["diff", "-u", "-w", "--color=always", f_a.name, f_b.name],
+                    ["git", "diff", "--no-index", "--word-diff=color",
+                     "--word-diff-regex=.", "--color=always",
+                     f_a.name, f_b.name],
                     capture_output=True, text=True, check=False
                 )
                 self.fail(f"HTML JSON structural mapping differed between codon default and --include-synonymous:\n{diff_res.stdout}")

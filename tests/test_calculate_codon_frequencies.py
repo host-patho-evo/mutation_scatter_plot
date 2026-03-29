@@ -88,7 +88,9 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 if not is_match:
                     # Run diff -u -w to show the differences
                     diff_result = subprocess.run(
-                        ["diff", "-u", "-w", expected_file, generated_file],
+                        ["git", "diff", "--no-index", "--word-diff=color",
+                         "--word-diff-regex=.", "--color=always",
+                         expected_file, generated_file],
                         capture_output=True, text=True, check=False
                     )
                     self.fail(f"File {generated_file} does not match golden file {expected_file}.\nDifferences:\n{diff_result.stdout}")
@@ -462,7 +464,9 @@ class TestSha256CountFormat(unittest.TestCase):
                     is_match = filecmp.cmp(generated, golden, shallow=False)
                     if not is_match:
                         diff = subprocess.run(
-                            ["diff", "-u", "-w", golden, generated],
+                            ["git", "diff", "--no-index", "--word-diff=color",
+                             "--word-diff-regex=.", "--color=always",
+                             golden, generated],
                             capture_output=True, text=True, check=False,
                         )
                         self.fail(
