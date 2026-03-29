@@ -44,7 +44,7 @@ import os
 import sys
 from optparse import OptionParser
 
-VERSION = "202603292000"
+VERSION = "202603291930"
 
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
 myparser.add_option(
@@ -174,9 +174,11 @@ for _name, _header, _seq in _iter_fasta(myoptions.infilename):
     _sha = _extract_sha256(_name)
     if _sha is None:
         # Legacy NNNNx format: compute sha256 from sequence content.
-        # Uppercase so case differences between files don't cause mismatches
-        # (reformat.sh may uppercase sequences; BioPython preserves original case).
-        _sha = hashlib.sha256(_seq.upper().encode()).hexdigest()
+        # --infilename sequences are alignment-padded (may have leading/trailing
+        # dashes). Strip dashes before hashing so the sha256 matches what
+        # count_same_sequences.py computed from the original unpadded sequence.
+        # Uppercase to handle case differences between pipeline stages.
+        _sha = hashlib.sha256(_seq.replace('-', '').upper().encode()).hexdigest()
         _ids_computed += 1
     infile_sha256s[_sha] = _name
 
