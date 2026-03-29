@@ -3,21 +3,8 @@
 
 Given a FASTA file produced by count_same_sequences.py (whose records have IDs
 of the form ``{count}x.{sha256hex}``), this tool reports the original FASTA IDs
-that were compacted into each entry.
-
-Three modes of operation depending on which optional inputs are supplied:
-
-1. **Input FASTA only** – prints the deduplicated IDs (``NNNNx.sha256``) as-is.
-
-2. **+ --mapping-outfile TSV** – looks up each sha256 in the TSV produced by
-   ``count_same_sequences.py --mapping-outfile`` and prints the original IDs.
-
-3. **+ --original-infilename** – scans the pre-compaction FASTA, recomputes
-   sha256 per sequence, and prints the full original header lines (everything
-   after the ``>``).  This is the slowest but most faithful mode.
-
-Modes 2 and 3 can be combined: the TSV gives the list of IDs and the original
-FASTA gives their full header lines.
+that were compacted into each entry.  SHA-256 must be present in every input
+record ID; records without it are skipped with a warning.
 
 Usage examples::
 
@@ -97,37 +84,30 @@ def _extract_sha256(record_id):
     """Return the sha256hex from an ID of the form NNNNx.SHA256HEX, or None."""
     xdot = record_id.find('x.')
     if xdot >= 0:
-        candidate = record_id[xdot + 2:]
-        # Strip anything after a space or dot that might follow the hash
-        candidate = candidate.split()[0]
-        if len(candidate) == 64:   # sha256 hex is always 64 chars
+        candidate = record_id[xdot + 2:].split()[0]
+        if len(candidate) == 64:
             return candidate
     return None
 
-sha256_to_dedup_id = {}   # sha256 -> the NNNNx.sha256 ID as written in --infilename
-
-_name = None
-_seq_parts = []
-
-def _register_header(line):
-    global _name
-    _parts = line[1:].split()
-    _name = _parts[0] if _parts else ""
+sha256_to_dedup_id = {}   # sha256 -> the NNNNx.sha256 ID
+_skipped = 0
 
 with open(myoptions.infilename, "r", encoding="utf-8", errors="replace") as _fh:
     for _line in _fh:
         _line = _line.rstrip("\r\n")
-        if not _line:
+        if not _line or _line[0] != ">":
             continue
-        if _line[0] == ">":
-            _register_header(_line)
-            if _name:
-                _sha = _extract_sha256(_name)
-                if _sha:
-                    sha256_to_dedup_id[_sha] = _name
-                else:
-                    # No sha256 in ID — store by full ID so we can still output it
-                    sha256_to_dedup_id[_name] = _name
+        _parts = _line[1:].split()
+        _name = _parts[0] if _parts else ""
+        _sha = _extract_sha256(_name)
+        if _sha:
+            sha256_to_dedup_id[_sha] = _name
+        else:
+            print("Warning: no sha256 found in ID '%s', skipping" % _name, file=sys.stderr)
+            _skipped += 1
+
+if _skipped:
+    print("Warning: %d record(s) skipped (no sha256 in ID)" % _skipped, file=sys.stderr)
 
 _target_sha256s = set(sha256_to_dedup_id.keys())
 print("Info: %d records in %s" % (len(_target_sha256s), myoptions.infilename), file=sys.stderr)
