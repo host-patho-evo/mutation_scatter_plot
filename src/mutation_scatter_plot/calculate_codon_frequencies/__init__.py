@@ -15,6 +15,7 @@ Emergence. https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1
 """
 
 import os
+import sys
 import time
 import typing
 
@@ -459,7 +460,6 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         # Validate sequence length early, while we still have the record ID and
         # line number available for a useful diagnostic message.
         _raw_len = len(_raw_seq)
-        _expected_sliced_len = _expected_aln_len - _start_from - _stop_to
         if _raw_len != _expected_aln_len and not (_start_from or _stop_to):
             print(
                 f"Warning: skipping record at line {_lineno} "
@@ -554,7 +554,7 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     _slim_positions = list(range(min_start, max_stop or _alignment_len, 3))
 
     if _slim_positions:
-        global _WORKER_SHARED
+        global _WORKER_SHARED  # pylint: disable=global-statement
         _WORKER_SHARED = {
             'num_unique':             _num_unique,
             'alignment_len':          _alignment_len,
@@ -573,19 +573,27 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         }
         # Pool is created AFTER the global is set so forked workers see it.
         _external_pool = pool is not None
-        _active_pool = pool if _external_pool else multiprocessing.Pool(processes=threads)
-        try:
-            _all_results = _active_pool.starmap(
-                _process_one_site_wrapper,
-                [(_pos,) for _pos in _slim_positions],
-                chunksize=chunksize,
-            )
-        finally:
-            if not _external_pool:
-                _active_pool.close()
-                _active_pool.join()
-            # Release the shared data so workers (if reused) don't hold stale refs.
-            _WORKER_SHARED = {}
+        _all_results = []
+        if _external_pool:
+            _active_pool = pool
+            try:
+                _all_results = _active_pool.starmap(
+                    _process_one_site_wrapper,
+                    [(_pos,) for _pos in _slim_positions],
+                    chunksize=chunksize,
+                )
+            finally:
+                _WORKER_SHARED = {}
+        else:
+            with multiprocessing.Pool(processes=threads) as _active_pool:
+                try:
+                    _all_results = _active_pool.starmap(
+                        _process_one_site_wrapper,
+                        [(_pos,) for _pos in _slim_positions],
+                        chunksize=chunksize,
+                    )
+                finally:
+                    _WORKER_SHARED = {}
 
         _last_flush_t = time.monotonic()
         for _res in _all_results:

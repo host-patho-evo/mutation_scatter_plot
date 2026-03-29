@@ -3,7 +3,7 @@
 VERSION = "202603292130"
 
 from optparse import OptionParser
-import subprocess, shlex
+import subprocess
 import os, sys, io
 import hashlib
 
@@ -36,7 +36,6 @@ myparser.add_option("--debug", action="store", type="int", dest="debug", default
     help="Set debug to some value")
 (myoptions, myargs) = myparser.parse_args()
 
-from collections import defaultdict
 
 """
 Count identical sequences in a FASTA/Q file and write a deduplicated output

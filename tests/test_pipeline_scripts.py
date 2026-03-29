@@ -37,6 +37,12 @@ def _load_module(script_name: str):
     return mod
 
 
+def _touch(path: str) -> None:
+    """Create an empty file (or update its mtime), safely using a context manager."""
+    with open(path, 'w', encoding='utf-8'):
+        pass
+
+
 def _make_nnnx_fasta(path: str, entries: list) -> None:
     """Write a minimal NNNNx.sha256 FASTA to path.
 
@@ -45,7 +51,7 @@ def _make_nnnx_fasta(path: str, entries: list) -> None:
     with open(path, 'w', encoding='utf-8') as f:
         for count, seq in entries:
             h = hashlib.sha256(seq.upper().encode()).hexdigest()
-            f.write(f">{count}x.{h}\n{seq}\n")
+            f.write(f'>{count}x.{h}\n{seq}\n')
 
 
 def _make_plain_fasta(path: str, records: list) -> None:
@@ -55,7 +61,7 @@ def _make_plain_fasta(path: str, records: list) -> None:
     """
     with open(path, 'w', encoding='utf-8') as f:
         for rid, seq in records:
-            f.write(f">{rid}\n{seq}\n")
+            f.write(f'>{rid}\n{seq}\n')
 
 
 # ── replicate _decode_fasta_line locally ──────────────────────────────────────
@@ -77,26 +83,29 @@ class TestDecodeFastaLine(unittest.TestCase):
     """Unit tests for the per-line UTF-8 → Latin-1 fallback decoder."""
 
     def test_pure_ascii_header(self):
+        """Pure ASCII FASTA header decodes identically via UTF-8 and ASCII."""
         raw = b">EPI_ISL_123456 hCoV-19/Poland/Warsaw/2022\n"
         self.assertEqual(_decode_fasta_line(raw), raw.decode("ascii"))
 
     def test_pure_ascii_sequence(self):
+        """Pure ASCII sequence line decodes identically."""
         raw = b"ATGCATGCATGCNNNN\n"
         self.assertEqual(_decode_fasta_line(raw), raw.decode("ascii"))
 
     def test_valid_utf8_multibyte(self):
+        """Valid multi-byte UTF-8 sequence decodes correctly."""
         # é encoded as UTF-8 (0xC3 0xA9) — should decode correctly.
         self.assertEqual(_decode_fasta_line("Łódź".encode("utf-8")), "Łódź")
 
     def test_latin1_fallback_0xed(self):
-        # 0xED is not valid as a UTF-8 continuation byte; in Latin-1 it is 'í'.
+        """0xED is not valid UTF-8 continuation; Latin-1 fallback maps it to í."""
         raw = b"Szpital Specjalistyczny im. Edmund\xed Biernackiego"
         result = _decode_fasta_line(raw)
         self.assertIsInstance(result, str)
         self.assertIn("í", result)  # 0xED Latin-1 = í
 
     def test_latin1_fallback_0xe9(self):
-        # 0xE9 alone is invalid UTF-8 start; Latin-1 maps it to 'é'.
+        """0xE9 alone is invalid UTF-8 start; Latin-1 maps it to é."""
         raw = b"H\xf4pital universit\xe9"
         result = _decode_fasta_line(raw)
         self.assertIsInstance(result, str)
@@ -104,12 +113,13 @@ class TestDecodeFastaLine(unittest.TestCase):
         self.assertIn("é", result)
 
     def test_id_part_is_ascii_despite_description_encoding(self):
-        # The ID (first word) is always ASCII even if description has non-UTF-8 bytes.
+        """The ID (first word) is always ASCII even if description has non-UTF-8 bytes."""
         raw = b">EPI_ISL_9876543 Institut P\xe9diatrique de Lyon\n"
         result = _decode_fasta_line(raw)
         self.assertTrue(result.startswith(">EPI_ISL_9876543"))
 
     def test_nnnx_id_unaffected(self):
+        """NNNNx.hash ID prefix is preserved intact regardless of description encoding."""
         raw = b">914x.abc123 inst. \xedme Sp\xf3lki\n"
         result = _decode_fasta_line(raw)
         self.assertTrue(result.startswith(">914x.abc123"))
@@ -124,87 +134,99 @@ class TestSummarizePipelineHelpers(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        """Load the summarize_fasta_pipeline module once for all tests."""
         cls.mod = _load_module("summarize_fasta_pipeline.py")
 
     # ── _strip_fasta_suffix ───────────────────────────────────────────────────
 
     def test_strip_fasta(self):
-        self.assertEqual(self.mod._strip_fasta_suffix("prefix.counts.fasta"), "prefix.counts")
+        """Standard .fasta suffix is stripped."""
+        self.assertEqual(self.mod._strip_fasta_suffix("prefix.counts.fasta"), "prefix.counts")  # pylint: disable=protected-access
 
     def test_strip_fasta_old(self):
-        self.assertEqual(self.mod._strip_fasta_suffix("prefix.counts.fasta.old"), "prefix.counts")
+        """.fasta.old suffix is stripped leaving the base."""
+        self.assertEqual(self.mod._strip_fasta_suffix("prefix.counts.fasta.old"), "prefix.counts")  # pylint: disable=protected-access
 
     def test_strip_fasta_orig(self):
-        self.assertEqual(self.mod._strip_fasta_suffix("prefix.fasta.orig"), "prefix")
+        """.fasta.orig suffix is stripped."""
+        self.assertEqual(self.mod._strip_fasta_suffix("prefix.fasta.orig"), "prefix")  # pylint: disable=protected-access
 
     def test_strip_fasta_ori(self):
-        self.assertEqual(self.mod._strip_fasta_suffix("prefix.fasta.ori"), "prefix")
+        """.fasta.ori suffix is stripped."""
+        self.assertEqual(self.mod._strip_fasta_suffix("prefix.fasta.ori"), "prefix")  # pylint: disable=protected-access
 
     def test_no_suffix_unchanged(self):
-        self.assertEqual(self.mod._strip_fasta_suffix("prefix.tsv"), "prefix.tsv")
+        """A path with no recognised FASTA suffix is returned unchanged."""
+        self.assertEqual(self.mod._strip_fasta_suffix("prefix.tsv"), "prefix.tsv")  # pylint: disable=protected-access
 
     def test_longest_suffix_first(self):
-        # .fasta.orig must win over .fasta to avoid leaving '.orig'.
-        self.assertEqual(self.mod._strip_fasta_suffix("a.fasta.orig"), "a")
+        """.fasta.orig must match before .fasta to avoid leaving '.orig'."""
+        self.assertEqual(self.mod._strip_fasta_suffix("a.fasta.orig"), "a")  # pylint: disable=protected-access
 
     # ── _fresh_discarded_txt ──────────────────────────────────────────────────
 
     def test_fresh_discarded_txt_absent(self):
+        """Returns None when the .discarded_original_ids.txt file does not exist."""
         with tempfile.TemporaryDirectory() as d:
             parent = os.path.join(d, "a.fasta")
             child  = os.path.join(d, "a.counts.fasta")
             for p in (parent, child):
-                open(p, 'w').close()
-            self.assertIsNone(self.mod._fresh_discarded_txt(child, parent))
+                _touch(p)
+            self.assertIsNone(self.mod._fresh_discarded_txt(child, parent))  # pylint: disable=protected-access
 
     def test_fresh_discarded_txt_stale(self):
+        """Returns None when the txt file is older than the child FASTA."""
         with tempfile.TemporaryDirectory() as d:
             parent = os.path.join(d, "a.fasta")
             child  = os.path.join(d, "a.counts.fasta")
             txt    = os.path.join(d, "a.counts.discarded_original_ids.txt")
             for p in (txt, parent, child):
-                open(p, 'w').close()
+                _touch(p)
             time.sleep(0.05)
             os.utime(child, None)   # child is newest → txt is stale
-            self.assertIsNone(self.mod._fresh_discarded_txt(child, parent))
+            self.assertIsNone(self.mod._fresh_discarded_txt(child, parent))  # pylint: disable=protected-access
 
     def test_fresh_discarded_txt_up_to_date(self):
+        """Returns the txt path when it is newer than both FASTA files."""
         with tempfile.TemporaryDirectory() as d:
             parent = os.path.join(d, "a.fasta")
             child  = os.path.join(d, "a.counts.fasta")
             txt    = os.path.join(d, "a.counts.discarded_original_ids.txt")
             for p in (parent, child):
-                open(p, 'w').close()
+                _touch(p)
             time.sleep(0.05)
-            open(txt, 'w').close()  # txt is newest
-            self.assertEqual(self.mod._fresh_discarded_txt(child, parent), txt)
+            _touch(txt)  # txt is newest
+            self.assertEqual(self.mod._fresh_discarded_txt(child, parent), txt)  # pylint: disable=protected-access
 
     # ── _fresh_tsv ────────────────────────────────────────────────────────────
 
     def test_fresh_tsv_absent(self):
+        """Returns None when the .sha256_to_ids.tsv does not exist."""
         with tempfile.TemporaryDirectory() as d:
             parent = os.path.join(d, "a.fasta")
-            open(parent, 'w').close()
-            self.assertIsNone(self.mod._fresh_tsv(parent))
+            _touch(parent)
+            self.assertIsNone(self.mod._fresh_tsv(parent))  # pylint: disable=protected-access
 
     def test_fresh_tsv_stale(self):
+        """Returns None when the TSV is older than the parent FASTA."""
         with tempfile.TemporaryDirectory() as d:
             tsv    = os.path.join(d, "a.sha256_to_ids.tsv")
             parent = os.path.join(d, "a.fasta")
             for p in (tsv, parent):
-                open(p, 'w').close()
+                _touch(p)
             time.sleep(0.05)
             os.utime(parent, None)  # parent is newest → tsv stale
-            self.assertIsNone(self.mod._fresh_tsv(parent))
+            self.assertIsNone(self.mod._fresh_tsv(parent))  # pylint: disable=protected-access
 
     def test_fresh_tsv_up_to_date(self):
+        """Returns the TSV path when it is newer than the parent FASTA."""
         with tempfile.TemporaryDirectory() as d:
             parent = os.path.join(d, "a.fasta")
             tsv    = os.path.join(d, "a.sha256_to_ids.tsv")
-            open(parent, 'w').close()
+            _touch(parent)
             time.sleep(0.05)
-            open(tsv, 'w').close()  # tsv is newest
-            self.assertEqual(self.mod._fresh_tsv(parent), tsv)
+            _touch(tsv)  # tsv is newest
+            self.assertEqual(self.mod._fresh_tsv(parent), tsv)  # pylint: disable=protected-access
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -219,7 +241,7 @@ class TestCountSameSequencesCLI(unittest.TestCase):
     def _run(self, *args):
         return subprocess.run(
             [sys.executable, self.SCRIPT] + list(args),
-            capture_output=True, text=True,
+            capture_output=True, text=True, check=False,
         )
 
     # ── '=' detection ─────────────────────────────────────────────────────────
@@ -234,6 +256,7 @@ class TestCountSameSequencesCLI(unittest.TestCase):
         self.assertIn("contains '='", result.stderr + result.stdout)
 
     def test_equals_in_mapping_outfile_rejected(self):
+        """Typo --mapping-outfile=mapping-outfile=foo is caught immediately."""
         result = self._run(
             "--infilename=/dev/null",
             "--mapping-outfile=mapping-outfile=foo.tsv",
@@ -250,11 +273,11 @@ class TestCountSameSequencesCLI(unittest.TestCase):
             prefix = os.path.join(d, "in")
             tsv    = os.path.join(d, "in.sha256_to_ids.tsv")
             counts = os.path.join(d, "in.counts.fasta")
-            with open(infile, 'w') as f:
+            with open(infile, 'w', encoding='utf-8') as f:
                 f.write(">ID1\nATGC\n")
             time.sleep(0.05)
             for p in (counts, tsv):  # outputs are newer
-                open(p, 'w').close()
+                _touch(p)
             result = self._run(
                 f"--infilename={infile}",
                 f"--outfile-prefix={prefix}",
@@ -271,9 +294,9 @@ class TestCountSameSequencesCLI(unittest.TestCase):
             tsv    = os.path.join(d, "in.sha256_to_ids.tsv")
             counts = os.path.join(d, "in.counts.fasta")
             for p in (counts, tsv):  # outputs created first → will be stale
-                open(p, 'w').close()
+                _touch(p)
             time.sleep(0.05)
-            with open(infile, 'w') as f:  # input is newest
+            with open(infile, 'w', encoding='utf-8') as f:  # input is newest
                 f.write(">ID1\nATGC\n")
             result = self._run(
                 f"--infilename={infile}",
@@ -284,16 +307,16 @@ class TestCountSameSequencesCLI(unittest.TestCase):
             self.assertIn("stale", result.stderr + result.stdout)
 
     def test_existing_output_without_overwrite_errors(self):
-        """Pre-existing output (no staleness info yet different from stale) → error."""
+        """Pre-existing output (partial run) → error without --overwrite."""
         with tempfile.TemporaryDirectory() as d:
             infile = os.path.join(d, "in.fasta")
             prefix = os.path.join(d, "in")
             tsv    = os.path.join(d, "in.sha256_to_ids.tsv")
-            with open(infile, 'w') as f:
+            with open(infile, 'w', encoding='utf-8') as f:
                 f.write(">ID1\nATGC\n")
             time.sleep(0.05)
             counts = os.path.join(d, "in.counts.fasta")
-            open(counts, 'w').close()   # only one output exists → partial run
+            _touch(counts)   # only one output exists → partial run
             result = self._run(
                 f"--infilename={infile}",
                 f"--outfile-prefix={prefix}",
@@ -314,7 +337,7 @@ class TestCreateListCLI(unittest.TestCase):
     def _run(self, *args):
         return subprocess.run(
             [sys.executable, self.SCRIPT] + list(args),
-            capture_output=True, text=True,
+            capture_output=True, text=True, check=False,
         )
 
     def test_uptodate_exits_zero(self):
@@ -324,7 +347,7 @@ class TestCreateListCLI(unittest.TestCase):
             outfile = os.path.join(d, "kept.discarded_original_ids.txt")
             _make_nnnx_fasta(infile, [(1, "ATGC")])
             time.sleep(0.05)
-            open(outfile, 'w').close()  # outfile is newer
+            _touch(outfile)  # outfile is newer
             result = self._run(
                 f"--infilename={infile}",
                 f"--outfile={outfile}",
@@ -333,10 +356,11 @@ class TestCreateListCLI(unittest.TestCase):
             self.assertIn("up-to-date", result.stderr)
 
     def test_stale_errors_without_overwrite(self):
+        """Output older than input without --overwrite → non-zero exit."""
         with tempfile.TemporaryDirectory() as d:
             infile  = os.path.join(d, "kept.fasta")
             outfile = os.path.join(d, "kept.discarded_original_ids.txt")
-            open(outfile, 'w').close()
+            _touch(outfile)
             time.sleep(0.05)
             _make_nnnx_fasta(infile, [(1, "ATGC")])  # input is newer
             result = self._run(
@@ -351,7 +375,7 @@ class TestCreateListCLI(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             infile  = os.path.join(d, "kept.fasta")
             outfile = os.path.join(d, "kept.discarded_original_ids.txt")
-            open(outfile, 'w').close()
+            _touch(outfile)
             time.sleep(0.05)
             _make_nnnx_fasta(infile, [(1, "ATGC")])
             result = self._run(
@@ -409,10 +433,11 @@ class TestKickCLI(unittest.TestCase):
     def _run(self, *args):
         return subprocess.run(
             [sys.executable, self.SCRIPT] + list(args),
-            capture_output=True, text=True,
+            capture_output=True, text=True, check=False,
         )
 
     def test_missing_full_length_errors(self):
+        """Missing --full-length argument → non-zero exit."""
         with tempfile.TemporaryDirectory() as d:
             infile = os.path.join(d, "test.fasta")
             _make_plain_fasta(infile, [("1x.abc", "ATGCATGC")])
@@ -427,7 +452,7 @@ class TestKickCLI(unittest.TestCase):
             _make_plain_fasta(infile, [("1x.abc", "ATGCATGC")])
             time.sleep(0.05)
             for sfx in ("exactly_4.fasta", "shorter_4.fasta", "longer_4.fasta"):
-                open(os.path.join(d, f"test.{sfx}"), 'w').close()
+                _touch(os.path.join(d, f"test.{sfx}"))
             result = self._run(
                 f"--infile={infile}",
                 f"--outfile-prefix={prefix}",
@@ -437,11 +462,12 @@ class TestKickCLI(unittest.TestCase):
             self.assertIn("up-to-date", result.stderr)
 
     def test_stale_errors_without_overwrite(self):
+        """Stale output (older than input) without --overwrite → non-zero exit."""
         with tempfile.TemporaryDirectory() as d:
             infile = os.path.join(d, "test.fasta")
             prefix = os.path.join(d, "test")
             for sfx in ("exactly_4.fasta", "shorter_4.fasta", "longer_4.fasta"):
-                open(os.path.join(d, f"test.{sfx}"), 'w').close()
+                _touch(os.path.join(d, f"test.{sfx}"))
             time.sleep(0.05)
             _make_plain_fasta(infile, [("1x.abc", "ATGCATGC")])  # input newer
             result = self._run(
@@ -453,11 +479,12 @@ class TestKickCLI(unittest.TestCase):
             self.assertIn("stale", result.stderr + result.stdout)
 
     def test_overwrite_bypasses_staleness(self):
+        """--overwrite skips the staleness check and proceeds normally."""
         with tempfile.TemporaryDirectory() as d:
             infile = os.path.join(d, "test.fasta")
             prefix = os.path.join(d, "test")
             for sfx in ("exactly_4.fasta", "shorter_4.fasta", "longer_4.fasta"):
-                open(os.path.join(d, f"test.{sfx}"), 'w').close()
+                _touch(os.path.join(d, f"test.{sfx}"))
             time.sleep(0.05)
             _make_plain_fasta(infile, [("seq1", "ATGC"), ("seq2", "ATGCATGCATGC")])
             result = self._run(
