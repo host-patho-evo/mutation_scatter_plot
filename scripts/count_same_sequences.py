@@ -22,10 +22,12 @@ myparser.add_option("--top-n", action="store", type="int", dest="top_n", default
     help="Write out the top n-most sequences into {outfile_prefix}.top_{top_n}_counts.fastq or {outfile_prefix}.counts.fast[aq]")
 myparser.add_option("--mapping-outfile", action="store", type="string", dest="mapping_outfile", default='',
     help=(
-        "Optional TSV file mapping sha256 -> original FASTA IDs. "
-        "Columns (tab-separated, no header): sha256hex, count, id_1, id_2, ..."
+        "TSV file mapping sha256 -> original FASTA IDs. "
+        "Columns (tab-separated, no header): sha256hex, count, id_1, id_2, ... "
         "Allows tracing any deduplicated record back to all original sequences "
-        "that share its sequence content."
+        "that share its sequence content. "
+        "Defaults to --infilename with '.fasta' (or .fastq/.gz) removed and "
+        "'.sha256_to_ids.tsv' appended."
     ))
 myparser.add_option("--debug", action="store", type="int", dest="debug", default=0,
     help="Set debug to some value")
@@ -186,6 +188,9 @@ if not myoptions.outfile_prefix:
 else:
     _outfile_prefix = myoptions.outfile_prefix
 
+# Default mapping outfile: strip known extensions from infilename, append suffix.
+_mapping_outfile = myoptions.mapping_outfile or (_outfile_prefix + '.sha256_to_ids.tsv')
+
 _outfileh = open(_outfile_prefix + '.counts.fasta', 'w') # truncate the output file
 
 if myoptions.min_count > 0:
@@ -197,5 +202,4 @@ else:
 
 _outfileh.close()
 
-if myoptions.mapping_outfile:
-    build_sha256_id_mapping(myoptions.infilename, myoptions.mapping_outfile)
+build_sha256_id_mapping(myoptions.infilename, _mapping_outfile)
