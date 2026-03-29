@@ -31,6 +31,7 @@ Example:
 """
 
 import glob
+import hashlib
 import os
 import subprocess
 import sys
@@ -39,7 +40,6 @@ FASTA_SUFFIXES = ('.fasta.orig', '.fasta.ori', '.fasta.old', '.fasta')
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DISCARD_SCRIPT = os.path.join(SCRIPT_DIR, 'create_list_of_discarded_sequences.py')
-COUNT_SCRIPT = os.path.join(SCRIPT_DIR, 'count_same_sequences.py')
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -120,44 +120,83 @@ def _fresh_tsv(parent_path: str) -> str | None:
     return None  # stale
 
 
-def _ensure_tsv(parent_path: str) -> str | None:
-    """Return a fresh .sha256_to_ids.tsv for *parent_path*, generating it now
-    via count_same_sequences.py if one does not already exist or is stale.
+def _decode_fasta_line(raw: bytes) -> str:
+    """Decode a raw FASTA byte line to str (UTF-8 with Latin-1 fallback)."""
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1")
 
-    Returns the TSV path on success, or None if generation failed or the
-    count_same_sequences script is unavailable.
+
+def _build_tsv(fasta_path: str, tsv_path: str) -> None:
+    """Single-pass scan of *fasta_path* to build a sha256→IDs mapping TSV.
+
+    For each record the sha256 is computed over the uppercase, dash-stripped
+    sequence — identical to the normalisation used by count_same_sequences.py.
+
+    Output TSV columns (tab-separated, no header):
+        sha256hex   count   id_1   id_2   ...
+    """
+    mapping: dict = {}   # sha256 -> [count, [id, ...]]
+    name = None
+    seq_parts: list = []
+
+    def _flush(flush_name: str, flush_parts: list) -> None:
+        seq = "".join(flush_parts).rstrip("\r\n").replace("-", "").upper()
+        digest = hashlib.sha256(seq.encode()).hexdigest()
+        if digest in mapping:
+            mapping[digest][0] += 1
+            mapping[digest][1].append(flush_name)
+        else:
+            mapping[digest] = [1, [flush_name]]
+
+    n_in = 0
+    with open(fasta_path, "rb") as fh:
+        for raw in fh:
+            line = _decode_fasta_line(raw).rstrip("\r\n")
+            if not line:
+                continue
+            if line[0] == ">":
+                if name is not None:
+                    _flush(name, seq_parts)
+                    n_in += 1
+                toks = line[1:].split()
+                name = toks[0] if toks else ""
+                seq_parts = []
+            else:
+                seq_parts.append(line)
+        if name is not None:
+            _flush(name, seq_parts)
+            n_in += 1
+
+    with open(tsv_path, "w", encoding="utf-8") as out:
+        for digest, (count, ids) in mapping.items():
+            out.write("\t".join([digest, str(count)] + ids) + "\n")
+
+    print(f"    Info: built TSV with {len(mapping):,} unique sequences"
+          f" from {n_in:,} records → {tsv_path}", flush=True)
+
+
+def _ensure_tsv(parent_path: str) -> str | None:
+    """Return a fresh .sha256_to_ids.tsv for *parent_path*, generating it by
+    scanning the FASTA in-process if one does not already exist or is stale.
+
+    Returns the TSV path on success, or None if generation failed.
     """
     tsv = _fresh_tsv(parent_path)
     if tsv:
         return tsv
 
-    if not os.path.exists(COUNT_SCRIPT):
-        return None
-
     candidate = _strip_fasta_suffix(parent_path) + '.sha256_to_ids.tsv'
-    # Derive the outfile-prefix so count_same_sequences.py knows where to write
-    # the deduplicated FASTA (it always writes both outputs together).
-    out_prefix = _strip_fasta_suffix(parent_path)
-    print(f"  [auto-generate TSV] running count_same_sequences on {os.path.basename(parent_path)} …",
+    print(f"  [auto-generate TSV] scanning {os.path.basename(parent_path)} …",
           flush=True)
-    result = subprocess.run(
-        [
-            sys.executable, COUNT_SCRIPT,
-            f'--infilename={parent_path}',
-            f'--outfile-prefix={out_prefix}',
-            f'--mapping-outfile={candidate}',
-            '--overwrite',
-        ],
-        capture_output=True, text=True, check=False,
-    )
-    for line in result.stderr.splitlines():
-        if line.startswith(('Info:', 'Warning:', 'Error:')):
-            print(f"    {line}", flush=True)
-    if result.returncode != 0:
-        print(f"    [TSV generation failed, exit code {result.returncode}]", flush=True)
+    try:
+        _build_tsv(parent_path, candidate)
+    except OSError as exc:
+        print(f"    [TSV generation failed: {exc}]", flush=True)
         return None
 
-    return candidate if os.path.exists(candidate) else None
+    return candidate
 
 
 def _read_discarded_txt_stats(txt_path: str) -> tuple[int, int]:
