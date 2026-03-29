@@ -44,7 +44,7 @@ import os
 import sys
 from optparse import OptionParser
 
-VERSION = "202603292010"
+VERSION = "202603292020"
 
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
 myparser.add_option(
@@ -169,6 +169,7 @@ def _iter_fasta(path):
 
 infile_sha256s = {}    # sha256 -> dedup_id (NNNNx or NNNNx.sha256)
 _ids_computed = 0      # how many sha256s were computed (not extracted from ID)
+_infile_total_count = 0  # sum of NNNNx count prefixes across all --infilename records
 
 for _name, _header, _seq in _iter_fasta(myoptions.infilename):
     _sha = _extract_sha256(_name)
@@ -181,6 +182,12 @@ for _name, _header, _seq in _iter_fasta(myoptions.infilename):
         _sha = hashlib.sha256(_seq.replace('-', '').upper().encode()).hexdigest()
         _ids_computed += 1
     infile_sha256s[_sha] = _name
+    # Accumulate NNNNx count prefix (falls back to 1 for plain/GISAID IDs).
+    _x_pos = _name.find('x')
+    if _x_pos > 0 and _name[:_x_pos].isdigit():
+        _infile_total_count += int(_name[:_x_pos])
+    else:
+        _infile_total_count += 1
 
 if _ids_computed:
     print(
@@ -196,7 +203,10 @@ if _ids_computed:
             "This produces NNNNx.sha256 IDs and a .sha256_to_ids.tsv mapping.",
             file=sys.stderr,
         )
-print(f"Info: {len(infile_sha256s):,} unique sequences in {myoptions.infilename}", file=sys.stderr)
+print(
+    f"Info: {len(infile_sha256s):,} unique sequences (total count: {_infile_total_count:,}) in {myoptions.infilename}",
+    file=sys.stderr,
+)
 
 _target_sha256s = set(infile_sha256s.keys())
 
