@@ -8,9 +8,9 @@
 # Run from project root:
 #   bash scripts/profile_line.sh <alignment.fasta> [threads] [max_rows]
 #
-# Outputs:
-#   ${TMPDIR}/profile_line_tN.lprof   - binary profile (view with python -m line_profiler)
-#   ${TMPDIR}/profile_line_tN.txt     - human-readable line-by-line report
+# Outputs (all names include the short git commit hash for traceability):
+#   $TMPDIR/profile_line_<SHA>_tN.lprof   - binary profile
+#   $TMPDIR/profile_line_<SHA>_tN.txt     - human-readable line-by-line report (ms units)
 #
 # Examples:
 #   REFERENCE=.../MN908947.3_S.fasta bash scripts/profile_line.sh \
@@ -27,7 +27,9 @@ MAX_ROWS="${3:-0}"
 if [[ -z "${TMPDIR:-}" && -d /scratch.ssd/mmokrejs ]]; then
     export TMPDIR=/scratch.ssd/mmokrejs
 fi
-OUTBASE="${TMPDIR:-/tmp}/profile_line_t${THREADS}"
+# Embed git SHA so output files are unambiguously tied to the code revision.
+GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+OUTBASE="${TMPDIR:-/tmp}/profile_line_${GIT_SHA}_t${THREADS}"
 
 export PYTHONPATH="${PYTHONPATH:-$(pwd)/src}"
 
