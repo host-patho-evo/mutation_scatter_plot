@@ -2,9 +2,9 @@
 # cProfile run for calculate_codon_frequencies on the target machine.
 # Run from project root:  bash scripts/profile_cprofile.sh <alignment.fasta> [threads] [max_rows]
 #
-# Outputs:
-#   /tmp/profile_codon_tN.stats              - cProfile binary (open with pstats or snakeviz)
-#   /tmp/profile_codon_tN_top50_*.txt        - pre-rendered top-50 hotspots
+# Outputs (all names include the short git commit hash for traceability):
+#   $TMPDIR/profile_codon_<SHA>_tN.stats          - cProfile binary
+#   $TMPDIR/profile_codon_<SHA>_tN_top50_*.txt    - pre-rendered top-50 hotspots
 #
 # Usage examples:
 #   bash scripts/profile_cprofile.sh tests/inputs/test2_full.fasta
@@ -24,7 +24,9 @@ MAX_ROWS="${3:-0}"
 if [[ -z "${TMPDIR:-}" && -d /scratch.ssd/mmokrejs ]]; then
     export TMPDIR=/scratch.ssd/mmokrejs
 fi
-OUTBASE="${TMPDIR:-/tmp}/profile_codon_t${THREADS}"
+# Embed git SHA so output files are unambiguously tied to the code revision.
+GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+OUTBASE="${TMPDIR:-/tmp}/profile_codon_${GIT_SHA}_t${THREADS}"
 
 export PYTHONPATH="${PYTHONPATH:-$(pwd)/src}"
 

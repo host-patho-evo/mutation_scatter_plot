@@ -126,6 +126,15 @@ def main():
     codons = get_codons(ref_seq)
     myoptions = make_options(x_after_count=args.x_after_count)
 
+    # Capture current git SHA for output file naming.
+    try:
+        import subprocess as _sp
+        git_sha = _sp.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=_sp.DEVNULL, text=True).strip()
+    except Exception:
+        git_sha = "unknown"
+
     n_workers = args.threads or multiprocessing.cpu_count()
     aln_size_kb = os.path.getsize(args.alignment) / 1024
     total_cores = multiprocessing.cpu_count()
@@ -207,7 +216,7 @@ def _run_sweep(args, alignment_file, n_workers, aln_size_kb, total_cores,
         print(f"{cs_label:>10}  {min(times):>8.3f}  {median:>8.3f}  {max(times):>8.3f}",
               flush=True)
 
-    tsv_path = f"bench_chunksize_{os.path.basename(alignment_file)}.tsv"
+    tsv_path = f"bench_chunksize_{os.path.basename(alignment_file)}_{git_sha}.tsv"
     with open(tsv_path, "w", encoding="utf-8") as f:
         f.write("chunksize\tmin_s\tmedian_s\tmax_s\n")
         for row in results:

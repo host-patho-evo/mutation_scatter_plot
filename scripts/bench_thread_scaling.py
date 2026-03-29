@@ -155,6 +155,15 @@ def main():
         env["PYTHONPATH"] = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
 
+    # Capture current git SHA for output file naming and header display.
+    try:
+        import subprocess as _sp
+        git_sha = _sp.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=_sp.DEVNULL, text=True).strip()
+    except Exception:
+        git_sha = "unknown"
+
     extra = list(args.extra or [])
     if args.aa_start:
         extra += [f"--aa_start={args.aa_start}"]
@@ -188,6 +197,7 @@ def main():
     print(f"#   col range  : {col_range}")
     print(f"# Reference : {os.path.basename(args.reference)}")
     print(f"# CPU cores : {ncpu} logical")
+    print(f"# Git SHA   : {git_sha}")
     print(f"# Runs/combo: {args.runs}")
 
     # ── Determine row-size ladder ────────────────────────────────────────────
@@ -270,7 +280,7 @@ def main():
         print(f"{row_size:>10,}  {t:>7}  {mn:>7.2f}  {med:>8.2f}  {mx:>7.2f}  {sp:>7.2f}x")
     sys.stdout.flush()
 
-    tsv_path = f"bench_scaling_{os.path.basename(args.alignment)}.tsv"
+    tsv_path = f"bench_scaling_{os.path.basename(args.alignment)}_{git_sha}.tsv"
     with open(tsv_path, "w", encoding="utf-8") as f:
         f.write("rows\tthreads\tmin_s\tmedian_s\tmax_s\tspeedup\n")
         for row in all_results:
