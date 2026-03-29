@@ -19,24 +19,34 @@ The mapping TSV (``--mapping-outfile``) provides a fast path for the default
 mode when IDs already carry sha256 *and* the TSV was pre-built by
 ``count_same_sequences.py --mapping-outfile``.
 
+Behaviour
+---------
+* Output guard: if the output file exists and is *newer* than all input files
+  the script prints ``Info: up-to-date, skipping`` and exits 0.  Pass
+  ``--overwrite`` to force regeneration even when the output is fresh.
+* If the output exists and is *older* than any input the script raises a
+  ``RuntimeError`` — add ``--overwrite`` to regenerate.
+* Passing ``--outfile=/dev/null`` bypasses the timestamp guard entirely (used
+  internally by ``summarize_fasta_pipeline.py`` for inline stats).
+
 Usage examples::
 
     # Default mode – expand sha256-format discarded file to original IDs (via TSV)
     create_list_of_discarded_sequences.py \\
-        --infilename=spikenuc1207.counts.clean.longer_3822.fasta \\
-        --mapping-outfile=spikenuc1207.sha256_to_ids.tsv
+        --infilename=filename_prefix.counts.clean.longer_3822.fasta \\
+        --mapping-outfile=filename_prefix.sha256_to_ids.tsv
 
     # Default mode – expand any format discarded file by re-scanning original FASTA
     create_list_of_discarded_sequences.py \\
-        --infilename=spikenuc1207.counts.clean.longer_3822.fasta \\
-        --original-infilename=spikenuc1207.native2ascii.no_junk.fasta
+        --infilename=filename_prefix.counts.clean.longer_3822.fasta \\
+        --original-infilename=filename_prefix.fasta
 
     # Inverted mode – given the KEPT file, list what was discarded from original
     create_list_of_discarded_sequences.py \\
-        --infilename=spikenuc1207.counts.clean.filtered.fasta.old \\
-        --original-infilename=spikenuc1207.native2ascii.no_junk.fasta \\
+        --infilename=filename_prefix.counts.clean.exactly_3822.fasta \\
+        --original-infilename=filename_prefix.fasta \\
         --inverted \\
-        --outfile=discarded_original_ids.txt
+        --outfile=filename_prefix.counts.clean.exactly_3822.discarded_original_ids.txt
 """
 
 import hashlib
