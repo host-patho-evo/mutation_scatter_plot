@@ -44,7 +44,7 @@ import os
 import sys
 from optparse import OptionParser
 
-VERSION = "202603292030"
+VERSION = "202603292040"
 
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
 myparser.add_option(
@@ -322,11 +322,11 @@ for _line in lines_to_emit:
 if myoptions.outfile:
     _out.close()
     print(
-        f"Info: wrote {len(lines_to_emit):,} lines (total sequence count: {_total_count:,}) to {myoptions.outfile}",
+        f"Info: wrote {len(lines_to_emit):,} FASTA ID tags (total sum of the count values in the FASTA IDs: {_total_count:,}) to {myoptions.outfile}",
         file=sys.stderr,
     )
 else:
     print(
-        f"Info: wrote {len(lines_to_emit):,} lines (total sequence count: {_total_count:,}) to stdout",
+        f"Info: wrote {len(lines_to_emit):,} FASTA ID tags (total sum of the count values in the FASTA IDs: {_total_count:,}) to stdout",
         file=sys.stderr,
     )
