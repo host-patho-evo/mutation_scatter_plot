@@ -39,19 +39,19 @@ python -m cProfile -o "${OUTBASE}.stats" \
     --threads="$THREADS"
 
 # Dump top-50 hotspots by tottime and cumtime
-python - <<EOF
-import pstats, io
+python3 - "${OUTBASE}" <<'EOF'
+import pstats, io, sys
+OUTBASE = sys.argv[1]
 
 for sort_key in ('tottime', 'cumulative'):
     s = io.StringIO()
-    p = pstats.Stats('${OUTBASE}.stats', stream=s)
+    p = pstats.Stats(f'{OUTBASE}.stats', stream=s)
     p.sort_stats(sort_key)
     p.print_stats(50)
     txt = s.getvalue()
-    with open('${OUTBASE}_top50_${sort_key}.txt', 'w') as f:
+    with open(f'{OUTBASE}_top50_{sort_key}.txt', 'w') as f:
         f.write(txt)
     print(f"--- Top 50 by {sort_key} ---")
-    # Print just the header + first 20 lines of stats table
     lines = txt.splitlines()
     for line in lines[:60]:
         print(line)
