@@ -1,29 +1,66 @@
 #!/usr/bin/env bash
 # cProfile run for calculate_codon_frequencies on the target machine.
-# Run from project root:  bash scripts/profile_cprofile.sh <alignment.fasta>
+# Run from project root:  bash scripts/profile_cprofile.sh <alignment.fasta> [threads] [max_rows]
 #
 # Outputs:
-#   /tmp/profile_codon_N.stats   - cProfile binary (open with pstats or snakeviz)
-#   /tmp/profile_codon_N.txt     - pre-rendered top-50 hotspots
+#   /tmp/profile_codon_tN.stats              - cProfile binary (open with pstats or snakeviz)
+#   /tmp/profile_codon_tN_top50_*.txt        - pre-rendered top-50 hotspots
 #
 # Usage examples:
 #   bash scripts/profile_cprofile.sh tests/inputs/test2_full.fasta
-#   bash scripts/profile_cprofile.sh /data/large_alignment.fasta --threads 1
-#   bash scripts/profile_cprofile.sh /data/large_alignment.fasta --threads 64
+#   bash scripts/profile_cprofile.sh /data/large_alignment.fasta 1
+#   bash scripts/profile_cprofile.sh /data/large_alignment.fasta 64
+#   bash scripts/profile_cprofile.sh /data/large_alignment.fasta 4 100000
+#                                                                    ^-- profile on first 100k seqs only
 
 set -euo pipefail
 
 ALIGNMENT="${1:-tests/inputs/test2_full.fasta}"
 REFERENCE="${REFERENCE:-tests/inputs/MN908947.3_S_full.fasta}"
 THREADS="${2:-1}"
+MAX_ROWS="${3:-0}"
 OUTBASE="/tmp/profile_codon_t${THREADS}"
 
 export PYTHONPATH="${PYTHONPATH:-$(pwd)/src}"
+
+# ── Optional subsetting ───────────────────────────────────────────────────────
+SUBSET_FILE=""
+if [[ "$MAX_ROWS" -gt 0 ]]; then
+    SUBSET_FILE="$(mktemp /tmp/profile_subset_XXXXXX.fasta)"
+    trap 'rm -f "$SUBSET_FILE"' EXIT
+    echo "=== Subsetting: writing first ${MAX_ROWS} sequences to ${SUBSET_FILE} ==="
+    python3 - "$ALIGNMENT" "$SUBSET_FILE" "$MAX_ROWS" <<'PYEOF'
+import sys
+
+src_path, dst_path, n_seqs = sys.argv[1], sys.argv[2], int(sys.argv[3])
+written = 0
+with open(src_path, "rb") as src, open(dst_path, "wb") as dst:
+    buf = []
+    in_seq = False
+    for raw in src:
+        if raw.startswith(b">"):
+            if written >= n_seqs:
+                break
+            written += 1
+            in_seq = True
+            buf.append(raw)
+        elif in_seq:
+            buf.append(raw)
+            if len(buf) >= 1000:
+                dst.writelines(buf)
+                buf = []
+    if buf:
+        dst.writelines(buf)
+print(f"Written {written} sequences.")
+PYEOF
+    ALIGNMENT="$SUBSET_FILE"
+fi
 
 echo "=== cProfile: calculate_codon_frequencies ==="
 echo "  alignment : $ALIGNMENT  ($(du -h "$ALIGNMENT" | cut -f1))"
 echo "  reference : $REFERENCE"
 echo "  threads   : $THREADS"
+echo "  max_rows  : ${MAX_ROWS:-all}"
 echo "  stats out : ${OUTBASE}.stats"
 echo ""
 
