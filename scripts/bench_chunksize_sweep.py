@@ -10,7 +10,11 @@ Run on 192-core machine from project root:
         --reference tests/inputs/MN908947.3_S_full.fasta \
         --alignment tests/inputs/test2_full.fasta \
         --threads 4 \
-        --chunksizes 1 2 4 8 16 32 64 128 256
+        --chunksizes 1 2 4 8 16 32 64 128 256 \
+        [--max-rows 50000]
+
+Tip: use --max-rows to benchmark on a manageable subset of a very large
+alignment file (e.g. millions of sequences) without changing the original.
 """
 
 import argparse
@@ -21,6 +25,40 @@ import sys
 import tempfile
 import time
 import types
+
+
+# ── Subset helper (mirrors bench_thread_scaling.py) ──────────────────────────
+
+def _count_seqs(path):
+    """Count FASTA records by counting '>' header lines."""
+    n = 0
+    with open(path, "rb") as fh:
+        for raw in fh:
+            if raw.startswith(b">"):
+                n += 1
+    return n
+
+
+def _write_subset(src_path, dst_path, n_seqs):
+    """Write the first *n_seqs* sequences from src_path into dst_path."""
+    written = 0
+    with open(src_path, "rb") as src, open(dst_path, "wb") as dst:
+        buf = []
+        in_seq = False
+        for raw in src:
+            if raw.startswith(b">"):
+                if written >= n_seqs:
+                    break
+                written += 1
+                in_seq = True
+                buf.append(raw)
+            elif in_seq:
+                buf.append(raw)
+                if len(buf) >= 1000:
+                    dst.writelines(buf)
+                    buf = []
+        if buf:
+            dst.writelines(buf)
 
 # Allow running from project root without installing
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
@@ -72,6 +110,10 @@ def main():
                         default=[1, 4, 8, 16, 32, 64, 128, 256, 512],
                         help="chunksize values to sweep")
     parser.add_argument("--runs", type=int, default=3)
+    parser.add_argument("--max-rows", type=int, default=0, metavar="N",
+                        help="Benchmark on only the first N sequences of the alignment "
+                             "(written to a temp file; original is not modified). "
+                             "Use 0 (default) to use the full file.")
     parser.add_argument("--x-after-count", action="store_true", default=True,
                         help="Pass --x-after-count to parse_alignment")
     args = parser.parse_args()
@@ -88,7 +130,43 @@ def main():
     aln_size_kb = os.path.getsize(args.alignment) / 1024
     total_cores = multiprocessing.cpu_count()
 
-    print(f"# Chunksize sweep for {os.path.basename(args.alignment)} ({aln_size_kb:.0f} KB)")
+    # ── Optionally subset the alignment ─────────────────────────────────────
+    _subset_tmpdir = None
+    alignment_file = args.alignment
+    if args.max_rows > 0:
+        print(f"# Counting sequences in {os.path.basename(args.alignment)} … ",
+              end="", flush=True)
+        total_seqs = _count_seqs(args.alignment)
+        actual_rows = min(args.max_rows, total_seqs)
+        print(f"{total_seqs:,} found")
+        if actual_rows < total_seqs:
+            _subset_tmpdir = tempfile.mkdtemp()
+            alignment_file = os.path.join(
+                _subset_tmpdir,
+                f"subset_{actual_rows}_{os.path.basename(args.alignment)}")
+            print(f"# Writing subset of {actual_rows:,} sequences … ",
+                  end="", flush=True)
+            _t0 = time.perf_counter()
+            _write_subset(args.alignment, alignment_file, actual_rows)
+            print(f"done in {time.perf_counter() - _t0:.1f}s")
+            aln_size_kb = os.path.getsize(alignment_file) / 1024
+        else:
+            print(f"# --max-rows {args.max_rows} >= total sequences ({total_seqs:,}); "
+                  f"using full file")
+
+    try:
+        _run_sweep(args, alignment_file, n_workers, aln_size_kb, total_cores,
+                   myoptions, ref_seq, prot_seq, codons)
+    finally:
+        if _subset_tmpdir:
+            import shutil
+            shutil.rmtree(_subset_tmpdir, ignore_errors=True)
+
+
+def _run_sweep(args, alignment_file, n_workers, aln_size_kb, total_cores,
+              myoptions, ref_seq, prot_seq, codons):
+    """Inner sweep loop, separated so temp-dir cleanup always runs."""
+    print(f"# Chunksize sweep for {os.path.basename(alignment_file)} ({aln_size_kb:.0f} KB)")
     print(f"# Workers: {n_workers}  |  Total cores: {total_cores}  |  Runs: {args.runs}")
     print()
     print(f"{'chunksize':>10}  {'min_s':>8}  {'median_s':>8}  {'max_s':>8}")
@@ -109,19 +187,24 @@ def main():
 
         times = []
         for i in range(args.runs):
+            ts = time.strftime("%H:%M:%S")
             elapsed = bench_one(ref_seq, prot_seq, codons,
-                                args.alignment, n_workers, myoptions)
+                                alignment_file, n_workers, myoptions)
             times.append(elapsed)
-            print(f"  chunksize={cs_label} run {i+1}: {elapsed:.3f}s", file=sys.stderr)
+            mn, med, mx = sorted(times)[0], sorted(times)[len(times)//2], sorted(times)[-1]
+            print(f"  [{ts}] chunksize={cs_label:>6}  run {i+1}/{args.runs}: "
+                  f"{elapsed:.3f}s  (so far: min={mn:.3f} med={med:.3f} max={mx:.3f})",
+                  flush=True)
 
         multiprocessing.pool.Pool.starmap = orig_starmap
 
         times.sort()
         median = times[len(times) // 2]
         results.append((cs_label, min(times), median, max(times)))
-        print(f"{cs_label:>10}  {min(times):>8.3f}  {median:>8.3f}  {max(times):>8.3f}")
+        print(f"{cs_label:>10}  {min(times):>8.3f}  {median:>8.3f}  {max(times):>8.3f}",
+              flush=True)
 
-    tsv_path = f"bench_chunksize_{os.path.basename(args.alignment)}.tsv"
+    tsv_path = f"bench_chunksize_{os.path.basename(alignment_file)}.tsv"
     with open(tsv_path, "w", encoding="utf-8") as f:
         f.write("chunksize\tmin_s\tmedian_s\tmax_s\n")
         for row in results:
