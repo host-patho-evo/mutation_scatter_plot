@@ -140,7 +140,10 @@ def main():
         actual_rows = min(args.max_rows, total_seqs)
         print(f"{total_seqs:,} found")
         if actual_rows < total_seqs:
-            _subset_tmpdir = tempfile.mkdtemp()
+            _tmpdir = (os.environ.get("TMPDIR")
+                       or ("/scratch.ssd/mmokrejs"
+                           if os.path.isdir("/scratch.ssd/mmokrejs") else None))
+            _subset_tmpdir = tempfile.mkdtemp(dir=_tmpdir)
             alignment_file = os.path.join(
                 _subset_tmpdir,
                 f"subset_{actual_rows}_{os.path.basename(args.alignment)}")

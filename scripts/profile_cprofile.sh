@@ -19,14 +19,19 @@ ALIGNMENT="${1:-tests/inputs/test2_full.fasta}"
 REFERENCE="${REFERENCE:-tests/inputs/MN908947.3_S_full.fasta}"
 THREADS="${2:-1}"
 MAX_ROWS="${3:-0}"
-OUTBASE="/tmp/profile_codon_t${THREADS}"
+
+# Prefer fast local SSD for temp files; fall back to /tmp.
+if [[ -z "${TMPDIR:-}" && -d /scratch.ssd/mmokrejs ]]; then
+    export TMPDIR=/scratch.ssd/mmokrejs
+fi
+OUTBASE="${TMPDIR:-/tmp}/profile_codon_t${THREADS}"
 
 export PYTHONPATH="${PYTHONPATH:-$(pwd)/src}"
 
 # ── Optional subsetting ───────────────────────────────────────────────────────
 SUBSET_FILE=""
 if [[ "$MAX_ROWS" -gt 0 ]]; then
-    SUBSET_FILE="$(mktemp /tmp/profile_subset_XXXXXX.fasta)"
+    SUBSET_FILE="$(mktemp "${TMPDIR:-/tmp}/profile_subset_XXXXXX.fasta")"
     trap 'rm -f "$SUBSET_FILE"' EXIT
     echo "=== Subsetting: writing first ${MAX_ROWS} sequences to ${SUBSET_FILE} ==="
     python3 - "$ALIGNMENT" "$SUBSET_FILE" "$MAX_ROWS" <<'PYEOF'
