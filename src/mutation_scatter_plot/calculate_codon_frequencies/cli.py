@@ -5,6 +5,7 @@
 # license, visit https://creativecommons.org/licenses/by/4.0/
 
 import os
+import multiprocessing
 from contextlib import ExitStack
 import argparse
 
@@ -158,6 +159,10 @@ def main():
         _max_stop  = (myoptions.max_stop  + 1) if myoptions.max_stop  else 0
         _threads   = myoptions.threads if myoptions.threads > 0 else None
 
+        # Create the pool once for the lifetime of this call; ExitStack ensures
+        # terminate()+join() on normal exit or exception.
+        _pool = stack.enter_context(multiprocessing.Pool(processes=_threads))
+
         if os.path.exists(myoptions.alignment_infilename):
             if os.path.getsize(myoptions.alignment_infilename) == 0:
                 raise RuntimeError(f"Input file {myoptions.alignment_infilename} is empty")
@@ -174,6 +179,7 @@ def main():
                 _min_start,
                 _max_stop,
                 threads=_threads,
+                pool=_pool,
             )
         else:
             raise RuntimeError(
