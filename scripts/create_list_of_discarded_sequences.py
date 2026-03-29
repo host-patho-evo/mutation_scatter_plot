@@ -44,7 +44,7 @@ import os
 import sys
 from optparse import OptionParser
 
-VERSION = "202603291930"
+VERSION = "202603291950"
 
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
 myparser.add_option(
@@ -184,9 +184,8 @@ for _name, _header, _seq in _iter_fasta(myoptions.infilename):
 
 if _ids_computed:
     print(
-        "Info: %d input records (%d unique sequences) in --infilename lacked sha256 "
-        "— computed from sequence content."
-        % (_ids_computed, len(infile_sha256s)),
+        f"Info: {_ids_computed:,} input records ({len(infile_sha256s):,} unique sequences) in --infilename lacked sha256 "
+        "— computed from sequence content.",
         file=sys.stderr,
     )
     if not myoptions.mapping_outfile:
@@ -197,7 +196,7 @@ if _ids_computed:
             "This produces NNNNx.sha256 IDs and a .sha256_to_ids.tsv mapping.",
             file=sys.stderr,
         )
-print("Info: %d unique sequences in %s" % (len(infile_sha256s), myoptions.infilename), file=sys.stderr)
+print(f"Info: {len(infile_sha256s):,} unique sequences in {myoptions.infilename}", file=sys.stderr)
 
 _target_sha256s = set(infile_sha256s.keys())
 
@@ -215,10 +214,9 @@ if myoptions.inverted:
             lines_to_emit.append(_header)
             _n_emitted += 1
         if myoptions.debug and _n_scanned % 500_000 == 0:
-            print("Info: scanned %d, emitted %d" % (_n_scanned, _n_emitted), file=sys.stderr)
+            print(f"Info: scanned {_n_scanned:,}, emitted {_n_emitted:,}", file=sys.stderr)
     print(
-        "Info: scanned %d original records, %d not in infilename (discarded)"
-        % (_n_scanned, _n_emitted),
+        f"Info: scanned {_n_scanned:,} original records, {_n_emitted:,} not in infilename (discarded)",
         file=sys.stderr,
     )
 
@@ -232,10 +230,9 @@ elif myoptions.original_infilename:
             lines_to_emit.append(_header)
             _n_matched += 1
         if myoptions.debug and _n_scanned % 500_000 == 0:
-            print("Info: scanned %d, matched %d" % (_n_scanned, _n_matched), file=sys.stderr)
+            print(f"Info: scanned {_n_scanned:,}, matched {_n_matched:,}", file=sys.stderr)
     print(
-        "Info: scanned %d original records, %d matched infilename sha256s"
-        % (_n_scanned, _n_matched),
+        f"Info: scanned {_n_scanned:,} original records, {_n_matched:,} matched infilename sha256s",
         file=sys.stderr,
     )
 
@@ -253,7 +250,7 @@ elif myoptions.mapping_outfile and not _ids_computed:
                     lines_to_emit.append(_orig_id)
                 _n_matched += len(_fields) - 2
     print(
-        "Info: found %d original IDs via mapping TSV" % _n_matched,
+        f"Info: found {_n_matched:,} original IDs via mapping TSV",
         file=sys.stderr,
     )
 
@@ -282,13 +279,11 @@ for _line in lines_to_emit:
 if myoptions.outfile:
     _out.close()
     print(
-        "Info: wrote %d lines (total sequence count: %d) to %s"
-        % (len(lines_to_emit), _total_count, myoptions.outfile),
+        f"Info: wrote {len(lines_to_emit):,} lines (total sequence count: {_total_count:,}) to {myoptions.outfile}",
         file=sys.stderr,
     )
 else:
     print(
-        "Info: wrote %d lines (total sequence count: %d) to stdout"
-        % (len(lines_to_emit), _total_count),
+        f"Info: wrote {len(lines_to_emit):,} lines (total sequence count: {_total_count:,}) to stdout",
         file=sys.stderr,
     )
