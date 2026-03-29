@@ -499,18 +499,18 @@ def main() -> None:
     # ── print table ──────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))
     sep, w_num, w_delta, w_ts = "  ", 14, 16, 16
-    w_disc1 = len('Discarded original FASTA IDs')   # 28
-    w_disc2 = len('Sum of discarded sequences')       # 26
+    w_disc1 = len("'Discarded original FASTA IDs'")   # 30
+    w_disc2 = len("'Sum of discarded sequences'")       # 28
 
     disc_header = (
-        f"{sep}{'Discarded original FASTA IDs':>{w_disc1}}{sep}{'Sum of discarded sequences':>{w_disc2}}"
+        f"{sep}{"'Discarded original FASTA IDs'":>{w_disc1}}{sep}{"'Sum of discarded sequences'":>{w_disc2}}"
         if do_discard else ""
     )
     header = (
         f"{'File':<{col_file}}{sep}"
         f"{'Modified':<{w_ts}}{sep}"
         f"{'Records':>{w_num}}{sep}{'\u0394Records':>{w_delta}}{sep}"
-        f"{'Sum of NNNNx':>{w_num}}{sep}{'\u0394Sum':>{w_delta}}"
+        f"{"'Sum of NNNNx'":>{w_num}}{sep}{'\u0394Sum':>{w_delta}}"
         + disc_header
     )
     rule = '-' * len(header)
