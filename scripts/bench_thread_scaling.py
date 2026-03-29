@@ -9,7 +9,8 @@ Key features
 * Inspects the alignment at startup: sequence count and length.
 * --row-sizes lets you benchmark on escalating subsets (100 → 1000 → all).
   Subsets are written to a temp file — no modification of the original.
-* --max-cols limits to the first N codon columns (passed as --max-stop N*3).
+* --min-col / --max-col limit to a codon range (natural 1-based codon numbers).
+  Example: --min-col 4 --max-col 999  tests codons 4–999 only.
 * Live per-run output with running min/median/max and speedup.
 
 Usage (from project root):
@@ -19,7 +20,7 @@ Usage (from project root):
         [--threads 1 4 8 16 32 64 128 192] \\
         [--runs 3] \\
         [--row-sizes 500 5000 50000] \\
-        [--max-cols 200]
+        [--min-col 1] [--max-col 999]
 
 Tip: use --runs 1 for a quick single-pass scan.
 """
@@ -135,9 +136,11 @@ def main():
                              "Omit to use --row-auto or the full file.")
     parser.add_argument("--row-auto", action="store_true",
                         help="Auto-generate a geometric row-size ladder up to total sequences.")
-    parser.add_argument("--max-cols", type=int, default=0,
-                        help="Limit to first N codon columns (passed as --max-stop N*3).  "
-                             "0 = no limit.")
+    parser.add_argument("--min-col", type=int, default=1, metavar="CODON",
+                        help="First codon to include (1-based natural numbering, default=1).")
+    parser.add_argument("--max-col", type=int, default=0, metavar="CODON",
+                        help="Last codon to include (1-based natural numbering, default=all).  "
+                             "Examples: --max-col 9  --max-col 999")
     parser.add_argument("--aa-start", type=int, default=0, help="--aa_start value")
     parser.add_argument("--extra", nargs="*", default=[], help="Extra CLI args to pass through")
     args = parser.parse_args()
@@ -150,8 +153,14 @@ def main():
     extra = list(args.extra or [])
     if args.aa_start:
         extra += [f"--aa_start={args.aa_start}"]
-    if args.max_cols > 0:
-        extra += [f"--max-stop={args.max_cols * 3}"]
+    # Convert natural codon numbering → 1-based nucleotide positions for the CLI.
+    # CLI internally does: _min_start = user_val - 1  (0-indexed)
+    #                      _max_stop  = user_val + 1  (exclusive)
+    # For codon C (1-based): nt start = (C-1)*3+1, exclusive bound uses (C-1)*3.
+    if args.min_col > 1:
+        extra += [f"--min-start={(args.min_col - 1) * 3 + 1}"]
+    if args.max_col > 0:
+        extra += [f"--max-stop={(args.max_col - 1) * 3}"]
 
     # ── Inspect the alignment file ───────────────────────────────────────────
     print("# Inspecting alignment file … ", end="", flush=True)
@@ -165,8 +174,13 @@ def main():
     print(f"# Alignment : {os.path.basename(args.alignment)} ({aln_size_mb:.1f} MB)")
     print(f"#   sequences : {total_seqs:,}")
     print(f"#   seq length : {seq_len:,} nt  ({seq_len // 3:,} codons)")
-    if args.max_cols:
-        print(f"#   col limit : first {args.max_cols} codons ({args.max_cols * 3} nt)")
+    if args.max_col > 0:
+        col_range = f"codons {args.min_col}–{args.max_col}"
+    elif args.min_col > 1:
+        col_range = f"codons {args.min_col}–end"
+    else:
+        col_range = f"all {seq_len // 3:,} codons"
+    print(f"#   col range  : {col_range}")
     print(f"# Reference : {os.path.basename(args.reference)}")
     print(f"# CPU cores : {ncpu} logical")
     print(f"# Runs/combo: {args.runs}")
