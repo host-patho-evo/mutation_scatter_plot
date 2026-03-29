@@ -16,6 +16,7 @@ Emergence. https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1
 
 import os
 import re
+import time
 import typing
 
 import multiprocessing
@@ -93,7 +94,7 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded,
         )
         if debug:
             print(f"TESTING1:\t{natural_codon_position_padded}\t{natural_codon_position_depadded}\t{reference_aa}\t{_some_aa}\t{Decimal(_observed_codon_count2) / Decimal(total_codons_per_site_sum):.6f}\t{reference_codon}\t{_some_codon}\t{_observed_codon_count2}\t{_total_codons_per_site_sum}")
-    outfilename.flush()
+    # Flush is done by the caller on a time-gate to avoid expensive NFS round-trips.
 
 
 def _process_one_site(
@@ -556,6 +557,7 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
             # Release the shared data so workers (if reused) don't hold stale refs.
             _WORKER_SHARED = {}
 
+        _last_flush_t = time.monotonic()
         for _res in _all_results:
             # Write results
             write_tsv_line(outfilename_unchanged_codons, _res['unchanged'], _res['nat_padded'], _res['nat_depadded'], _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug)
@@ -569,12 +571,28 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                     _count = _res['deleted'][_some_deleted_codon]
                     outfilename.write(f"{_res['nat_padded']}\t{_res['nat_depadded']}\t{_res['ref_aa']}\tDEL\t{Decimal(_count) / Decimal(_res['total_sum']):.6f}\t{_some_deleted_codon}\t---\t{_count}\t{_res['total_sum']}\n")
 
-            outfilename.flush()
+            # Time-gated flush: avoids one NFS round-trip (~10 ms) per site.
+            # On large datasets (hours runtime) this still flushes every 30 s so
+            # output can be monitored with tail -f; on short benchmark runs it
+            # flushes 0-1 times instead of once per site (was 3829x = ~38 s).
+            _now = time.monotonic()
+            if _now - _last_flush_t >= 30.0:
+                if outfilename:
+                    outfilename.flush()
+                if outfilename_unchanged_codons:
+                    outfilename_unchanged_codons.flush()
+                _last_flush_t = _now
 
             # Update top most codons
             if _res['counts']:
                 _top_most_codon, _count = _res['counts'].most_common(1)[0]
                 _top_most_codons.append(_top_most_codon)
+
+        # Final flush to ensure the last partial buffer is written.
+        if outfilename:
+            outfilename.flush()
+        if outfilename_unchanged_codons:
+            outfilename_unchanged_codons.flush()
 
     alnfilename_count.write(f"{_total_aln_entries_used}\n")
     alnfilename_count.close()
