@@ -44,7 +44,7 @@ import os
 import sys
 from optparse import OptionParser
 
-VERSION = "202603292110"
+VERSION = "202603292120"
 
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
 myparser.add_option(
@@ -137,35 +137,42 @@ def _extract_sha256(record_id):
     return None
 
 
-def _iter_fasta(path):
-    """Yield (name, full_header, seq) triples from a FASTA file.
+def _decode_fasta_line(raw: bytes) -> str:
+    """Decode a FASTA line to str, trying UTF-8 first then falling back to
+    Latin-1. Handles GISAID headers that mix UTF-8 and Latin-1/Latin-2
+    encoded characters in sample descriptions."""
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1")
 
-    *name*        – first word after '>'
-    *full_header* – everything after '>' (for output purposes)
-    *seq*         – joined sequence string, \\r stripped
+
+def _iter_fasta(path):
+    """Yield (name, full_header, sequence) for each record in a FASTA file.
+
+    Opened in binary mode with UTF-8 → Latin-1 fallback per line so that
+    non-ASCII characters in GISAID sample descriptions are converted to proper
+    Unicode rather than replaced with U+FFFD.
     """
     name = full_header = None
     parts = []
-    # errors="replace": FASTA headers from GISAID can contain non-UTF-8 bytes
-    # (e.g. Latin-1 accented characters in sample descriptions). Sequences and
-    # IDs used for sha256 computation and output are pure ASCII, so silent
-    # replacement of bad bytes is safe and does not affect correctness.
-    with open(path, "r", encoding="utf-8", errors="replace") as fh:
-        for line in fh:
-            line = line.rstrip("\r\n")
+    with open(path, "rb") as fh:
+        for raw in fh:
+            line = _decode_fasta_line(raw).rstrip("\r\n")
             if not line:
                 continue
-            if line[0] == ">":
+            if line.startswith(">"):
                 if name is not None:
                     yield name, full_header, "".join(parts)
-                full_header = line[1:]
-                ws = full_header.split()
-                name = ws[0] if ws else ""
+                header = line[1:]
+                toks = header.split()
+                name = toks[0] if toks else ""
+                full_header = header
                 parts = []
             else:
-                parts.append(line.replace("\r", ""))
-    if name is not None:
-        yield name, full_header, "".join(parts)
+                parts.append(line)
+        if name is not None:
+            yield name, full_header, "".join(parts)
 
 
 # ── Step 1: build sha256 set from --infilename ────────────────────────────────
