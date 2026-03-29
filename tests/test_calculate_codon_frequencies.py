@@ -86,7 +86,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 # Compare contents
                 is_match = filecmp.cmp(generated_file, expected_file, shallow=False)
                 if not is_match:
-                    # Run diff -u -w to show the differences
+                    # Run git diff --word-diff-regex=. to show character-level differences
                     diff_result = subprocess.run(
                         ["git", "diff", "--no-index", "--word-diff=color",
                          "--word-diff-regex=.", "--color=always",
