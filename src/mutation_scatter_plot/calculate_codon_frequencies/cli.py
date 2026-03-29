@@ -5,7 +5,6 @@
 # license, visit https://creativecommons.org/licenses/by/4.0/
 
 import os
-import multiprocessing
 from contextlib import ExitStack
 import argparse
 
@@ -166,44 +165,32 @@ def main():
         _threads   = myoptions.threads if myoptions.threads > 0 else None
         _chunksize = myoptions.chunksize if myoptions.chunksize > 0 else None
 
-        # Create the pool once and tear it down with close()+join() rather than
-        # terminate().  pool.__exit__ (used by ExitStack) calls terminate() which
-        # sends SIGTERM to workers; profiling showed that cost 58.6 s (98 % of
-        # wall time) because workers GC large in-memory objects under SIGTERM.
-        # close()+join() sends a sentinel so idle workers exit cleanly.
-        _pool = multiprocessing.Pool(processes=_threads)
-
-        try:
-            if os.path.exists(myoptions.alignment_infilename):
-                if os.path.getsize(myoptions.alignment_infilename) == 0:
-                    raise RuntimeError(f"Input file {myoptions.alignment_infilename} is empty")
-                parse_alignment(
-                    myoptions,
-                    myoptions.alignment_infilename,
-                    _padded_reference_dna_seq,
-                    _reference_protein_seq,
-                    _reference_as_codons,
-                    _outfilename_handle,
-                    _outfilename_unchanged_codons_handle,
-                    _alnfilename_count_handle,
-                    _aa_start,
-                    _min_start,
-                    _max_stop,
-                    threads=_threads,
-                    pool=_pool,
-                    chunksize=_chunksize,
-                )
-            else:
-                raise RuntimeError(
-                    f"Input file {str(myoptions.alignment_infilename)} does not exist or is not defined"
-                )
-        finally:
-            # close() drains the task queue and signals workers to exit after
-            # finishing their current task.  join() then waits for clean exit.
-            # This is faster than terminate() (SIGTERM) when workers are already
-            # idle, as shown by cProfile: terminate() cost 58.6 s on 100k rows.
-            _pool.close()
-            _pool.join()
+        # parse_alignment manages its own Pool internally so that _WORKER_SHARED
+        # (the COW-fork global) is populated *before* the Pool is created.
+        # This means each task sends only _pos (4 bytes) over IPC instead of the
+        # full alignment arrays (~115 MB), reducing IPC from ~575 MB to ~5 KB.
+        if os.path.exists(myoptions.alignment_infilename):
+            if os.path.getsize(myoptions.alignment_infilename) == 0:
+                raise RuntimeError(f"Input file {myoptions.alignment_infilename} is empty")
+            parse_alignment(
+                myoptions,
+                myoptions.alignment_infilename,
+                _padded_reference_dna_seq,
+                _reference_protein_seq,
+                _reference_as_codons,
+                _outfilename_handle,
+                _outfilename_unchanged_codons_handle,
+                _alnfilename_count_handle,
+                _aa_start,
+                _min_start,
+                _max_stop,
+                threads=_threads,
+                chunksize=_chunksize,
+            )
+        else:
+            raise RuntimeError(
+                f"Input file {str(myoptions.alignment_infilename)} does not exist or is not defined"
+            )
 
 
 if __name__ == "__main__":
