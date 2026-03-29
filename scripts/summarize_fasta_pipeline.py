@@ -24,6 +24,13 @@ Usage:
 
 Options:
     --no-discard-stats   Skip the per-step discard-statistics calls entirely.
+    --disable-discarded-original-ids-file
+                         Do not write per-step .discarded_original_ids.txt
+                         files.  By default the files are always written
+                         (following the established {child_stem}.
+                         discarded_original_ids.txt naming convention);
+                         they serve as a cache for subsequent fast reads
+                         and let you inspect discarded IDs at any time.
     --add-missing-checksums-to-fasta-files
                          If a pipeline FASTA file has legacy NNNNx IDs (no
                          sha256 hex in the ID), rewrite it in-place with
@@ -330,16 +337,24 @@ def _read_discarded_txt_stats(txt_path: str) -> tuple[int, int]:
 # ── per-pair discard stats ────────────────────────────────────────────────────
 
 def _run_discard_stats(parent_path: str, child_path: str,
-                       add_checksums: bool = False) -> None:
+                       add_checksums: bool = False,
+                       save_discard_list: bool = True) -> None:
     """Show discarded-ID stats for a parent->child pipeline pair.
 
     Cache priority (fastest first — checked by timestamp):
       1. Existing .discarded_original_ids.txt newer than both FASTAs -> read directly.
       2. Existing .sha256_to_ids.tsv newer than parent FASTA         -> TSV scan.
-      3. Fallback: full FASTA scan via --original-infilename (slow).
+      3. Auto-generate .sha256_to_ids.tsv (in-process FASTA scan)   -> then TSV scan.
+      4. Fallback: full FASTA scan via --original-infilename (slow).
+
+    When *save_discard_list* is True (default), the discarded-ID list is written
+    to ``{child_stem}.discarded_original_ids.txt`` following the project naming
+    convention.  This file is then picked up by tier 1 on subsequent runs.
+    Pass False (``--disable-discarded-original-ids-file``) to suppress writing.
     """
     child_base  = os.path.basename(child_path)
     parent_base = os.path.basename(parent_path)
+    child_stem  = _strip_fasta_suffix(child_path)
 
     # ── path 1: fresh .discarded_original_ids.txt ──────────────────────────
     txt = _fresh_discarded_txt(child_path, parent_path)
@@ -352,7 +367,7 @@ def _run_discard_stats(parent_path: str, child_path: str,
         )
         return
 
-    # ── paths 2 & 3: invoke create_list_of_discarded_sequences.py ──────────
+    # ── paths 2–4: invoke create_list_of_discarded_sequences.py ───────────
     if not os.path.exists(DISCARD_SCRIPT):
         print(f"  [discard stats] script not found: {DISCARD_SCRIPT}", flush=True)
         return
@@ -367,12 +382,21 @@ def _run_discard_stats(parent_path: str, child_path: str,
         source_arg   = f'--original-infilename={parent_path}'
         source_label = f"FASTA scan: {parent_base}"
 
+    # Write the discarded-IDs file following the established naming convention
+    # so that it is available as a cache on the next run (tier 1).  The caller
+    # can suppress writing with save_discard_list=False.
+    if save_discard_list:
+        outfile = child_stem + '.discarded_original_ids.txt'
+        outfile_args = [f'--outfile={outfile}', '--overwrite']
+    else:
+        outfile_args = ['--outfile=/dev/null']
+
     cmd = [
         sys.executable, DISCARD_SCRIPT,
         f'--infilename={child_path}',
         source_arg,
         '--inverted',
-        '--outfile=/dev/null',
+        *outfile_args,
     ]
     print(f"  \u21b3 [{source_label}] -> {child_base}", flush=True)
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -394,8 +418,9 @@ def main() -> None:
 
     search_path = args[0]
     prefix      = args[1]
-    do_discard     = '--no-discard-stats' not in args
-    add_checksums  = '--add-missing-checksums-to-fasta-files' in args
+    do_discard         = '--no-discard-stats'                      not in args
+    save_discard_list  = '--disable-discarded-original-ids-file'   not in args
+    add_checksums      = '--add-missing-checksums-to-fasta-files'  in args
 
     # ── collect matching files ────────────────────────────────────────────────
     found: set[str] = set()
@@ -478,7 +503,9 @@ def main() -> None:
         )
 
         if do_discard and p is not None:
-            _run_discard_stats(files[p], files[i], add_checksums=add_checksums)
+            _run_discard_stats(files[p], files[i],
+                               add_checksums=add_checksums,
+                               save_discard_list=save_discard_list)
 
     print(rule)
 
