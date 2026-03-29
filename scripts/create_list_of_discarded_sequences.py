@@ -80,7 +80,7 @@ myparser.add_option(
 )
 myparser.add_option(
     "--outfile", action="store", type="string", dest="outfile", default="",
-    help="Output file path. Defaults to stdout.",
+    help="Output file path. Defaults to {infilename_stem}.discarded_original_ids.txt.",
 )
 myparser.add_option(
     "--debug", action="store", type="int", dest="debug", default=0,
@@ -99,25 +99,29 @@ if myoptions.original_infilename and not os.path.exists(myoptions.original_infil
 if myoptions.inverted and not myoptions.original_infilename:
     myparser.error("--inverted requires --original-infilename")
 
-# Auto-detect a mapping TSV alongside --infilename when not provided explicitly.
-# count_same_sequences.py writes {stem}.sha256_to_ids.tsv where stem is the
-# infilename with the last known extension(s) stripped.
+# Derive the stem from --infilename by stripping backup suffix + FASTA extension.
+# Used for auto-detecting the mapping TSV and defaulting --outfile.
+_infile_stem = myoptions.infilename
+for _ext in ('.old', '.ori', '.orig', '.bak', '.backup'):
+    if _infile_stem.endswith(_ext):
+        _infile_stem = _infile_stem[:-len(_ext)]
+        break
+for _ext in ('.fasta.gz', '.fastq.gz', '.fasta', '.fastq', '.fa', '.fq'):
+    if _infile_stem.endswith(_ext):
+        _infile_stem = _infile_stem[:-len(_ext)]
+        break
+
+# Auto-detect mapping TSV when not provided.
 if not myoptions.mapping_outfile:
-    _infile_stem = myoptions.infilename
-    # Step 1: strip well-known backup suffixes (.fasta.old → .fasta)
-    for _ext in ('.old', '.ori', '.orig', '.bak', '.backup'):
-        if _infile_stem.endswith(_ext):
-            _infile_stem = _infile_stem[:-len(_ext)]
-            break
-    # Step 2: strip the FASTA/FASTQ extension
-    for _ext in ('.fasta.gz', '.fastq.gz', '.fasta', '.fastq', '.fa', '.fq'):
-        if _infile_stem.endswith(_ext):
-            _infile_stem = _infile_stem[:-len(_ext)]
-            break
     _guessed_mapping = _infile_stem + '.sha256_to_ids.tsv'
     if os.path.exists(_guessed_mapping):
         myoptions.mapping_outfile = _guessed_mapping
         print("Info: auto-detected mapping TSV: %s" % _guessed_mapping, file=sys.stderr)
+
+# Default --outfile to {stem}.discarded_original_ids.txt when not given.
+if not myoptions.outfile:
+    myoptions.outfile = _infile_stem + '.discarded_original_ids.txt'
+    print("Info: output will be written to %s" % myoptions.outfile, file=sys.stderr)
 
 
 
