@@ -159,13 +159,14 @@ if _ids_computed:
         % (_ids_computed, len(infile_sha256s)),
         file=sys.stderr,
     )
-    print(
-        "Tip: to avoid this, regenerate --infilename in modern format by running:\n"
-        "  count_same_sequences.py --infilename=<original_pre-compaction.fasta>"
-        " --outfile-prefix=<prefix>\n"
-        "This produces NNNNx.sha256 IDs and a .sha256_to_ids.tsv mapping.",
-        file=sys.stderr,
-    )
+    if not myoptions.mapping_outfile:
+        print(
+            "Tip: to avoid this, regenerate --infilename in modern format by running:\n"
+            "  count_same_sequences.py --infilename=<original_pre-compaction.fasta>"
+            " --outfile-prefix=<prefix>\n"
+            "This produces NNNNx.sha256 IDs and a .sha256_to_ids.tsv mapping.",
+            file=sys.stderr,
+        )
 print("Info: %d unique sequences in %s" % (len(infile_sha256s), myoptions.infilename), file=sys.stderr)
 
 _target_sha256s = set(infile_sha256s.keys())
