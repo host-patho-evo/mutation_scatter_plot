@@ -209,27 +209,37 @@ def _process_one_site(
 
 def fast_fasta_iter(handle):
     """
-    A lightweight FASTA iterator that yields (name, sequence) tuples.
+    A lightweight FASTA iterator that yields (name, sequence, lineno) tuples.
     Significantly faster than Bio.SeqIO.parse for large files.
+
+    *lineno* is the 1-based line number of the ``>`` header line so that
+    callers can report the exact location of malformed records.
+
+    Embedded carriage-returns (``\\r``, ``^M``) inside sequence lines are
+    stripped so that files with mixed or Windows/old-Mac line endings do not
+    produce sequences with unexpected lengths.
     """
     name, seq = None, []
-    # Using a list and join() is efficient for building sequences
+    lineno = 0
+    start_lineno = 0
     for line in handle:
+        lineno += 1
         if not line.strip():
             continue
         if line[0] == ">":
             if name is not None:
-                yield name, "".join(seq)
+                yield name, "".join(seq), start_lineno
             # Mimic Bio.SeqIO.parse: id is the first word after the '>'
             _parts = line[1:].split()
             name = _parts[0] if _parts else ""
+            start_lineno = lineno
             seq = []
         else:
-            # We strip trailing newlines; Bio.SeqIO.parse also handles internal spaces
-            # but for performance we assume typical FASTA format.
-            seq.append(line.strip())
+            # Strip trailing whitespace AND any embedded \r (^M) that appears
+            # when files have Windows/old-Mac line endings within sequence data.
+            seq.append(line.strip().replace('\r', ''))
     if name is not None:
-        yield name, "".join(seq)
+        yield name, "".join(seq), start_lineno
 
 
 def _process_one_site_wrapper(_pos: int):
@@ -417,10 +427,11 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     _start_from: int = int(myoptions.discard_this_many_leading_nucs) if myoptions.discard_this_many_leading_nucs else 0
     _stop_to: int = int(myoptions.discard_this_many_trailing_nucs) if myoptions.discard_this_many_trailing_nucs else 0
 
+    _expected_aln_len = len(_padded_reference_dna_seq)
     _raw_groups = {}
     with open(alignment_file, "r", encoding="utf-8") as _handle:
         if myoptions.x_after_count:
-            for _record_id, _seq_str in fast_fasta_iter(_handle):
+            for _record_id, _seq_str, _lineno in fast_fasta_iter(_handle):
                 # Parse count from ID prefix: format is NNNNx.SHA256HASH or NNNNx
                 # e.g. '576521x.7cbee25f...' → count=576521
                 # We extract digits before the first 'x'; fall back to 1 if absent.
@@ -433,17 +444,32 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                 if _seq_str in _raw_groups:
                     _raw_groups[_seq_str][0] += _record_count
                 else:
-                    _raw_groups[_seq_str] = [_record_count, _record_id]
+                    _raw_groups[_seq_str] = [_record_count, _record_id, _lineno]
         else:
-            for _, _seq_str in fast_fasta_iter(_handle):
+            for _, _seq_str, _lineno in fast_fasta_iter(_handle):
                 if _seq_str in _raw_groups:
                     _raw_groups[_seq_str][0] += 1
                 else:
-                    _raw_groups[_seq_str] = [1, ""]
+                    _raw_groups[_seq_str] = [1, "", _lineno]
 
     _parsed_alignments = {}
-    for _raw_seq, (_record_count, _record_id) in _raw_groups.items():
+    for _raw_seq, (_record_count, _record_id, _lineno) in _raw_groups.items():
         _total_aln_entries_used += _record_count
+
+        # Validate sequence length early, while we still have the record ID and
+        # line number available for a useful diagnostic message.
+        _raw_len = len(_raw_seq)
+        _expected_sliced_len = _expected_aln_len - _start_from - _stop_to
+        if _raw_len != _expected_aln_len and not (_start_from or _stop_to):
+            print(
+                f"Warning: skipping record at line {_lineno} "
+                f"(ID: '{_record_id}', sequence length {_raw_len} "
+                f"!= reference length {_expected_aln_len}). "
+                f"Use: grep -n '^>{_record_id}' '{alignment_file}'",
+                file=sys.stderr,
+            )
+            _total_aln_entries_used -= _record_count
+            continue
 
         # Slicing and upper-casing logic
         if _start_from or _stop_to:
@@ -487,28 +513,16 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
 
     # Pre-allocate NumPy arrays for vectorized operations
     if _num_unique > 0:
-        # Validate uniform sequence length before reshape.
-        # Sequences shorter/longer than _alignment_len occur when the alignment
-        # file mixes lengths (e.g. 'exactly_or_shorter_3822.fasta').  They would
-        # cause np.frombuffer(...).reshape(_num_unique, _alignment_len) to crash
-        # with a ValueError.  Skip them with an explicit warning.
-        _wrong_len = [item for item in _parsed_alignments_list if item['padded_len'] != _alignment_len]
-        if _wrong_len:
-            _skipped_seqs   = len(_wrong_len)
-            _skipped_counts = sum(item['count'] for item in _wrong_len)
-            print(
-                f"Warning: skipping {_skipped_seqs:,} unique sequence(s) "
-                f"({_skipped_counts:,} total count) whose length "
-                f"!= {_alignment_len} (reference length).",
-                file=sys.stderr,
-            )
-            _parsed_alignments_list = [item for item in _parsed_alignments_list
-                                       if item['padded_len'] == _alignment_len]
-            _num_unique = len(_parsed_alignments_list)
-            _total_aln_entries_used -= _skipped_counts
-
         # Optimization: use np.frombuffer on a single string join instead of list comprehension
         _all_seqs_str = "".join(item['seq'] for item in _parsed_alignments_list)
+        # Safety check: wrong-length sequences should have been caught and skipped
+        # in the grouping loop above, but guard here in case slicing changes things.
+        if len(_all_seqs_str) != _num_unique * _alignment_len:
+            raise ValueError(
+                f"Internal error: joined sequence buffer length {len(_all_seqs_str)} "
+                f"!= {_num_unique} * {_alignment_len}. "
+                "This indicates sequences with unexpected lengths slipped through filtering."
+            )
         _aln_array = np.frombuffer(_all_seqs_str.encode('ascii'), dtype=np.uint8).reshape(_num_unique, _alignment_len)
 
 
