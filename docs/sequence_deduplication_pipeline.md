@@ -158,7 +158,8 @@ to `{stem}.discarded_original_ids.txt`.
 (`--infilename`, `--original-infilename`, `--mapping-outfile` if given).
 Passing `--outfile=/dev/null` bypasses the guard entirely (used internally by
 `summarize_fasta_pipeline.py` for stats-only calls — the output message in
-this mode reads *"IDs not written anywhere"* rather than *"wrote … to /dev/null"*).
+this mode reads *"IDs not written anywhere"*; to persist them for a specific
+step, run `create_list_of_discarded_sequences.py` directly for that pair).
 
 ---
 
