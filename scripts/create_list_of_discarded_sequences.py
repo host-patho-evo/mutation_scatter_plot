@@ -180,7 +180,8 @@ for _name, _header, _seq in _iter_fasta(myoptions.infilename):
 
 if _ids_computed:
     print(
-        "Info: %d/%d infilename IDs lacked sha256 — computed from sequence content."
+        "Info: %d input records (%d unique sequences) in --infilename lacked sha256 "
+        "— computed from sequence content."
         % (_ids_computed, len(infile_sha256s)),
         file=sys.stderr,
     )
