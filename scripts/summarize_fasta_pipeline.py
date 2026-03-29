@@ -510,7 +510,7 @@ def main() -> None:
         f"{'File':<{col_file}}{sep}"
         f"{'Modified':<{w_ts}}{sep}"
         f"{'Records':>{w_num}}{sep}{'\u0394Records':>{w_delta}}{sep}"
-        f"{"'Sum of NNNNx'":>{w_num}}{sep}{'\u0394Sum':>{w_delta}}"
+        f"{"'Sum of NNNNx'":>{w_num}}{sep}{'\u0394SumToParent':>{w_delta}}"
         + disc_header
     )
     rule = '-' * len(header)
