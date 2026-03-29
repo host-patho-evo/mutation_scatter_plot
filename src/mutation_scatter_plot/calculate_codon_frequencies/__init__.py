@@ -421,17 +421,12 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     with open(alignment_file, "r", encoding="utf-8") as _handle:
         if myoptions.x_after_count:
             for _record_id, _seq_str in fast_fasta_iter(_handle):
-                # Faster parsing of x-after-count: assuming count is at the end of the first word
-                if _record_id.endswith('x.'):
-                    try:
-                        _record_count = int(_record_id[:-2])
-                    except ValueError:
-                        _record_count = 1
-                elif _record_id.endswith('x'):
-                    try:
-                        _record_count = int(_record_id[:-1])
-                    except ValueError:
-                        _record_count = 1
+                # Parse count from ID prefix: format is NNNNx.SHA256HASH or NNNNx
+                # e.g. '576521x.7cbee25f...' → count=576521
+                # We extract digits before the first 'x'; fall back to 1 if absent.
+                _x_pos = _record_id.find('x')
+                if _x_pos > 0 and _record_id[:_x_pos].isdigit():
+                    _record_count = int(_record_id[:_x_pos])
                 else:
                     _record_count = 1
 
