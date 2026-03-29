@@ -1,143 +1,201 @@
-#!/usr/bin/env python3
-"""Deduplicate a FASTA file by sequence content using SHA-256.
+#! /usr/bin/env python3
 
-For each unique sequence the script emits one output record whose FASTA ID
-has the form::
+VERSION = "202603291800"
 
-    {count}x.{sha256hex}  [original fields from the first-seen header]
-
-where *count* is the number of input records that share the same sequence and
-*sha256hex* is the lowercase hex-digest of the raw (ASCII) sequence.
-
-Optionally a translation table (``--mapping-outfile``) is written so that
-every sha256 can be traced back to the full list of original FASTA IDs.
-The TSV has the following columns (tab-separated, no header)::
-
-    sha256hex   count   id_1    id_2    …
-
-Usage example::
-
-    count_same_sequences.py \\
-        --infile=spikenuc1207.native2ascii.no_junk.fasta \\
-        --outfile=spikenuc1207.native2ascii.no_junk.counts.clean.fasta \\
-        --mapping-outfile=spikenuc1207.sha256_to_ids.tsv
-"""
-
-import hashlib
-import sys
 from optparse import OptionParser
-
-VERSION = 202603291600
+import subprocess, shlex
+import os, sys, io
+import hashlib
 
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
-myparser.add_option(
-    "--infile", action="store", type="string", dest="infile", default="",
-    help="Input FASTA file (uncompressed)."
-)
-myparser.add_option(
-    "--outfile", action="store", type="string", dest="outfile", default="",
-    help="Output deduplicated FASTA file."
-)
-myparser.add_option(
-    "--mapping-outfile", action="store", type="string", dest="mapping_outfile",
-    default="",
+myparser.add_option("--infilename", action="store", type="string", dest="infilename", default='stdin.fasta',
+    help="Input FASTA/Q file path.")
+myparser.add_option("--infile-format", action="store", type="string", dest="infile_format", default='fasta',
+    help="Input FASTA/Q file format [default: fasta]. Outfile  is always fasta.")
+myparser.add_option("--outfile-prefix", action="store", type="string", dest="outfile_prefix", default='',
+    help="Output FASTA file path prefix. It will be appended by '.counts.fast[aq]'.")
+myparser.add_option("--sort-bucket-size", action="store", type="string", dest="sort_bucket_size", default='30%',
+    help="Size of the sort buffer bucket size to be used by UNIX sort commain in TMPDIR [default: 30% of RAM].")
+myparser.add_option("--min-count", action="store", type="int", dest="min_count", default=0,
+    help="Write out sequences above some minimum incidence into {outfile_prefix}.min_count_{min_count}.fast[aq]")
+myparser.add_option("--top-n", action="store", type="int", dest="top_n", default=0,
+    help="Write out the top n-most sequences into {outfile_prefix}.top_{top_n}_counts.fastq or {outfile_prefix}.counts.fast[aq]")
+myparser.add_option("--mapping-outfile", action="store", type="string", dest="mapping_outfile", default='',
     help=(
-        "Optional TSV file mapping sha256 → original FASTA IDs. "
-        "Columns: sha256hex, count, id_1, id_2, … (tab-separated, no header)."
-    ),
-)
-myparser.add_option(
-    "--format", action="store", type="string", dest="format", default="fasta",
-    help="Input file format understood by BioPython SeqIO [fasta]."
-)
-myparser.add_option(
-    "--debug", action="store", type="int", dest="debug", default=0,
-    help="Debug verbosity level [0]."
-)
-(myoptions, _myargs) = myparser.parse_args()
+        "Optional TSV file mapping sha256 -> original FASTA IDs. "
+        "Columns (tab-separated, no header): sha256hex, count, id_1, id_2, ..."
+        "Allows tracing any deduplicated record back to all original sequences "
+        "that share its sequence content."
+    ))
+myparser.add_option("--debug", action="store", type="int", dest="debug", default=0,
+    help="Set debug to some value")
+(myoptions, myargs) = myparser.parse_args()
 
-if not myoptions.infile:
-    myparser.error("--infile is required")
-if not myoptions.outfile:
-    myparser.error("--outfile is required")
+from collections import defaultdict
 
-# ── Pass 1: group records by SHA-256 of their sequence ──────────────────────
-# We keep, per unique sequence:
-#   counts[sha256]  = int           (how many records share this sequence)
-#   ids[sha256]     = list[str]     (original FASTA IDs, in order seen)
-#   first_seq[sha256] = str         (the sequence string, uppercase)
-#   first_desc[sha256] = str        (everything after the first word of the
-#                                    header, for the representative record)
+"""
+Read a FASTQ file and return a FASTA file with sequence counts. It truncates the output file if it already existed.
+It also discards any description text from input FASTA data due to 'awk 'NR %% 2 == 0' infile | sort -S %s | uniq -c | sort -S %s -nr' .
 
-counts = {}        # sha256 → int
-ids = {}           # sha256 → list[str]
-first_seq = {}     # sha256 → str
-first_desc = {}    # sha256 → str (the extra header fields after the ID word)
+Usage:
+find . -name *.fastp.amplicons.fasta | sort | uniq | grep -v results | while read f; do
+  d=`dirname $f`;
+  p=`basename $f .fasta`;
+  echo "$d"/"$p";
+  if [ ! -e "$d"/"$p".counts.fasta ]; then
+    count_same_sequences.py --infilename="$f" --infile-format=fasta --outfile-prefix="$d"/"$p";
+  fi;
+done
 
-_n_in = 0
+TODO:
+Merge paired-end mates together and rerun this script
+"""
 
-# Use Bio.SeqIO for robust multi-line FASTA support
-from Bio import SeqIO  # pylint: disable=import-outside-toplevel
+def read_and_count_sequences(infilename, outfileh, infile_format, top_n=0, min_count=0, sort_bucket_size='10G'):
+    """Count unique sequences already padded with dashes. Do not remove the dashes
+    otherwise slicing later fails on shorter sequences, as it uses the indexes from
+    the padded alignment.
 
-with open(myoptions.infile, "r", encoding="utf-8") as _fh:
-    for _record in SeqIO.parse(_fh, myoptions.format):
-        _n_in += 1
-        _seq_upper = str(_record.seq).upper().replace("\r", "")
-        _digest = hashlib.sha256(_seq_upper.encode("ascii")).hexdigest()
-        _orig_id = _record.id
-        # _record.description includes the id + the rest of the header line;
-        # strip the leading id word to get the extra fields.
-        _desc_extra = _record.description[len(_orig_id):].strip()
+    This runs the command
+    reformat.sh fastawrap=0 in=%s out=stdout.fasta | awk 'NR % 2 == 0' | sort -S $sort_bucket_size | uniq -c | sort -nr | head -n 100
+    and parse output with counts.
 
-        if _digest in counts:
-            counts[_digest] += 1
-            ids[_digest].append(_orig_id)
+    Unix sort respects TMPDIR variable to place the temporary files i there, instead of cwd. To make counting faster
+    we allow to specify percentage of total RAM to be used '50%' or specify size as '10G' from the [KMGTP].
+    """
+
+    if top_n:
+        _cmd = "cat %s | reformat.sh fastawrap=0 in=stdin.%s out=stdout.fasta ignorejunk=t simd=f | awk 'NR %% 2 == 0' | sort -S %s | uniq -c | sort -S %s -nr | head -n %d" % (infilename, infile_format, sort_bucket_size, sort_bucket_size, top_n)
+    elif min_count:
+        _cmd = "cat %s | reformat.sh fastawrap=0 in=stdin.%s out=stdout.fasta ignorejunk=t simd=f | awk 'NR %% 2 == 0' | sort -S %s | uniq -c | sort -S %s -nr | awk '{if ($1 >= %d) print}'" % (infilename, infile_format, sort_bucket_size, sort_bucket_size, min_count)
+    else:
+        _cmd = "cat %s | reformat.sh fastawrap=0 in=stdin.%s out=stdout.fasta ignorejunk=t simd=f | awk 'NR %% 2 == 0' | sort -S %s | uniq -c | sort -S %s -nr" % (infilename, infile_format, sort_bucket_size, sort_bucket_size)
+    #_cmdlist = shlex.split(_cmd)
+    print("Info: %s" % str(_cmd))
+    _stdout, _stderr = subprocess.Popen(_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True).communicate()
+    #
+    # check if java binary is available in PATH
+    # if _stderr and _stderr[0]:
+    #     raise RuntimeError("%s failed with:\n%s" % (_cmd, str(_stderr)))
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+    # print("Result: %s" % str(_stdout))
+    for _line in io.StringIO(_stdout).readlines():
+        if _line:
+            # print("_line: %s" % _line)
+            try:
+                _count, _sequence = _line.split()
+            except ValueError:
+                try:
+                    _count, _sequence, _hash = _line.split()
+                except ValueError:
+                    # do not break on some entries from GISAID
+                    # pick the first item and the very last item
+                    # 1  Cytologiczn Szpital Specjalistyczny im Edmunda Biernackiego w Mielcu|1. Tricity SARS-CoV-2 sequencing ATGTTT...
+                    _myvalues = _line.split()
+                    _count, _sequence = _myvalues[0], _myvalues[-1]
+            _m = hashlib.sha256() # always create a new object because .update() would just append to it new string incrementally
+            _m.update(_sequence.encode()) # calculate the hash without a trailing newline
+            _hash = _m.hexdigest()
+            # print(">%sx\n%s" % (_count, _sequence))
+            outfileh.write(">%sx.%s%s%s%s" % (_count, _hash, os.linesep, _sequence, os.linesep)) # use a dot to merge the hash to the count followed by 'x' so that NCBI blastn does not discard the hash from results
+            del(_m)
+
+
+def build_sha256_id_mapping(infilename, mapping_outfile):
+    """Build a sha256 -> original FASTA IDs translation table.
+
+    The external sort | uniq -c pipeline in read_and_count_sequences() discards
+    FASTA headers, so this function performs a separate single-pass scan of the
+    original file to reconstruct the mapping.
+
+    For each record the same SHA-256 is computed as in read_and_count_sequences()
+    (raw sequence bytes, no case conversion, no trailing newline) so the hashes
+    match exactly.
+
+    Output TSV columns (tab-separated, no header line):
+        sha256hex   count   id_1    id_2    ...
+
+    Args:
+        infilename:     Path to the original (non-deduplicated) FASTA file.
+        mapping_outfile: Path for the output TSV.
+    """
+    # sha256 -> [count, [id1, id2, ...]]
+    _mapping = {}
+    _n_in = 0
+
+    _name = None
+    _seq_parts = []
+
+    def _flush(name, seq_parts):
+        _seq = "".join(seq_parts).rstrip("\r\n")
+        _digest = hashlib.sha256(_seq.encode()).hexdigest()
+        if _digest in _mapping:
+            _mapping[_digest][0] += 1
+            _mapping[_digest][1].append(name)
         else:
-            counts[_digest] = 1
-            ids[_digest] = [_orig_id]
-            first_seq[_digest] = _seq_upper
-            first_desc[_digest] = _desc_extra
+            _mapping[_digest] = [1, [name]]
 
-        if myoptions.debug and _n_in % 100_000 == 0:
-            print(
-                f"Info: processed {_n_in:,} records, "
-                f"{len(counts):,} unique so far",
-                file=sys.stderr,
-            )
+    with open(infilename, "r", encoding="utf-8", errors="replace") as _fh:
+        for _line in _fh:
+            _line = _line.rstrip("\r\n")
+            if not _line:
+                continue
+            if _line[0] == ">":
+                if _name is not None:
+                    _flush(_name, _seq_parts)
+                    _n_in += 1
+                    if myoptions.debug and _n_in % 500_000 == 0:
+                        print("Info: mapping pass: processed %d records, %d unique" % (_n_in, len(_mapping)), file=sys.stderr)
+                # first word after '>' is the ID
+                _parts = _line[1:].split()
+                _name = _parts[0] if _parts else ""
+                _seq_parts = []
+            else:
+                _seq_parts.append(_line)
+        if _name is not None:
+            _flush(_name, _seq_parts)
+            _n_in += 1
 
-print(
-    f"Info: read {_n_in:,} records → {len(counts):,} unique sequences",
-    file=sys.stderr,
-)
+    print("Info: mapping pass: %d total records -> %d unique sequences" % (_n_in, len(_mapping)), file=sys.stderr)
 
-# ── Pass 2: write deduplicated FASTA and optional mapping TSV ───────────────
-_n_out = 0
-_mapping_fh = (
-    open(myoptions.mapping_outfile, "w", encoding="utf-8")
-    if myoptions.mapping_outfile
-    else None
-)
+    with open(mapping_outfile, "w", encoding="utf-8") as _out:
+        for _digest, (_count, _ids) in _mapping.items():
+            _out.write("\t".join([_digest, str(_count)] + _ids) + "\n")
 
-with open(myoptions.outfile, "w", encoding="utf-8") as _out_fh:
-    for _digest, _count in counts.items():
-        _n_out += 1
-        # Build new FASTA ID: "{count}x.{sha256hex}"
-        _new_id = f"{_count}x.{_digest}"
-        _desc = first_desc[_digest]
-        _header = f">{_new_id} {_desc}" if _desc else f">{_new_id}"
-        _out_fh.write(f"{_header}\n{first_seq[_digest]}\n")
+    print("Info: wrote sha256->IDs mapping (%d entries) to %s" % (len(_mapping), mapping_outfile), file=sys.stderr)
 
-        if _mapping_fh is not None:
-            # sha256 \t count \t id1 \t id2 \t …
-            _mapping_fh.write(
-                "\t".join([_digest, str(_count)] + ids[_digest]) + "\n"
-            )
 
-if _mapping_fh is not None:
-    _mapping_fh.close()
-    print(f"Info: wrote mapping to {myoptions.mapping_outfile}", file=sys.stderr)
+if not myoptions.infilename:
+    raise RuntimeError("Please provide input filename via --infilename")
+elif not os.path.exists(myoptions.infilename):
+    raise RuntimeError("File %s does not exist, please check --infilename" % myoptions.infilename)
 
-print(
-    f"Info: wrote {_n_out:,} unique records to {myoptions.outfile}",
-    file=sys.stderr,
-)
+if not myoptions.outfile_prefix:
+    if myoptions.infilename.endswith('.fastq.gz'):
+        _outfile_prefix = myoptions.infilename.replace('.fastq.gz', '')
+    elif myoptions.infilename.endswith('.fastq'):
+        _outfile_prefix = myoptions.infilename.replace('.fastq', '')
+    elif myoptions.infilename.endswith('.fasta.gz'):
+        _outfile_prefix = myoptions.infilename.replace('.fasta.gz', '')
+    elif myoptions.infilename.endswith('.fasta'):
+        _outfile_prefix = myoptions.infilename.replace('.fasta', '')
+    else:
+        _outfile_prefix = myoptions.infilename
+else:
+    _outfile_prefix = myoptions.outfile_prefix
+
+_outfileh = open(_outfile_prefix + '.counts.fasta', 'w') # truncate the output file
+
+if myoptions.min_count > 0:
+    read_and_count_sequences(myoptions.infilename, _outfileh, infile_format=myoptions.infile_format, min_count=myoptions.min_count, sort_bucket_size=myoptions.sort_bucket_size)
+elif myoptions.top_n > 0:
+    read_and_count_sequences(myoptions.infilename, _outfileh, infile_format=myoptions.infile_format, top_n=myoptions.top_n, sort_bucket_size=myoptions.sort_bucket_size)
+else:
+    read_and_count_sequences(myoptions.infilename, _outfileh, infile_format=myoptions.infile_format, sort_bucket_size=myoptions.sort_bucket_size)
+
+_outfileh.close()
+
+if myoptions.mapping_outfile:
+    build_sha256_id_mapping(myoptions.infilename, myoptions.mapping_outfile)
