@@ -232,11 +232,32 @@ else:
     print("Info: outputting deduplicated IDs from --infilename", file=sys.stderr)
 
 # ── Step 3: write output ──────────────────────────────────────────────────────
+
+def _line_count(line):
+    """Extract the integer count prefix from a NNNNx or NNNNx.sha256 first word.
+    Returns 1 for plain IDs without such a prefix (e.g. original GISAID IDs).
+    """
+    first_word = line.split()[0] if line.split() else ""
+    x_pos = first_word.find('x')
+    if x_pos > 0 and first_word[:x_pos].isdigit():
+        return int(first_word[:x_pos])
+    return 1
+
+_total_count = sum(_line_count(l) for l in lines_to_emit)
+
 _out = open(myoptions.outfile, "w", encoding="utf-8") if myoptions.outfile else sys.stdout
 for _line in lines_to_emit:
     _out.write(_line + "\n")
 if myoptions.outfile:
     _out.close()
-    print("Info: wrote %d lines to %s" % (len(lines_to_emit), myoptions.outfile), file=sys.stderr)
+    print(
+        "Info: wrote %d lines (total sequence count: %d) to %s"
+        % (len(lines_to_emit), _total_count, myoptions.outfile),
+        file=sys.stderr,
+    )
 else:
-    print("Info: wrote %d lines to stdout" % len(lines_to_emit), file=sys.stderr)
+    print(
+        "Info: wrote %d lines (total sequence count: %d) to stdout"
+        % (len(lines_to_emit), _total_count),
+        file=sys.stderr,
+    )
