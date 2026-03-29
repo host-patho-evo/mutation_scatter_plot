@@ -321,3 +321,152 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCountFormatParsing(unittest.TestCase):
+    """Regression tests for FASTA ID count-prefix parsing in x-after-count mode.
+
+    Bug history (commit ea3512f, 2026-03-24): the original count extraction
+    used _record_id.endswith('x.') / endswith('x'), which correctly handled
+    the test-file format '576521x' (space-separated first token) but silently
+    fell through to count=1 for the production format '576521x.SHA256HASH'
+    where the hash is concatenated with a dot, making the full
+    '576521x.SHA256HASH' string the first split() token.
+
+    Fixed in c0d1da3 (2026-03-29) by extracting digits before the first 'x'.
+    """
+
+    @staticmethod
+    def _parse_count(record_id: str) -> int:
+        """Mirrors the count-extraction logic in parse_alignment."""
+        x_pos = record_id.find('x')
+        if x_pos > 0 and record_id[:x_pos].isdigit():
+            return int(record_id[:x_pos])
+        return 1
+
+    def test_production_sha256dot_format(self):
+        """Production format NNNNx.SHA256HASH — was broken before c0d1da3."""
+        self.assertEqual(
+            self._parse_count(
+                '576521x.7cbee25f1cd8f4dd1ad91f50b7eb2722b10b13a14a661f4ae5b077b52bcdf595'
+            ),
+            576521,
+        )
+
+    def test_compact_x_format(self):
+        """Existing test-file format: NNNNx (space after x makes it the sole token)."""
+        self.assertEqual(self._parse_count('576521x'), 576521)
+
+    def test_x_dot_no_suffix(self):
+        """Edge case: NNNNx. with nothing after the dot."""
+        self.assertEqual(self._parse_count('576521x.'), 576521)
+
+    def test_count_one_with_sha256(self):
+        """Minimum count with sha256: 1x.sha256hash."""
+        self.assertEqual(self._parse_count('1x.deadbeef'), 1)
+
+    def test_count_one_compact(self):
+        """Minimum count compact: 1x."""
+        self.assertEqual(self._parse_count('1x'), 1)
+
+    def test_no_x_prefix_gisaid_style(self):
+        """GISAID-style ID with no count prefix — fallback to 1."""
+        self.assertEqual(self._parse_count('EPI_ISL_123456'), 1)
+
+    def test_no_x_prefix_plain(self):
+        """Plain word ID — fallback to 1."""
+        self.assertEqual(self._parse_count('noxcount'), 1)
+
+    def test_x_in_middle_non_numeric(self):
+        """'x' appears in ID but preceded by non-digits — fallback to 1."""
+        self.assertEqual(self._parse_count('EPI_ISL_xABC'), 1)
+
+    def test_leading_zeros(self):
+        """Leading zeros: '007x.sha256' → isdigit() True → count=7."""
+        self.assertEqual(self._parse_count('007x.sha256hash'), 7)
+
+
+class TestSha256CountFormat(unittest.TestCase):
+    """CLI regression test: NNNNx.SHA256HASH headers produce correct counts.
+
+    test2_sha256.fasta has the exact same sequences and count values as
+    test2.fasta but uses the production-style ID format 'NNNNx.deadbeefXXX'
+    (dot-concatenated sha256) instead of 'NNNNx' (space-separated).
+
+    With the old broken endswith logic the first split() token
+    '576521x.deadbeef...' did NOT end with 'x', so count fell through to 1
+    for every record.  This caused total_codons_per_site to equal the number
+    of records (9) instead of sum(counts) = 1,089,650 for a well-covered site.
+
+    With the fix the two files must produce byte-for-byte identical TSVs.
+    """
+
+    def setUp(self):
+        self.tests_dir = os.path.dirname(os.path.abspath(__file__))
+        self.project_root = os.path.dirname(self.tests_dir)
+        self.ref_fasta = os.path.join(self.tests_dir, "inputs", "MN908947.3_S.fasta")
+        self.test2_sha256_fasta = os.path.join(
+            self.tests_dir, "inputs", "test2_sha256.fasta"
+        )
+        self.outputs_dir = os.path.join(self.tests_dir, "outputs")
+        self.env = os.environ.copy()
+        if "PYTHONPATH" not in self.env:
+            self.env["PYTHONPATH"] = os.path.join(self.project_root, "src")
+        self.base_cmd = [
+            sys.executable, "-m",
+            "mutation_scatter_plot.calculate_codon_frequencies.cli",
+        ]
+
+    def test_sha256_dot_format_matches_space_format(self):
+        """NNNNx.SHA256HASH IDs must give same TSV output as NNNNx IDs.
+
+        Both test2.fasta and test2_sha256.fasta encode identical sequences
+        with identical per-record counts.  The two TSVs must be byte-for-byte
+        identical; if count parsing regresses to 1-per-record the
+        total_codons_per_site column will differ.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Run on the sha256-format file.
+            sha256_prefix = os.path.join(tmpdir, "test2_sha256.x_after_count.frequencies")
+            cmd = self.base_cmd + [
+                "--alignment-file", self.test2_sha256_fasta,
+                "--outfile-prefix", sha256_prefix,
+                "--padded-reference",
+                "--reference-infile", self.ref_fasta,
+                "--x-after-count",
+                "--aa_start=413",
+                "--overwrite",
+            ]
+            result = subprocess.run(
+                cmd, cwd=self.project_root, env=self.env,
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                f"Command failed:\n{result.stderr}\n{result.stdout}",
+            )
+
+            # The golden output for test2.fasta with --x-after-count already
+            # exists; reuse it as the reference.
+            golden_prefix = os.path.join(
+                self.outputs_dir, "test2.x_after_count.frequencies"
+            )
+            for suffix in (".tsv", ".unchanged_codons.tsv"):
+                generated = f"{sha256_prefix}{suffix}"
+                golden = f"{golden_prefix}{suffix}"
+                self.assertTrue(
+                    os.path.exists(generated),
+                    f"Output file not created: {generated}",
+                )
+                if os.path.exists(golden):
+                    is_match = filecmp.cmp(generated, golden, shallow=False)
+                    if not is_match:
+                        diff = subprocess.run(
+                            ["diff", "-u", "-w", golden, generated],
+                            capture_output=True, text=True, check=False,
+                        )
+                        self.fail(
+                            f"{generated} does not match golden {golden}.\n"
+                            f"Differences (check total_codons_per_site column):\n"
+                            f"{diff.stdout}"
+                        )
