@@ -96,12 +96,14 @@ def main():
 
     orig_starmap = multiprocessing.pool.Pool.starmap
 
+    # Include auto chunksize (None) as the baseline
+    sweep = [(None, 'auto')] + [(cs, str(cs)) for cs in sorted(args.chunksizes)]
+
     results = []
-    for cs in sorted(args.chunksizes):
-        # Monkey-patch Pool.starmap to force our chunksize via imap
+    for cs, cs_label in sweep:
+        # Override chunksize by patching Pool.starmap to pass our value
         def _patched_starmap(self, func, iterable, chunksize=None, _cs=cs):
-            lst = list(iterable)
-            return list(self.imap(lambda a, _f=func: _f(*a), lst, chunksize=_cs))
+            return orig_starmap(self, func, iterable, chunksize=_cs)
 
         multiprocessing.pool.Pool.starmap = _patched_starmap
 
@@ -110,14 +112,14 @@ def main():
             elapsed = bench_one(ref_seq, prot_seq, codons,
                                 args.alignment, n_workers, myoptions)
             times.append(elapsed)
-            print(f"  chunksize={cs} run {i+1}: {elapsed:.3f}s", file=sys.stderr)
+            print(f"  chunksize={cs_label} run {i+1}: {elapsed:.3f}s", file=sys.stderr)
 
         multiprocessing.pool.Pool.starmap = orig_starmap
 
         times.sort()
         median = times[len(times) // 2]
-        results.append((cs, min(times), median, max(times)))
-        print(f"{cs:>10}  {min(times):>8.3f}  {median:>8.3f}  {max(times):>8.3f}")
+        results.append((cs_label, min(times), median, max(times)))
+        print(f"{cs_label:>10}  {min(times):>8.3f}  {median:>8.3f}  {max(times):>8.3f}")
 
     tsv_path = f"bench_chunksize_{os.path.basename(args.alignment)}.tsv"
     with open(tsv_path, "w", encoding="utf-8") as f:
@@ -125,8 +127,8 @@ def main():
         for row in results:
             f.write("\t".join(str(x) for x in row) + "\n")
     print(f"\n# TSV written to {tsv_path}")
-    print(f"# Best chunksize (by median): "
-          f"{min(results, key=lambda r: r[2])[0]}")
+    best = min((r for r in results if r[0] != 'auto'), key=lambda r: r[2])
+    print(f"# Best explicit chunksize (by median): {best[0]} ({best[2]:.3f}s)")
 
 
 if __name__ == "__main__":
