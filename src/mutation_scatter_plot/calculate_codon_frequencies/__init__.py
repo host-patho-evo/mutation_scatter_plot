@@ -232,7 +232,8 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                     outfilename: typing.Any, outfilename_unchanged_codons: typing.Any,
                     alnfilename_count: typing.Any, aa_start: int, min_start: int, max_stop: int,
                     threads: int = None,
-                    pool: typing.Optional["multiprocessing.pool.Pool"] = None):
+                    pool: typing.Optional["multiprocessing.pool.Pool"] = None,
+                    chunksize: typing.Optional[int] = None):
     """
     Parse a padded multi-FASTA alignment and write codon frequency TSV files.
 
@@ -497,10 +498,11 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         _external_pool = pool is not None
         _pool = pool if _external_pool else multiprocessing.Pool(processes=threads)
         try:
-            _all_results = _pool.starmap(_process_one_site, _pool_args)
+            _all_results = _pool.starmap(_process_one_site, _pool_args,
+                                         chunksize=chunksize)
         finally:
             if not _external_pool:
-                _pool.terminate()
+                _pool.close()
                 _pool.join()
 
         for _res in _all_results:
