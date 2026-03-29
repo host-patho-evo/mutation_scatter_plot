@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-VERSION = "202603291800"
+VERSION = "202603292040"
 
 from optparse import OptionParser
 import subprocess, shlex
@@ -112,9 +112,9 @@ def build_sha256_id_mapping(infilename, mapping_outfile):
     FASTA headers, so this function performs a separate single-pass scan of the
     original file to reconstruct the mapping.
 
-    For each record the same SHA-256 is computed as in read_and_count_sequences()
-    (raw sequence bytes, no case conversion, no trailing newline) so the hashes
-    match exactly.
+    For each record the same SHA-256 is computed as in read_and_count_sequences():
+    uppercase sequence, dashes removed, no trailing newline — identical to
+    what reformat.sh + sort|uniq produces.
 
     Output TSV columns (tab-separated, no header line):
         sha256hex   count   id_1    id_2    ...
@@ -131,7 +131,10 @@ def build_sha256_id_mapping(infilename, mapping_outfile):
     _seq_parts = []
 
     def _flush(name, seq_parts):
-        _seq = "".join(seq_parts).rstrip("\r\n")
+        # Normalise to match what reformat.sh does in read_and_count_sequences():
+        # uppercase (reformat.sh converts to uppercase by default) and strip
+        # alignment dashes so the hash is stable across padded/unpadded forms.
+        _seq = "".join(seq_parts).rstrip("\r\n").replace("-", "").upper()
         _digest = hashlib.sha256(_seq.encode()).hexdigest()
         if _digest in _mapping:
             _mapping[_digest][0] += 1
@@ -139,7 +142,7 @@ def build_sha256_id_mapping(infilename, mapping_outfile):
         else:
             _mapping[_digest] = [1, [name]]
 
-    with open(infilename, "r", encoding="utf-8", errors="replace") as _fh:
+    with open(infilename, "r", encoding="utf-8") as _fh:
         for _line in _fh:
             _line = _line.rstrip("\r\n")
             if not _line:
