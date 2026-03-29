@@ -157,7 +157,8 @@ to `{stem}.discarded_original_ids.txt`.
 `count_same_sequences.py`. The guard considers the mtime of all input files
 (`--infilename`, `--original-infilename`, `--mapping-outfile` if given).
 Passing `--outfile=/dev/null` bypasses the guard entirely (used internally by
-`summarize_fasta_pipeline.py`).
+`summarize_fasta_pipeline.py` for stats-only calls — the output message in
+this mode reads *"IDs not written anywhere"* rather than *"wrote … to /dev/null"*).
 
 ---
 
@@ -196,8 +197,19 @@ statistics inline.
 **Usage:**
 
 ```bash
-summarize_fasta_pipeline.py <search_path> <filename_prefix> [--no-discard-stats]
+summarize_fasta_pipeline.py <search_path> <filename_prefix> [options]
 ```
+
+**Table columns** (printed to stdout after the scanning phase):
+
+| Column | Description |
+|---|---|
+| `File` | Relative path from `<search_path>` |
+| `Modified` | File modification time (`YYYY-MM-DD HH:MM`) |
+| `Records` | Number of `>` header lines |
+| `ΔRecords` | Record-count change vs. direct parent stage |
+| `Sum of NNNNx` | Sum of the integer count prefixes across all IDs |
+| `ΔSum` | NNNNx-sum change vs. direct parent stage |
 
 **Parent→child inference:**
 
@@ -207,14 +219,18 @@ The *longest* matching ancestor is chosen as the direct parent (so
 `filename_prefix.counts.clean` is a child of `filename_prefix.counts`, not of
 `filename_prefix`).
 
-**Discard statistics — three-tier cache (fastest first):**
+**Discard statistics — four-tier cache (fastest first):**
 
 1. **Existing `.discarded_original_ids.txt`** — newer than both FASTAs:
    read line count and NNNNx sum directly. Near-instant.
 2. **Existing `.sha256_to_ids.tsv`** — newer than parent FASTA:
    invoke `create_list_of_discarded_sequences.py --mapping-outfile`. Fast.
-3. **Fallback**: invoke `create_list_of_discarded_sequences.py
-   --original-infilename`. Slow (full FASTA scan).
+3. **Auto-generated `.sha256_to_ids.tsv`** — if no fresh TSV exists, the
+   parent FASTA is scanned in-process (no external tools required) and a new
+   `{parent_base}.sha256_to_ids.tsv` is written alongside the FASTA. The TSV
+   is then used immediately and serves as a cache for all subsequent calls.
+4. **Fallback FASTA scan**: `create_list_of_discarded_sequences.py
+   --original-infilename`. Only reached if TSV auto-generation fails.
 
 All cache lookups compare file modification times (make-style): a file that
 exists but is older than its source is treated as stale and the next tier is
@@ -225,6 +241,7 @@ used.
 | Option | Description |
 |---|---|
 | `--no-discard-stats` | Print only the table; skip the discard-script calls |
+| `--add-missing-checksums-to-fasta-files` | When a pipeline FASTA has legacy `NNNNx` IDs (no sha256 embedded), rewrite it in-place with `NNNNx.sha256hex` IDs and rename the original to `.fasta.orig`. Skipped silently if a `.fasta.orig` already exists. Makes all future analyses faster: sha256 can be read from the ID directly instead of being recomputed from the sequence. |
 
 ---
 
