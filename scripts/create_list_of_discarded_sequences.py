@@ -354,7 +354,7 @@ def main():
         print(
             f"Info: {len(lines_to_emit):,} FASTA ID tags"
             f" (total sum of the count values in the FASTA IDs: {total_count:,})"
-            " — stats only, IDs not saved (pass a real --outfile to persist them)",
+            " — IDs not written anywhere (pass a real --outfile to persist them)",
             file=sys.stderr,
         )
     elif myoptions.outfile:
