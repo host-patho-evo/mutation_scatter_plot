@@ -135,7 +135,12 @@ def main():
                         help="Run on subsets of N sequences.  "
                              "Omit to use --row-auto or the full file.")
     parser.add_argument("--row-auto", action="store_true",
-                        help="Auto-generate a geometric row-size ladder up to total sequences.")
+                        help="Auto-generate a geometric row-size ladder up to --max-rows "
+                             "(or total sequences if --max-rows 0).")
+    parser.add_argument("--max-rows", type=int, default=100_000,
+                        metavar="N",
+                        help="Cap for --row-auto ladder (default: 100000).  "
+                             "Use 0 to go all the way to total sequences.")
     parser.add_argument("--min-col", type=int, default=1, metavar="CODON",
                         help="First codon to include (1-based natural numbering, default=1).")
     parser.add_argument("--max-col", type=int, default=0, metavar="CODON",
@@ -189,7 +194,10 @@ def main():
     if args.row_sizes:
         row_sizes = [min(n, total_seqs) for n in sorted(set(args.row_sizes))]
     elif args.row_auto:
-        row_sizes = build_auto_row_sizes(total_seqs)
+        cap = total_seqs if args.max_rows == 0 else min(args.max_rows, total_seqs)
+        row_sizes = build_auto_row_sizes(cap)
+        if cap < total_seqs:
+            print(f"# (--row-auto capped at {cap:,}; use --max-rows 0 to go up to {total_seqs:,})")
     else:
         row_sizes = [total_seqs]  # full file only
 
