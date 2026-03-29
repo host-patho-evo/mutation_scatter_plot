@@ -336,10 +336,11 @@ def _read_discarded_txt_stats(txt_path: str) -> tuple[int, int]:
 
 # ── per-pair discard stats ────────────────────────────────────────────────────
 
-def _run_discard_stats(parent_path: str, child_path: str,
-                       add_checksums: bool = False,
-                       save_discard_list: bool = True) -> None:
-    """Show discarded-ID stats for a parent->child pipeline pair.
+def _compute_discard_stats(parent_path: str, child_path: str,
+                           add_checksums: bool = False,
+                           save_discard_list: bool = True
+                           ) -> tuple[int, int] | tuple[None, None]:
+    """Compute discarded-ID stats for a parent->child pipeline pair.
 
     Cache priority (fastest first — checked by timestamp):
       1. Existing .discarded_original_ids.txt newer than both FASTAs -> read directly.
@@ -347,33 +348,26 @@ def _run_discard_stats(parent_path: str, child_path: str,
       3. Auto-generate .sha256_to_ids.tsv (in-process FASTA scan)   -> then TSV scan.
       4. Fallback: full FASTA scan via --original-infilename (slow).
 
+    Returns (n_discard_ids, n_discard_nnnx_sum), or (None, None) on failure.
     When *save_discard_list* is True (default), the discarded-ID list is written
-    to ``{child_stem}.discarded_original_ids.txt`` following the project naming
-    convention.  This file is then picked up by tier 1 on subsequent runs.
-    Pass False (``--disable-discarded-original-ids-file``) to suppress writing.
+    to ``{child_stem}.discarded_original_ids.txt`` (project naming convention),
+    which is then picked up by tier 1 on subsequent runs.
     """
-    child_base  = os.path.basename(child_path)
     parent_base = os.path.basename(parent_path)
+    child_base  = os.path.basename(child_path)
     child_stem  = _strip_fasta_suffix(child_path)
 
-    # ── path 1: fresh .discarded_original_ids.txt ──────────────────────────
+    # ── tier 1: fresh .discarded_original_ids.txt ─────────────────────────
     txt = _fresh_discarded_txt(child_path, parent_path)
     if txt:
-        n_ids, nnnx_sum = _read_discarded_txt_stats(txt)
-        print(
-            f"  \u21b3 [cached TXT] {os.path.basename(txt)}: "
-            f"discarded IDs: {n_ids:,}  NNNNx sum: {nnnx_sum:,}",
-            flush=True,
-        )
-        return
+        print(f"  \u21b3 [cached TXT] {os.path.basename(txt)}", flush=True)
+        return _read_discarded_txt_stats(txt)
 
-    # ── paths 2–4: invoke create_list_of_discarded_sequences.py ───────────
+    # ── tiers 2–4: invoke create_list_of_discarded_sequences.py ────────
     if not os.path.exists(DISCARD_SCRIPT):
         print(f"  [discard stats] script not found: {DISCARD_SCRIPT}", flush=True)
-        return
+        return None, None
 
-    # Try to get (or auto-generate) a fresh TSV for the parent — faster than
-    # a full FASTA scan and the result is then cached for future calls.
     tsv = _ensure_tsv(parent_path, add_checksums=add_checksums)
     if tsv:
         source_arg   = f'--mapping-outfile={tsv}'
@@ -382,13 +376,11 @@ def _run_discard_stats(parent_path: str, child_path: str,
         source_arg   = f'--original-infilename={parent_path}'
         source_label = f"FASTA scan: {parent_base}"
 
-    # Write the discarded-IDs file following the established naming convention
-    # so that it is available as a cache on the next run (tier 1).  The caller
-    # can suppress writing with save_discard_list=False.
     if save_discard_list:
         outfile = child_stem + '.discarded_original_ids.txt'
         outfile_args = [f'--outfile={outfile}', '--overwrite']
     else:
+        outfile      = None
         outfile_args = ['--outfile=/dev/null']
 
     cmd = [
@@ -400,11 +392,17 @@ def _run_discard_stats(parent_path: str, child_path: str,
     ]
     print(f"  \u21b3 [{source_label}] -> {child_base}", flush=True)
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    # Suppress Info: lines — the key numbers will appear in the table instead.
     for line in result.stderr.splitlines():
-        if line.startswith(('Info:', 'Warning:', 'Error:')):
+        if line.startswith(('Warning:', 'Error:')):
             print(f"    {line}", flush=True)
     if result.returncode != 0:
         print(f"    [exit code {result.returncode}]", flush=True)
+        return None, None
+
+    if outfile and os.path.exists(outfile):
+        return _read_discarded_txt_stats(outfile)
+    return None, None
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
@@ -460,23 +458,46 @@ def main() -> None:
         if p is not None:
             parent_map[i] = p
 
-    # ── gather per-file data ──────────────────────────────────────────────────
+    # ── gather per-file data ─────────────────────────────────────────────────
     rows: list[tuple[str, str, int, int]] = []
     for f in files:
         display = os.path.relpath(f, search_path)
-        print(f"  scanning {display} …", file=sys.stderr, flush=True)
+        print(f"  scanning {display} \u2026", file=sys.stderr, flush=True)
         mtime_s = datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M')
         rows.append((display, mtime_s, _count_records(f), _sum_nnnx_counts(f)))
 
-    # ── print table ───────────────────────────────────────────────────────────
+    # ── phase 2: compute discard stats for all pairs ─────────────────────────
+    # Runs before table printing so the numbers can appear as proper columns.
+    discard_data: dict[int, tuple[int, int]] = {}  # child_idx -> (n_ids, nnnx_sum)
+    if do_discard:
+        print(file=sys.stderr)
+        for i, f_child in enumerate(files):
+            p = parent_map.get(i)
+            if p is not None:
+                n_d, s_d = _compute_discard_stats(
+                    files[p], f_child,
+                    add_checksums=add_checksums,
+                    save_discard_list=save_discard_list,
+                )
+                if n_d is not None:
+                    discard_data[i] = (n_d, s_d)
+
+    # ── print table ──────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))
     sep, w_num, w_delta, w_ts = "  ", 14, 16, 16
+    w_disc1 = len('Discarded original FASTA IDs')   # 28
+    w_disc2 = len('Sum of discarded sequences')       # 26
 
+    disc_header = (
+        f"{sep}{'Discarded original FASTA IDs':>{w_disc1}}{sep}{'Sum of discarded sequences':>{w_disc2}}"
+        if do_discard else ""
+    )
     header = (
         f"{'File':<{col_file}}{sep}"
         f"{'Modified':<{w_ts}}{sep}"
         f"{'Records':>{w_num}}{sep}{'\u0394Records':>{w_delta}}{sep}"
         f"{'Sum of NNNNx':>{w_num}}{sep}{'\u0394Sum':>{w_delta}}"
+        + disc_header
     )
     rule = '-' * len(header)
     print()
@@ -494,18 +515,25 @@ def main() -> None:
             d_rec = d_sum = '\u2014'
             parent_label = ''
 
+        if do_discard and p is not None:
+            if i in discard_data:
+                n_d, s_d = discard_data[i]
+                disc_cols = f"{sep}{n_d:>{w_disc1},}{sep}{s_d:>{w_disc2},}"
+            else:
+                disc_cols = f"{sep}{'\u2014':>{w_disc1}}{sep}{'\u2014':>{w_disc2}}"
+        else:
+            disc_cols = ''
+
         print(
             f"{display:<{col_file}}{sep}"
             f"{mtime_s:<{w_ts}}{sep}"
             f"{n_rec:>{w_num},}{sep}{d_rec:>{w_delta}}{sep}"
             f"{n_sum:>{w_num},}{sep}{d_sum:>{w_delta}}"
+            + disc_cols
             + (f"  ({parent_label})" if parent_label else '')
         )
 
-        if do_discard and p is not None:
-            _run_discard_stats(files[p], files[i],
-                               add_checksums=add_checksums,
-                               save_discard_list=save_discard_list)
+
 
     print(rule)
 
