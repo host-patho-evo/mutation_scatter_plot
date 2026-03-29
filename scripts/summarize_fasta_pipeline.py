@@ -24,6 +24,10 @@ Usage:
 
 Options:
     --no-discard-stats   Skip the per-step discard-statistics calls entirely.
+    --verbose            Print progress messages during TSV generation and
+                         discard-stats computation (the ↳, [auto-generating
+                         TSV], and Info: lines).  By default only the table
+                         itself is shown.
     --disable-discarded-original-ids-file
                          Do not write per-step .discarded_original_ids.txt
                          files.  By default the files are always written
@@ -156,7 +160,7 @@ def _extract_sha256_from_id(record_id: str) -> str | None:
     return None
 
 
-def _build_tsv(fasta_path: str, tsv_path: str) -> dict:
+def _build_tsv(fasta_path: str, tsv_path: str, verbose: bool = True) -> dict:
     """Single-pass scan of *fasta_path* to build a sha256→IDs mapping TSV.
 
     For each record the sha256 is computed over the uppercase, dash-stripped
@@ -204,8 +208,9 @@ def _build_tsv(fasta_path: str, tsv_path: str) -> dict:
         for digest, (count, ids) in mapping.items():
             out.write("\t".join([digest, str(count)] + ids) + "\n")
 
-    print(f"    Info: built TSV with {len(mapping):,} unique sequences"
-          f" from {n_in:,} records \u2192 {tsv_path}", flush=True)
+    if verbose:
+        print(f"    Info: built TSV with {len(mapping):,} unique sequences"
+              f" from {n_in:,} records \u2192 {tsv_path}", flush=True)
 
     # Return inverted mapping: id -> sha256 (one entry per original record).
     return {orig_id: sha for sha, (_, ids) in mapping.items() for orig_id in ids}
@@ -268,7 +273,8 @@ def _enrich_fasta(fasta_path: str, id_to_sha: dict) -> str | None:
     return orig_path
 
 
-def _ensure_tsv(parent_path: str, add_checksums: bool = False) -> str | None:
+def _ensure_tsv(parent_path: str, add_checksums: bool = False,
+                verbose: bool = True) -> str | None:
     """Return a fresh .sha256_to_ids.tsv for *parent_path*, generating it by
     scanning the FASTA in-process if one does not already exist or is stale.
 
@@ -299,10 +305,11 @@ def _ensure_tsv(parent_path: str, add_checksums: bool = False) -> str | None:
             return tsv  # can't read, just use existing TSV
 
     candidate = _strip_fasta_suffix(parent_path) + '.sha256_to_ids.tsv'
-    print(f"  [auto-generating TSV] scanning {os.path.basename(parent_path)} \u2026",
-          flush=True)
+    if verbose:
+        print(f"  [auto-generating TSV] scanning {os.path.basename(parent_path)} \u2026",
+              flush=True)
     try:
-        id_to_sha = _build_tsv(parent_path, candidate)
+        id_to_sha = _build_tsv(parent_path, candidate, verbose=verbose)
     except OSError as exc:
         print(f"    [TSV generation failed: {exc}]", flush=True)
         return None
@@ -310,9 +317,11 @@ def _ensure_tsv(parent_path: str, add_checksums: bool = False) -> str | None:
     if add_checksums and _has_legacy_ids(id_to_sha):
         _enrich_fasta(parent_path, id_to_sha)
         # Rebuild the TSV against the new file so IDs match the enriched form.
-        print("  [auto-generating TSV] rebuilding TSV from enriched FASTA …", flush=True)
+        if verbose:
+            print("  [auto-generating TSV] rebuilding TSV from enriched FASTA \u2026",
+                  flush=True)
         try:
-            _build_tsv(parent_path, candidate)
+            _build_tsv(parent_path, candidate, verbose=verbose)
         except OSError as exc:
             print(f"    [TSV rebuild failed: {exc}]", flush=True)
 
@@ -338,7 +347,8 @@ def _read_discarded_txt_stats(txt_path: str) -> tuple[int, int]:
 
 def _compute_discard_stats(parent_path: str, child_path: str,
                            add_checksums: bool = False,
-                           save_discard_list: bool = True
+                           save_discard_list: bool = True,
+                           verbose: bool = True
                            ) -> tuple[int, int] | tuple[None, None]:
     """Compute discarded-ID stats for a parent->child pipeline pair.
 
@@ -360,7 +370,8 @@ def _compute_discard_stats(parent_path: str, child_path: str,
     # ── tier 1: fresh .discarded_original_ids.txt ─────────────────────────
     txt = _fresh_discarded_txt(child_path, parent_path)
     if txt:
-        print(f"  \u21b3 [cached TXT] {os.path.basename(txt)}", flush=True)
+        if verbose:
+            print(f"  \u21b3 [cached TXT] {os.path.basename(txt)}", flush=True)
         return _read_discarded_txt_stats(txt)
 
     # ── tiers 2–4: invoke create_list_of_discarded_sequences.py ────────
@@ -368,7 +379,7 @@ def _compute_discard_stats(parent_path: str, child_path: str,
         print(f"  [discard stats] script not found: {DISCARD_SCRIPT}", flush=True)
         return None, None
 
-    tsv = _ensure_tsv(parent_path, add_checksums=add_checksums)
+    tsv = _ensure_tsv(parent_path, add_checksums=add_checksums, verbose=verbose)
     if tsv:
         source_arg   = f'--mapping-outfile={tsv}'
         source_label = f"TSV: {os.path.basename(tsv)}"
@@ -390,7 +401,8 @@ def _compute_discard_stats(parent_path: str, child_path: str,
         '--inverted',
         *outfile_args,
     ]
-    print(f"  \u21b3 [{source_label}] -> {child_base}", flush=True)
+    if verbose:
+        print(f"  \u21b3 [{source_label}] -> {child_base}", flush=True)
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     # Suppress Info: lines — the key numbers will appear in the table instead.
     for line in result.stderr.splitlines():
@@ -417,6 +429,7 @@ def main() -> None:
     search_path = args[0]
     prefix      = args[1]
     do_discard         = '--no-discard-stats'                      not in args
+    verbose            = '--verbose'                               in args
     save_discard_list  = '--disable-discarded-original-ids-file'   not in args
     add_checksums      = '--add-missing-checksums-to-fasta-files'  in args
 
@@ -478,6 +491,7 @@ def main() -> None:
                     files[p], f_child,
                     add_checksums=add_checksums,
                     save_discard_list=save_discard_list,
+                    verbose=verbose,
                 )
                 if n_d is not None:
                     discard_data[i] = (n_d, s_d)
