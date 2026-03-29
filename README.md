@@ -166,6 +166,67 @@ unzip per_sample_unique_sequences_in_FASTA.zip
 count_motifs_in_sequences --infilename=data/intermediates/"$prefix".scores_above_84.fastp.amplicons.clean.prot.counts.fasta --motif=RPTY
 ```
 
+## Sequence Deduplication & Traceability Pipeline
+
+The `scripts/` directory contains a set of standalone helper scripts for
+processing large FASTA datasets (e.g. GISAID downloads with millions of
+records) through a multi-stage deduplication and traceability pipeline.
+
+### Pipeline scripts
+
+| Script | Purpose |
+|---|---|
+| `count_same_sequences.py` | Deduplicate FASTA; write `NNNNx.sha256` IDs + sha256→ID mapping TSV |
+| `create_list_of_discarded_sequences.py` | Expand a counts FASTA back to original FASTA IDs; identify discarded records |
+| `kick.py` | Split a counts FASTA into three files by sequence length (exactly / shorter / longer than N nt) |
+| `summarize_fasta_pipeline.py` | Audit the entire pipeline: count records, compute NNNNx sums, show per-step deltas |
+| `check_alignment_trimming.py` | Diagnostic: count sequences shortened during alignment (causing sha256 mismatch) |
+
+### File naming convention
+
+Each pipeline stage appends a dot-separated suffix to the output name,
+making the parent→child relationship machine-readable:
+
+```
+filename_prefix.fasta                          ← raw input
+filename_prefix.counts.fasta                   ← after count_same_sequences.py
+filename_prefix.counts.clean.fasta             ← after alignment filter
+filename_prefix.counts.clean.exactly_N.fasta   ← after kick.py
+filename_prefix.counts.clean.exactly_N.discarded_original_ids.txt
+```
+
+### Quick start
+
+```bash
+# Deduplicate and build sha256 mapping
+count_same_sequences.py \
+    --infilename=filename_prefix.fasta \
+    --outfile-prefix=filename_prefix
+
+# (align externally, producing filename_prefix.counts.clean.fasta)
+
+# Split by target length
+kick.py \
+    --infile=filename_prefix.counts.clean.fasta \
+    --outfile-prefix=filename_prefix.counts.clean \
+    --full-length=3822
+
+# List what was discarded at the length-filter step
+create_list_of_discarded_sequences.py \
+    --infilename=filename_prefix.counts.clean.exactly_3822.fasta \
+    --original-infilename=filename_prefix.fasta \
+    --inverted
+
+# Audit the whole pipeline at once (uses cached TSV/TXT files when available)
+summarize_fasta_pipeline.py . filename_prefix
+```
+
+All scripts implement a **make-style timestamp guard**: if all output files
+are already newer than all input files the script prints `Info: up-to-date,
+skipping` and exits 0.  Add `--overwrite` to force regeneration.
+
+For full documentation see [docs/sequence_deduplication_pipeline.md](docs/sequence_deduplication_pipeline.md).
+
 ## Performance & Precision Optimizations
 
 The `calculate_codon_frequencies` and `mutation_scatter_plot` pipelines have been significantly enhanced with the following optimizations:
@@ -201,6 +262,7 @@ For in-depth analysis of specific modules and subsystems, refer to the following
 - **[Performance Profiling Report](docs/profiling_report.md)**: End-to-end latency analysis and comparison against the v0.3 baseline.
 - **[Codon Frequency Optimizations](docs/performance_calculate_codon_frequencies.md)**: Technical breakdown of streaming, grouping, and caching strategies.
 - **[Testing Framework Guide](docs/testing_framework.md)**: Overview of the regression suite, golden file management, and automated verification protocols.
+- **[Sequence Deduplication Pipeline](docs/sequence_deduplication_pipeline.md)**: Scripts for deduplication, traceability, length filtering, and pipeline auditing of large FASTA datasets.
 
 ## Project History
 

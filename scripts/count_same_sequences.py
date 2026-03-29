@@ -39,22 +39,43 @@ myparser.add_option("--debug", action="store", type="int", dest="debug", default
 from collections import defaultdict
 
 """
-Read a FASTQ file and return a FASTA file with sequence counts.
-Aborts if any output file already exists unless --overwrite is given.
-Also discards any description text from input FASTA data due to 'awk 'NR %% 2 == 0' infile | sort -S %s | uniq -c | sort -S %s -nr' .
+Count identical sequences in a FASTA/Q file and write a deduplicated output
+in which each unique sequence gets a FASTA ID of the form::
 
-Usage:
-find . -name *.fastp.amplicons.fasta | sort | uniq | grep -v results | while read f; do
-  d=`dirname $f`;
-  p=`basename $f .fasta`;
-  echo "$d"/"$p";
-  if [ ! -e "$d"/"$p".counts.fasta ]; then
-    count_same_sequences.py --infilename="$f" --infile-format=fasta --outfile-prefix="$d"/"$p";
-  fi;
-done
+    {count}x.{sha256hex}
 
-TODO:
-Merge paired-end mates together and rerun this script
+where *count* is the number of occurrences and *sha256hex* is the 64-character
+hexadecimal SHA-256 of the uppercase, alignment-dash-stripped sequence — the
+same normalisation that ``reformat.sh fastawrap=0`` applies.
+
+In addition to the deduplicated FASTA (``{prefix}.counts.fasta``) the script
+produces a TSV mapping file (``{prefix}.sha256_to_ids.tsv``) that maps every
+sha256 to the list of original FASTA IDs sharing that sequence.  This enables
+later traceability (see ``create_list_of_discarded_sequences.py``).
+
+Behaviour
+---------
+* Output guard: if both output files already exist and are **newer** than the
+  input the script prints ``Info: up-to-date, skipping`` and exits 0 without
+  doing any work.  Pass ``--overwrite`` to force regeneration.
+* If an output exists but is **older** than the input the script raises a
+  ``RuntimeError`` — the file is stale; add ``--overwrite`` to regenerate.
+* Values containing ``=`` passed to ``--outfile-prefix`` or
+  ``--mapping-outfile`` are rejected with a helpful suggestion, catching the
+  common typo ``--outfile-prefix=infilename=filename_prefix``.
+
+Example usage::
+
+    count_same_sequences.py \\
+        --infilename=filename_prefix.fasta \\
+        --outfile-prefix=filename_prefix \\
+        --mapping-outfile=filename_prefix.sha256_to_ids.tsv
+
+    # Batch loop (skips already-finished files automatically):
+    find . -name '*.fasta' | while read f; do
+      p="${f%.fasta}"
+      count_same_sequences.py --infilename="$f" --outfile-prefix="$p"
+    done
 """
 
 def read_and_count_sequences(infilename, outfileh, infile_format, top_n=0, min_count=0, sort_bucket_size='10G'):
