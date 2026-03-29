@@ -9,15 +9,21 @@ computes:
 
 Parent-child relationships between pipeline files are inferred automatically
 from filename suffixes: file B is a child of file A if strip_fasta_suffix(B)
-starts with strip_fasta_suffix(A) + ".".  For each parent→child pair,
-create_list_of_discarded_sequences.py is invoked in --inverted mode so the
-number of discarded IDs and their total NNNNx count sum are printed inline.
+starts with strip_fasta_suffix(A) + ".".  For each parent->child pair,
+pre-computed ancillary files are used when they exist and are up-to-date
+(newer than both FASTA files), otherwise create_list_of_discarded_sequences.py
+is invoked in --inverted mode.
+
+Cache priority (fastest first):
+  1. <child_base>.discarded_original_ids.txt  newer than parent + child FASTA
+  2. <parent_base>.sha256_to_ids.tsv          newer than parent FASTA
+  3. Full FASTA scan via --original-infilename (slow fallback)
 
 Usage:
     summarize_fasta_pipeline.py <search_path> <filename_prefix> [options]
 
 Options:
-    --no-discard-stats   Skip the per-step create_list_of_discarded_sequences.py calls.
+    --no-discard-stats   Skip the per-step discard-statistics calls entirely.
 
 Example:
     summarize_fasta_pipeline.py . spikenuc1207.native2ascii.no_junk
@@ -44,12 +50,17 @@ def _strip_fasta_suffix(path: str) -> str:
     return path
 
 
+def _mtime(path: str) -> float:
+    """Return mtime of path, or 0.0 if it does not exist."""
+    try:
+        return os.path.getmtime(path)
+    except OSError:
+        return 0.0
+
+
 def _count_records(path: str) -> int:
     """Number of '>' header lines in a FASTA file."""
-    result = subprocess.run(
-        ['grep', '-c', '^>', path],
-        capture_output=True, text=True,
-    )
+    result = subprocess.run(['grep', '-c', '^>', path], capture_output=True, text=True)
     text = result.stdout.strip()
     return int(text) if text else 0
 
@@ -83,27 +94,91 @@ def _pct_str(current: int, reference: int) -> str:
     return f"{current / reference * 100:.2f}%"
 
 
+# ── ancillary-file helpers ─────────────────────────────────────────────────────
+
+def _fresh_discarded_txt(child_path: str, parent_path: str) -> str | None:
+    """Return path to a valid .discarded_original_ids.txt if it exists and is
+    newer than BOTH the child and parent FASTA files, else None."""
+    candidate = _strip_fasta_suffix(child_path) + '.discarded_original_ids.txt'
+    if not os.path.exists(candidate):
+        return None
+    txt_mtime = _mtime(candidate)
+    if txt_mtime > _mtime(child_path) and txt_mtime > _mtime(parent_path):
+        return candidate
+    return None  # stale
+
+
+def _fresh_tsv(parent_path: str) -> str | None:
+    """Return path to a valid .sha256_to_ids.tsv if it exists and is newer
+    than the parent FASTA file, else None."""
+    candidate = _strip_fasta_suffix(parent_path) + '.sha256_to_ids.tsv'
+    if not os.path.exists(candidate):
+        return None
+    if _mtime(candidate) > _mtime(parent_path):
+        return candidate
+    return None  # stale
+
+
+def _read_discarded_txt_stats(txt_path: str) -> tuple[int, int]:
+    """Return (n_ids, nnnx_sum) from a .discarded_original_ids.txt."""
+    n_ids = int(subprocess.run(
+        f"wc -l < {_shell_quote(txt_path)}",
+        shell=True, capture_output=True, text=True,
+    ).stdout.strip() or 0)
+    nnnx_sum = int(subprocess.run(
+        f"awk '{{print $1}}' {_shell_quote(txt_path)}"
+        r" | sed -e 's/x.*//'"
+        r" | awk '{SUM += $1} END {print SUM+0}'",
+        shell=True, capture_output=True, text=True,
+    ).stdout.strip() or 0)
+    return n_ids, nnnx_sum
+
+
+# ── per-pair discard stats ────────────────────────────────────────────────────
+
 def _run_discard_stats(parent_path: str, child_path: str) -> None:
-    """Call create_list_of_discarded_sequences.py --inverted for a parent→child pair.
+    """Show discarded-ID stats for a parent->child pipeline pair.
 
-    parent_path  – the source/upstream file  (--original-infilename)
-    child_path   – the filtered/kept file     (--infilename)
-
-    Output is discarded to /dev/null; Info/Warning lines from stderr are
-    printed to stdout prefixed with '    '.
+    Cache priority (fastest first — checked by timestamp):
+      1. Existing .discarded_original_ids.txt newer than both FASTAs -> read directly.
+      2. Existing .sha256_to_ids.tsv newer than parent FASTA         -> TSV scan.
+      3. Fallback: full FASTA scan via --original-infilename (slow).
     """
+    child_base  = os.path.basename(child_path)
+    parent_base = os.path.basename(parent_path)
+
+    # ── path 1: fresh .discarded_original_ids.txt ──────────────────────────
+    txt = _fresh_discarded_txt(child_path, parent_path)
+    if txt:
+        n_ids, nnnx_sum = _read_discarded_txt_stats(txt)
+        print(
+            f"  ↳ [cached TXT] {os.path.basename(txt)}: "
+            f"discarded IDs: {n_ids:,}  NNNNx sum: {nnnx_sum:,}",
+            flush=True,
+        )
+        return
+
+    # ── paths 2 & 3: invoke create_list_of_discarded_sequences.py ──────────
     if not os.path.exists(DISCARD_SCRIPT):
         print(f"  [discard stats] script not found: {DISCARD_SCRIPT}", flush=True)
         return
 
+    tsv = _fresh_tsv(parent_path)
+    if tsv:
+        source_arg   = f'--mapping-outfile={tsv}'
+        source_label = f"TSV: {os.path.basename(tsv)}"
+    else:
+        source_arg   = f'--original-infilename={parent_path}'
+        source_label = f"FASTA scan: {parent_base}"
+
     cmd = [
         sys.executable, DISCARD_SCRIPT,
         f'--infilename={child_path}',
-        f'--original-infilename={parent_path}',
+        source_arg,
         '--inverted',
         '--outfile=/dev/null',
     ]
-    print(f"  ↳ discard stats: {os.path.basename(parent_path)} → {os.path.basename(child_path)}", flush=True)
+    print(f"  ↳ [{source_label}] -> {child_base}", flush=True)
     result = subprocess.run(cmd, capture_output=True, text=True)
     for line in result.stderr.splitlines():
         if line.startswith(('Info:', 'Warning:', 'Error:')):
@@ -138,18 +213,16 @@ def main() -> None:
               file=sys.stderr)
         sys.exit(1)
 
-    # Sort by base-name length (shorter = earlier in pipeline), then alphabetically.
+    # Sort by stem length (shorter = earlier in pipeline), then alphabetically.
     files = sorted(found, key=lambda p: (len(_strip_fasta_suffix(os.path.basename(p))),
                                           os.path.basename(p)))
-
     print(f"Found {len(files):,} file(s).\n", file=sys.stderr)
 
-    # ── infer parent→child pairs from naming convention ───────────────────────
+    # ── infer parent->child pairs from naming convention ──────────────────────
     # base_B.startswith(base_A + ".") defines the relationship.
     bases = [_strip_fasta_suffix(os.path.basename(f)) for f in files]
 
     def _direct_parent_idx(child_idx: int) -> int | None:
-        """Return index of the longest-base ancestor, or None if none found."""
         child_base = bases[child_idx]
         best = None
         for i, b in enumerate(bases):
@@ -158,14 +231,14 @@ def main() -> None:
                     best = i
         return best
 
-    parent_map: dict[int, int] = {}  # child_idx -> parent_idx
+    parent_map: dict[int, int] = {}
     for i in range(len(files)):
         p = _direct_parent_idx(i)
         if p is not None:
             parent_map[i] = p
 
     # ── gather per-file data ──────────────────────────────────────────────────
-    rows: list[tuple[str, int, int]] = []  # (display_name, n_records, n_sum)
+    rows: list[tuple[str, int, int]] = []
     for f in files:
         display = os.path.relpath(f, search_path)
         print(f"  scanning {display} …", file=sys.stderr, flush=True)
