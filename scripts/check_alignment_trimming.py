@@ -70,7 +70,7 @@ if name is not None:
     _check(name, seq_parts)
     n_total += 1
 
-print(f"\nSummary")
+print("\nSummary")
 print(f"  Total records     : {n_total:,}")
 print(f"  Records with sha256 in ID : {n_with_sha:,}")
 print(f"  sha256 mismatches : {n_mismatch:,}  (sequences shortened/changed by alignment)")

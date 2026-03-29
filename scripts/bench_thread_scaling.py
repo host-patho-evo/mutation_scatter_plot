@@ -90,6 +90,7 @@ def build_auto_row_sizes(total_seqs):
 
 
 def run_one(ref, aln_path, threads, extra_args, env):
+    """Run parse_alignment once via subprocess and return wall-clock seconds."""
     with tempfile.TemporaryDirectory() as tmpdir:
         prefix = os.path.join(tmpdir, "bench")
         cmd = [
@@ -120,6 +121,7 @@ def _stats(times):
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
+    """Parse CLI arguments and run the thread-scaling benchmark."""
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--reference", required=True, help="Reference FASTA file")
@@ -157,10 +159,9 @@ def main():
 
     # Capture current git SHA for output file naming and header display.
     try:
-        import subprocess as _sp
-        git_sha = _sp.check_output(
+        git_sha = subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"],
-            stderr=_sp.DEVNULL, text=True).strip()
+            stderr=subprocess.DEVNULL, text=True).strip()
     except Exception:
         git_sha = "unknown"
 

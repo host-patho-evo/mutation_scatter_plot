@@ -64,11 +64,11 @@ def _write_subset(src_path, dst_path, n_seqs):
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "src"))
 
-from Bio import SeqIO  # noqa: E402  (after sys.path fixup)
-from mutation_scatter_plot.calculate_codon_frequencies import (  # noqa: E402
+from Bio import SeqIO  # noqa: E402,C0413  (after sys.path fixup)
+from mutation_scatter_plot.calculate_codon_frequencies import (  # noqa: E402,C0413
     get_codons, parse_alignment,
 )
-from mutation_scatter_plot import alt_translate  # noqa: E402
+from mutation_scatter_plot import alt_translate  # noqa: E402,C0413
 
 
 def make_options(x_after_count=True, minimum_aln_length=50,
@@ -100,6 +100,7 @@ def bench_one(ref_seq, prot_seq, codons, alignment_file, n_workers, myoptions):
 
 
 def main():
+    """Parse CLI arguments and run the chunksize sweep benchmark."""
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--reference", required=True)
@@ -168,7 +169,7 @@ def main():
 
     try:
         _run_sweep(args, alignment_file, n_workers, aln_size_kb, total_cores,
-                   myoptions, ref_seq, prot_seq, codons)
+                   myoptions, ref_seq, prot_seq, codons, git_sha)
     finally:
         if _subset_tmpdir:
             import shutil
@@ -176,7 +177,7 @@ def main():
 
 
 def _run_sweep(args, alignment_file, n_workers, aln_size_kb, total_cores,
-              myoptions, ref_seq, prot_seq, codons):
+              myoptions, ref_seq, prot_seq, codons, git_sha):
     """Inner sweep loop, separated so temp-dir cleanup always runs."""
     print(f"# Chunksize sweep for {os.path.basename(alignment_file)} ({aln_size_kb:.0f} KB)")
     print(f"# Workers: {n_workers}  |  Total cores: {total_cores}  |  Runs: {args.runs}")
@@ -192,7 +193,7 @@ def _run_sweep(args, alignment_file, n_workers, aln_size_kb, total_cores,
     results = []
     for cs, cs_label in sweep:
         # Override chunksize by patching Pool.starmap to pass our value
-        def _patched_starmap(self, func, iterable, chunksize=None, _cs=cs):
+        def _patched_starmap(self, func, iterable, _chunksize=None, _cs=cs):
             return orig_starmap(self, func, iterable, chunksize=_cs)
 
         multiprocessing.pool.Pool.starmap = _patched_starmap

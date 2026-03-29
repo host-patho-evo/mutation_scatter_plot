@@ -60,7 +60,7 @@ def _mtime(path: str) -> float:
 
 def _count_records(path: str) -> int:
     """Number of '>' header lines in a FASTA file."""
-    result = subprocess.run(['grep', '-c', '^>', path], capture_output=True, text=True)
+    result = subprocess.run(['grep', '-c', '^>', path], capture_output=True, text=True, check=False)
     text = result.stdout.strip()
     return int(text) if text else 0
 
@@ -73,7 +73,7 @@ def _sum_nnnx_counts(path: str) -> int:
         r" | sed -e 's/x.*//'"
         r" | awk '{SUM += $1} END {print SUM+0}'"
     )
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=False)
     text = result.stdout.strip()
     return int(text) if text else 0
 
@@ -123,13 +123,13 @@ def _read_discarded_txt_stats(txt_path: str) -> tuple[int, int]:
     """Return (n_ids, nnnx_sum) from a .discarded_original_ids.txt."""
     n_ids = int(subprocess.run(
         f"wc -l < {_shell_quote(txt_path)}",
-        shell=True, capture_output=True, text=True,
+        shell=True, capture_output=True, text=True, check=False,
     ).stdout.strip() or 0)
     nnnx_sum = int(subprocess.run(
         f"awk '{{print $1}}' {_shell_quote(txt_path)}"
         r" | sed -e 's/x.*//'"
         r" | awk '{SUM += $1} END {print SUM+0}'",
-        shell=True, capture_output=True, text=True,
+        shell=True, capture_output=True, text=True, check=False,
     ).stdout.strip() or 0)
     return n_ids, nnnx_sum
 
@@ -179,7 +179,7 @@ def _run_discard_stats(parent_path: str, child_path: str) -> None:
         '--outfile=/dev/null',
     ]
     print(f"  ↳ [{source_label}] -> {child_base}", flush=True)
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     for line in result.stderr.splitlines():
         if line.startswith(('Info:', 'Warning:', 'Error:')):
             print(f"    {line}", flush=True)
@@ -190,6 +190,7 @@ def _run_discard_stats(parent_path: str, child_path: str) -> None:
 # ── main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    """Entry point: parse args, scan files, print table, optionally show discard stats."""
     args = sys.argv[1:]
     if len(args) < 2 or '--help' in args or '-h' in args:
         print(__doc__, file=sys.stderr)
@@ -246,12 +247,12 @@ def main() -> None:
 
     # ── print table ───────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))
-    SEP, W_NUM, W_DELTA = "  ", 14, 16
+    sep, w_num, w_delta = "  ", 14, 16
 
     header = (
-        f"{'File':<{col_file}}{SEP}"
-        f"{'Records':>{W_NUM}}{SEP}{'ΔRecords':>{W_DELTA}}{SEP}"
-        f"{'Sum of NNNNx':>{W_NUM}}{SEP}{'ΔSum':>{W_DELTA}}"
+        f"{'File':<{col_file}}{sep}"
+        f"{'Records':>{w_num}}{sep}{'ΔRecords':>{w_delta}}{sep}"
+        f"{'Sum of NNNNx':>{w_num}}{sep}{'ΔSum':>{w_delta}}"
     )
     rule = '-' * len(header)
     print()
@@ -270,9 +271,9 @@ def main() -> None:
             parent_label = ''
 
         print(
-            f"{display:<{col_file}}{SEP}"
-            f"{n_rec:>{W_NUM},}{SEP}{d_rec:>{W_DELTA}}{SEP}"
-            f"{n_sum:>{W_NUM},}{SEP}{d_sum:>{W_DELTA}}"
+            f"{display:<{col_file}}{sep}"
+            f"{n_rec:>{w_num},}{sep}{d_rec:>{w_delta}}{sep}"
+            f"{n_sum:>{w_num},}{sep}{d_sum:>{w_delta}}"
             + (f"  ({parent_label})" if parent_label else '')
         )
 
