@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-VERSION = "202603292120"
+VERSION = "202603292130"
 
 from optparse import OptionParser
 import subprocess, shlex
@@ -229,14 +229,35 @@ else:
 # Default mapping outfile: strip known extensions from infilename, append suffix.
 _mapping_outfile = myoptions.mapping_outfile or (_outfile_prefix + '.sha256_to_ids.tsv')
 
-# Guard against accidental clobbering of output files.
+# ── timestamp-aware output guard ─────────────────────────────────────────────
+# Make-style dependency check: if all outputs exist and are newer than the
+# input, the results are up-to-date and there is nothing to do.
 _counts_outfile = _outfile_prefix + '.counts.fasta'
-for _outpath in (_counts_outfile, _mapping_outfile):
-    if os.path.exists(_outpath) and not myoptions.overwrite:
-        raise RuntimeError(
-            "Output file already exists: %s\n"
-            "Use --overwrite to replace it." % _outpath
+_outputs = [_counts_outfile, _mapping_outfile]
+_input_mtime = os.path.getmtime(myoptions.infilename)
+
+_all_exist = all(os.path.exists(p) for p in _outputs)
+if _all_exist:
+    _min_out_mtime = min(os.path.getmtime(p) for p in _outputs)
+    if _min_out_mtime > _input_mtime and not myoptions.overwrite:
+        print(
+            "Info: outputs are up-to-date (all newer than %s), skipping." % myoptions.infilename,
+            file=sys.stderr,
         )
+        sys.exit(0)
+    elif not myoptions.overwrite:
+        raise RuntimeError(
+            "Output file is stale (older than input): %s\n"
+            "Use --overwrite to regenerate it."
+            % next(p for p in _outputs if os.path.getmtime(p) <= _input_mtime)
+        )
+else:
+    for _outpath in _outputs:
+        if os.path.exists(_outpath) and not myoptions.overwrite:
+            raise RuntimeError(
+                "Output file already exists: %s\n"
+                "Use --overwrite to replace it." % _outpath
+            )
 
 _outfileh = open(_counts_outfile, 'w')
 

@@ -44,7 +44,7 @@ import os
 import sys
 from optparse import OptionParser
 
-VERSION = "202603292120"
+VERSION = "202603292130"
 
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
 myparser.add_option(
@@ -86,6 +86,12 @@ myparser.add_option(
     "--debug", action="store", type="int", dest="debug", default=0,
     help="Debug verbosity level [0].",
 )
+myparser.add_option(
+    "--overwrite", action="store_true", dest="overwrite", default=False,
+    help="Overwrite the output file if it already exists. "
+         "By default the script skips if the output is up-to-date and "
+         "errors if the output is stale.",
+)
 (myoptions, _myargs) = myparser.parse_args()
 
 if not myoptions.infilename:
@@ -123,6 +129,30 @@ if not myoptions.outfile:
     myoptions.outfile = _infile_stem + '.discarded_original_ids.txt'
     print("Info: output will be written to %s" % myoptions.outfile, file=sys.stderr)
 
+# ── timestamp-aware output guard ─────────────────────────────────────────────
+# Make-style: if the output already exists and is newer than every input,
+# the result is up-to-date and can be skipped (unless --overwrite).
+_input_files = [myoptions.infilename]
+if myoptions.original_infilename:
+    _input_files.append(myoptions.original_infilename)
+if myoptions.mapping_outfile:
+    _input_files.append(myoptions.mapping_outfile)
+_input_mtime_max = max(os.path.getmtime(f) for f in _input_files)
+
+if myoptions.outfile != '/dev/null' and os.path.exists(myoptions.outfile):
+    _out_mtime = os.path.getmtime(myoptions.outfile)
+    if _out_mtime > _input_mtime_max and not myoptions.overwrite:
+        print(
+            "Info: output is up-to-date, skipping: %s" % myoptions.outfile,
+            file=sys.stderr,
+        )
+        sys.exit(0)
+    elif _out_mtime <= _input_mtime_max and not myoptions.overwrite:
+        raise RuntimeError(
+            "Output is stale (older than one or more inputs): %s\n"
+            "Use --overwrite to regenerate it." % myoptions.outfile
+        )
+    # else: --overwrite set, proceed
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
