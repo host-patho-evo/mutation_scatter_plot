@@ -174,7 +174,9 @@ for _name, _header, _seq in _iter_fasta(myoptions.infilename):
     _sha = _extract_sha256(_name)
     if _sha is None:
         # Legacy NNNNx format: compute sha256 from sequence content.
-        _sha = hashlib.sha256(_seq.encode()).hexdigest()
+        # Uppercase so case differences between files don't cause mismatches
+        # (reformat.sh may uppercase sequences; BioPython preserves original case).
+        _sha = hashlib.sha256(_seq.upper().encode()).hexdigest()
         _ids_computed += 1
     infile_sha256s[_sha] = _name
 
@@ -205,7 +207,7 @@ if myoptions.inverted:
     # Emit originals NOT in infile (infile = kept, output = discarded).
     _n_scanned = _n_emitted = 0
     for _name, _header, _seq in _iter_fasta(myoptions.original_infilename):
-        _sha = hashlib.sha256(_seq.encode()).hexdigest()
+        _sha = hashlib.sha256(_seq.upper().encode()).hexdigest()
         _n_scanned += 1
         if _sha not in _target_sha256s:
             lines_to_emit.append(_header)
@@ -222,7 +224,7 @@ elif myoptions.original_infilename:
     # Default mode: emit originals whose sha256 IS in infile.
     _n_scanned = _n_matched = 0
     for _name, _header, _seq in _iter_fasta(myoptions.original_infilename):
-        _sha = hashlib.sha256(_seq.encode()).hexdigest()
+        _sha = hashlib.sha256(_seq.upper().encode()).hexdigest()
         _n_scanned += 1
         if _sha in _target_sha256s:
             lines_to_emit.append(_header)
