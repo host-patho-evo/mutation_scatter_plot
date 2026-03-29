@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-VERSION = "202603292040"
+VERSION = "202603292050"
 
 from optparse import OptionParser
 import subprocess, shlex
@@ -176,6 +176,26 @@ if not myoptions.infilename:
     raise RuntimeError("Please provide input filename via --infilename")
 elif not os.path.exists(myoptions.infilename):
     raise RuntimeError("File %s does not exist, please check --infilename" % myoptions.infilename)
+
+if myoptions.outfile_prefix and '=' in myoptions.outfile_prefix:
+    raise RuntimeError(
+        "--outfile-prefix value '%s' contains '=' — looks like you accidentally "
+        "included the argument name in the value (e.g. wrote "
+        "'--outfile-prefix=--outfile-prefix=foo' or '--outfile-prefix=infilename=foo').\n"
+        "Did you mean: --outfile-prefix=%s" % (
+            myoptions.outfile_prefix,
+            myoptions.outfile_prefix.split('=', 1)[-1],
+        )
+    )
+if myoptions.mapping_outfile and '=' in myoptions.mapping_outfile:
+    raise RuntimeError(
+        "--mapping-outfile value '%s' contains '=' — looks like you accidentally "
+        "included the argument name in the value.\n"
+        "Did you mean: --mapping-outfile=%s" % (
+            myoptions.mapping_outfile,
+            myoptions.mapping_outfile.split('=', 1)[-1],
+        )
+    )
 
 if not myoptions.outfile_prefix:
     if myoptions.infilename.endswith('.fastq.gz'):
