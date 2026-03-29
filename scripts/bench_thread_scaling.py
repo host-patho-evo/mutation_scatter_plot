@@ -2,21 +2,17 @@
 """Thread-scaling benchmark for calculate_codon_frequencies.
 
 Run this on the target machine (192-core Xeon) to measure actual wall-clock
-scaling across thread counts. Outputs a TSV-formatted table.
+scaling across thread counts.  Prints a live result line after EVERY timed
+run so you can monitor progress even when each run takes minutes.
 
 Usage (from project root):
-    PYTHONPATH=src python scripts/bench_thread_scaling.py \
-        --reference tests/inputs/MN908947.3_S_full.fasta \
-        --alignment tests/inputs/test2_full.fasta \
-        [--threads 1 2 4 8 16 32 64 128 192] \
-        [--runs 5]
+    PYTHONPATH=src python scripts/bench_thread_scaling.py \\
+        --reference tests/inputs/MN908947.3_S_full.fasta \\
+        --alignment tests/inputs/test2_full.fasta \\
+        [--threads 1 2 4 8 16 32 64 128 192] \\
+        [--runs 3]
 
-Or with a large custom file:
-    PYTHONPATH=src python scripts/bench_thread_scaling.py \
-        --reference /path/to/reference.fasta \
-        --alignment /path/to/large_alignment.fasta \
-        --threads 1 2 4 8 16 32 64 128 192 \
-        --runs 3
+For a quick single-pass scan use --runs 1.
 """
 
 import argparse
@@ -45,9 +41,15 @@ def run_one(ref, aln, threads, extra_args, env):
         r = subprocess.run(cmd, env=env, capture_output=True, check=False)
         elapsed = time.perf_counter() - t0
         if r.returncode != 0:
-            print(f"  FAILED (threads={threads}):\n{r.stderr.decode()[:400]}", file=sys.stderr)
+            print(f"  FAILED (threads={threads}):\n{r.stderr.decode()[:500]}", file=sys.stderr)
             return None
         return elapsed
+
+
+def _stats(times):
+    """Return (min, median, max) from an unsorted list."""
+    s = sorted(times)
+    return s[0], s[len(s) // 2], s[-1]
 
 
 def main():
@@ -59,56 +61,80 @@ def main():
                         default=[1, 2, 4, 8, 16, 32, 64, 128],
                         help="Thread counts to benchmark")
     parser.add_argument("--runs", type=int, default=3,
-                        help="Number of timed runs per thread count (uses median)")
+                        help="Timed runs per thread count (uses median).  "
+                             "Use --runs 1 for a quick single-pass scan.")
     parser.add_argument("--aa-start", type=int, default=0, help="--aa_start value")
     parser.add_argument("--extra", nargs="*", default=[], help="Extra CLI args to pass through")
     args = parser.parse_args()
 
     env = os.environ.copy()
     if "PYTHONPATH" not in env:
-        env["PYTHONPATH"] = os.path.join(os.path.dirname(os.path.dirname(
-            os.path.abspath(__file__))), "src")
+        env["PYTHONPATH"] = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
 
     extra = args.extra or []
     if args.aa_start:
         extra += [f"--aa_start={args.aa_start}"]
 
     aln_size_mb = os.path.getsize(args.alignment) / 1024 / 1024
-    print(f"# Benchmark: {os.path.basename(args.alignment)} ({aln_size_mb:.1f} MB)")
-    print(f"# Reference: {os.path.basename(args.reference)}")
-    print(f"# Runs per thread count: {args.runs}")
-    print(f"# CPU info: {os.popen('nproc').read().strip()} logical cores available")
+    ncpu = os.popen("nproc").read().strip()
+    print(f"# Benchmark : {os.path.basename(args.alignment)} ({aln_size_mb:.1f} MB)")
+    print(f"# Reference : {os.path.basename(args.reference)}")
+    print(f"# Runs/count: {args.runs}")
+    print(f"# CPU cores : {ncpu} logical")
     print()
-    print(f"{'threads':>8}  {'min_s':>8}  {'median_s':>8}  {'max_s':>8}  {'speedup':>8}")
-    print("-" * 50)
+
+    # Live header — printed once and flushed
+    hdr = (f"{'threads':>8}  {'run':>3}  {'this_s':>8}  "
+           f"{'so_far_min':>10}  {'so_far_med':>10}  {'so_far_max':>10}  {'speedup':>8}")
+    print(hdr)
+    print("-" * len(hdr))
+    sys.stdout.flush()
 
     baseline_median = None
     results = []
+
     for t in sorted(args.threads):
         times = []
         for i in range(args.runs):
+            t_start_wall = time.strftime("%H:%M:%S")
             elapsed = run_one(args.reference, args.alignment, t, extra, env)
             if elapsed is None:
                 break
             times.append(elapsed)
-            print(f"  threads={t} run {i+1}: {elapsed:.3f}s", file=sys.stderr)
+            mn, med, mx = _stats(times)
+            sp_str = "--"
+            if baseline_median is not None and med > 0:
+                sp_str = f"{baseline_median / med:.2f}x"
+            # One live line per run — always flushed immediately
+            print(f"{t:>8}  {i+1:>3}  {elapsed:>8.2f}  "
+                  f"{mn:>10.2f}  {med:>10.2f}  {mx:>10.2f}  {sp_str:>8}"
+                  f"  [{t_start_wall}]")
+            sys.stdout.flush()
 
         if not times:
-            print(f"{t:>8}  {'FAILED':>8}")
+            print(f"{t:>8}  ---  FAILED")
+            sys.stdout.flush()
             continue
 
-        times.sort()
-        median = times[len(times) // 2]
+        mn, median, mx = _stats(times)
         if baseline_median is None:
             baseline_median = median
         speedup = baseline_median / median if median > 0 else float("inf")
-        results.append((t, min(times), median, max(times), speedup))
-        print(f"{t:>8}  {min(times):>8.3f}  {median:>8.3f}  {max(times):>8.3f}  {speedup:>7.2f}x")
+        results.append((t, mn, median, mx, speedup))
+        print(f"#   t={t:>3} DONE  min={mn:.2f}s  median={median:.2f}s  "
+              f"max={mx:.2f}s  speedup={speedup:.2f}x")
+        print()
+        sys.stdout.flush()
 
+    # ── Final summary table ──────────────────────────────────────────────────
     print()
-    print("# Saved results above. Copy this table into docs/profiling_report.md")
+    print(f"{'threads':>8}  {'min_s':>8}  {'median_s':>8}  {'max_s':>8}  {'speedup':>8}")
+    print("-" * 50)
+    for t, mn, med, mx, sp in results:
+        print(f"{t:>8}  {mn:>8.2f}  {med:>8.2f}  {mx:>8.2f}  {sp:>7.2f}x")
+    sys.stdout.flush()
 
-    # Also write a TSV for easy import
     tsv_path = f"bench_scaling_{os.path.basename(args.alignment)}.tsv"
     with open(tsv_path, "w", encoding="utf-8") as f:
         f.write("threads\tmin_s\tmedian_s\tmax_s\tspeedup\n")
