@@ -13,89 +13,87 @@ Usage:
             --full-length=3822
 """
 
+import argparse
 import os
 import sys
-from optparse import OptionParser
 
 from Bio import SeqIO
 
 VERSION = 202603292130
 
-myparser = OptionParser(version=f'%prog version {VERSION}')
-myparser.add_option("--infile", action="store", type="string", dest="infile", default='',
-    help="Input FASTA/Q file path.")
-myparser.add_option("--outfile-prefix", action="store", type="string", dest="outfile_prefix", default='',
-    help="Output file path prefix. Suffixes .exactly_N.fasta, .shorter_N.fasta, .longer_N.fasta are appended.")
-myparser.add_option("--full-length", action="store", type="int", dest="full_length", default=0,
-    help="Full length required for perfect alignment [0]")
-myparser.add_option("--format", action="store", type="string", dest="format", default="fasta",
-    help="Input file format. Output format is fasta-2line")
-myparser.add_option("--overwrite", action="store_true", dest="overwrite", default=False,
-    help="Overwrite output files if they already exist. By default the script skips if "
-         "all outputs are up-to-date and errors if any output is stale.")
-myparser.add_option("--debug", action="store", type="int", dest="debug", default=0,
-    help="Set debug to some value")
-(myoptions, myargs) = myparser.parse_args()
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--infile", required=True, help="Input FASTA/Q file path.")
+parser.add_argument("--outfile-prefix", dest="outfile_prefix", default="",
+    help="Output file path prefix. Suffixes .exactly_N.fasta etc. are appended.")
+parser.add_argument("--full-length", dest="full_length", type=int, required=True,
+    help="Full length required for perfect alignment.")
+parser.add_argument("--format", dest="format", default="fasta",
+    help="Input file format. Output format is fasta-2line.")
+parser.add_argument("--overwrite", action="store_true",
+    help="Overwrite output files if they already exist.")
+parser.add_argument("--debug", type=int, default=0, help="Debug verbosity level.")
+parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
 
-if not myoptions.infile:
-    myparser.error("--infile is required")
-if not os.path.exists(myoptions.infile):
-    myparser.error(f"File does not exist: {myoptions.infile}")
-if not myoptions.full_length:
-    myparser.error("--full-length is required")
 
-_exact_length_name   = f"{myoptions.outfile_prefix}.exactly_{myoptions.full_length}.fasta"
-_shorter_length_name = f"{myoptions.outfile_prefix}.shorter_{myoptions.full_length}.fasta"
-_longer_length_name  = f"{myoptions.outfile_prefix}.longer_{myoptions.full_length}.fasta"
+def main():
+    """Parse arguments and split FASTA into exact/shorter/longer output files."""
+    myoptions = parser.parse_args()
 
-# ── timestamp-aware output guard ──────────────────────────────────────────────
-# Make-style: skip if all outputs exist and are newer than the input.
-_outputs     = [_exact_length_name, _shorter_length_name, _longer_length_name]
-_input_mtime = os.path.getmtime(myoptions.infile)
-_all_exist   = all(os.path.exists(p) for p in _outputs)
+    if not os.path.exists(myoptions.infile):
+        parser.error(f"File does not exist: {myoptions.infile}")
 
-if _all_exist:
-    _min_out_mtime = min(os.path.getmtime(p) for p in _outputs)
-    if _min_out_mtime > _input_mtime and not myoptions.overwrite:
-        print(f"Info: all outputs are up-to-date (newer than {myoptions.infile}), skipping.",
-              file=sys.stderr)
-        sys.exit(0)
-    elif not myoptions.overwrite:
-        _stale = next(p for p in _outputs if os.path.getmtime(p) <= _input_mtime)
-        raise RuntimeError(
-            f"Output is stale (older than input): {_stale}\n"
-            "Use --overwrite to regenerate."
-        )
-else:
-    for _outpath in _outputs:
-        if os.path.exists(_outpath) and not myoptions.overwrite:
+    exact_name   = f"{myoptions.outfile_prefix}.exactly_{myoptions.full_length}.fasta"
+    shorter_name = f"{myoptions.outfile_prefix}.shorter_{myoptions.full_length}.fasta"
+    longer_name  = f"{myoptions.outfile_prefix}.longer_{myoptions.full_length}.fasta"
+
+    outputs     = [exact_name, shorter_name, longer_name]
+    input_mtime = os.path.getmtime(myoptions.infile)
+    all_exist   = all(os.path.exists(p) for p in outputs)
+
+    if all_exist:
+        min_out_mtime = min(os.path.getmtime(p) for p in outputs)
+        if min_out_mtime > input_mtime and not myoptions.overwrite:
+            print(f"Info: all outputs are up-to-date (newer than {myoptions.infile}), skipping.",
+                  file=sys.stderr)
+            sys.exit(0)
+        elif not myoptions.overwrite:
+            stale = next(p for p in outputs if os.path.getmtime(p) <= input_mtime)
             raise RuntimeError(
-                f"Output file already exists: {_outpath}\n"
-                "Use --overwrite to replace it."
+                f"Output is stale (older than input): {stale}\n"
+                "Use --overwrite to regenerate."
             )
+    else:
+        for outpath in outputs:
+            if os.path.exists(outpath) and not myoptions.overwrite:
+                raise RuntimeError(
+                    f"Output file already exists: {outpath}\n"
+                    "Use --overwrite to replace it."
+                )
 
-_exact_length_cnt   = 0
-_shorter_length_cnt = 0
-_longer_length_cnt  = 0
+    exact_cnt = shorter_cnt = longer_cnt = 0
 
-with (open(_exact_length_name,   'w', encoding='utf-8') as _exact_length,
-      open(_shorter_length_name, 'w', encoding='utf-8') as _shorter_length,
-      open(_longer_length_name,  'w', encoding='utf-8') as _longer_length):
-    for _record in SeqIO.parse(myoptions.infile, myoptions.format):
-        _record_length = len(_record.seq)
-        if myoptions.debug:
-            print(f"Info: Record {_record.id} has length {_record_length} "
-                  f"of padded sequence {_record.seq}")
-        if _record_length < myoptions.full_length:
-            SeqIO.write(_record, _shorter_length, "fasta-2line")
-            _shorter_length_cnt += 1
-        elif _record_length > myoptions.full_length:
-            SeqIO.write(_record, _longer_length, "fasta-2line")
-            _longer_length_cnt += 1
-        else:
-            SeqIO.write(_record, _exact_length, "fasta-2line")
-            _exact_length_cnt += 1
+    with (open(exact_name,   'w', encoding='utf-8') as exact_fh,
+          open(shorter_name, 'w', encoding='utf-8') as shorter_fh,
+          open(longer_name,  'w', encoding='utf-8') as longer_fh):
+        for record in SeqIO.parse(myoptions.infile, myoptions.format):
+            record_len = len(record.seq)
+            if myoptions.debug:
+                print(f"Info: Record {record.id} has length {record_len} "
+                      f"of padded sequence {record.seq}")
+            if record_len < myoptions.full_length:
+                SeqIO.write(record, shorter_fh, "fasta-2line")
+                shorter_cnt += 1
+            elif record_len > myoptions.full_length:
+                SeqIO.write(record, longer_fh, "fasta-2line")
+                longer_cnt += 1
+            else:
+                SeqIO.write(record, exact_fh, "fasta-2line")
+                exact_cnt += 1
 
-print(f"Info: Wrote {_exact_length_cnt} entries into {_exact_length_name}")
-print(f"Info: Wrote {_shorter_length_cnt} entries into {_shorter_length_name}")
-print(f"Info: Wrote {_longer_length_cnt} entries into {_longer_length_name}")
+    print(f"Info: Wrote {exact_cnt} entries into {exact_name}")
+    print(f"Info: Wrote {shorter_cnt} entries into {shorter_name}")
+    print(f"Info: Wrote {longer_cnt} entries into {longer_name}")
+
+
+if __name__ == "__main__":
+    main()

@@ -39,6 +39,7 @@ FASTA_SUFFIXES = ('.fasta.orig', '.fasta.ori', '.fasta.old', '.fasta')
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DISCARD_SCRIPT = os.path.join(SCRIPT_DIR, 'create_list_of_discarded_sequences.py')
+COUNT_SCRIPT = os.path.join(SCRIPT_DIR, 'count_same_sequences.py')
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,46 @@ def _fresh_tsv(parent_path: str) -> str | None:
     return None  # stale
 
 
+def _ensure_tsv(parent_path: str) -> str | None:
+    """Return a fresh .sha256_to_ids.tsv for *parent_path*, generating it now
+    via count_same_sequences.py if one does not already exist or is stale.
+
+    Returns the TSV path on success, or None if generation failed or the
+    count_same_sequences script is unavailable.
+    """
+    tsv = _fresh_tsv(parent_path)
+    if tsv:
+        return tsv
+
+    if not os.path.exists(COUNT_SCRIPT):
+        return None
+
+    candidate = _strip_fasta_suffix(parent_path) + '.sha256_to_ids.tsv'
+    # Derive the outfile-prefix so count_same_sequences.py knows where to write
+    # the deduplicated FASTA (it always writes both outputs together).
+    out_prefix = _strip_fasta_suffix(parent_path)
+    print(f"  [auto-generate TSV] running count_same_sequences on {os.path.basename(parent_path)} …",
+          flush=True)
+    result = subprocess.run(
+        [
+            sys.executable, COUNT_SCRIPT,
+            f'--infilename={parent_path}',
+            f'--outfile-prefix={out_prefix}',
+            f'--mapping-outfile={candidate}',
+            '--overwrite',
+        ],
+        capture_output=True, text=True, check=False,
+    )
+    for line in result.stderr.splitlines():
+        if line.startswith(('Info:', 'Warning:', 'Error:')):
+            print(f"    {line}", flush=True)
+    if result.returncode != 0:
+        print(f"    [TSV generation failed, exit code {result.returncode}]", flush=True)
+        return None
+
+    return candidate if os.path.exists(candidate) else None
+
+
 def _read_discarded_txt_stats(txt_path: str) -> tuple[int, int]:
     """Return (n_ids, nnnx_sum) from a .discarded_original_ids.txt."""
     n_ids = int(subprocess.run(
@@ -163,7 +204,9 @@ def _run_discard_stats(parent_path: str, child_path: str) -> None:
         print(f"  [discard stats] script not found: {DISCARD_SCRIPT}", flush=True)
         return
 
-    tsv = _fresh_tsv(parent_path)
+    # Try to get (or auto-generate) a fresh TSV for the parent — faster than
+    # a full FASTA scan and the result is then cached for future calls.
+    tsv = _ensure_tsv(parent_path)
     if tsv:
         source_arg   = f'--mapping-outfile={tsv}'
         source_label = f"TSV: {os.path.basename(tsv)}"
