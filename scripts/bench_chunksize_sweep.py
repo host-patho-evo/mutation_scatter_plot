@@ -26,6 +26,17 @@ import tempfile
 import time
 import types
 
+# Allow running from project root without installing
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "src"))
+
+# Bio and mutation_scatter_plot must follow sys.path fixup above.
+# pylint: disable=wrong-import-position
+from Bio import SeqIO
+from mutation_scatter_plot.calculate_codon_frequencies import (
+    get_codons, parse_alignment,
+)
+from mutation_scatter_plot import alt_translate
 
 # ── Subset helper (mirrors bench_thread_scaling.py) ──────────────────────────
 
@@ -59,16 +70,6 @@ def _write_subset(src_path, dst_path, n_seqs):
                     buf = []
         if buf:
             dst.writelines(buf)
-
-# Allow running from project root without installing
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))), "src"))
-
-from Bio import SeqIO  # noqa: E402,C0413  (after sys.path fixup)
-from mutation_scatter_plot.calculate_codon_frequencies import (  # noqa: E402,C0413
-    get_codons, parse_alignment,
-)
-from mutation_scatter_plot import alt_translate  # noqa: E402,C0413
 
 
 def make_options(x_after_count=True, minimum_aln_length=50,
