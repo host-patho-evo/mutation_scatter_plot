@@ -40,6 +40,7 @@ Example:
     summarize_fasta_pipeline.py .. spikenuc1207.native2ascii.no_junk --no-discard-stats
 """
 
+import datetime
 import glob
 import hashlib
 import os
@@ -435,39 +436,45 @@ def main() -> None:
             parent_map[i] = p
 
     # ── gather per-file data ──────────────────────────────────────────────────
-    rows: list[tuple[str, int, int]] = []
+    rows: list[tuple[str, str, str, int, int]] = []
     for f in files:
         display = os.path.relpath(f, search_path)
-        print(f"  scanning {display} …", file=sys.stderr, flush=True)
-        rows.append((display, _count_records(f), _sum_nnnx_counts(f)))
+        print(f"  scanning {display} \u2026", file=sys.stderr, flush=True)
+        st = os.stat(f)
+        fmt = '%Y-%m-%d %H:%M'
+        ctime_s = datetime.datetime.fromtimestamp(st.st_ctime).strftime(fmt)
+        mtime_s = datetime.datetime.fromtimestamp(st.st_mtime).strftime(fmt)
+        rows.append((display, ctime_s, mtime_s, _count_records(f), _sum_nnnx_counts(f)))
 
     # ── print table ───────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))
-    sep, w_num, w_delta = "  ", 14, 16
+    sep, w_num, w_delta, w_ts = "  ", 14, 16, 16
 
     header = (
         f"{'File':<{col_file}}{sep}"
-        f"{'Records':>{w_num}}{sep}{'ΔRecords':>{w_delta}}{sep}"
-        f"{'Sum of NNNNx':>{w_num}}{sep}{'ΔSum':>{w_delta}}"
+        f"{'Changed':<{w_ts}}{sep}{'Modified':<{w_ts}}{sep}"
+        f"{'Records':>{w_num}}{sep}{'\u0394Records':>{w_delta}}{sep}"
+        f"{'Sum of NNNNx':>{w_num}}{sep}{'\u0394Sum':>{w_delta}}"
     )
     rule = '-' * len(header)
     print()
     print(header)
     print(rule)
 
-    for i, (display, n_rec, n_sum) in enumerate(rows):
+    for i, (display, ctime_s, mtime_s, n_rec, n_sum) in enumerate(rows):
         p = parent_map.get(i)
         if p is not None:
-            prev_rec, prev_sum = rows[p][1], rows[p][2]
+            prev_rec, prev_sum = rows[p][3], rows[p][4]
             d_rec = _delta_str(n_rec, prev_rec)
             d_sum = _delta_str(n_sum, prev_sum)
             parent_label = f"vs {os.path.basename(files[p])}"
         else:
-            d_rec = d_sum = '—'
+            d_rec = d_sum = '\u2014'
             parent_label = ''
 
         print(
             f"{display:<{col_file}}{sep}"
+            f"{ctime_s:<{w_ts}}{sep}{mtime_s:<{w_ts}}{sep}"
             f"{n_rec:>{w_num},}{sep}{d_rec:>{w_delta}}{sep}"
             f"{n_sum:>{w_num},}{sep}{d_sum:>{w_delta}}"
             + (f"  ({parent_label})" if parent_label else '')
@@ -480,8 +487,8 @@ def main() -> None:
 
     # ── overall summary ───────────────────────────────────────────────────────
     if len(rows) >= 2:
-        first_rec, first_sum = rows[0][1], rows[0][2]
-        last_rec,  last_sum  = rows[-1][1], rows[-1][2]
+        first_rec, first_sum = rows[0][3], rows[0][4]
+        last_rec,  last_sum  = rows[-1][3], rows[-1][4]
         print()
         print("Overall change  (last vs first):")
         print(f"  Records : {_delta_str(last_rec, first_rec):>16}  ({_pct_str(last_rec, first_rec)} of first)")
