@@ -99,6 +99,32 @@ if myoptions.original_infilename and not os.path.exists(myoptions.original_infil
 if myoptions.inverted and not myoptions.original_infilename:
     myparser.error("--inverted requires --original-infilename")
 
+# Auto-detect a mapping TSV alongside --infilename when not provided explicitly.
+# count_same_sequences.py writes {stem}.sha256_to_ids.tsv where stem is the
+# infilename with the last known extension(s) stripped.
+if not myoptions.mapping_outfile:
+    _infile_stem = myoptions.infilename
+    _known_exts = ('.fasta.gz', '.fastq.gz', '.fasta', '.fastq', '.fa', '.fq')
+    # Strip compound extensions iteratively (.fasta.old → strip .old → strip .fasta)
+    while True:
+        _matched = False
+        for _ext in _known_exts:
+            if _infile_stem.endswith(_ext):
+                _infile_stem = _infile_stem[:-len(_ext)]
+                _matched = True
+                break
+        if _matched:
+            break   # known FASTA extension found and stripped
+        _base, _ext = os.path.splitext(_infile_stem)
+        if not _ext:
+            break   # no more extensions
+        _infile_stem = _base  # strip one unknown extension and retry
+    _guessed_mapping = _infile_stem + '.sha256_to_ids.tsv'
+    if os.path.exists(_guessed_mapping):
+        myoptions.mapping_outfile = _guessed_mapping
+        print("Info: auto-detected mapping TSV: %s" % _guessed_mapping, file=sys.stderr)
+
+
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
