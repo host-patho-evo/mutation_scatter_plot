@@ -1009,9 +1009,9 @@ def collect_scatter_data(
                     if 'observed_codon_count' in df.columns.values:
                         _hover_text += (
                             f"Codon Frequencies: {[f'{x:.6f}' for x in _frequencies]}\n"
-                            f"Observed codon counts: {_observed_codon_counts}\n"
-                            f"Observed codon count sum: {_observed_codon_count_sum}\n"
-                            f"Total codons per site: {_total_codons_per_site}"
+                            f"Observed codon counts: [{', '.join(f'{x:,}' for x in _observed_codon_counts)}]\n"
+                            f"Observed codon count sum: {_observed_codon_count_sum:,}\n"
+                            f"Total codons per site: {_total_codons_per_site:,}"
                         )
                 else:
                     _observed_codon_count = _sub_df['observed_codon_count'].iloc[0] if not _sub_df.empty and 'observed_codon_count' in _sub_df.columns else 0
@@ -1041,8 +1041,8 @@ def collect_scatter_data(
                     else:
                         _hover_text += f"Frequency: {_frequency:.6f}\n"
                         _hover_text += (
-                            f"Observed codon count: {_observed_codon_count}\n"
-                            f"Total codons per site: {_total_codons_per_site}"
+                            f"Observed codon count: {_observed_codon_count:,}\n"
+                            f"Total codons per site: {_total_codons_per_site:,}"
                         )
 
                 # --- End Hover Reconstruction ---
