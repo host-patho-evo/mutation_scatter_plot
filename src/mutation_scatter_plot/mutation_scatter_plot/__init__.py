@@ -368,11 +368,9 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
         _colorindex = max(0, min(len(colors) - 1, int(_score) + len(colors) // 2))
 
     if old_codon_or_aa.upper() == new_codon_or_aa.upper():
-        _color = '#00ff04'
-        _score = 12
+        _color = '#00ff04'  # dark green; real BLOSUM score preserved unchanged
     elif _old_codon_or_aa.upper() == _new_codon_or_aa.upper():
-        _color = '#00ff04'
-        _score = 12
+        _color = '#00ff04'  # dark green; real BLOSUM score preserved unchanged
     elif old_codon_or_aa in ('---', 'DEL', 'INS', '*') or new_codon_or_aa in ('---', 'DEL', 'INS', '*', 'TGA', 'TAA', 'TAG'):
         _color = '#ff0000'
         _score = -6
@@ -380,8 +378,7 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
         _color = '#808080'
     elif codon_on_input:
         if alt_translate(_old_codon_or_aa) == alt_translate(_new_codon_or_aa):
-            _color = '#00ff04'
-            _score = 12
+            _color = '#00ff04'  # dark green; real BLOSUM score preserved unchanged
         elif alt_translate(_new_codon_or_aa) == 'X':
             _color = '#808080'
         else:
@@ -1435,7 +1432,7 @@ def render_bokeh(
     _colorbar = bokeh.models.ColorBar(
         color_mapper=_color_mapper,
         label_standoff=8,
-        title=f"{matrix_name} score values (for synonymous changes forcibly set to +12 (dark green))",
+        title=f"{matrix_name} score values (synonymous codon changes shown in dark green)",
         title_standoff=10,
         location=(0, 0),
         ticker=bokeh.models.FixedTicker(ticks=_tick_positions),
@@ -1554,7 +1551,7 @@ def render_matplotlib(
         else:
             _mpl_scatterplot = ax1.scatter([], [], marker='o', s=[], alpha=0.5, c=[])
 
-    _colorbar_label = f"{matrix_name} score values (for synonymous changes forcibly set to +12 (dark green))"
+    _colorbar_label = f"{matrix_name} score values (synonymous codon changes shown in dark green)"
     if norm is not None:
         # BoundaryNorm path: colorbar is derived from the scatter ScalarMappable.
         _colorbar = figure.colorbar(_mpl_scatterplot, cax=ax3, label=_colorbar_label, location='right', pad=-0.1, alpha=0.5)
