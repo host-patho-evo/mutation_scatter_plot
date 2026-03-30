@@ -1330,9 +1330,17 @@ def render_bokeh(
     import bokeh.models
 
     if circles_bokeh:
-        _circles_x, _circles_y, _circles_size, _circles_marker, _circles_color, _circles_alpha, _circles_score, _circles_aa_pos, _circles_padded_pos = zip(*circles_bokeh)
+        # Tuple layout: (padded_pos, y_label, bokeh_size, marker, color, alpha, score, aa_pos, padded_pos)
+        #   index 0 = _padded_position  (x-axis)
+        #   index 3 = marker shape string ('circle', 'circle_x', or 'hex')
+        #   index 4 = pre-resolved hex color string (from adjust_size_and_color)
+        #   index 5 = alpha (constant 0.5)
+        #   index 6 = raw integer BLOSUM score
+        #   index 7 = _aa_position (real unpadded amino-acid position)
+        #   index 8 = _padded_position again (duplicate of index 0)
+        _circles_x, _circles_y, _circles_size, _circles_marker, _circles_color, _circles_alpha, _circles_score, _circles_aa_pos, _circles_padded_pos_dup = zip(*circles_bokeh)
     else:
-        _circles_x, _circles_y, _circles_size, _circles_marker, _circles_color, _circles_alpha, _circles_score, _circles_aa_pos, _circles_padded_pos = [], [], [], [], [], [], [], [], []
+        _circles_x, _circles_y, _circles_size, _circles_marker, _circles_color, _circles_alpha, _circles_score, _circles_aa_pos, _circles_padded_pos_dup = [], [], [], [], [], [], [], [], []
 
     _mysource = bokeh.models.ColumnDataSource(data={
         "x": _circles_x,
@@ -1344,7 +1352,7 @@ def render_bokeh(
         "score": _circles_score,
         "aaposition": _circles_aa_pos,
         "hover_text": [x.replace('\n', '<br>') for x in hover_texts],
-        "padded_pos": _circles_padded_pos,
+        "padded_pos": _circles_padded_pos_dup,
         "mutation": mutations,
     })
 
