@@ -368,9 +368,9 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
         _colorindex = max(0, min(len(colors) - 1, int(_score) + len(colors) // 2))
 
     if old_codon_or_aa.upper() == new_codon_or_aa.upper():
-        _color = '#00ff04'  # dark green; real BLOSUM score preserved unchanged
+        _color = '#219f11'  # dark green (amino_acid_changes score +12); real BLOSUM score preserved unchanged
     elif _old_codon_or_aa.upper() == _new_codon_or_aa.upper():
-        _color = '#00ff04'  # dark green; real BLOSUM score preserved unchanged
+        _color = '#219f11'  # dark green (amino_acid_changes score +12); real BLOSUM score preserved unchanged
     elif old_codon_or_aa in ('---', 'DEL', 'INS', '*') or new_codon_or_aa in ('---', 'DEL', 'INS', '*', 'TGA', 'TAA', 'TAG'):
         _color = '#ff0000'
         _score = -6
@@ -378,7 +378,7 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
         _color = '#808080'
     elif codon_on_input:
         if alt_translate(_old_codon_or_aa) == alt_translate(_new_codon_or_aa):
-            _color = '#00ff04'  # dark green; real BLOSUM score preserved unchanged
+            _color = '#219f11'  # dark green (amino_acid_changes score +12); real BLOSUM score preserved unchanged
         elif alt_translate(_new_codon_or_aa) == 'X':
             _color = '#808080'
         else:
@@ -1543,7 +1543,7 @@ def render_matplotlib(
             # pre-resolved as hex strings in adjust_size_and_color() using the
             # full [-11, +11] → [0, 1] mapping.  Pass them directly WITHOUT
             # cmap/norm so that matplotlib honours the explicit hex values
-            # (including '#00ff04' for synonymous changes) without re-scaling.
+            # (including '#219f11' for synonymous changes) without re-scaling.
             _mpl_scatterplot = ax1.scatter(cm_x, cm_y, marker='o', s=cm_s, alpha=0.5, c=list(cm_hex))
     else:
         if norm is not None:
