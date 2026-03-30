@@ -218,9 +218,9 @@ def get_colormap(myoptions, colormapname):
     # indexing scheme used by the hardcoded custom colormaps above, so that
     # adjust_size_and_color() can do colors[norm(score)] without crashing.
     if _norm is None:
-        _N = 38  # same score range as BoundaryNorm(np.arange(-19, 19, 1), …)
-        _colors = [_cmap(i / max(_N - 1, 1)) for i in range(_N)]
-        _norm = matplotlib.colors.BoundaryNorm(np.arange(-19, 19, 1), _N)
+        _n_slots = 38  # same score range as BoundaryNorm(np.arange(-19, 19, 1), …)
+        _colors = [_cmap(i / max(_n_slots - 1, 1)) for i in range(_n_slots)]
+        _norm = matplotlib.colors.BoundaryNorm(np.arange(-19, 19, 1), _n_slots)
 
     return _norm, _cmap, _colors
 
