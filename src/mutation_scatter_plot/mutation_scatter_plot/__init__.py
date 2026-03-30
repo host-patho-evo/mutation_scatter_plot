@@ -1519,16 +1519,21 @@ def render_matplotlib(
     """
 
     if circles_matplotlib:
-        cm_x, cm_y, cm_s, _, _, _, cm_c, _, _, _ = zip(*circles_matplotlib)
+        # Tuple layout: (padded_pos, i, size, marker, color, alpha, score, aa_pos, padded_pos, hover)
+        #   index 4 = pre-resolved hex color string
+        #   index 6 = raw integer BLOSUM score
+        cm_x, cm_y, cm_s, _cm_marker, cm_hex, _cm_alpha, cm_c, _cm_aa_pos, _cm_padded_pos, _cm_hover = zip(*circles_matplotlib)
         if norm is not None:
             # Custom ListedColormap path (amino_acid_changes etc.): BoundaryNorm
+            # Pass raw integer scores; cmap+norm map them to colours.
             _mpl_scatterplot = ax1.scatter(cm_x, cm_y, marker='o', s=cm_s, alpha=0.5, c=cm_c, cmap=cmap, norm=norm)
         else:
-            # Standard matplotlib cmap path: colours are already resolved as
-            # hex strings (including '#00ff04' for synonymous changes).
-            # Pass them directly WITHOUT cmap/norm to guarantee the explicit
-            # dark-green override is honoured by the renderer.
-            _mpl_scatterplot = ax1.scatter(cm_x, cm_y, marker='o', s=cm_s, alpha=0.5, c=list(cm_c))
+            # Standard matplotlib cmap path (e.g. coolwarm_r): colours are
+            # pre-resolved as hex strings in adjust_size_and_color() using the
+            # full [-11, +11] → [0, 1] mapping.  Pass them directly WITHOUT
+            # cmap/norm so that matplotlib honours the explicit hex values
+            # (including '#00ff04' for synonymous changes) without re-scaling.
+            _mpl_scatterplot = ax1.scatter(cm_x, cm_y, marker='o', s=cm_s, alpha=0.5, c=list(cm_hex))
     else:
         if norm is not None:
             _mpl_scatterplot = ax1.scatter([], [], marker='o', s=[], alpha=0.5, c=[], cmap=cmap, norm=norm)
