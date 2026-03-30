@@ -187,8 +187,8 @@ def build_option_parser():
         default='amino_acid_changes',
         help="Pick a colormap recognized by matplotlib."
              " See https://i.sstatic.net/cmk1J.png"
-             " [default is amino_acid_changes; coolwarm_r and seismic_r are"
-             " great alternatives]",
+             " [default is coolwarm_r but seismic_r and coolwarm_r are"
+             " great too]",
     )
     myparser.add_argument(
         "--dpi", action="store", type=int, dest="dpi", default=600,

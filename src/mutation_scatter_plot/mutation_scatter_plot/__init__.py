@@ -213,14 +213,6 @@ def get_colormap(myoptions, colormapname):
                             except (ImportError, Exception):
                                 print(f"Warning: Colormap {colormapname} not found, falling back to coolwarm_r")
                                 _cmap = matplotlib.colormaps.get_cmap('coolwarm_r')
-    # For any non-custom matplotlib colormap _norm and _colors are still None.
-    # Build a discrete colour list and BoundaryNorm that matches the integer-
-    # indexing scheme used by the hardcoded custom colormaps above, so that
-    # adjust_size_and_color() can do colors[norm(score)] without crashing.
-    if _norm is None:
-        _N = 38  # same score range as BoundaryNorm(np.arange(-19, 19, 1), …)
-        _colors = [_cmap(i / max(_N - 1, 1)) for i in range(_N)]
-        _norm = matplotlib.colors.BoundaryNorm(np.arange(-19, 19, 1), _N)
 
     return _norm, _cmap, _colors
 
@@ -439,26 +431,15 @@ def load_matrix(myoptions):
         _matrix_name = myoptions.matrix_file.split(os.path.sep)[-1]
         myoptions.matrix = _matrix_name
     else:
-        try:
-            _matrix_type = re.sub(r'\d+', '', myoptions.matrix)
-            _matrix_num = int(re.sub(r'[a-zA-Z_]+', '', myoptions.matrix))
-        except ValueError:
-            sys.stderr.write(
-                f"Warning: Cannot parse '{myoptions.matrix}' as a BLOSUM-style matrix name "
-                f"(expected e.g. BLOSUM80); falling back to BLOSUM80 for scoring "
-                f"but keeping '{myoptions.matrix}' in the output filename.{os.linesep}"
-            )
-            _matrix = blosum.BLOSUM(80)
-            _matrix_name = myoptions.matrix
+        _matrix_type, _matrix_num = re.sub(r'\d+', '', myoptions.matrix), int(re.sub(r'[a-zA-Z]+', '', myoptions.matrix))
+        if _matrix_type == 'BLOSUM':
+            _matrix = blosum.BLOSUM(_matrix_num)
+            _matrix_name = f"BLOSUM{_matrix_num}"
         else:
-            if _matrix_type == 'BLOSUM':
-                _matrix = blosum.BLOSUM(_matrix_num)
-                _matrix_name = f"BLOSUM{_matrix_num}"
-            else:
-                sys.stderr.write(f"Warning: Unexpected matrix type {str(_matrix_type)}, falling back to BLOSUM{os.linesep}")
-                _matrix = blosum.BLOSUM(_matrix_num)
-                _matrix_name = f"BLOSUM{_matrix_num}"
-                myoptions.matrix = _matrix_name
+            sys.stderr.write(f"Warning: Unexpected matrix type {str(_matrix_type)}, falling back to BLOSUM\n")
+            _matrix = blosum.BLOSUM(_matrix_num)
+            _matrix_name = f"BLOSUM{_matrix_num}"
+            myoptions.matrix = _matrix_name
 
     if not myoptions.outfile_prefix:
         raise RuntimeError("Please provide output filename prefix via --outfile-prefix")
