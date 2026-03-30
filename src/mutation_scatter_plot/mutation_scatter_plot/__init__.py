@@ -368,17 +368,23 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
         _colorindex = max(0, min(len(colors) - 1, int(_score) + len(colors) // 2))
 
     if old_codon_or_aa.upper() == new_codon_or_aa.upper():
-        _color = '#219f11'  # dark green (amino_acid_changes score +12); real BLOSUM score preserved unchanged
+        # Synonymous: canonical score +12 so the colorbar band at +12 shows '#219f11'.
+        # BoundaryNorm maps score +12 -> index 32 in amino_acid_changes palette (colors[32]='#219f11').
+        # The continuous-cmap (coolwarm_r) colorbar has '#219f11' appended at slot index _n (see render_bokeh).
+        _color = '#219f11'
+        _score = 12
     elif _old_codon_or_aa.upper() == _new_codon_or_aa.upper():
-        _color = '#219f11'  # dark green (amino_acid_changes score +12); real BLOSUM score preserved unchanged
+        _color = '#219f11'
+        _score = 12
     elif old_codon_or_aa in ('---', 'DEL', 'INS', '*') or new_codon_or_aa in ('---', 'DEL', 'INS', '*', 'TGA', 'TAA', 'TAG'):
+        # DEL/INS/STOP: score stays -11 (set above at line 359). No override here.
         _color = '#ff0000'
-        _score = -6
     elif _old_codon_or_aa in ('X', 'NNN') or new_codon_or_aa in ('X', 'NNN'):
         _color = '#808080'
     elif codon_on_input:
         if alt_translate(_old_codon_or_aa) == alt_translate(_new_codon_or_aa):
-            _color = '#219f11'  # dark green (amino_acid_changes score +12); real BLOSUM score preserved unchanged
+            _color = '#219f11'
+            _score = 12
         elif alt_translate(_new_codon_or_aa) == 'X':
             _color = '#808080'
         else:
