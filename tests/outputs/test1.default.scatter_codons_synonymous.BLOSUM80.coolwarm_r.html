@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Bokeh Plot</title>
+    <style>
+      html, body {
+        box-sizing: border-box;
+        display: flow-root;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+<script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.9.0.min.js"></script>
+<script>
+Bokeh.set_log_level("info");
+</script>
+  </head>
+  <body>
+    <div id="aba59dd9-9395-44aa-a71b-7bf8ff91b3b8" data-root-id="p1531" style="display: contents;"></div>
+  
+    <script type="application/json" id="da51a536-9d33-41fc-a4ec-64028ad08540">
+{
+    "a4d89305-4865-473d-a948-c229f5a68bd5": {
+        "version": "3.9.0",
+        "title": "Bokeh Application",
+        "config": {
+            "type": "object",
+            "name": "DocumentConfig",
+            "id": "p1591",
+            "attributes": {
+                "notifications": {
+                    "type": "object",
+                    "name": "Notifications",
+                    "id": "p1592"
+                }
+            }
+        },
+        "roots": [
+            {
+                "type": "object",
+                "name": "Figure",
+                "id": "p1531",
+                "attributes": {
+                    "width": 2000,
+                    "height": 1200,
+                    "sizing_mode": "stretch_width",
+                    "x_range": {
+                        "type": "object",
+                        "name": "Range1d",
+                        "id": "p1541",
+                        "attributes": {
+                            "start": 412,
+                            "end": 512
+                        }
+                    },
+                    "y_range": {
+                        "type": "object",
+                        "name": "FactorRange",
+                        "id": "p1542",
+                        "attributes": {
+                            "factors": [
+                                "TGT (C)",
+                                "TGC (C)",
+                                "CGT (R)",
+                                "CGC (R)",
+                                "CGA (R)",
+                                "CGG (R)",
+                                "AGA (R)",
+                                "AGG (R)",
+                                "AAA (K)",
+                                "AAG (K)",
+                                "GAA (E)",
+                                "GAG (E)",
+                                "CAA (Q)",
+                                "CAG (Q)",
+                                "GAT (D)",
+                                "GAC (D)",
+                                "AAT (N)",
+                                "AAC (N)",
+                                "ACT (T)",
+                                "ACC (T)",
+                                "ACA (T)",
+                                "ACG (T)",
+                                "TCT (S)",
+                                "TCC (S)",
+                                "TCA (S)",
+                                "TCG (S)",
+                                "AGT (S)",
+                                "AGC (S)",
+                                "CAT (H)",
+                                "CAC (H)",
+                                "ATG (M)",
+                                "CCT (P)",
+                                "CCC (P)",
+                                "CCA (P)",
+                                "CCG (P)",
+                                "TGG (W)",
+                                "TAT (Y)",
+                                "TAC (Y)",
+                                "TTT (F)",
+                                "TTC (F)",
+                                "GTT (V)",
+                                "GTC (V)",
+                                "GTA (V)",
+                                "GTG (V)",
+                                "TTA (L)",
+                                "TTG (L)",
+                                "CTT (L)",
+                                "CTC (L)",
+                                "CTA (L)",
+                                "CTG (L)",
+                                "ATT (I)",
+                                "ATC (I)",
+                                "ATA (I)",
+                                "GCT (A)",
+                                "GCC (A)",
+                                "GCA (A)",
+                                "GCG (A)",
+                                "GGT (G)",
+                                "GGC (G)",
+                                "GGA (G)",
+                                "GGG (G)",
+                                "TAA (*)",
+                                "TAG (*)",
+                                "TGA (*)",
+                                "--- (DEL)"
+                            ]
+                        }
+                    },
+                    "x_scale": {
+                        "type": "object",
+                        "name": "LinearScale",
+                        "id": "p1543"
+                    },
+                    "y_scale": {
+                        "type": "object",
+                        "name": "CategoricalScale",
+                        "id": "p1544"
+                    },
+                    "title": {
+                        "type": "object",
+                        "name": "Title",
+                        "id": "p1534",
+                        "attributes": {
+                            "text": "/home/mmokrejs/proj/mutation_scatter_plot/tests/outputs/test1.default",
+                            "text_font_size": "14pt",
+                            "align": "center"
+                        }
+                    },
+                    "renderers": [
+                        {
+                            "type": "object",
+                            "name": "GlyphRenderer",
+                            "id": "p1578",
+                            "attributes": {
+                                "data_source": {
+                                    "type": "object",
+                                    "name": "ColumnDataSource",
+                                    "id": "p1528",
+                                    "attributes": {
+                                        "selected": {
+                                            "type": "object",
+                                            "name": "Selection",
+                                            "id": "p1529",
+                                            "attributes": {
+                                                "indices": [],
+                                                "line_indices": []
+                                            }
+                                        },
+                                        "selection_policy": {
+                                            "type": "object",
+                                            "name": "UnionRenderers",
+                                            "id": "p1530"
+                                        },
+                                        "data": {
+                                            "type": "map",
+                                            "entries": [
+                                                [
+                                                    "x",
+                                                    [
+                                                        498,
+                                                        460,
+                                                        478,
+                                                        481,
+                                                        484,
+                                                        490,
+                                                        440,
+                                                        493,
+                                                        450,
+                                                        417,
+                                                        477,
+                                                        455,
+                                                        446,
+                                                        445,
+                                                        505,
+                                                        486,
+                                                        452,
+                                                        501,
+                                                        456,
+                                                        483
+                                                    ]
+                                                ],
+                                                [
+                                                    "y",
+                                                    [
+                                                        "CGA (R)",
+                                                        "AAA (K)",
+                                                        "AAA (K)",
+                                                        "AAA (K)",
+                                                        "AAA (K)",
+                                                        "AAA (K)",
+                                                        "AAG (K)",
+                                                        "GAA (E)",
+                                                        "GAT (D)",
+                                                        "AAT (N)",
+                                                        "AAC (N)",
+                                                        "TCG (S)",
+                                                        "AGT (S)",
+                                                        "CAT (H)",
+                                                        "CAC (H)",
+                                                        "CCT (P)",
+                                                        "TGG (W)",
+                                                        "TAT (Y)",
+                                                        "CTT (L)",
+                                                        "--- (-)"
+                                                    ]
+                                                ],
+                                                [
+                                                    "s",
+                                                    [
+                                                        48.038422122297064,
+                                                        48.038422122297064,
+                                                        48.038422122297064,
+                                                        48.038422122297064,
+                                                        48.038422122297064,
+                                                        27.734995943753084,
+                                                        48.038422122297064,
+                                                        27.734995943753084,
+                                                        48.038422122297064,
+                                                        48.038422122297064,
+                                                        48.038422122297064,
+                                                        48.038422122297064,
+                                                        48.038422122297064,
+                                                        48.038422122297064,
+                                                        48.038422122297064,
+                                                        48.038422122297064,
+                                                        48.038422122297064,
+                                                        48.038422122297064,
+                                                        27.734995943753084,
+                                                        48.038422122297064
+                                                    ]
+                                                ],
+                                                [
+                                                    "m",
+                                                    [
+                                                        "hex",
+                                                        "hex",
+                                                        "circle_x",
+                                                        "hex",
+                                                        "hex",
+                                                        "circle_x",
+                                                        "hex",
+                                                        "hex",
+                                                        "hex",
+                                                        "hex",
+                                                        "hex",
+                                                        "circle_x",
+                                                        "circle_x",
+                                                        "circle_x",
+                                                        "hex",
+                                                        "circle_x",
+                                                        "circle_x",
+                                                        "circle_x",
+                                                        "hex",
+                                                        "circle_x"
+                                                    ]
+                                                ],
+                                                [
+                                                    "c",
+                                                    [
+                                                        "#d1dae9",
+                                                        "#dcdddd",
+                                                        "#e8d6cc",
+                                                        "#dcdddd",
+                                                        "#d1dae9",
+                                                        "#f7b396",
+                                                        "#dcdddd",
+                                                        "#c3d5f4",
+                                                        "#d1dae9",
+                                                        "#dcdddd",
+                                                        "#dcdddd",
+                                                        "#f5c1a9",
+                                                        "#e8d6cc",
+                                                        "#f7b396",
+                                                        "#c3d5f4",
+                                                        "#f7b396",
+                                                        "#f1cdba",
+                                                        "#f5c1a9",
+                                                        "#dcdddd",
+                                                        "#ff0000"
+                                                    ]
+                                                ],
+                                                [
+                                                    "a",
+                                                    [
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5,
+                                                        0.5
+                                                    ]
+                                                ],
+                                                [
+                                                    "score",
+                                                    [
+                                                        1,
+                                                        0,
+                                                        -1,
+                                                        0,
+                                                        1,
+                                                        -4,
+                                                        0,
+                                                        2,
+                                                        1,
+                                                        0,
+                                                        0,
+                                                        -3,
+                                                        -1,
+                                                        -4,
+                                                        2,
+                                                        -4,
+                                                        -2,
+                                                        -3,
+                                                        0,
+                                                        -6
+                                                    ]
+                                                ],
+                                                [
+                                                    "aaposition",
+                                                    [
+                                                        498,
+                                                        460,
+                                                        478,
+                                                        481,
+                                                        484,
+                                                        490,
+                                                        440,
+                                                        493,
+                                                        450,
+                                                        417,
+                                                        477,
+                                                        455,
+                                                        446,
+                                                        445,
+                                                        505,
+                                                        486,
+                                                        452,
+                                                        501,
+                                                        456,
+                                                        483
+                                                    ]
+                                                ],
+                                                [
+                                                    "hover_text",
+                                                    [
+                                                        "Padded position: 498&lt;br&gt;Position: 498&lt;br&gt;Original Codon: CAA (Q)&lt;br&gt;New Codon: CGA (R)&lt;br&gt;BLOSUM80 score: 1.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 460&lt;br&gt;Position: 460&lt;br&gt;Original Codon: AAT (N)&lt;br&gt;New Codon: AAA (K)&lt;br&gt;BLOSUM80 score: 0.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 478&lt;br&gt;Position: 478&lt;br&gt;Original Codon: ACA (T)&lt;br&gt;New Codon: AAA (K)&lt;br&gt;BLOSUM80 score: -1.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 481&lt;br&gt;Position: 481&lt;br&gt;Original Codon: AAT (N)&lt;br&gt;New Codon: AAA (K)&lt;br&gt;BLOSUM80 score: 0.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 484&lt;br&gt;Position: 484&lt;br&gt;Original Codon: GAA (E)&lt;br&gt;New Codon: AAA (K)&lt;br&gt;BLOSUM80 score: 1.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 490&lt;br&gt;Position: 490&lt;br&gt;Original Codon: TTT (F)&lt;br&gt;New Codon: AAA (K)&lt;br&gt;BLOSUM80 score: -4.0&lt;br&gt;Frequency: 0.076923&lt;br&gt;Observed codon count: 1&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 440&lt;br&gt;Position: 440&lt;br&gt;Original Codon: AAT (N)&lt;br&gt;New Codon: AAG (K)&lt;br&gt;BLOSUM80 score: 0.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 493&lt;br&gt;Position: 493&lt;br&gt;Original Codon: CAA (Q)&lt;br&gt;New Codon: GAA (E)&lt;br&gt;BLOSUM80 score: 2.0&lt;br&gt;Frequency: 0.076923&lt;br&gt;Observed codon count: 1&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 450&lt;br&gt;Position: 450&lt;br&gt;Original Codon: AAT (N)&lt;br&gt;New Codon: GAT (D)&lt;br&gt;BLOSUM80 score: 1.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 417&lt;br&gt;Position: 417&lt;br&gt;Original Codon: AAG (K)&lt;br&gt;New Codon: AAT (N)&lt;br&gt;BLOSUM80 score: 0.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 477&lt;br&gt;Position: 477&lt;br&gt;Original Codon: AGC (S)&lt;br&gt;New Codon: AAC (N)&lt;br&gt;BLOSUM80 score: 0.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 455&lt;br&gt;Position: 455&lt;br&gt;Original Codon: TTG (L)&lt;br&gt;New Codon: TCG (S)&lt;br&gt;BLOSUM80 score: -3.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 446&lt;br&gt;Position: 446&lt;br&gt;Original Codon: GGT (G)&lt;br&gt;New Codon: AGT (S)&lt;br&gt;BLOSUM80 score: -1.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 445&lt;br&gt;Position: 445&lt;br&gt;Original Codon: GTT (V)&lt;br&gt;New Codon: CAT (H)&lt;br&gt;BLOSUM80 score: -4.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 505&lt;br&gt;Position: 505&lt;br&gt;Original Codon: TAC (Y)&lt;br&gt;New Codon: CAC (H)&lt;br&gt;BLOSUM80 score: 2.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 486&lt;br&gt;Position: 486&lt;br&gt;Original Codon: TTT (F)&lt;br&gt;New Codon: CCT (P)&lt;br&gt;BLOSUM80 score: -4.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 452&lt;br&gt;Position: 452&lt;br&gt;Original Codon: CTG (L)&lt;br&gt;New Codon: TGG (W)&lt;br&gt;BLOSUM80 score: -2.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 501&lt;br&gt;Position: 501&lt;br&gt;Original Codon: AAT (N)&lt;br&gt;New Codon: TAT (Y)&lt;br&gt;BLOSUM80 score: -3.0&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 456&lt;br&gt;Position: 456&lt;br&gt;Original Codon: TTT (F)&lt;br&gt;New Codon: CTT (L)&lt;br&gt;BLOSUM80 score: 0.0&lt;br&gt;Frequency: 0.076923&lt;br&gt;Observed codon count: 1&lt;br&gt;Total codons per site: 13",
+                                                        "Padded position: 483&lt;br&gt;Position: 483&lt;br&gt;Original Codon: GTT (V)&lt;br&gt;New Codon: --- (DEL)&lt;br&gt;BLOSUM80 score: -inf&lt;br&gt;Frequency: 0.230769&lt;br&gt;Observed codon count: 3&lt;br&gt;Total codons per site: 13"
+                                                    ]
+                                                ],
+                                                [
+                                                    "padded_pos",
+                                                    [
+                                                        498,
+                                                        460,
+                                                        478,
+                                                        481,
+                                                        484,
+                                                        490,
+                                                        440,
+                                                        493,
+                                                        450,
+                                                        417,
+                                                        477,
+                                                        455,
+                                                        446,
+                                                        445,
+                                                        505,
+                                                        486,
+                                                        452,
+                                                        501,
+                                                        456,
+                                                        483
+                                                    ]
+                                                ],
+                                                [
+                                                    "mutation",
+                                                    [
+                                                        "CAA498CGA",
+                                                        "AAT460AAA",
+                                                        "ACA478AAA",
+                                                        "AAT481AAA",
+                                                        "GAA484AAA",
+                                                        "TTT490AAA",
+                                                        "AAT440AAG",
+                                                        "CAA493GAA",
+                                                        "AAT450GAT",
+                                                        "AAG417AAT",
+                                                        "AGC477AAC",
+                                                        "TTG455TCG",
+                                                        "GGT446AGT",
+                                                        "GTT445CAT",
+                                                        "TAC505CAC",
+                                                        "TTT486CCT",
+                                                        "CTG452TGG",
+                                                        "AAT501TAT",
+                                                        "TTT456CTT",
+                                                        "GTT483---"
+                                                    ]
+                                                ]
+                                            ]
+                                        }
+                                    }
+                                },
+                                "view": {
+                                    "type": "object",
+                                    "name": "CDSView",
+                                    "id": "p1579",
+                                    "attributes": {
+                                        "filter": {
+                                            "type": "object",
+                                            "name": "AllIndices",
+                                            "id": "p1580"
+                                        }
+                                    }
+                                },
+                                "glyph": {
+                                    "type": "object",
+                                    "name": "Scatter",
+                                    "id": "p1575",
+                                    "attributes": {
+                                        "x": {
+                                            "type": "field",
+                                            "field": "x"
+                                        },
+                                        "y": {
+                                            "type": "field",
+                                            "field": "y"
+                                        },
+                                        "size": {
+                                            "type": "field",
+                                            "field": "s"
+                                        },
+                                        "line_color": {
+                                            "type": "field",
+                                            "field": "c"
+                                        },
+                                        "line_alpha": {
+                                            "type": "field",
+                                            "field": "a"
+                                        },
+                                        "fill_color": {
+                                            "type": "field",
+                                            "field": "c"
+                                        },
+                                        "fill_alpha": {
+                                            "type": "field",
+                                            "field": "a"
+                                        },
+                                        "hatch_color": {
+                                            "type": "field",
+                                            "field": "c"
+                                        },
+                                        "hatch_alpha": {
+                                            "type": "field",
+                                            "field": "a"
+                                        },
+                                        "marker": {
+                                            "type": "field",
+                                            "field": "m"
+                                        }
+                                    }
+                                },
+                                "nonselection_glyph": {
+                                    "type": "object",
+                                    "name": "Scatter",
+                                    "id": "p1576",
+                                    "attributes": {
+                                        "x": {
+                                            "type": "field",
+                                            "field": "x"
+                                        },
+                                        "y": {
+                                            "type": "field",
+                                            "field": "y"
+                                        },
+                                        "size": {
+                                            "type": "field",
+                                            "field": "s"
+                                        },
+                                        "line_color": {
+                                            "type": "field",
+                                            "field": "c"
+                                        },
+                                        "line_alpha": {
+                                            "type": "value",
+                                            "value": 0.1
+                                        },
+                                        "fill_color": {
+                                            "type": "field",
+                                            "field": "c"
+                                        },
+                                        "fill_alpha": {
+                                            "type": "value",
+                                            "value": 0.1
+                                        },
+                                        "hatch_color": {
+                                            "type": "field",
+                                            "field": "c"
+                                        },
+                                        "hatch_alpha": {
+                                            "type": "value",
+                                            "value": 0.1
+                                        },
+                                        "marker": {
+                                            "type": "field",
+                                            "field": "m"
+                                        }
+                                    }
+                                },
+                                "muted_glyph": {
+                                    "type": "object",
+                                    "name": "Scatter",
+                                    "id": "p1577",
+                                    "attributes": {
+                                        "x": {
+                                            "type": "field",
+                                            "field": "x"
+                                        },
+                                        "y": {
+                                            "type": "field",
+                                            "field": "y"
+                                        },
+                                        "size": {
+                                            "type": "field",
+                                            "field": "s"
+                                        },
+                                        "line_color": {
+                                            "type": "field",
+                                            "field": "c"
+                                        },
+                                        "line_alpha": {
+                                            "type": "value",
+                                            "value": 0.2
+                                        },
+                                        "fill_color": {
+                                            "type": "field",
+                                            "field": "c"
+                                        },
+                                        "fill_alpha": {
+                                            "type": "value",
+                                            "value": 0.2
+                                        },
+                                        "hatch_color": {
+                                            "type": "field",
+                                            "field": "c"
+                                        },
+                                        "hatch_alpha": {
+                                            "type": "value",
+                                            "value": 0.2
+                                        },
+                                        "marker": {
+                                            "type": "field",
+                                            "field": "m"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "type": "object",
+                            "name": "GlyphRenderer",
+                            "id": "p1588",
+                            "attributes": {
+                                "data_source": {
+                                    "id": "p1528"
+                                },
+                                "view": {
+                                    "type": "object",
+                                    "name": "CDSView",
+                                    "id": "p1589",
+                                    "attributes": {
+                                        "filter": {
+                                            "type": "object",
+                                            "name": "AllIndices",
+                                            "id": "p1590"
+                                        }
+                                    }
+                                },
+                                "glyph": {
+                                    "type": "object",
+                                    "name": "Text",
+                                    "id": "p1585",
+                                    "attributes": {
+                                        "x": {
+                                            "type": "field",
+                                            "field": "x"
+                                        },
+                                        "y": {
+                                            "type": "field",
+                                            "field": "y"
+                                        },
+                                        "text": {
+                                            "type": "field",
+                                            "field": "mutation"
+                                        },
+                                        "text_color": {
+                                            "type": "field",
+                                            "field": "c"
+                                        },
+                                        "text_font_size": {
+                                            "type": "value",
+                                            "value": "10px"
+                                        },
+                                        "text_font_style": {
+                                            "type": "value",
+                                            "value": "bold"
+                                        }
+                                    }
+                                },
+                                "nonselection_glyph": {
+                                    "type": "object",
+                                    "name": "Text",
+                                    "id": "p1586",
+                                    "attributes": {
+                                        "x": {
+                                            "type": "field",
+                                            "field": "x"
+                                        },
+                                        "y": {
+                                            "type": "field",
+                                            "field": "y"
+                                        },
+                                        "text": {
+                                            "type": "field",
+                                            "field": "mutation"
+                                        },
+                                        "text_color": {
+                                            "type": "field",
+                                            "field": "c"
+                                        },
+                                        "text_alpha": {
+                                            "type": "value",
+                                            "value": 0.1
+                                        },
+                                        "text_font_size": {
+                                            "type": "value",
+                                            "value": "10px"
+                                        },
+                                        "text_font_style": {
+                                            "type": "value",
+                                            "value": "bold"
+                                        }
+                                    }
+                                },
+                                "muted_glyph": {
+                                    "type": "object",
+                                    "name": "Text",
+                                    "id": "p1587",
+                                    "attributes": {
+                                        "x": {
+                                            "type": "field",
+                                            "field": "x"
+                                        },
+                                        "y": {
+                                            "type": "field",
+                                            "field": "y"
+                                        },
+                                        "text": {
+                                            "type": "field",
+                                            "field": "mutation"
+                                        },
+                                        "text_color": {
+                                            "type": "field",
+                                            "field": "c"
+                                        },
+                                        "text_alpha": {
+                                            "type": "value",
+                                            "value": 0.2
+                                        },
+                                        "text_font_size": {
+                                            "type": "value",
+                                            "value": "10px"
+                                        },
+                                        "text_font_style": {
+                                            "type": "value",
+                                            "value": "bold"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "toolbar": {
+                        "type": "object",
+                        "name": "Toolbar",
+                        "id": "p1540",
+                        "attributes": {
+                            "tools": [
+                                {
+                                    "type": "object",
+                                    "name": "PanTool",
+                                    "id": "p1555"
+                                },
+                                {
+                                    "type": "object",
+                                    "name": "WheelZoomTool",
+                                    "id": "p1556",
+                                    "attributes": {
+                                        "renderers": "auto"
+                                    }
+                                },
+                                {
+                                    "type": "object",
+                                    "name": "BoxZoomTool",
+                                    "id": "p1557",
+                                    "attributes": {
+                                        "overlay": {
+                                            "type": "object",
+                                            "name": "BoxAnnotation",
+                                            "id": "p1558",
+                                            "attributes": {
+                                                "syncable": false,
+                                                "line_color": "black",
+                                                "line_alpha": 1.0,
+                                                "line_width": 2,
+                                                "line_dash": [
+                                                    4,
+                                                    4
+                                                ],
+                                                "fill_color": "lightgrey",
+                                                "fill_alpha": 0.5,
+                                                "level": "overlay",
+                                                "visible": false,
+                                                "left": {
+                                                    "type": "number",
+                                                    "value": "nan"
+                                                },
+                                                "right": {
+                                                    "type": "number",
+                                                    "value": "nan"
+                                                },
+                                                "top": {
+                                                    "type": "number",
+                                                    "value": "nan"
+                                                },
+                                                "bottom": {
+                                                    "type": "number",
+                                                    "value": "nan"
+                                                },
+                                                "left_units": "canvas",
+                                                "right_units": "canvas",
+                                                "top_units": "canvas",
+                                                "bottom_units": "canvas",
+                                                "handles": {
+                                                    "type": "object",
+                                                    "name": "BoxInteractionHandles",
+                                                    "id": "p1564",
+                                                    "attributes": {
+                                                        "all": {
+                                                            "type": "object",
+                                                            "name": "AreaVisuals",
+                                                            "id": "p1563",
+                                                            "attributes": {
+                                                                "fill_color": "white",
+                                                                "hover_fill_color": "lightgray"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                {
+                                    "type": "object",
+                                    "name": "SaveTool",
+                                    "id": "p1565"
+                                },
+                                {
+                                    "type": "object",
+                                    "name": "ResetTool",
+                                    "id": "p1566"
+                                },
+                                {
+                                    "type": "object",
+                                    "name": "HelpTool",
+                                    "id": "p1567"
+                                },
+                                {
+                                    "type": "object",
+                                    "name": "HoverTool",
+                                    "id": "p1568",
+                                    "attributes": {
+                                        "renderers": "auto",
+                                        "tooltips": "@hover_text{safe}",
+                                        "sort_by": null
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "left": [
+                        {
+                            "type": "object",
+                            "name": "CategoricalAxis",
+                            "id": "p1550",
+                            "attributes": {
+                                "ticker": {
+                                    "type": "object",
+                                    "name": "CategoricalTicker",
+                                    "id": "p1551"
+                                },
+                                "formatter": {
+                                    "type": "object",
+                                    "name": "CategoricalTickFormatter",
+                                    "id": "p1552"
+                                },
+                                "axis_label": "Introduced codon changes",
+                                "axis_label_text_font_size": "12px",
+                                "major_label_policy": {
+                                    "type": "object",
+                                    "name": "AllLabels",
+                                    "id": "p1553"
+                                },
+                                "major_label_text_font_size": "12px"
+                            }
+                        }
+                    ],
+                    "right": [
+                        {
+                            "type": "object",
+                            "name": "ColorBar",
+                            "id": "p1583",
+                            "attributes": {
+                                "location": [
+                                    0,
+                                    0
+                                ],
+                                "title": "BLOSUM80 score values (synonymous codon changes shown in dark green)",
+                                "title_standoff": 10,
+                                "ticker": {
+                                    "type": "object",
+                                    "name": "FixedTicker",
+                                    "id": "p1582",
+                                    "attributes": {
+                                        "ticks": [
+                                            -11,
+                                            -10,
+                                            -9,
+                                            -8,
+                                            -7,
+                                            -6,
+                                            -5,
+                                            -4,
+                                            -3,
+                                            -2,
+                                            -1,
+                                            0,
+                                            1,
+                                            2,
+                                            3,
+                                            4,
+                                            5,
+                                            6,
+                                            7,
+                                            8,
+                                            9,
+                                            10,
+                                            11
+                                        ],
+                                        "minor_ticks": []
+                                    }
+                                },
+                                "major_label_policy": {
+                                    "type": "object",
+                                    "name": "NoOverlap",
+                                    "id": "p1584"
+                                },
+                                "label_standoff": 8,
+                                "color_mapper": {
+                                    "type": "object",
+                                    "name": "LinearColorMapper",
+                                    "id": "p1581",
+                                    "attributes": {
+                                        "palette": [
+                                            "#b40426",
+                                            "#c43032",
+                                            "#d44e41",
+                                            "#e0654f",
+                                            "#ea7b60",
+                                            "#f29072",
+                                            "#f6a283",
+                                            "#f7b396",
+                                            "#f5c1a9",
+                                            "#f1cdba",
+                                            "#e8d6cc",
+                                            "#dcdddd",
+                                            "#d1dae9",
+                                            "#c3d5f4",
+                                            "#b5cdfa",
+                                            "#a5c3fe",
+                                            "#94b6ff",
+                                            "#85a8fc",
+                                            "#7597f6",
+                                            "#6485ec",
+                                            "#5673e0",
+                                            "#485fd1",
+                                            "#3b4cc0"
+                                        ],
+                                        "low": -11.5,
+                                        "high": 11.5
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "below": [
+                        {
+                            "type": "object",
+                            "name": "LinearAxis",
+                            "id": "p1545",
+                            "attributes": {
+                                "ticker": {
+                                    "type": "object",
+                                    "name": "FixedTicker",
+                                    "id": "p1569",
+                                    "attributes": {
+                                        "ticks": [
+                                            420,
+                                            430,
+                                            440,
+                                            450,
+                                            460,
+                                            470,
+                                            480,
+                                            490,
+                                            500,
+                                            510,
+                                            520
+                                        ],
+                                        "minor_ticks": []
+                                    }
+                                },
+                                "formatter": {
+                                    "type": "object",
+                                    "name": "BasicTickFormatter",
+                                    "id": "p1547"
+                                },
+                                "axis_label": "Padded codon position",
+                                "axis_label_text_font_size": "12px",
+                                "major_label_orientation": "vertical",
+                                "major_label_policy": {
+                                    "type": "object",
+                                    "name": "AllLabels",
+                                    "id": "p1548"
+                                },
+                                "major_label_text_font_size": "12px"
+                            }
+                        },
+                        {
+                            "type": "object",
+                            "name": "LinearAxis",
+                            "id": "p1571",
+                            "attributes": {
+                                "ticker": {
+                                    "type": "object",
+                                    "name": "FixedTicker",
+                                    "id": "p1570",
+                                    "attributes": {
+                                        "ticks": [
+                                            415,
+                                            425,
+                                            435,
+                                            445,
+                                            455,
+                                            465,
+                                            475,
+                                            485,
+                                            495,
+                                            505,
+                                            515
+                                        ],
+                                        "minor_ticks": []
+                                    }
+                                },
+                                "formatter": {
+                                    "type": "object",
+                                    "name": "BasicTickFormatter",
+                                    "id": "p1573"
+                                },
+                                "axis_label_text_font_size": "12px",
+                                "major_label_orientation": "vertical",
+                                "major_label_policy": {
+                                    "type": "object",
+                                    "name": "AllLabels",
+                                    "id": "p1574"
+                                },
+                                "major_label_text_font_size": "12px",
+                                "axis_line_color": null,
+                                "major_tick_in": 4,
+                                "major_tick_out": 0
+                            }
+                        }
+                    ],
+                    "center": [
+                        {
+                            "type": "object",
+                            "name": "Grid",
+                            "id": "p1549",
+                            "attributes": {
+                                "axis": {
+                                    "id": "p1545"
+                                }
+                            }
+                        },
+                        {
+                            "type": "object",
+                            "name": "Grid",
+                            "id": "p1554",
+                            "attributes": {
+                                "dimension": 1,
+                                "axis": {
+                                    "id": "p1550"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+}
+</script>
+    <script>
+      (function() {
+        const fn = function() {
+          Bokeh.safely(function() {
+            (function(root) {
+              function embed_document(root) {
+              const docs_json = document.getElementById('da51a536-9d33-41fc-a4ec-64028ad08540').textContent;
+              const render_items = [{"docid":"a4d89305-4865-473d-a948-c229f5a68bd5","roots":{"p1531":"aba59dd9-9395-44aa-a71b-7bf8ff91b3b8"},"root_ids":["p1531"]}];
+              root.Bokeh.embed.embed_items(docs_json, render_items);
+              }
+              if (root.Bokeh !== undefined) {
+                embed_document(root);
+              } else {
+                let attempts = 0;
+                const timer = setInterval(function(root) {
+                  if (root.Bokeh !== undefined) {
+                    clearInterval(timer);
+                    embed_document(root);
+                  } else {
+                    attempts++;
+                    if (attempts > 100) {
+                      clearInterval(timer);
+                      console.log("Bokeh: ERROR: Unable to run BokehJS code because BokehJS library is missing");
+                    }
+                  }
+                }, 10, root)
+              }
+            })(window);
+          });
+        };
+        if (document.readyState != "loading") fn();
+        else document.addEventListener("DOMContentLoaded", fn);
+      })();
+    </script>
+  </body>
+</html>

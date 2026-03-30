@@ -260,6 +260,88 @@ class TestMutationScatterPlot(unittest.TestCase):
                     self.assertEqual(returncode, 0, f"Command failed for {name}:\n{output}")
                     self._check_outputs(target_prefix, tmpdir, f"{name}.scatter_codons")
 
+    def test_all_inputs_aminoacids_coolwarm_r(self):
+        """mutation_scatter_plot --aminoacids with --colormap=coolwarm_r (standard Normalize path)"""
+        test_inputs = [
+            ("test1.default", "test1.default.frequencies.tsv"),
+            ("test2.x_after_count", "test2.x_after_count.frequencies.tsv"),
+            ("test2_full.x_after_count", "test2_full.x_after_count.frequencies.tsv"),
+            ("test3.default", "test3.default.frequencies.tsv"),
+        ]
+        for name, tsv_file in test_inputs:
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    target_prefix = "test_run"
+                    outfile_prefix = os.path.join(tmpdir, target_prefix)
+                    tsv_path = os.path.join(self.outputs_dir, tsv_file)
+                    cmd_args = [
+                        "--tsv", tsv_path,
+                        "--outfile-prefix", outfile_prefix,
+                        "--aminoacids",
+                        "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
+                        "--colormap=coolwarm_r",
+                        "--threshold=0.001",
+                        "--disable-showing-bokeh", "--disable-showing-mplcursors"
+                    ]
+                    returncode, output = self._invoke_cli(cmd_args)
+                    self.assertEqual(returncode, 0, f"Command failed for {name}:\n{output}")
+                    self._check_outputs(target_prefix, tmpdir, f"{name}.scatter_aminoacids")
+
+    def test_all_inputs_codons_coolwarm_r_synonymous(self):
+        """mutation_scatter_plot codon mode with --colormap=coolwarm_r --include-synonymous"""
+        test_inputs = [
+            ("test1.default", "test1.default.frequencies.tsv"),
+            ("test2.x_after_count", "test2.x_after_count.frequencies.tsv"),
+            ("test2_full.x_after_count", "test2_full.x_after_count.frequencies.tsv"),
+            ("test3.default", "test3.default.frequencies.tsv"),
+        ]
+        for name, tsv_file in test_inputs:
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    target_prefix = "test_run"
+                    outfile_prefix = os.path.join(tmpdir, target_prefix)
+                    tsv_path = os.path.join(self.outputs_dir, tsv_file)
+                    cmd_args = [
+                        "--tsv", tsv_path,
+                        "--outfile-prefix", outfile_prefix,
+                        "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
+                        "--include-synonymous",
+                        "--colormap=coolwarm_r",
+                        "--threshold=0.001",
+                        "--disable-showing-bokeh", "--disable-showing-mplcursors"
+                    ]
+                    returncode, output = self._invoke_cli(cmd_args)
+                    self.assertEqual(returncode, 0, f"Command failed for {name}:\n{output}")
+                    self._check_outputs(target_prefix, tmpdir, f"{name}.scatter_codons_synonymous")
+
+    def test_all_inputs_aminoacids_coolwarm_r_synonymous(self):
+        """mutation_scatter_plot --aminoacids with --colormap=coolwarm_r --include-synonymous"""
+        test_inputs = [
+            ("test1.default", "test1.default.frequencies.tsv"),
+            ("test2.x_after_count", "test2.x_after_count.frequencies.tsv"),
+            ("test2_full.x_after_count", "test2_full.x_after_count.frequencies.tsv"),
+            ("test3.default", "test3.default.frequencies.tsv"),
+        ]
+        for name, tsv_file in test_inputs:
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    target_prefix = "test_run"
+                    outfile_prefix = os.path.join(tmpdir, target_prefix)
+                    tsv_path = os.path.join(self.outputs_dir, tsv_file)
+                    cmd_args = [
+                        "--tsv", tsv_path,
+                        "--outfile-prefix", outfile_prefix,
+                        "--aminoacids",
+                        "--show-STOP", "--show-X", "--show-DEL", "--show-INS",
+                        "--include-synonymous",
+                        "--colormap=coolwarm_r",
+                        "--threshold=0.001",
+                        "--disable-showing-bokeh", "--disable-showing-mplcursors"
+                    ]
+                    returncode, output = self._invoke_cli(cmd_args)
+                    self.assertEqual(returncode, 0, f"Command failed for {name}:\n{output}")
+                    self._check_outputs(target_prefix, tmpdir, f"{name}.scatter_aminoacids_synonymous")
+
     def test4_compare_aminoacids(self):
         """mutation_scatter_plot pairwise compare: --aminoacids vs --aminoacids --include-synonymous HTML JSONs"""
         # pylint: disable=too-many-locals
