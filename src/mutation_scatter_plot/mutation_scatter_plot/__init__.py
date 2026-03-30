@@ -1520,9 +1520,15 @@ def render_matplotlib(
 
     if circles_matplotlib:
         # Tuple layout: (padded_pos, i, size, marker, color, alpha, score, aa_pos, padded_pos, hover)
-        #   index 4 = pre-resolved hex color string
+        #   index 0 = _padded_position  (x-axis)
+        #   index 3 = marker shape string ('circle' or 'circle_x')
+        #   index 4 = pre-resolved hex color string (from adjust_size_and_color)
+        #   index 5 = alpha (constant 0.5)
         #   index 6 = raw integer BLOSUM score
-        cm_x, cm_y, cm_s, _cm_marker, cm_hex, _cm_alpha, cm_c, _cm_aa_pos, _cm_padded_pos, _cm_hover = zip(*circles_matplotlib)
+        #   index 7 = _aa_position (real unpadded amino-acid position)
+        #   index 8 = _padded_position again (duplicate of index 0)
+        #   index 9 = hover text string
+        cm_x, cm_y, cm_s, _cm_marker, cm_hex, _cm_alpha, cm_c, _cm_aa_pos, _cm_padded_pos_dup, _cm_hover = zip(*circles_matplotlib)
         if norm is not None:
             # Custom ListedColormap path (amino_acid_changes etc.): BoundaryNorm
             # Pass raw integer scores; cmap+norm map them to colours.
