@@ -512,5 +512,56 @@ class TestMutationScatterPlot(unittest.TestCase):
             for f in expected_files:
                 self.assertTrue(os.path.exists(os.path.join(tmpdir, f)), f"Output file {f} was not generated")
 
+    def test_synonymous_color_override_coolwarm_r(self):
+        """Synonymous codon entries (same codon→codon, same AA) must be colored #219f11
+        in coolwarm_r mode, not the colormap color for their BLOSUM self-score.
+
+        The fixture test_unchanged.frequencies.tsv is every-5th-row from
+        profile_codon_t4_out.unchanged_codons.tsv, containing identical
+        original_codon == mutant_codon entries (M→M, F→F, V→V, …).  Each of
+        these triggers the synonymous-color override in adjust_size_and_color().
+        """
+        tsv_path = os.path.join(self.outputs_dir, "test_unchanged.frequencies.tsv")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target_prefix = "test_run"
+            outfile_prefix = os.path.join(tmpdir, target_prefix)
+            cmd_args = [
+                "--tsv", tsv_path,
+                "--outfile-prefix", outfile_prefix,
+                "--include-synonymous",
+                "--colormap=coolwarm_r",
+                "--threshold=0.001",
+                "--disable-showing-bokeh", "--disable-showing-mplcursors",
+            ]
+            returncode, output = self._invoke_cli(cmd_args)
+            self.assertEqual(returncode, 0, f"Command failed:\n{output}")
+
+            # Locate the generated .codon.frequencies.colors.tsv
+            colors_tsv = next(
+                (os.path.join(tmpdir, f) for f in os.listdir(tmpdir)
+                 if f.endswith(".codon.frequencies.colors.tsv")),
+                None,
+            )
+            self.assertIsNotNone(colors_tsv, "No .codon.frequencies.colors.tsv was generated")
+
+            # Every data row must carry the synonymous dark-green override color
+            with open(colors_tsv, encoding="utf-8") as fh:
+                lines = [ln.rstrip("\n") for ln in fh if ln.strip()]
+            header, rows = lines[0], lines[1:]
+            self.assertGreater(len(rows), 0, "colors TSV has no data rows")
+            col_idx = header.split("\t").index("color")
+            non_green = [
+                ln for ln in rows
+                if ln.split("\t")[col_idx].lower() != "#219f11"
+            ]
+            self.assertEqual(
+                non_green, [],
+                f"Expected all synonymous rows to be #219f11 (dark green) but got:\n"
+                + "\n".join(non_green[:10]),
+            )
+
+            # Also save/compare golden files
+            self._check_outputs(target_prefix, tmpdir, "test_unchanged.scatter_codons_synonymous")
+
 if __name__ == "__main__":
     unittest.main()

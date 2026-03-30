@@ -1,0 +1,1022 @@
+[
+  {
+    "index": 0,
+    "text": "Padded position: 1126\nPosition: 1126\nOriginal Codon: TGT (C)\nNew Codon: TGT (C)\nBLOSUM80 score: 9.0\nFrequency: 0.999876\nObserved codon count: 96,779\nTotal codons per site: 96,791"
+  },
+  {
+    "index": 1,
+    "text": "Padded position: 131\nPosition: 131\nOriginal Codon: TGT (C)\nNew Codon: TGT (C)\nBLOSUM80 score: 9.0\nFrequency: 0.999006\nObserved codon count: 80,371\nTotal codons per site: 80,451"
+  },
+  {
+    "index": 2,
+    "text": "Padded position: 136\nPosition: 136\nOriginal Codon: TGT (C)\nNew Codon: TGT (C)\nBLOSUM80 score: 9.0\nFrequency: 0.994605\nObserved codon count: 80,378\nTotal codons per site: 80,814"
+  },
+  {
+    "index": 3,
+    "text": "Padded position: 1236\nPosition: 1236\nOriginal Codon: TGT (C)\nNew Codon: TGT (C)\nBLOSUM80 score: 9.0\nFrequency: 0.999065\nObserved codon count: 96,193\nTotal codons per site: 96,283"
+  },
+  {
+    "index": 4,
+    "text": "Padded position: 1241\nPosition: 1241\nOriginal Codon: TGT (C)\nNew Codon: TGT (C)\nBLOSUM80 score: 9.0\nFrequency: 0.999564\nObserved codon count: 96,240\nTotal codons per site: 96,282"
+  },
+  {
+    "index": 5,
+    "text": "Padded position: 291\nPosition: 291\nOriginal Codon: TGT (C)\nNew Codon: TGT (C)\nBLOSUM80 score: 9.0\nFrequency: 0.999816\nObserved codon count: 87,063\nTotal codons per site: 87,079"
+  },
+  {
+    "index": 6,
+    "text": "Padded position: 301\nPosition: 301\nOriginal Codon: TGT (C)\nNew Codon: TGT (C)\nBLOSUM80 score: 9.0\nFrequency: 0.999885\nObserved codon count: 87,114\nTotal codons per site: 87,124"
+  },
+  {
+    "index": 7,
+    "text": "Padded position: 851\nPosition: 851\nOriginal Codon: TGT (C)\nNew Codon: TGT (C)\nBLOSUM80 score: 9.0\nFrequency: 0.999670\nObserved codon count: 97,075\nTotal codons per site: 97,107"
+  },
+  {
+    "index": 8,
+    "text": "Padded position: 361\nPosition: 361\nOriginal Codon: TGT (C)\nNew Codon: TGT (C)\nBLOSUM80 score: 9.0\nFrequency: 0.999462\nObserved codon count: 89,176\nTotal codons per site: 89,224"
+  },
+  {
+    "index": 9,
+    "text": "Padded position: 671\nPosition: 671\nOriginal Codon: TGC (C)\nNew Codon: TGC (C)\nBLOSUM80 score: 9.0\nFrequency: 0.999111\nObserved codon count: 97,777\nTotal codons per site: 97,864"
+  },
+  {
+    "index": 10,
+    "text": "Padded position: 166\nPosition: 166\nOriginal Codon: TGC (C)\nNew Codon: TGC (C)\nBLOSUM80 score: 9.0\nFrequency: 0.998953\nObserved codon count: 83,950\nTotal codons per site: 84,038"
+  },
+  {
+    "index": 11,
+    "text": "Padded position: 336\nPosition: 336\nOriginal Codon: TGC (C)\nNew Codon: TGC (C)\nBLOSUM80 score: 9.0\nFrequency: 0.995490\nObserved codon count: 88,519\nTotal codons per site: 88,920"
+  },
+  {
+    "index": 12,
+    "text": "Padded position: 391\nPosition: 391\nOriginal Codon: TGC (C)\nNew Codon: TGC (C)\nBLOSUM80 score: 9.0\nFrequency: 0.998435\nObserved codon count: 89,302\nTotal codons per site: 89,442"
+  },
+  {
+    "index": 13,
+    "text": "Padded position: 1091\nPosition: 1091\nOriginal Codon: CGT (R)\nNew Codon: CGT (R)\nBLOSUM80 score: 6.0\nFrequency: 0.998812\nObserved codon count: 96,683\nTotal codons per site: 96,798"
+  },
+  {
+    "index": 14,
+    "text": "Padded position: 646\nPosition: 646\nOriginal Codon: CGT (R)\nNew Codon: CGT (R)\nBLOSUM80 score: 6.0\nFrequency: 0.999612\nObserved codon count: 97,827\nTotal codons per site: 97,865"
+  },
+  {
+    "index": 15,
+    "text": "Padded position: 21\nPosition: 21\nOriginal Codon: AGA (R)\nNew Codon: AGA (R)\nBLOSUM80 score: 6.0\nFrequency: 0.985919\nObserved codon count: 77,439\nTotal codons per site: 78,545"
+  },
+  {
+    "index": 16,
+    "text": "Padded position: 246\nPosition: 246\nOriginal Codon: AGA (R)\nNew Codon: AGA (R)\nBLOSUM80 score: 6.0\nFrequency: 0.998294\nObserved codon count: 85,425\nTotal codons per site: 85,571"
+  },
+  {
+    "index": 17,
+    "text": "Padded position: 346\nPosition: 346\nOriginal Codon: AGA (R)\nNew Codon: AGA (R)\nBLOSUM80 score: 6.0\nFrequency: 0.805545\nObserved codon count: 71,683\nTotal codons per site: 88,987"
+  },
+  {
+    "index": 18,
+    "text": "Padded position: 466\nPosition: 466\nOriginal Codon: AGA (R)\nNew Codon: AGA (R)\nBLOSUM80 score: 6.0\nFrequency: 0.997522\nObserved codon count: 92,982\nTotal codons per site: 93,213"
+  },
+  {
+    "index": 19,
+    "text": "Padded position: 41\nPosition: 41\nOriginal Codon: AAA (K)\nNew Codon: AAA (K)\nBLOSUM80 score: 5.0\nFrequency: 0.998317\nObserved codon count: 78,913\nTotal codons per site: 79,046"
+  },
+  {
+    "index": 20,
+    "text": "Padded position: 1086\nPosition: 1086\nOriginal Codon: AAA (K)\nNew Codon: AAA (K)\nBLOSUM80 score: 5.0\nFrequency: 0.999359\nObserved codon count: 96,736\nTotal codons per site: 96,798"
+  },
+  {
+    "index": 21,
+    "text": "Padded position: 1181\nPosition: 1181\nOriginal Codon: AAA (K)\nNew Codon: AAA (K)\nBLOSUM80 score: 5.0\nFrequency: 0.999087\nObserved codon count: 96,279\nTotal codons per site: 96,367"
+  },
+  {
+    "index": 22,
+    "text": "Padded position: 1211\nPosition: 1211\nOriginal Codon: AAA (K)\nNew Codon: AAA (K)\nBLOSUM80 score: 5.0\nFrequency: 0.999772\nObserved codon count: 96,319\nTotal codons per site: 96,341"
+  },
+  {
+    "index": 23,
+    "text": "Padded position: 1266\nPosition: 1266\nOriginal Codon: AAA (K)\nNew Codon: AAA (K)\nBLOSUM80 score: 5.0\nFrequency: 0.999200\nObserved codon count: 96,153\nTotal codons per site: 96,230"
+  },
+  {
+    "index": 24,
+    "text": "Padded position: 776\nPosition: 776\nOriginal Codon: AAA (K)\nNew Codon: AAA (K)\nBLOSUM80 score: 5.0\nFrequency: 0.999591\nObserved codon count: 97,835\nTotal codons per site: 97,875"
+  },
+  {
+    "index": 25,
+    "text": "Padded position: 786\nPosition: 786\nOriginal Codon: AAA (K)\nNew Codon: AAA (K)\nBLOSUM80 score: 5.0\nFrequency: 0.999663\nObserved codon count: 97,820\nTotal codons per site: 97,853"
+  },
+  {
+    "index": 26,
+    "text": "Padded position: 811\nPosition: 811\nOriginal Codon: AAA (K)\nNew Codon: AAA (K)\nBLOSUM80 score: 5.0\nFrequency: 0.999295\nObserved codon count: 97,753\nTotal codons per site: 97,822"
+  },
+  {
+    "index": 27,
+    "text": "Padded position: 386\nPosition: 386\nOriginal Codon: AAA (K)\nNew Codon: AAA (K)\nBLOSUM80 score: 5.0\nFrequency: 0.998758\nObserved codon count: 89,251\nTotal codons per site: 89,362"
+  },
+  {
+    "index": 28,
+    "text": "Padded position: 921\nPosition: 921\nOriginal Codon: AAA (K)\nNew Codon: AAA (K)\nBLOSUM80 score: 5.0\nFrequency: 0.999248\nObserved codon count: 96,955\nTotal codons per site: 97,028"
+  },
+  {
+    "index": 29,
+    "text": "Padded position: 986\nPosition: 986\nOriginal Codon: AAA (K)\nNew Codon: AAA (K)\nBLOSUM80 score: 5.0\nFrequency: 0.999763\nObserved codon count: 96,952\nTotal codons per site: 96,975"
+  },
+  {
+    "index": 30,
+    "text": "Padded position: 1191\nPosition: 1191\nOriginal Codon: AAG (K)\nNew Codon: AAG (K)\nBLOSUM80 score: 5.0\nFrequency: 0.995226\nObserved codon count: 95,886\nTotal codons per site: 96,346"
+  },
+  {
+    "index": 31,
+    "text": "Padded position: 206\nPosition: 206\nOriginal Codon: AAG (K)\nNew Codon: AAG (K)\nBLOSUM80 score: 5.0\nFrequency: 0.999621\nObserved codon count: 84,378\nTotal codons per site: 84,410"
+  },
+  {
+    "index": 32,
+    "text": "Padded position: 356\nPosition: 356\nOriginal Codon: AAG (K)\nNew Codon: AAG (K)\nBLOSUM80 score: 5.0\nFrequency: 0.978455\nObserved codon count: 87,288\nTotal codons per site: 89,210"
+  },
+  {
+    "index": 33,
+    "text": "Padded position: 516\nPosition: 516\nOriginal Codon: GAA (E)\nNew Codon: GAA (E)\nBLOSUM80 score: 6.0\nFrequency: 0.998632\nObserved codon count: 94,918\nTotal codons per site: 95,048"
+  },
+  {
+    "index": 34,
+    "text": "Padded position: 1111\nPosition: 1111\nOriginal Codon: GAA (E)\nNew Codon: GAA (E)\nBLOSUM80 score: 6.0\nFrequency: 0.999246\nObserved codon count: 96,718\nTotal codons per site: 96,791"
+  },
+  {
+    "index": 35,
+    "text": "Padded position: 191\nPosition: 191\nOriginal Codon: GAA (E)\nNew Codon: GAA (E)\nBLOSUM80 score: 6.0\nFrequency: 0.999775\nObserved codon count: 84,338\nTotal codons per site: 84,357"
+  },
+  {
+    "index": 36,
+    "text": "Padded position: 281\nPosition: 281\nOriginal Codon: GAA (E)\nNew Codon: GAA (E)\nBLOSUM80 score: 6.0\nFrequency: 0.998870\nObserved codon count: 85,735\nTotal codons per site: 85,832"
+  },
+  {
+    "index": 37,
+    "text": "Padded position: 406\nPosition: 406\nOriginal Codon: GAA (E)\nNew Codon: GAA (E)\nBLOSUM80 score: 6.0\nFrequency: 0.999790\nObserved codon count: 90,487\nTotal codons per site: 90,506"
+  },
+  {
+    "index": 38,
+    "text": "Padded position: 471\nPosition: 471\nOriginal Codon: GAA (E)\nNew Codon: GAA (E)\nBLOSUM80 score: 6.0\nFrequency: 0.998555\nObserved codon count: 93,261\nTotal codons per site: 93,396"
+  },
+  {
+    "index": 39,
+    "text": "Padded position: 1031\nPosition: 1031\nOriginal Codon: GAG (E)\nNew Codon: GAG (E)\nBLOSUM80 score: 6.0\nFrequency: 0.999979\nObserved codon count: 96,859\nTotal codons per site: 96,861"
+  },
+  {
+    "index": 40,
+    "text": "Padded position: 96\nPosition: 96\nOriginal Codon: GAG (E)\nNew Codon: GAG (E)\nBLOSUM80 score: 6.0\nFrequency: 0.996559\nObserved codon count: 79,934\nTotal codons per site: 80,210"
+  },
+  {
+    "index": 41,
+    "text": "Padded position: 1151\nPosition: 1151\nOriginal Codon: GAG (E)\nNew Codon: GAG (E)\nBLOSUM80 score: 6.0\nFrequency: 0.999742\nObserved codon count: 96,763\nTotal codons per site: 96,788"
+  },
+  {
+    "index": 42,
+    "text": "Padded position: 661\nPosition: 661\nOriginal Codon: GAG (E)\nNew Codon: GAG (E)\nBLOSUM80 score: 6.0\nFrequency: 0.998916\nObserved codon count: 97,686\nTotal codons per site: 97,792"
+  },
+  {
+    "index": 43,
+    "text": "Padded position: 156\nPosition: 156\nOriginal Codon: GAG (E)\nNew Codon: GAG (E)\nBLOSUM80 score: 6.0\nFrequency: 0.649056\nObserved codon count: 54,424\nTotal codons per site: 83,851"
+  },
+  {
+    "index": 44,
+    "text": "Padded position: 1036\nPosition: 1036\nOriginal Codon: CAA (Q)\nNew Codon: CAA (Q)\nBLOSUM80 score: 6.0\nFrequency: 0.999897\nObserved codon count: 96,854\nTotal codons per site: 96,864"
+  },
+  {
+    "index": 45,
+    "text": "Padded position: 1071\nPosition: 1071\nOriginal Codon: CAA (Q)\nNew Codon: CAA (Q)\nBLOSUM80 score: 6.0\nFrequency: 0.998255\nObserved codon count: 96,673\nTotal codons per site: 96,842"
+  },
+  {
+    "index": 46,
+    "text": "Padded position: 1106\nPosition: 1106\nOriginal Codon: CAA (Q)\nNew Codon: CAA (Q)\nBLOSUM80 score: 6.0\nFrequency: 0.999907\nObserved codon count: 96,785\nTotal codons per site: 96,794"
+  },
+  {
+    "index": 47,
+    "text": "Padded position: 1201\nPosition: 1201\nOriginal Codon: CAA (Q)\nNew Codon: CAA (Q)\nBLOSUM80 score: 6.0\nFrequency: 0.998287\nObserved codon count: 96,181\nTotal codons per site: 96,346"
+  },
+  {
+    "index": 48,
+    "text": "Padded position: 271\nPosition: 271\nOriginal Codon: CAA (Q)\nNew Codon: CAA (Q)\nBLOSUM80 score: 6.0\nFrequency: 0.999336\nObserved codon count: 85,757\nTotal codons per site: 85,814"
+  },
+  {
+    "index": 49,
+    "text": "Padded position: 321\nPosition: 321\nOriginal Codon: CAA (Q)\nNew Codon: CAA (Q)\nBLOSUM80 score: 6.0\nFrequency: 0.993739\nObserved codon count: 87,138\nTotal codons per site: 87,687"
+  },
+  {
+    "index": 50,
+    "text": "Padded position: 836\nPosition: 836\nOriginal Codon: CAA (Q)\nNew Codon: CAA (Q)\nBLOSUM80 score: 6.0\nFrequency: 0.998911\nObserved codon count: 98,129\nTotal codons per site: 98,236"
+  },
+  {
+    "index": 51,
+    "text": "Padded position: 901\nPosition: 901\nOriginal Codon: CAA (Q)\nNew Codon: CAA (Q)\nBLOSUM80 score: 6.0\nFrequency: 0.999959\nObserved codon count: 97,025\nTotal codons per site: 97,029"
+  },
+  {
+    "index": 52,
+    "text": "Padded position: 926\nPosition: 926\nOriginal Codon: CAA (Q)\nNew Codon: CAA (Q)\nBLOSUM80 score: 6.0\nFrequency: 0.999897\nObserved codon count: 97,012\nTotal codons per site: 97,022"
+  },
+  {
+    "index": 53,
+    "text": "Padded position: 1011\nPosition: 1011\nOriginal Codon: CAA (Q)\nNew Codon: CAA (Q)\nBLOSUM80 score: 6.0\nFrequency: 0.999783\nObserved codon count: 96,880\nTotal codons per site: 96,901"
+  },
+  {
+    "index": 54,
+    "text": "Padded position: 506\nPosition: 506\nOriginal Codon: CAA (Q)\nNew Codon: CAA (Q)\nBLOSUM80 score: 6.0\nFrequency: 0.992920\nObserved codon count: 94,108\nTotal codons per site: 94,779"
+  },
+  {
+    "index": 55,
+    "text": "Padded position: 1041\nPosition: 1041\nOriginal Codon: GAT (D)\nNew Codon: GAT (D)\nBLOSUM80 score: 6.0\nFrequency: 0.999763\nObserved codon count: 96,841\nTotal codons per site: 96,864"
+  },
+  {
+    "index": 56,
+    "text": "Padded position: 111\nPosition: 111\nOriginal Codon: GAT (D)\nNew Codon: GAT (D)\nBLOSUM80 score: 6.0\nFrequency: 0.997783\nObserved codon count: 80,095\nTotal codons per site: 80,273"
+  },
+  {
+    "index": 57,
+    "text": "Padded position: 796\nPosition: 796\nOriginal Codon: GAT (D)\nNew Codon: GAT (D)\nBLOSUM80 score: 6.0\nFrequency: 0.503568\nObserved codon count: 49,260\nTotal codons per site: 97,822"
+  },
+  {
+    "index": 58,
+    "text": "Padded position: 571\nPosition: 571\nOriginal Codon: GAC (D)\nNew Codon: GAC (D)\nBLOSUM80 score: 6.0\nFrequency: 0.999509\nObserved codon count: 97,805\nTotal codons per site: 97,853"
+  },
+  {
+    "index": 59,
+    "text": "Padded position: 586\nPosition: 586\nOriginal Codon: GAC (D)\nNew Codon: GAC (D)\nBLOSUM80 score: 6.0\nFrequency: 0.999448\nObserved codon count: 97,814\nTotal codons per site: 97,868"
+  },
+  {
+    "index": 60,
+    "text": "Padded position: 1146\nPosition: 1146\nOriginal Codon: GAC (D)\nNew Codon: GAC (D)\nBLOSUM80 score: 6.0\nFrequency: 0.506953\nObserved codon count: 49,067\nTotal codons per site: 96,788"
+  },
+  {
+    "index": 61,
+    "text": "Padded position: 936\nPosition: 936\nOriginal Codon: GAC (D)\nNew Codon: GAC (D)\nBLOSUM80 score: 6.0\nFrequency: 0.994259\nObserved codon count: 96,464\nTotal codons per site: 97,021"
+  },
+  {
+    "index": 62,
+    "text": "Padded position: 61\nPosition: 61\nOriginal Codon: AAT (N)\nNew Codon: AAT (N)\nBLOSUM80 score: 6.0\nFrequency: 0.995319\nObserved codon count: 79,307\nTotal codons per site: 79,680"
+  },
+  {
+    "index": 63,
+    "text": "Padded position: 121\nPosition: 121\nOriginal Codon: AAT (N)\nNew Codon: AAT (N)\nBLOSUM80 score: 6.0\nFrequency: 0.998830\nObserved codon count: 80,261\nTotal codons per site: 80,355"
+  },
+  {
+    "index": 64,
+    "text": "Padded position: 641\nPosition: 641\nOriginal Codon: AAT (N)\nNew Codon: AAT (N)\nBLOSUM80 score: 6.0\nFrequency: 0.999377\nObserved codon count: 97,803\nTotal codons per site: 97,864"
+  },
+  {
+    "index": 65,
+    "text": "Padded position: 196\nPosition: 196\nOriginal Codon: AAT (N)\nNew Codon: AAT (N)\nBLOSUM80 score: 6.0\nFrequency: 0.999810\nObserved codon count: 84,376\nTotal codons per site: 84,392"
+  },
+  {
+    "index": 66,
+    "text": "Padded position: 211\nPosition: 211\nOriginal Codon: AAT (N)\nNew Codon: AAT (N)\nBLOSUM80 score: 6.0\nFrequency: 0.979529\nObserved codon count: 82,684\nTotal codons per site: 84,412"
+  },
+  {
+    "index": 67,
+    "text": "Padded position: 751\nPosition: 751\nOriginal Codon: AAT (N)\nNew Codon: AAT (N)\nBLOSUM80 score: 6.0\nFrequency: 0.998391\nObserved codon count: 96,819\nTotal codons per site: 96,975"
+  },
+  {
+    "index": 68,
+    "text": "Padded position: 801\nPosition: 801\nOriginal Codon: AAT (N)\nNew Codon: AAT (N)\nBLOSUM80 score: 6.0\nFrequency: 0.997557\nObserved codon count: 97,589\nTotal codons per site: 97,828"
+  },
+  {
+    "index": 69,
+    "text": "Padded position: 331\nPosition: 331\nOriginal Codon: AAT (N)\nNew Codon: AAT (N)\nBLOSUM80 score: 6.0\nFrequency: 0.999663\nObserved codon count: 88,873\nTotal codons per site: 88,903"
+  },
+  {
+    "index": 70,
+    "text": "Padded position: 481\nPosition: 481\nOriginal Codon: AAT (N)\nNew Codon: AAT (N)\nBLOSUM80 score: 6.0\nFrequency: 0.987190\nObserved codon count: 93,327\nTotal codons per site: 94,538"
+  },
+  {
+    "index": 71,
+    "text": "Padded position: 501\nPosition: 501\nOriginal Codon: AAT (N)\nNew Codon: AAT (N)\nBLOSUM80 score: 6.0\nFrequency: 0.432708\nObserved codon count: 40,958\nTotal codons per site: 94,655"
+  },
+  {
+    "index": 72,
+    "text": "Padded position: 536\nPosition: 536\nOriginal Codon: AAC (N)\nNew Codon: AAC (N)\nBLOSUM80 score: 6.0\nFrequency: 0.999478\nObserved codon count: 97,674\nTotal codons per site: 97,725"
+  },
+  {
+    "index": 73,
+    "text": "Padded position: 556\nPosition: 556\nOriginal Codon: AAC (N)\nNew Codon: AAC (N)\nBLOSUM80 score: 6.0\nFrequency: 0.998262\nObserved codon count: 97,633\nTotal codons per site: 97,803"
+  },
+  {
+    "index": 74,
+    "text": "Padded position: 81\nPosition: 81\nOriginal Codon: AAC (N)\nNew Codon: AAC (N)\nBLOSUM80 score: 6.0\nFrequency: 0.997120\nObserved codon count: 79,621\nTotal codons per site: 79,851"
+  },
+  {
+    "index": 75,
+    "text": "Padded position: 606\nPosition: 606\nOriginal Codon: AAC (N)\nNew Codon: AAC (N)\nBLOSUM80 score: 6.0\nFrequency: 0.997425\nObserved codon count: 97,612\nTotal codons per site: 97,864"
+  },
+  {
+    "index": 76,
+    "text": "Padded position: 616\nPosition: 616\nOriginal Codon: AAC (N)\nNew Codon: AAC (N)\nBLOSUM80 score: 6.0\nFrequency: 0.999499\nObserved codon count: 97,839\nTotal codons per site: 97,888"
+  },
+  {
+    "index": 77,
+    "text": "Padded position: 856\nPosition: 856\nOriginal Codon: AAC (N)\nNew Codon: AAC (N)\nBLOSUM80 score: 6.0\nFrequency: 0.925839\nObserved codon count: 89,936\nTotal codons per site: 97,140"
+  },
+  {
+    "index": 78,
+    "text": "Padded position: 531\nPosition: 531\nOriginal Codon: ACT (T)\nNew Codon: ACT (T)\nBLOSUM80 score: 5.0\nFrequency: 0.998946\nObserved codon count: 97,615\nTotal codons per site: 97,718"
+  },
+  {
+    "index": 79,
+    "text": "Padded position: 1066\nPosition: 1066\nOriginal Codon: ACT (T)\nNew Codon: ACT (T)\nBLOSUM80 score: 5.0\nFrequency: 0.999515\nObserved codon count: 96,797\nTotal codons per site: 96,844"
+  },
+  {
+    "index": 80,
+    "text": "Padded position: 51\nPosition: 51\nOriginal Codon: ACT (T)\nNew Codon: ACT (T)\nBLOSUM80 score: 5.0\nFrequency: 0.997293\nObserved codon count: 78,845\nTotal codons per site: 79,059"
+  },
+  {
+    "index": 81,
+    "text": "Padded position: 76\nPosition: 76\nOriginal Codon: ACT (T)\nNew Codon: ACT (T)\nBLOSUM80 score: 5.0\nFrequency: 0.991255\nObserved codon count: 79,122\nTotal codons per site: 79,820"
+  },
+  {
+    "index": 82,
+    "text": "Padded position: 1116\nPosition: 1116\nOriginal Codon: ACT (T)\nNew Codon: ACT (T)\nBLOSUM80 score: 5.0\nFrequency: 0.996952\nObserved codon count: 96,496\nTotal codons per site: 96,791"
+  },
+  {
+    "index": 83,
+    "text": "Padded position: 676\nPosition: 676\nOriginal Codon: ACT (T)\nNew Codon: ACT (T)\nBLOSUM80 score: 5.0\nFrequency: 0.998590\nObserved codon count: 97,727\nTotal codons per site: 97,865"
+  },
+  {
+    "index": 84,
+    "text": "Padded position: 696\nPosition: 696\nOriginal Codon: ACT (T)\nNew Codon: ACT (T)\nBLOSUM80 score: 5.0\nFrequency: 0.999630\nObserved codon count: 97,220\nTotal codons per site: 97,256"
+  },
+  {
+    "index": 85,
+    "text": "Padded position: 236\nPosition: 236\nOriginal Codon: ACT (T)\nNew Codon: ACT (T)\nBLOSUM80 score: 5.0\nFrequency: 0.999105\nObserved codon count: 84,838\nTotal codons per site: 84,914"
+  },
+  {
+    "index": 86,
+    "text": "Padded position: 376\nPosition: 376\nOriginal Codon: ACT (T)\nNew Codon: ACT (T)\nBLOSUM80 score: 5.0\nFrequency: 0.561351\nObserved codon count: 50,164\nTotal codons per site: 89,363"
+  },
+  {
+    "index": 87,
+    "text": "Padded position: 1076\nPosition: 1076\nOriginal Codon: ACA (T)\nNew Codon: ACA (T)\nBLOSUM80 score: 5.0\nFrequency: 0.999391\nObserved codon count: 96,784\nTotal codons per site: 96,843"
+  },
+  {
+    "index": 88,
+    "text": "Padded position: 581\nPosition: 581\nOriginal Codon: ACA (T)\nNew Codon: ACA (T)\nBLOSUM80 score: 5.0\nFrequency: 0.999837\nObserved codon count: 97,861\nTotal codons per site: 97,877"
+  },
+  {
+    "index": 89,
+    "text": "Padded position: 1136\nPosition: 1136\nOriginal Codon: ACA (T)\nNew Codon: ACA (T)\nBLOSUM80 score: 5.0\nFrequency: 0.999700\nObserved codon count: 96,761\nTotal codons per site: 96,790"
+  },
+  {
+    "index": 90,
+    "text": "Padded position: 716\nPosition: 716\nOriginal Codon: ACA (T)\nNew Codon: ACA (T)\nBLOSUM80 score: 5.0\nFrequency: 0.932899\nObserved codon count: 90,702\nTotal codons per site: 97,226"
+  },
+  {
+    "index": 91,
+    "text": "Padded position: 1231\nPosition: 1231\nOriginal Codon: ACA (T)\nNew Codon: ACA (T)\nBLOSUM80 score: 5.0\nFrequency: 0.999283\nObserved codon count: 96,215\nTotal codons per site: 96,284"
+  },
+  {
+    "index": 92,
+    "text": "Padded position: 761\nPosition: 761\nOriginal Codon: ACA (T)\nNew Codon: ACA (T)\nBLOSUM80 score: 5.0\nFrequency: 0.999525\nObserved codon count: 96,864\nTotal codons per site: 96,910"
+  },
+  {
+    "index": 93,
+    "text": "Padded position: 791\nPosition: 791\nOriginal Codon: ACA (T)\nNew Codon: ACA (T)\nBLOSUM80 score: 5.0\nFrequency: 0.998375\nObserved codon count: 97,690\nTotal codons per site: 97,849"
+  },
+  {
+    "index": 94,
+    "text": "Padded position: 286\nPosition: 286\nOriginal Codon: ACA (T)\nNew Codon: ACA (T)\nBLOSUM80 score: 5.0\nFrequency: 0.999372\nObserved codon count: 85,950\nTotal codons per site: 86,004"
+  },
+  {
+    "index": 95,
+    "text": "Padded position: 866\nPosition: 866\nOriginal Codon: ACA (T)\nNew Codon: ACA (T)\nBLOSUM80 score: 5.0\nFrequency: 0.999536\nObserved codon count: 96,992\nTotal codons per site: 97,037"
+  },
+  {
+    "index": 96,
+    "text": "Padded position: 881\nPosition: 881\nOriginal Codon: ACA (T)\nNew Codon: ACA (T)\nBLOSUM80 score: 5.0\nFrequency: 0.999712\nObserved codon count: 97,029\nTotal codons per site: 97,057"
+  },
+  {
+    "index": 97,
+    "text": "Padded position: 941\nPosition: 941\nOriginal Codon: ACA (T)\nNew Codon: ACA (T)\nBLOSUM80 score: 5.0\nFrequency: 0.997308\nObserved codon count: 96,708\nTotal codons per site: 96,969"
+  },
+  {
+    "index": 98,
+    "text": "Padded position: 1006\nPosition: 1006\nOriginal Codon: ACA (T)\nNew Codon: ACA (T)\nBLOSUM80 score: 5.0\nFrequency: 0.999278\nObserved codon count: 96,833\nTotal codons per site: 96,903"
+  },
+  {
+    "index": 99,
+    "text": "Padded position: 961\nPosition: 961\nOriginal Codon: ACG (T)\nNew Codon: ACG (T)\nBLOSUM80 score: 5.0\nFrequency: 0.998505\nObserved codon count: 96,860\nTotal codons per site: 97,005"
+  },
+  {
+    "index": 100,
+    "text": "Padded position: 31\nPosition: 31\nOriginal Codon: TCT (S)\nNew Codon: TCT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.997096\nObserved codon count: 78,615\nTotal codons per site: 78,844"
+  },
+  {
+    "index": 101,
+    "text": "Padded position: 71\nPosition: 71\nOriginal Codon: TCT (S)\nNew Codon: TCT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.997732\nObserved codon count: 79,633\nTotal codons per site: 79,814"
+  },
+  {
+    "index": 102,
+    "text": "Padded position: 591\nPosition: 591\nOriginal Codon: TCT (S)\nNew Codon: TCT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.999704\nObserved codon count: 97,839\nTotal codons per site: 97,868"
+  },
+  {
+    "index": 103,
+    "text": "Padded position: 161\nPosition: 161\nOriginal Codon: TCT (S)\nNew Codon: TCT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.999655\nObserved codon count: 84,004\nTotal codons per site: 84,033"
+  },
+  {
+    "index": 104,
+    "text": "Padded position: 1196\nPosition: 1196\nOriginal Codon: TCT (S)\nNew Codon: TCT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.999595\nObserved codon count: 96,307\nTotal codons per site: 96,346"
+  },
+  {
+    "index": 105,
+    "text": "Padded position: 711\nPosition: 711\nOriginal Codon: TCT (S)\nNew Codon: TCT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.999681\nObserved codon count: 97,193\nTotal codons per site: 97,224"
+  },
+  {
+    "index": 106,
+    "text": "Padded position: 1261\nPosition: 1261\nOriginal Codon: TCT (S)\nNew Codon: TCT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.998379\nObserved codon count: 96,098\nTotal codons per site: 96,254"
+  },
+  {
+    "index": 107,
+    "text": "Padded position: 316\nPosition: 316\nOriginal Codon: TCT (S)\nNew Codon: TCT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.999564\nObserved codon count: 87,096\nTotal codons per site: 87,134"
+  },
+  {
+    "index": 108,
+    "text": "Padded position: 366\nPosition: 366\nOriginal Codon: TCT (S)\nNew Codon: TCT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.999317\nObserved codon count: 89,217\nTotal codons per site: 89,278"
+  },
+  {
+    "index": 109,
+    "text": "Padded position: 1021\nPosition: 1021\nOriginal Codon: TCT (S)\nNew Codon: TCT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.999742\nObserved codon count: 96,876\nTotal codons per site: 96,901"
+  },
+  {
+    "index": 110,
+    "text": "Padded position: 1051\nPosition: 1051\nOriginal Codon: TCC (S)\nNew Codon: TCC (S)\nBLOSUM80 score: 5.0\nFrequency: 0.998957\nObserved codon count: 96,763\nTotal codons per site: 96,864"
+  },
+  {
+    "index": 111,
+    "text": "Padded position: 116\nPosition: 116\nOriginal Codon: TCC (S)\nNew Codon: TCC (S)\nBLOSUM80 score: 5.0\nFrequency: 0.997161\nObserved codon count: 80,088\nTotal codons per site: 80,316"
+  },
+  {
+    "index": 112,
+    "text": "Padded position: 691\nPosition: 691\nOriginal Codon: TCC (S)\nNew Codon: TCC (S)\nBLOSUM80 score: 5.0\nFrequency: 0.994265\nObserved codon count: 96,735\nTotal codons per site: 97,293"
+  },
+  {
+    "index": 113,
+    "text": "Padded position: 371\nPosition: 371\nOriginal Codon: TCC (S)\nNew Codon: TCC (S)\nBLOSUM80 score: 5.0\nFrequency: 0.548688\nObserved codon count: 49,005\nTotal codons per site: 89,313"
+  },
+  {
+    "index": 114,
+    "text": "Padded position: 46\nPosition: 46\nOriginal Codon: TCA (S)\nNew Codon: TCA (S)\nBLOSUM80 score: 5.0\nFrequency: 0.998027\nObserved codon count: 78,903\nTotal codons per site: 79,059"
+  },
+  {
+    "index": 115,
+    "text": "Padded position: 1161\nPosition: 1161\nOriginal Codon: TCA (S)\nNew Codon: TCA (S)\nBLOSUM80 score: 5.0\nFrequency: 0.998295\nObserved codon count: 96,624\nTotal codons per site: 96,789"
+  },
+  {
+    "index": 116,
+    "text": "Padded position: 746\nPosition: 746\nOriginal Codon: TCA (S)\nNew Codon: TCA (S)\nBLOSUM80 score: 5.0\nFrequency: 0.999608\nObserved codon count: 96,814\nTotal codons per site: 96,852"
+  },
+  {
+    "index": 117,
+    "text": "Padded position: 256\nPosition: 256\nOriginal Codon: TCA (S)\nNew Codon: TCA (S)\nBLOSUM80 score: 5.0\nFrequency: 0.994194\nObserved codon count: 85,100\nTotal codons per site: 85,597"
+  },
+  {
+    "index": 118,
+    "text": "Padded position: 816\nPosition: 816\nOriginal Codon: TCA (S)\nNew Codon: TCA (S)\nBLOSUM80 score: 5.0\nFrequency: 0.997404\nObserved codon count: 97,599\nTotal codons per site: 97,853"
+  },
+  {
+    "index": 119,
+    "text": "Padded position: 221\nPosition: 221\nOriginal Codon: TCG (S)\nNew Codon: TCG (S)\nBLOSUM80 score: 5.0\nFrequency: 0.993190\nObserved codon count: 84,148\nTotal codons per site: 84,725"
+  },
+  {
+    "index": 120,
+    "text": "Padded position: 596\nPosition: 596\nOriginal Codon: AGT (S)\nNew Codon: AGT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.999918\nObserved codon count: 97,854\nTotal codons per site: 97,862"
+  },
+  {
+    "index": 121,
+    "text": "Padded position: 151\nPosition: 151\nOriginal Codon: AGT (S)\nNew Codon: AGT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.997972\nObserved codon count: 83,677\nTotal codons per site: 83,847"
+  },
+  {
+    "index": 122,
+    "text": "Padded position: 686\nPosition: 686\nOriginal Codon: AGT (S)\nNew Codon: AGT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.998121\nObserved codon count: 97,226\nTotal codons per site: 97,409"
+  },
+  {
+    "index": 123,
+    "text": "Padded position: 721\nPosition: 721\nOriginal Codon: AGT (S)\nNew Codon: AGT (S)\nBLOSUM80 score: 5.0\nFrequency: 0.999774\nObserved codon count: 97,201\nTotal codons per site: 97,223"
+  },
+  {
+    "index": 124,
+    "text": "Padded position: 66\nPosition: 66\nOriginal Codon: CAT (H)\nNew Codon: CAT (H)\nBLOSUM80 score: 8.0\nFrequency: 0.998684\nObserved codon count: 79,652\nTotal codons per site: 79,757"
+  },
+  {
+    "index": 125,
+    "text": "Padded position: 1271\nPosition: 1271\nOriginal Codon: CAT (H)\nNew Codon: CAT (H)\nBLOSUM80 score: 8.0\nFrequency: 0.999938\nObserved codon count: 96,218\nTotal codons per site: 96,224"
+  },
+  {
+    "index": 126,
+    "text": "Padded position: 1101\nPosition: 1101\nOriginal Codon: CAC (H)\nNew Codon: CAC (H)\nBLOSUM80 score: 8.0\nFrequency: 0.995279\nObserved codon count: 96,341\nTotal codons per site: 96,798"
+  },
+  {
+    "index": 127,
+    "text": "Padded position: 146\nPosition: 146\nOriginal Codon: CAC (H)\nNew Codon: CAC (H)\nBLOSUM80 score: 8.0\nFrequency: 0.898153\nObserved codon count: 75,276\nTotal codons per site: 83,812"
+  },
+  {
+    "index": 128,
+    "text": "Padded position: 1\nPosition: 1\nOriginal Codon: ATG (M)\nNew Codon: ATG (M)\nBLOSUM80 score: 6.0\nFrequency: 0.999885\nObserved codon count: 78,258\nTotal codons per site: 78,267"
+  },
+  {
+    "index": 129,
+    "text": "Padded position: 731\nPosition: 731\nOriginal Codon: ATG (M)\nNew Codon: ATG (M)\nBLOSUM80 score: 6.0\nFrequency: 0.999505\nObserved codon count: 96,840\nTotal codons per site: 96,888"
+  },
+  {
+    "index": 130,
+    "text": "Padded position: 26\nPosition: 26\nOriginal Codon: CCT (P)\nNew Codon: CCT (P)\nBLOSUM80 score: 8.0\nFrequency: 0.533742\nObserved codon count: 41,926\nTotal codons per site: 78,551"
+  },
+  {
+    "index": 131,
+    "text": "Padded position: 561\nPosition: 561\nOriginal Codon: CCT (P)\nNew Codon: CCT (P)\nBLOSUM80 score: 8.0\nFrequency: 0.999325\nObserved codon count: 97,733\nTotal codons per site: 97,799"
+  },
+  {
+    "index": 132,
+    "text": "Padded position: 621\nPosition: 621\nOriginal Codon: CCT (P)\nNew Codon: CCT (P)\nBLOSUM80 score: 8.0\nFrequency: 0.986780\nObserved codon count: 96,591\nTotal codons per site: 97,885"
+  },
+  {
+    "index": 133,
+    "text": "Padded position: 631\nPosition: 631\nOriginal Codon: CCT (P)\nNew Codon: CCT (P)\nBLOSUM80 score: 8.0\nFrequency: 0.999234\nObserved codon count: 97,785\nTotal codons per site: 97,860"
+  },
+  {
+    "index": 134,
+    "text": "Padded position: 681\nPosition: 681\nOriginal Codon: CCT (P)\nNew Codon: CCT (P)\nBLOSUM80 score: 8.0\nFrequency: 0.108015\nObserved codon count: 10,576\nTotal codons per site: 97,912"
+  },
+  {
+    "index": 135,
+    "text": "Padded position: 251\nPosition: 251\nOriginal Codon: CCT (P)\nNew Codon: CCT (P)\nBLOSUM80 score: 8.0\nFrequency: 0.992265\nObserved codon count: 84,921\nTotal codons per site: 85,583"
+  },
+  {
+    "index": 136,
+    "text": "Padded position: 491\nPosition: 491\nOriginal Codon: CCT (P)\nNew Codon: CCT (P)\nBLOSUM80 score: 8.0\nFrequency: 0.997210\nObserved codon count: 94,370\nTotal codons per site: 94,634"
+  },
+  {
+    "index": 137,
+    "text": "Padded position: 521\nPosition: 521\nOriginal Codon: CCA (P)\nNew Codon: CCA (P)\nBLOSUM80 score: 8.0\nFrequency: 0.989990\nObserved codon count: 94,944\nTotal codons per site: 95,904"
+  },
+  {
+    "index": 138,
+    "text": "Padded position: 426\nPosition: 426\nOriginal Codon: CCA (P)\nNew Codon: CCA (P)\nBLOSUM80 score: 8.0\nFrequency: 0.997302\nObserved codon count: 90,937\nTotal codons per site: 91,183"
+  },
+  {
+    "index": 139,
+    "text": "Padded position: 886\nPosition: 886\nOriginal Codon: TGG (W)\nNew Codon: TGG (W)\nBLOSUM80 score: 11.0\nFrequency: 0.999815\nObserved codon count: 97,021\nTotal codons per site: 97,039"
+  },
+  {
+    "index": 140,
+    "text": "Padded position: 436\nPosition: 436\nOriginal Codon: TGG (W)\nNew Codon: TGG (W)\nBLOSUM80 score: 11.0\nFrequency: 0.997131\nObserved codon count: 91,069\nTotal codons per site: 91,331"
+  },
+  {
+    "index": 141,
+    "text": "Padded position: 91\nPosition: 91\nOriginal Codon: TAT (Y)\nNew Codon: TAT (Y)\nBLOSUM80 score: 7.0\nFrequency: 0.995598\nObserved codon count: 79,604\nTotal codons per site: 79,956"
+  },
+  {
+    "index": 142,
+    "text": "Padded position: 636\nPosition: 636\nOriginal Codon: TAT (Y)\nNew Codon: TAT (Y)\nBLOSUM80 score: 7.0\nFrequency: 0.999714\nObserved codon count: 97,835\nTotal codons per site: 97,863"
+  },
+  {
+    "index": 143,
+    "text": "Padded position: 1206\nPosition: 1206\nOriginal Codon: TAT (Y)\nNew Codon: TAT (Y)\nBLOSUM80 score: 7.0\nFrequency: 0.999709\nObserved codon count: 96,317\nTotal codons per site: 96,345"
+  },
+  {
+    "index": 144,
+    "text": "Padded position: 756\nPosition: 756\nOriginal Codon: TAT (Y)\nNew Codon: TAT (Y)\nBLOSUM80 score: 7.0\nFrequency: 0.999794\nObserved codon count: 96,899\nTotal codons per site: 96,919"
+  },
+  {
+    "index": 145,
+    "text": "Padded position: 266\nPosition: 266\nOriginal Codon: TAT (Y)\nNew Codon: TAT (Y)\nBLOSUM80 score: 7.0\nFrequency: 0.999067\nObserved codon count: 85,633\nTotal codons per site: 85,713"
+  },
+  {
+    "index": 146,
+    "text": "Padded position: 351\nPosition: 351\nOriginal Codon: TAT (Y)\nNew Codon: TAT (Y)\nBLOSUM80 score: 7.0\nFrequency: 0.998307\nObserved codon count: 89,015\nTotal codons per site: 89,166"
+  },
+  {
+    "index": 147,
+    "text": "Padded position: 396\nPosition: 396\nOriginal Codon: TAT (Y)\nNew Codon: TAT (Y)\nBLOSUM80 score: 7.0\nFrequency: 0.997630\nObserved codon count: 89,646\nTotal codons per site: 89,859"
+  },
+  {
+    "index": 148,
+    "text": "Padded position: 421\nPosition: 421\nOriginal Codon: TAT (Y)\nNew Codon: TAT (Y)\nBLOSUM80 score: 7.0\nFrequency: 0.999375\nObserved codon count: 91,125\nTotal codons per site: 91,182"
+  },
+  {
+    "index": 149,
+    "text": "Padded position: 741\nPosition: 741\nOriginal Codon: TAC (Y)\nNew Codon: TAC (Y)\nBLOSUM80 score: 7.0\nFrequency: 0.999184\nObserved codon count: 96,784\nTotal codons per site: 96,863"
+  },
+  {
+    "index": 150,
+    "text": "Padded position: 451\nPosition: 451\nOriginal Codon: TAC (Y)\nNew Codon: TAC (Y)\nBLOSUM80 score: 7.0\nFrequency: 0.999121\nObserved codon count: 92,044\nTotal codons per site: 92,125"
+  },
+  {
+    "index": 151,
+    "text": "Padded position: 86\nPosition: 86\nOriginal Codon: TTT (F)\nNew Codon: TTT (F)\nBLOSUM80 score: 6.0\nFrequency: 0.995572\nObserved codon count: 79,594\nTotal codons per site: 79,948"
+  },
+  {
+    "index": 152,
+    "text": "Padded position: 1121\nPosition: 1121\nOriginal Codon: TTT (F)\nNew Codon: TTT (F)\nBLOSUM80 score: 6.0\nFrequency: 0.999721\nObserved codon count: 96,764\nTotal codons per site: 96,791"
+  },
+  {
+    "index": 153,
+    "text": "Padded position: 106\nPosition: 106\nOriginal Codon: TTT (F)\nNew Codon: TTT (F)\nBLOSUM80 score: 6.0\nFrequency: 0.998467\nObserved codon count: 80,115\nTotal codons per site: 80,238"
+  },
+  {
+    "index": 154,
+    "text": "Padded position: 1156\nPosition: 1156\nOriginal Codon: TTT (F)\nNew Codon: TTT (F)\nBLOSUM80 score: 6.0\nFrequency: 0.999917\nObserved codon count: 96,781\nTotal codons per site: 96,789"
+  },
+  {
+    "index": 155,
+    "text": "Padded position: 201\nPosition: 201\nOriginal Codon: TTT (F)\nNew Codon: TTT (F)\nBLOSUM80 score: 6.0\nFrequency: 0.999834\nObserved codon count: 84,391\nTotal codons per site: 84,405"
+  },
+  {
+    "index": 156,
+    "text": "Padded position: 1256\nPosition: 1256\nOriginal Codon: TTT (F)\nNew Codon: TTT (F)\nBLOSUM80 score: 6.0\nFrequency: 0.999834\nObserved codon count: 96,252\nTotal codons per site: 96,268"
+  },
+  {
+    "index": 157,
+    "text": "Padded position: 906\nPosition: 906\nOriginal Codon: TTT (F)\nNew Codon: TTT (F)\nBLOSUM80 score: 6.0\nFrequency: 0.999866\nObserved codon count: 97,016\nTotal codons per site: 97,029"
+  },
+  {
+    "index": 158,
+    "text": "Padded position: 456\nPosition: 456\nOriginal Codon: TTT (F)\nNew Codon: TTT (F)\nBLOSUM80 score: 6.0\nFrequency: 0.958887\nObserved codon count: 88,371\nTotal codons per site: 92,160"
+  },
+  {
+    "index": 159,
+    "text": "Padded position: 486\nPosition: 486\nOriginal Codon: TTT (F)\nNew Codon: TTT (F)\nBLOSUM80 score: 6.0\nFrequency: 0.693949\nObserved codon count: 65,667\nTotal codons per site: 94,628"
+  },
+  {
+    "index": 160,
+    "text": "Padded position: 541\nPosition: 541\nOriginal Codon: TTC (F)\nNew Codon: TTC (F)\nBLOSUM80 score: 6.0\nFrequency: 0.998722\nObserved codon count: 97,650\nTotal codons per site: 97,775"
+  },
+  {
+    "index": 161,
+    "text": "Padded position: 186\nPosition: 186\nOriginal Codon: TTC (F)\nNew Codon: TTC (F)\nBLOSUM80 score: 6.0\nFrequency: 0.995245\nObserved codon count: 83,730\nTotal codons per site: 84,130"
+  },
+  {
+    "index": 162,
+    "text": "Padded position: 306\nPosition: 306\nOriginal Codon: TTC (F)\nNew Codon: TTC (F)\nBLOSUM80 score: 6.0\nFrequency: 0.974691\nObserved codon count: 84,919\nTotal codons per site: 87,124"
+  },
+  {
+    "index": 163,
+    "text": "Padded position: 6\nPosition: 6\nOriginal Codon: GTT (V)\nNew Codon: GTT (V)\nBLOSUM80 score: 4.0\nFrequency: 0.997691\nObserved codon count: 78,222\nTotal codons per site: 78,403"
+  },
+  {
+    "index": 164,
+    "text": "Padded position: 16\nPosition: 16\nOriginal Codon: GTT (V)\nNew Codon: GTT (V)\nBLOSUM80 score: 4.0\nFrequency: 0.994230\nObserved codon count: 78,060\nTotal codons per site: 78,513"
+  },
+  {
+    "index": 165,
+    "text": "Padded position: 36\nPosition: 36\nOriginal Codon: GTT (V)\nNew Codon: GTT (V)\nBLOSUM80 score: 4.0\nFrequency: 0.998099\nObserved codon count: 78,739\nTotal codons per site: 78,889"
+  },
+  {
+    "index": 166,
+    "text": "Padded position: 551\nPosition: 551\nOriginal Codon: GTT (V)\nNew Codon: GTT (V)\nBLOSUM80 score: 4.0\nFrequency: 0.999550\nObserved codon count: 97,705\nTotal codons per site: 97,749"
+  },
+  {
+    "index": 167,
+    "text": "Padded position: 1096\nPosition: 1096\nOriginal Codon: GTT (V)\nNew Codon: GTT (V)\nBLOSUM80 score: 4.0\nFrequency: 0.999731\nObserved codon count: 96,772\nTotal codons per site: 96,798"
+  },
+  {
+    "index": 168,
+    "text": "Padded position: 126\nPosition: 126\nOriginal Codon: GTT (V)\nNew Codon: GTT (V)\nBLOSUM80 score: 4.0\nFrequency: 0.999055\nObserved codon count: 80,338\nTotal codons per site: 80,414"
+  },
+  {
+    "index": 169,
+    "text": "Padded position: 1176\nPosition: 1176\nOriginal Codon: GTT (V)\nNew Codon: GTT (V)\nBLOSUM80 score: 4.0\nFrequency: 0.986043\nObserved codon count: 95,023\nTotal codons per site: 96,368"
+  },
+  {
+    "index": 170,
+    "text": "Padded position: 781\nPosition: 781\nOriginal Codon: GTT (V)\nNew Codon: GTT (V)\nBLOSUM80 score: 4.0\nFrequency: 0.999745\nObserved codon count: 97,849\nTotal codons per site: 97,874"
+  },
+  {
+    "index": 171,
+    "text": "Padded position: 341\nPosition: 341\nOriginal Codon: GTT (V)\nNew Codon: GTT (V)\nBLOSUM80 score: 4.0\nFrequency: 0.998550\nObserved codon count: 88,830\nTotal codons per site: 88,959"
+  },
+  {
+    "index": 172,
+    "text": "Padded position: 911\nPosition: 911\nOriginal Codon: GTT (V)\nNew Codon: GTT (V)\nBLOSUM80 score: 4.0\nFrequency: 0.999856\nObserved codon count: 97,014\nTotal codons per site: 97,028"
+  },
+  {
+    "index": 173,
+    "text": "Padded position: 976\nPosition: 976\nOriginal Codon: GTT (V)\nNew Codon: GTT (V)\nBLOSUM80 score: 4.0\nFrequency: 0.999866\nObserved codon count: 96,967\nTotal codons per site: 96,980"
+  },
+  {
+    "index": 174,
+    "text": "Padded position: 11\nPosition: 11\nOriginal Codon: GTC (V)\nNew Codon: GTC (V)\nBLOSUM80 score: 4.0\nFrequency: 0.995128\nObserved codon count: 78,027\nTotal codons per site: 78,409"
+  },
+  {
+    "index": 175,
+    "text": "Padded position: 1061\nPosition: 1061\nOriginal Codon: GTC (V)\nNew Codon: GTC (V)\nBLOSUM80 score: 4.0\nFrequency: 0.997594\nObserved codon count: 96,612\nTotal codons per site: 96,845"
+  },
+  {
+    "index": 176,
+    "text": "Padded position: 576\nPosition: 576\nOriginal Codon: GTC (V)\nNew Codon: GTC (V)\nBLOSUM80 score: 4.0\nFrequency: 0.999540\nObserved codon count: 97,826\nTotal codons per site: 97,871"
+  },
+  {
+    "index": 177,
+    "text": "Padded position: 656\nPosition: 656\nOriginal Codon: GTC (V)\nNew Codon: GTC (V)\nBLOSUM80 score: 4.0\nFrequency: 0.998937\nObserved codon count: 97,690\nTotal codons per site: 97,794"
+  },
+  {
+    "index": 178,
+    "text": "Padded position: 171\nPosition: 171\nOriginal Codon: GTC (V)\nNew Codon: GTC (V)\nBLOSUM80 score: 4.0\nFrequency: 0.997288\nObserved codon count: 83,837\nTotal codons per site: 84,065"
+  },
+  {
+    "index": 179,
+    "text": "Padded position: 736\nPosition: 736\nOriginal Codon: GTA (V)\nNew Codon: GTA (V)\nBLOSUM80 score: 4.0\nFrequency: 0.999659\nObserved codon count: 96,841\nTotal codons per site: 96,874"
+  },
+  {
+    "index": 180,
+    "text": "Padded position: 401\nPosition: 401\nOriginal Codon: GTA (V)\nNew Codon: GTA (V)\nBLOSUM80 score: 4.0\nFrequency: 0.998999\nObserved codon count: 89,822\nTotal codons per site: 89,912"
+  },
+  {
+    "index": 181,
+    "text": "Padded position: 511\nPosition: 511\nOriginal Codon: GTA (V)\nNew Codon: GTA (V)\nBLOSUM80 score: 4.0\nFrequency: 0.999348\nObserved codon count: 94,968\nTotal codons per site: 95,030"
+  },
+  {
+    "index": 182,
+    "text": "Padded position: 826\nPosition: 826\nOriginal Codon: GTG (V)\nNew Codon: GTG (V)\nBLOSUM80 score: 4.0\nFrequency: 0.998713\nObserved codon count: 97,747\nTotal codons per site: 97,873"
+  },
+  {
+    "index": 183,
+    "text": "Padded position: 951\nPosition: 951\nOriginal Codon: GTG (V)\nNew Codon: GTG (V)\nBLOSUM80 score: 4.0\nFrequency: 0.999381\nObserved codon count: 96,925\nTotal codons per site: 96,985"
+  },
+  {
+    "index": 184,
+    "text": "Padded position: 991\nPosition: 991\nOriginal Codon: GTG (V)\nNew Codon: GTG (V)\nBLOSUM80 score: 4.0\nFrequency: 0.999092\nObserved codon count: 96,875\nTotal codons per site: 96,963"
+  },
+  {
+    "index": 185,
+    "text": "Padded position: 546\nPosition: 546\nOriginal Codon: TTA (L)\nNew Codon: TTA (L)\nBLOSUM80 score: 4.0\nFrequency: 0.999581\nObserved codon count: 97,719\nTotal codons per site: 97,760"
+  },
+  {
+    "index": 186,
+    "text": "Padded position: 56\nPosition: 56\nOriginal Codon: TTA (L)\nNew Codon: TTA (L)\nBLOSUM80 score: 4.0\nFrequency: 0.999013\nObserved codon count: 78,983\nTotal codons per site: 79,061"
+  },
+  {
+    "index": 187,
+    "text": "Padded position: 1166\nPosition: 1166\nOriginal Codon: TTA (L)\nNew Codon: TTA (L)\nBLOSUM80 score: 4.0\nFrequency: 0.999886\nObserved codon count: 96,393\nTotal codons per site: 96,404"
+  },
+  {
+    "index": 188,
+    "text": "Padded position: 241\nPosition: 241\nOriginal Codon: TTA (L)\nNew Codon: TTA (L)\nBLOSUM80 score: 4.0\nFrequency: 0.997176\nObserved codon count: 84,747\nTotal codons per site: 84,987"
+  },
+  {
+    "index": 189,
+    "text": "Padded position: 806\nPosition: 806\nOriginal Codon: TTA (L)\nNew Codon: TTA (L)\nBLOSUM80 score: 4.0\nFrequency: 0.999090\nObserved codon count: 97,743\nTotal codons per site: 97,832"
+  },
+  {
+    "index": 190,
+    "text": "Padded position: 1141\nPosition: 1141\nOriginal Codon: TTG (L)\nNew Codon: TTG (L)\nBLOSUM80 score: 4.0\nFrequency: 0.998244\nObserved codon count: 96,619\nTotal codons per site: 96,789"
+  },
+  {
+    "index": 191,
+    "text": "Padded position: 141\nPosition: 141\nOriginal Codon: TTG (L)\nNew Codon: TTG (L)\nBLOSUM80 score: 4.0\nFrequency: 0.995540\nObserved codon count: 80,573\nTotal codons per site: 80,934"
+  },
+  {
+    "index": 192,
+    "text": "Padded position: 226\nPosition: 226\nOriginal Codon: TTG (L)\nNew Codon: TTG (L)\nBLOSUM80 score: 4.0\nFrequency: 0.999422\nObserved codon count: 84,769\nTotal codons per site: 84,818"
+  },
+  {
+    "index": 193,
+    "text": "Padded position: 861\nPosition: 861\nOriginal Codon: TTG (L)\nNew Codon: TTG (L)\nBLOSUM80 score: 4.0\nFrequency: 0.999557\nObserved codon count: 97,097\nTotal codons per site: 97,140"
+  },
+  {
+    "index": 194,
+    "text": "Padded position: 996\nPosition: 996\nOriginal Codon: TTG (L)\nNew Codon: TTG (L)\nBLOSUM80 score: 4.0\nFrequency: 0.999752\nObserved codon count: 96,882\nTotal codons per site: 96,906"
+  },
+  {
+    "index": 195,
+    "text": "Padded position: 611\nPosition: 611\nOriginal Codon: CTT (L)\nNew Codon: CTT (L)\nBLOSUM80 score: 4.0\nFrequency: 0.999867\nObserved codon count: 97,876\nTotal codons per site: 97,889"
+  },
+  {
+    "index": 196,
+    "text": "Padded position: 176\nPosition: 176\nOriginal Codon: CTT (L)\nNew Codon: CTT (L)\nBLOSUM80 score: 4.0\nFrequency: 0.994850\nObserved codon count: 83,644\nTotal codons per site: 84,077"
+  },
+  {
+    "index": 197,
+    "text": "Padded position: 841\nPosition: 841\nOriginal Codon: CTT (L)\nNew Codon: CTT (L)\nBLOSUM80 score: 4.0\nFrequency: 0.999403\nObserved codon count: 97,023\nTotal codons per site: 97,081"
+  },
+  {
+    "index": 198,
+    "text": "Padded position: 441\nPosition: 441\nOriginal Codon: CTT (L)\nNew Codon: CTT (L)\nBLOSUM80 score: 4.0\nFrequency: 0.998642\nObserved codon count: 91,936\nTotal codons per site: 92,061"
+  },
+  {
+    "index": 199,
+    "text": "Padded position: 966\nPosition: 966\nOriginal Codon: CTT (L)\nNew Codon: CTT (L)\nBLOSUM80 score: 4.0\nFrequency: 0.999732\nObserved codon count: 96,957\nTotal codons per site: 96,983"
+  },
+  {
+    "index": 200,
+    "text": "Padded position: 981\nPosition: 981\nOriginal Codon: CTT (L)\nNew Codon: CTT (L)\nBLOSUM80 score: 4.0\nFrequency: 0.938926\nObserved codon count: 91,057\nTotal codons per site: 96,980"
+  },
+  {
+    "index": 201,
+    "text": "Padded position: 1001\nPosition: 1001\nOriginal Codon: CTT (L)\nNew Codon: CTT (L)\nBLOSUM80 score: 4.0\nFrequency: 0.999690\nObserved codon count: 96,873\nTotal codons per site: 96,903"
+  },
+  {
+    "index": 202,
+    "text": "Padded position: 1186\nPosition: 1186\nOriginal Codon: CTC (L)\nNew Codon: CTC (L)\nBLOSUM80 score: 4.0\nFrequency: 0.999782\nObserved codon count: 96,346\nTotal codons per site: 96,367"
+  },
+  {
+    "index": 203,
+    "text": "Padded position: 216\nPosition: 216\nOriginal Codon: CTC (L)\nNew Codon: CTC (L)\nBLOSUM80 score: 4.0\nFrequency: 0.986903\nObserved codon count: 83,342\nTotal codons per site: 84,448"
+  },
+  {
+    "index": 204,
+    "text": "Padded position: 296\nPosition: 296\nOriginal Codon: CTC (L)\nNew Codon: CTC (L)\nBLOSUM80 score: 4.0\nFrequency: 0.994970\nObserved codon count: 86,646\nTotal codons per site: 87,084"
+  },
+  {
+    "index": 205,
+    "text": "Padded position: 916\nPosition: 916\nOriginal Codon: CTC (L)\nNew Codon: CTC (L)\nBLOSUM80 score: 4.0\nFrequency: 0.999763\nObserved codon count: 97,005\nTotal codons per site: 97,028"
+  },
+  {
+    "index": 206,
+    "text": "Padded position: 461\nPosition: 461\nOriginal Codon: CTC (L)\nNew Codon: CTC (L)\nBLOSUM80 score: 4.0\nFrequency: 0.998547\nObserved codon count: 92,097\nTotal codons per site: 92,231"
+  },
+  {
+    "index": 207,
+    "text": "Padded position: 276\nPosition: 276\nOriginal Codon: CTA (L)\nNew Codon: CTA (L)\nBLOSUM80 score: 4.0\nFrequency: 0.997168\nObserved codon count: 85,575\nTotal codons per site: 85,818"
+  },
+  {
+    "index": 208,
+    "text": "Padded position: 821\nPosition: 821\nOriginal Codon: CTA (L)\nNew Codon: CTA (L)\nBLOSUM80 score: 4.0\nFrequency: 0.994656\nObserved codon count: 97,341\nTotal codons per site: 97,864"
+  },
+  {
+    "index": 209,
+    "text": "Padded position: 1081\nPosition: 1081\nOriginal Codon: ATT (I)\nNew Codon: ATT (I)\nBLOSUM80 score: 5.0\nFrequency: 0.998523\nObserved codon count: 96,699\nTotal codons per site: 96,842"
+  },
+  {
+    "index": 210,
+    "text": "Padded position: 666\nPosition: 666\nOriginal Codon: ATT (I)\nNew Codon: ATT (I)\nBLOSUM80 score: 5.0\nFrequency: 0.997854\nObserved codon count: 97,639\nTotal codons per site: 97,849"
+  },
+  {
+    "index": 211,
+    "text": "Padded position: 1216\nPosition: 1216\nOriginal Codon: ATT (I)\nNew Codon: ATT (I)\nBLOSUM80 score: 5.0\nFrequency: 0.999377\nObserved codon count: 96,276\nTotal codons per site: 96,336"
+  },
+  {
+    "index": 212,
+    "text": "Padded position: 726\nPosition: 726\nOriginal Codon: ATT (I)\nNew Codon: ATT (I)\nBLOSUM80 score: 5.0\nFrequency: 0.999536\nObserved codon count: 96,846\nTotal codons per site: 96,891"
+  },
+  {
+    "index": 213,
+    "text": "Padded position: 326\nPosition: 326\nOriginal Codon: ATT (I)\nNew Codon: ATT (I)\nBLOSUM80 score: 5.0\nFrequency: 0.998195\nObserved codon count: 87,941\nTotal codons per site: 88,100"
+  },
+  {
+    "index": 214,
+    "text": "Padded position: 931\nPosition: 931\nOriginal Codon: ATT (I)\nNew Codon: ATT (I)\nBLOSUM80 score: 5.0\nFrequency: 0.999794\nObserved codon count: 97,002\nTotal codons per site: 97,022"
+  },
+  {
+    "index": 215,
+    "text": "Padded position: 101\nPosition: 101\nOriginal Codon: ATA (I)\nNew Codon: ATA (I)\nBLOSUM80 score: 5.0\nFrequency: 0.999352\nObserved codon count: 80,159\nTotal codons per site: 80,211"
+  },
+  {
+    "index": 216,
+    "text": "Padded position: 651\nPosition: 651\nOriginal Codon: ATA (I)\nNew Codon: ATA (I)\nBLOSUM80 score: 5.0\nFrequency: 0.999632\nObserved codon count: 97,762\nTotal codons per site: 97,798"
+  },
+  {
+    "index": 217,
+    "text": "Padded position: 1221\nPosition: 1221\nOriginal Codon: ATA (I)\nNew Codon: ATA (I)\nBLOSUM80 score: 5.0\nFrequency: 0.998983\nObserved codon count: 96,237\nTotal codons per site: 96,335"
+  },
+  {
+    "index": 218,
+    "text": "Padded position: 231\nPosition: 231\nOriginal Codon: ATA (I)\nNew Codon: ATA (I)\nBLOSUM80 score: 5.0\nFrequency: 0.996982\nObserved codon count: 84,576\nTotal codons per site: 84,832"
+  },
+  {
+    "index": 219,
+    "text": "Padded position: 896\nPosition: 896\nOriginal Codon: ATA (I)\nNew Codon: ATA (I)\nBLOSUM80 score: 5.0\nFrequency: 0.999897\nObserved codon count: 97,020\nTotal codons per site: 97,030"
+  },
+  {
+    "index": 220,
+    "text": "Padded position: 1026\nPosition: 1026\nOriginal Codon: GCT (A)\nNew Codon: GCT (A)\nBLOSUM80 score: 5.0\nFrequency: 0.999515\nObserved codon count: 96,814\nTotal codons per site: 96,861"
+  },
+  {
+    "index": 221,
+    "text": "Padded position: 706\nPosition: 706\nOriginal Codon: GCT (A)\nNew Codon: GCT (A)\nBLOSUM80 score: 5.0\nFrequency: 0.998797\nObserved codon count: 97,129\nTotal codons per site: 97,246"
+  },
+  {
+    "index": 222,
+    "text": "Padded position: 766\nPosition: 766\nOriginal Codon: GCT (A)\nNew Codon: GCT (A)\nBLOSUM80 score: 5.0\nFrequency: 0.998711\nObserved codon count: 96,833\nTotal codons per site: 96,958"
+  },
+  {
+    "index": 223,
+    "text": "Padded position: 771\nPosition: 771\nOriginal Codon: GCT (A)\nNew Codon: GCT (A)\nBLOSUM80 score: 5.0\nFrequency: 0.997804\nObserved codon count: 96,787\nTotal codons per site: 97,000"
+  },
+  {
+    "index": 224,
+    "text": "Padded position: 831\nPosition: 831\nOriginal Codon: GCT (A)\nNew Codon: GCT (A)\nBLOSUM80 score: 5.0\nFrequency: 0.998687\nObserved codon count: 98,085\nTotal codons per site: 98,214"
+  },
+  {
+    "index": 225,
+    "text": "Padded position: 846\nPosition: 846\nOriginal Codon: GCT (A)\nNew Codon: GCT (A)\nBLOSUM80 score: 5.0\nFrequency: 0.998249\nObserved codon count: 96,908\nTotal codons per site: 97,078"
+  },
+  {
+    "index": 226,
+    "text": "Padded position: 871\nPosition: 871\nOriginal Codon: GCT (A)\nNew Codon: GCT (A)\nBLOSUM80 score: 5.0\nFrequency: 0.998928\nObserved codon count: 96,927\nTotal codons per site: 97,031"
+  },
+  {
+    "index": 227,
+    "text": "Padded position: 411\nPosition: 411\nOriginal Codon: GCT (A)\nNew Codon: GCT (A)\nBLOSUM80 score: 5.0\nFrequency: 0.996206\nObserved codon count: 90,334\nTotal codons per site: 90,678"
+  },
+  {
+    "index": 228,
+    "text": "Padded position: 1226\nPosition: 1226\nOriginal Codon: GCC (A)\nNew Codon: GCC (A)\nBLOSUM80 score: 5.0\nFrequency: 0.999668\nObserved codon count: 96,300\nTotal codons per site: 96,332"
+  },
+  {
+    "index": 229,
+    "text": "Padded position: 1056\nPosition: 1056\nOriginal Codon: GCA (A)\nNew Codon: GCA (A)\nBLOSUM80 score: 5.0\nFrequency: 0.999484\nObserved codon count: 96,797\nTotal codons per site: 96,847"
+  },
+  {
+    "index": 230,
+    "text": "Padded position: 626\nPosition: 626\nOriginal Codon: GCA (A)\nNew Codon: GCA (A)\nBLOSUM80 score: 5.0\nFrequency: 0.998774\nObserved codon count: 97,748\nTotal codons per site: 97,868"
+  },
+  {
+    "index": 231,
+    "text": "Padded position: 701\nPosition: 701\nOriginal Codon: GCA (A)\nNew Codon: GCA (A)\nBLOSUM80 score: 5.0\nFrequency: 0.982961\nObserved codon count: 95,592\nTotal codons per site: 97,249"
+  },
+  {
+    "index": 232,
+    "text": "Padded position: 876\nPosition: 876\nOriginal Codon: GCA (A)\nNew Codon: GCA (A)\nBLOSUM80 score: 5.0\nFrequency: 0.999660\nObserved codon count: 96,999\nTotal codons per site: 97,032"
+  },
+  {
+    "index": 233,
+    "text": "Padded position: 956\nPosition: 956\nOriginal Codon: GCA (A)\nNew Codon: GCA (A)\nBLOSUM80 score: 5.0\nFrequency: 0.998103\nObserved codon count: 96,823\nTotal codons per site: 97,007"
+  },
+  {
+    "index": 234,
+    "text": "Padded position: 1016\nPosition: 1016\nOriginal Codon: GCA (A)\nNew Codon: GCA (A)\nBLOSUM80 score: 5.0\nFrequency: 0.999556\nObserved codon count: 96,858\nTotal codons per site: 96,901"
+  },
+  {
+    "index": 235,
+    "text": "Padded position: 261\nPosition: 261\nOriginal Codon: GGT (G)\nNew Codon: GGT (G)\nBLOSUM80 score: 6.0\nFrequency: 0.996055\nObserved codon count: 85,343\nTotal codons per site: 85,681"
+  },
+  {
+    "index": 236,
+    "text": "Padded position: 891\nPosition: 891\nOriginal Codon: GGT (G)\nNew Codon: GGT (G)\nBLOSUM80 score: 6.0\nFrequency: 0.999567\nObserved codon count: 96,996\nTotal codons per site: 97,038"
+  },
+  {
+    "index": 237,
+    "text": "Padded position: 446\nPosition: 446\nOriginal Codon: GGT (G)\nNew Codon: GGT (G)\nBLOSUM80 score: 6.0\nFrequency: 0.837800\nObserved codon count: 77,148\nTotal codons per site: 92,084"
+  },
+  {
+    "index": 238,
+    "text": "Padded position: 971\nPosition: 971\nOriginal Codon: GGT (G)\nNew Codon: GGT (G)\nBLOSUM80 score: 6.0\nFrequency: 0.999887\nObserved codon count: 96,969\nTotal codons per site: 96,980"
+  },
+  {
+    "index": 239,
+    "text": "Padded position: 476\nPosition: 476\nOriginal Codon: GGT (G)\nNew Codon: GGT (G)\nBLOSUM80 score: 6.0\nFrequency: 0.999090\nObserved codon count: 94,428\nTotal codons per site: 94,514"
+  },
+  {
+    "index": 240,
+    "text": "Padded position: 496\nPosition: 496\nOriginal Codon: GGT (G)\nNew Codon: GGT (G)\nBLOSUM80 score: 6.0\nFrequency: 0.949386\nObserved codon count: 89,847\nTotal codons per site: 94,637"
+  },
+  {
+    "index": 241,
+    "text": "Padded position: 1046\nPosition: 1046\nOriginal Codon: GGC (G)\nNew Codon: GGC (G)\nBLOSUM80 score: 6.0\nFrequency: 0.999133\nObserved codon count: 96,780\nTotal codons per site: 96,864"
+  },
+  {
+    "index": 242,
+    "text": "Padded position: 566\nPosition: 566\nOriginal Codon: GGC (G)\nNew Codon: GGC (G)\nBLOSUM80 score: 6.0\nFrequency: 0.999632\nObserved codon count: 97,819\nTotal codons per site: 97,855"
+  },
+  {
+    "index": 243,
+    "text": "Padded position: 1171\nPosition: 1171\nOriginal Codon: GGC (G)\nNew Codon: GGC (G)\nBLOSUM80 score: 6.0\nFrequency: 0.998848\nObserved codon count: 96,279\nTotal codons per site: 96,390"
+  },
+  {
+    "index": 244,
+    "text": "Padded position: 1246\nPosition: 1246\nOriginal Codon: GGC (G)\nNew Codon: GGC (G)\nBLOSUM80 score: 6.0\nFrequency: 0.998972\nObserved codon count: 96,183\nTotal codons per site: 96,282"
+  },
+  {
+    "index": 245,
+    "text": "Padded position: 431\nPosition: 431\nOriginal Codon: GGC (G)\nNew Codon: GGC (G)\nBLOSUM80 score: 6.0\nFrequency: 0.995997\nObserved codon count: 90,825\nTotal codons per site: 91,190"
+  },
+  {
+    "index": 246,
+    "text": "Padded position: 526\nPosition: 526\nOriginal Codon: GGA (G)\nNew Codon: GGA (G)\nBLOSUM80 score: 6.0\nFrequency: 0.998420\nObserved codon count: 96,058\nTotal codons per site: 96,210"
+  },
+  {
+    "index": 247,
+    "text": "Padded position: 601\nPosition: 601\nOriginal Codon: GGA (G)\nNew Codon: GGA (G)\nBLOSUM80 score: 6.0\nFrequency: 0.999939\nObserved codon count: 97,857\nTotal codons per site: 97,863"
+  },
+  {
+    "index": 248,
+    "text": "Padded position: 1131\nPosition: 1131\nOriginal Codon: GGA (G)\nNew Codon: GGA (G)\nBLOSUM80 score: 6.0\nFrequency: 0.999752\nObserved codon count: 96,766\nTotal codons per site: 96,790"
+  },
+  {
+    "index": 249,
+    "text": "Padded position: 181\nPosition: 181\nOriginal Codon: GGA (G)\nNew Codon: GGA (G)\nBLOSUM80 score: 6.0\nFrequency: 0.991271\nObserved codon count: 83,358\nTotal codons per site: 84,092"
+  },
+  {
+    "index": 250,
+    "text": "Padded position: 1251\nPosition: 1251\nOriginal Codon: GGA (G)\nNew Codon: GGA (G)\nBLOSUM80 score: 6.0\nFrequency: 0.997892\nObserved codon count: 96,074\nTotal codons per site: 96,277"
+  },
+  {
+    "index": 251,
+    "text": "Padded position: 311\nPosition: 311\nOriginal Codon: GGA (G)\nNew Codon: GGA (G)\nBLOSUM80 score: 6.0\nFrequency: 0.999644\nObserved codon count: 87,096\nTotal codons per site: 87,127"
+  },
+  {
+    "index": 252,
+    "text": "Padded position: 381\nPosition: 381\nOriginal Codon: GGA (G)\nNew Codon: GGA (G)\nBLOSUM80 score: 6.0\nFrequency: 0.998612\nObserved codon count: 89,238\nTotal codons per site: 89,362"
+  },
+  {
+    "index": 253,
+    "text": "Padded position: 416\nPosition: 416\nOriginal Codon: GGA (G)\nNew Codon: GGA (G)\nBLOSUM80 score: 6.0\nFrequency: 0.999526\nObserved codon count: 90,721\nTotal codons per site: 90,764"
+  },
+  {
+    "index": 254,
+    "text": "Padded position: 946\nPosition: 946\nOriginal Codon: GGA (G)\nNew Codon: GGA (G)\nBLOSUM80 score: 6.0\nFrequency: 0.999051\nObserved codon count: 96,877\nTotal codons per site: 96,969"
+  }
+]
