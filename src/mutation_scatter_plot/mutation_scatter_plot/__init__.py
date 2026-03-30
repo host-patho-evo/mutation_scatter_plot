@@ -213,6 +213,18 @@ def get_colormap(myoptions, colormapname):
                             except (ImportError, Exception):
                                 print(f"Warning: Colormap {colormapname} not found, falling back to coolwarm_r")
                                 _cmap = matplotlib.colormaps.get_cmap('coolwarm_r')
+    # Standard matplotlib colormaps (non-custom / no ListedColormap): sample
+    # the cmap uniformly over [0, 1] to build a discrete colour list — the
+    # original v0.3 approach.  _norm is intentionally kept None to activate the
+    # direct-index code path in adjust_size_and_color and a separate
+    # continuous-Normalize colorbar in render_matplotlib.
+    if _norm is None and _cmap is not None:
+        _n_std = 23  # covers scores −11 … +11 (BLOSUM80 including DEL/INS −11)
+        _colors = [
+            matplotlib.colors.to_hex(_cmap(i / (_n_std - 1)), keep_alpha=True)
+            for i in range(_n_std)
+        ]
+        # _norm intentionally stays None — signals the separate code path
 
     return _norm, _cmap, _colors
 
@@ -348,7 +360,12 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
     else:
         _score = get_score(myoptions, matrix, codon_on_input, _old_codon_or_aa, _new_codon_or_aa)
 
-    _colorindex = norm(_score)
+    if norm is not None:
+        _colorindex = norm(_score)
+    else:
+        # Standard matplotlib cmap path (original v0.3 approach):
+        # centre slot (index len(colors)//2) represents score 0.
+        _colorindex = max(0, min(len(colors) - 1, int(_score) + len(colors) // 2))
 
     if old_codon_or_aa.upper() == new_codon_or_aa.upper():
         _color = '#00ff04'
@@ -431,15 +448,26 @@ def load_matrix(myoptions):
         _matrix_name = myoptions.matrix_file.split(os.path.sep)[-1]
         myoptions.matrix = _matrix_name
     else:
-        _matrix_type, _matrix_num = re.sub(r'\d+', '', myoptions.matrix), int(re.sub(r'[a-zA-Z]+', '', myoptions.matrix))
-        if _matrix_type == 'BLOSUM':
-            _matrix = blosum.BLOSUM(_matrix_num)
-            _matrix_name = f"BLOSUM{_matrix_num}"
+        try:
+            _matrix_type = re.sub(r'\d+', '', myoptions.matrix)
+            _matrix_num = int(re.sub(r'[a-zA-Z_]+', '', myoptions.matrix))
+        except ValueError:
+            sys.stderr.write(
+                f"Warning: Cannot parse '{myoptions.matrix}' as a BLOSUM-style matrix name "
+                f"(expected e.g. BLOSUM80); falling back to BLOSUM80 for scoring "
+                f"but keeping '{myoptions.matrix}' in the output filename.{os.linesep}"
+            )
+            _matrix = blosum.BLOSUM(80)
+            _matrix_name = myoptions.matrix
         else:
-            sys.stderr.write(f"Warning: Unexpected matrix type {str(_matrix_type)}, falling back to BLOSUM\n")
-            _matrix = blosum.BLOSUM(_matrix_num)
-            _matrix_name = f"BLOSUM{_matrix_num}"
-            myoptions.matrix = _matrix_name
+            if _matrix_type == 'BLOSUM':
+                _matrix = blosum.BLOSUM(_matrix_num)
+                _matrix_name = f"BLOSUM{_matrix_num}"
+            else:
+                sys.stderr.write(f"Warning: Unexpected matrix type {str(_matrix_type)}, falling back to BLOSUM{os.linesep}")
+                _matrix = blosum.BLOSUM(_matrix_num)
+                _matrix_name = f"BLOSUM{_matrix_num}"
+                myoptions.matrix = _matrix_name
 
     if not myoptions.outfile_prefix:
         raise RuntimeError("Please provide output filename prefix via --outfile-prefix")
@@ -1492,13 +1520,28 @@ def render_matplotlib(
 
     if circles_matplotlib:
         cm_x, cm_y, cm_s, _, _, _, cm_c, _, _, _ = zip(*circles_matplotlib)
-        _mpl_scatterplot = ax1.scatter(cm_x, cm_y, marker='o', s=cm_s, alpha=0.5, c=cm_c, cmap=cmap, norm=norm)
+        if norm is not None:
+            # Custom ListedColormap path (amino_acid_changes etc.): BoundaryNorm
+            _mpl_scatterplot = ax1.scatter(cm_x, cm_y, marker='o', s=cm_s, alpha=0.5, c=cm_c, cmap=cmap, norm=norm)
+        else:
+            # Standard matplotlib cmap path: colours are already resolved as
+            # hex strings; supply a Normalize so the ScalarMappable/colorbar
+            # has a valid continuous range matching the linspace-sampled _colors.
+            _cb_norm = matplotlib.colors.Normalize(vmin=-(len(colors) // 2), vmax=len(colors) // 2)
+            _mpl_scatterplot = ax1.scatter(cm_x, cm_y, marker='o', s=cm_s, alpha=0.5, c=cm_c, cmap=cmap, norm=_cb_norm)
     else:
-        _mpl_scatterplot = ax1.scatter([], [], marker='o', s=[], alpha=0.5, c=[], cmap=cmap, norm=norm)
+        if norm is not None:
+            _mpl_scatterplot = ax1.scatter([], [], marker='o', s=[], alpha=0.5, c=[], cmap=cmap, norm=norm)
+        else:
+            _cb_norm = matplotlib.colors.Normalize(vmin=-(len(colors) // 2), vmax=len(colors) // 2)
+            _mpl_scatterplot = ax1.scatter([], [], marker='o', s=[], alpha=0.5, c=[], cmap=cmap, norm=_cb_norm)
 
     _colorbar = figure.colorbar(_mpl_scatterplot, cax=ax3, label=f"{matrix_name} score values (for synonymous changes forcibly set to +12 (dark green))", location='right', pad=-0.1, alpha=0.5)
-    _colorbar.ax.set_yticks(np.arange(-18.5, 18.5, 1), np.arange(-19, 18, 1))
-    _colorbar.ax.tick_params(axis='y', which='minor', length=0)
+    if norm is not None:
+        # BoundaryNorm colorbar: label each integer score band explicitly.
+        _colorbar.ax.set_yticks(np.arange(-18.5, 18.5, 1), np.arange(-19, 18, 1))
+        _colorbar.ax.tick_params(axis='y', which='minor', length=0)
+    # Standard cmap: let matplotlib auto-generate ticks on the Normalize range.
 
     if markers:
         mk_x, mk_y, mk_s, _, _, _ = zip(*markers)
