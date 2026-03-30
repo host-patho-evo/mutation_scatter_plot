@@ -1541,7 +1541,11 @@ def render_matplotlib(
         # BoundaryNorm colorbar: label each integer score band explicitly.
         _colorbar.ax.set_yticks(np.arange(-18.5, 18.5, 1), np.arange(-19, 18, 1))
         _colorbar.ax.tick_params(axis='y', which='minor', length=0)
-    # Standard cmap: let matplotlib auto-generate ticks on the Normalize range.
+    else:
+        # Standard cmap (Normalize): set explicit integer ticks over the score range.
+        _cb_half = len(colors) // 2
+        _colorbar.ax.set_yticks(np.arange(-_cb_half, _cb_half + 1, 1))
+        _colorbar.ax.tick_params(axis='y', which='minor', length=0)
 
     if markers:
         mk_x, mk_y, mk_s, _, _, _ = zip(*markers)
