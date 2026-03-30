@@ -221,7 +221,7 @@ def get_colormap(myoptions, colormapname):
     if _norm is None and _cmap is not None:
         _n_std = 23  # covers scores −11 … +11 (BLOSUM80 including DEL/INS −11)
         _colors = [
-            matplotlib.colors.to_hex(_cmap(i / (_n_std - 1)), keep_alpha=True)
+            matplotlib.colors.to_hex(_cmap(i / (_n_std - 1)))
             for i in range(_n_std)
         ]
         # _norm intentionally stays None — signals the separate code path
@@ -1525,25 +1525,30 @@ def render_matplotlib(
             _mpl_scatterplot = ax1.scatter(cm_x, cm_y, marker='o', s=cm_s, alpha=0.5, c=cm_c, cmap=cmap, norm=norm)
         else:
             # Standard matplotlib cmap path: colours are already resolved as
-            # hex strings; supply a Normalize so the ScalarMappable/colorbar
-            # has a valid continuous range matching the linspace-sampled _colors.
-            _cb_norm = matplotlib.colors.Normalize(vmin=-(len(colors) // 2), vmax=len(colors) // 2)
-            _mpl_scatterplot = ax1.scatter(cm_x, cm_y, marker='o', s=cm_s, alpha=0.5, c=cm_c, cmap=cmap, norm=_cb_norm)
+            # hex strings (including '#00ff04' for synonymous changes).
+            # Pass them directly WITHOUT cmap/norm to guarantee the explicit
+            # dark-green override is honoured by the renderer.
+            _mpl_scatterplot = ax1.scatter(cm_x, cm_y, marker='o', s=cm_s, alpha=0.5, c=list(cm_c))
     else:
         if norm is not None:
             _mpl_scatterplot = ax1.scatter([], [], marker='o', s=[], alpha=0.5, c=[], cmap=cmap, norm=norm)
         else:
-            _cb_norm = matplotlib.colors.Normalize(vmin=-(len(colors) // 2), vmax=len(colors) // 2)
-            _mpl_scatterplot = ax1.scatter([], [], marker='o', s=[], alpha=0.5, c=[], cmap=cmap, norm=_cb_norm)
+            _mpl_scatterplot = ax1.scatter([], [], marker='o', s=[], alpha=0.5, c=[])
 
-    _colorbar = figure.colorbar(_mpl_scatterplot, cax=ax3, label=f"{matrix_name} score values (for synonymous changes forcibly set to +12 (dark green))", location='right', pad=-0.1, alpha=0.5)
+    _colorbar_label = f"{matrix_name} score values (for synonymous changes forcibly set to +12 (dark green))"
     if norm is not None:
-        # BoundaryNorm colorbar: label each integer score band explicitly.
+        # BoundaryNorm path: colorbar is derived from the scatter ScalarMappable.
+        _colorbar = figure.colorbar(_mpl_scatterplot, cax=ax3, label=_colorbar_label, location='right', pad=-0.1, alpha=0.5)
         _colorbar.ax.set_yticks(np.arange(-18.5, 18.5, 1), np.arange(-19, 18, 1))
         _colorbar.ax.tick_params(axis='y', which='minor', length=0)
     else:
-        # Standard cmap (Normalize): set explicit integer ticks over the score range.
+        # Standard cmap path: scatter has no ScalarMappable, so drive the
+        # colorbar from a standalone ScalarMappable with a Normalize range.
         _cb_half = len(colors) // 2
+        _cb_norm = matplotlib.colors.Normalize(vmin=-_cb_half, vmax=_cb_half)
+        _sm = matplotlib.cm.ScalarMappable(cmap=cmap, norm=_cb_norm)
+        _sm.set_array([])
+        _colorbar = figure.colorbar(_sm, cax=ax3, label=_colorbar_label, location='right', pad=-0.1, alpha=0.5)
         _colorbar.ax.set_yticks(np.arange(-_cb_half, _cb_half + 1, 1))
         _colorbar.ax.tick_params(axis='y', which='minor', length=0)
 
