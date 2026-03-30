@@ -1397,24 +1397,33 @@ def render_bokeh(
     _p.axis.major_label_text_font_size = "12px"
     _p.scatter(x='x', y='y', size='s', marker='m', color='c', alpha='a', source=_mysource)
 
-    # Build the palette by evaluating cmap(norm(s)) for every integer score in
-    # the full theoretical range. This is the same computation used to colour
-    # the scatter points, so every colour band is guaranteed to be correct.
-    # norm and cmap are matplotlib objects but are only used here at Python
-    # build time to produce plain hex strings — nothing matplotlib is passed
-    # to Bokeh itself.
-    # Guard: norm is only set for amino_acid_changes / dkeenan colormaps.
-    # For other colormaps colors may be None or a continuous cmap without a
-    # discrete norm, so fall back to sampling cmap linearly.
+    # Build the Bokeh colorbar palette so it matches the scatter circle colours.
+    #
+    # For *discrete* colormaps (amino_acid_changes, dkeenan — norm is a
+    # BoundaryNorm) the scatter circles are coloured by
+    #   colors[norm(score)]        (in adjust_size_and_color)
+    # so the palette must use the same lookup.  Using cmap(norm(s)) is WRONG
+    # here because BoundaryNorm returns a large integer (e.g. norm(0) == 20 for
+    # amino_acid_changes), and calling cmap(20) on a ListedColormap treats 20
+    # as a normalised float far above 1.0, clipping every band to the last
+    # "over" colour.
+    #
+    # For *continuous* colormaps (coolwarm_r etc. — norm is None) colors is a
+    # pre-sampled list built in get_colormap; we sample cmap linearly to match.
     _n = len(colors) if colors is not None else 256
     _half = _n // 2
     _score_range = range(-_half, _half + 1)
-    if norm is not None and cmap is not None:
+    if norm is not None and colors is not None:
+        # Discrete ListedColormap path: mirror adjust_size_and_color exactly.
+        # matplotlib.colors.to_rgba handles both '#rrggbb' hex strings and
+        # CSS colour names (e.g. 'palegreen') that may appear in _colors.
         _score_palette = [
-            matplotlib.colors.to_hex(cmap(norm(s)))
+            matplotlib.colors.to_hex(matplotlib.colors.to_rgba(
+                colors[max(0, min(len(colors) - 1, norm(s)))]))
             for s in _score_range
         ]
     elif cmap is not None:
+        # Continuous cmap path (coolwarm_r etc.): sample linearly.
         _score_palette = [
             matplotlib.colors.to_hex(cmap(i / max(1, _n - 1)))
             for i in range(_n)

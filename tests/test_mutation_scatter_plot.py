@@ -563,5 +563,84 @@ class TestMutationScatterPlot(unittest.TestCase):
             # Also save/compare golden files
             self._check_outputs(target_prefix, tmpdir, "test_unchanged.scatter_codons_synonymous")
 
+    def test_score_zero_is_yellow_amino_acid_changes(self):
+        """Score-0 mutations must appear yellow (#ffff00) in amino_acid_changes mode.
+
+        Confirms:
+        1. The .codon.frequencies.colors.tsv circle color for any BLOSUM-0
+           mutation is #ffff00.
+        2. The Bokeh colorbar palette entry at position 0 (the centre band)
+           is also #ffff00 — ensuring circles and colorbar never diverge.
+
+        K→N has BLOSUM80 score 0 and appears in the standard test fixtures.
+        """
+        tsv_path = os.path.join(self.outputs_dir, "test1.default.frequencies.tsv")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target_prefix = "test_zero"
+            outfile_prefix = os.path.join(tmpdir, target_prefix)
+            cmd_args = [
+                "--tsv", tsv_path,
+                "--outfile-prefix", outfile_prefix,
+                "--threshold=0.001",
+                "--disable-showing-bokeh", "--disable-showing-mplcursors",
+            ]
+            returncode, output = self._invoke_cli(cmd_args)
+            self.assertEqual(returncode, 0, f"Command failed:\n{output}")
+
+            # 1. Check circle colors: all score-0 rows must be yellow
+            colors_tsv = next(
+                (os.path.join(tmpdir, f) for f in os.listdir(tmpdir)
+                 if f.endswith(".codon.frequencies.colors.tsv")),
+                None,
+            )
+            self.assertIsNotNone(colors_tsv, "No .codon.frequencies.colors.tsv generated")
+            with open(colors_tsv, encoding="utf-8") as fh:
+                lines = [ln.rstrip("\n") for ln in fh if ln.strip()]
+            header_cols = lines[0].split("\t")
+            color_col = header_cols.index("color")
+            score_col = header_cols.index("score")
+            score_zero_rows = [
+                ln for ln in lines[1:]
+                if ln.split("\t")[score_col] == "0"
+            ]
+            self.assertGreater(len(score_zero_rows), 0,
+                               "No score-0 mutations found in test data — fixture may need updating")
+            # Expected colours come from _colors[score + 20] in amino_acid_changes.
+            # Any BoundaryNorm off-by-one would shift all of these:
+            #   score -2 → _colors[18] = #ff9999   (light salmon-pink)
+            #   score  0 → _colors[20] = #ffff00   (yellow, neutral)
+            #   score +2 → _colors[22] = #ffa200   (deep orange)
+            expected_by_score = {
+                "-2": "#ff9999",
+                "0":  "#ffff00",
+                "2":  "#ffa200",
+            }
+            for target_score, expected_hex in expected_by_score.items():
+                target_rows = [
+                    ln for ln in lines[1:]
+                    if ln.split("\t")[score_col] == target_score
+                ]
+                wrong_color = [
+                    ln for ln in target_rows
+                    if ln.split("\t")[color_col].lower() != expected_hex
+                ]
+                self.assertEqual(
+                    wrong_color, [],
+                    f"Score {target_score:>3} circles must be {expected_hex} but got:\n"
+                    + "\n".join(wrong_color[:5]),
+                )
+
+            # 2. Bokeh colorbar palette: the centre band (index _half) must be yellow.
+            # The HTML stores the palette inline.  Grep for the colour mapper spec.
+            html_files = [f for f in os.listdir(tmpdir) if f.endswith(".html")]
+            self.assertGreater(len(html_files), 0, "No HTML output generated")
+            html_path = os.path.join(tmpdir, html_files[0])
+            with open(html_path, encoding="utf-8") as fh:
+                html_text = fh.read()
+            self.assertIn(
+                "#ffff00", html_text,
+                "Bokeh HTML must contain #ffff00 (yellow) in the colorbar palette",
+            )
+
 if __name__ == "__main__":
     unittest.main()
