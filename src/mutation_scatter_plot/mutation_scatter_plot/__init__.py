@@ -374,16 +374,16 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
         _color = '#00ff04'
         _score = 12
     elif old_codon_or_aa in ('---', 'DEL', 'INS', '*') or new_codon_or_aa in ('---', 'DEL', 'INS', '*', 'TGA', 'TAA', 'TAG'):
-        _color = 'red'
+        _color = '#ff0000'
         _score = -6
     elif _old_codon_or_aa in ('X', 'NNN') or new_codon_or_aa in ('X', 'NNN'):
-        _color = 'gray'
+        _color = '#808080'
     elif codon_on_input:
         if alt_translate(_old_codon_or_aa) == alt_translate(_new_codon_or_aa):
             _color = '#00ff04'
             _score = 12
         elif alt_translate(_new_codon_or_aa) == 'X':
-            _color = 'gray'
+            _color = '#808080'
         else:
             if myoptions.debug:
                 sys.stdout.write(f"Info: Translating {_old_codon_or_aa} to {_new_codon_or_aa} to fetch color from _colors," )
@@ -405,7 +405,7 @@ def adjust_size_and_color_neutralized_escape(neutralized_parent_difference, codo
 
     if neutralized_parent_difference < -0.001:
         _size = abs(neutralized_parent_difference)
-        _color = 'red'
+        _color = '#ff0000'
     elif neutralized_parent_difference > 0.001:
         if not codon_on_input:
             _size, _color = 0, '#00ff04'
