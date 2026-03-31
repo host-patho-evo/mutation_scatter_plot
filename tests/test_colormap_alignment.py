@@ -32,8 +32,6 @@ is derived from a ``np.linspace(0, 1, n)`` sample of the cmap; no
 BoundaryNorm is involved.
 """
 
-import sys
-import os
 
 import pytest
 import numpy as np

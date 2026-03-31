@@ -502,15 +502,18 @@ def main() -> None:
     w_disc1 = len("'Discarded original FASTA IDs'")   # 30
     w_disc2 = len("'Sum of discarded sequences'")       # 28
 
+    _hdr_disc1 = "'Discarded original FASTA IDs'"
+    _hdr_disc2 = "'Sum of discarded sequences'"
+    _hdr_nnnx  = "'Sum of NNNNx'"
     disc_header = (
-        f"{sep}{"'Discarded original FASTA IDs'":>{w_disc1}}{sep}{"'Sum of discarded sequences'":>{w_disc2}}"
+        f"{sep}{_hdr_disc1:>{w_disc1}}{sep}{_hdr_disc2:>{w_disc2}}"
         if do_discard else ""
     )
     header = (
         f"{'File':<{col_file}}{sep}"
         f"{'Modified':<{w_ts}}{sep}"
         f"{'Records':>{w_num}}{sep}{'\u0394Records':>{w_delta}}{sep}"
-        f"{"'Sum of NNNNx'":>{w_num}}{sep}{'\u0394SumToParent':>{w_delta}}"
+        f"{_hdr_nnnx:>{w_num}}{sep}{'\u0394SumToParent':>{w_delta}}"
         + disc_header
     )
     rule = '-' * len(header)

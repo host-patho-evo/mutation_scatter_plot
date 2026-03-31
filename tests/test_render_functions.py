@@ -47,11 +47,10 @@ def _blend_with_white(hex_color: str, alpha: float) -> str:
     r = int(hex_color[1:3], 16)
     g = int(hex_color[3:5], 16)
     b = int(hex_color[5:7], 16)
-    return "#{:02x}{:02x}{:02x}".format(
-        round(alpha * r + (1 - alpha) * 255),
-        round(alpha * g + (1 - alpha) * 255),
-        round(alpha * b + (1 - alpha) * 255),
-    )
+    ra = round(alpha * r + (1 - alpha) * 255)
+    ga = round(alpha * g + (1 - alpha) * 255)
+    ba = round(alpha * b + (1 - alpha) * 255)
+    return f"#{ra:02x}{ga:02x}{ba:02x}"
 
 
 _BOKEH_CIRCLE_ALPHA = 0.5  # must match constant in render_bokeh

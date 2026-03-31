@@ -1566,7 +1566,7 @@ def render_bokeh(
     score-+1 label — which is the exact regression this fix addresses.
 
     Workaround: ``_blend_with_white`` pre-blends every palette entry with
-    white at ``alpha = _BOKEH_CIRCLE_ALPHA = 0.5`` before handing the list
+    white at ``alpha = _bokeh_circle_alpha = 0.5`` before handing the list
     to ``LinearColorMapper``, so the static colorbar bands display the same
     apparent shade as the corresponding semi-transparent scatter circle.
     The ``ColumnDataSource`` colour column (``c``) continues to store the
@@ -1760,7 +1760,7 @@ def render_bokeh(
     #    glyph alpha at render time as normal.  The pre-blend is applied only
     #    to the colorbar palette — it is purely a visual compensation for the
     #    Bokeh API deficiency and does not affect the stored glyph colours.
-    _BOKEH_CIRCLE_ALPHA = 0.5  # Must match the alpha stored in _circles_bokeh tuples.
+    _bokeh_circle_alpha = 0.5  # Must match the alpha stored in _circles_bokeh tuples.
 
     def _blend_with_white(hex_color: str, alpha: float) -> str:
         """Return *hex_color* pre-blended with white at *alpha* opacity.
@@ -1784,7 +1784,7 @@ def render_bokeh(
             Six-digit CSS hex colour string, e.g. ``'#ffa200'``.
         alpha : float
             Opacity in [0, 1].  Must match the ``alpha`` value used for the
-            scatter glyphs (``_BOKEH_CIRCLE_ALPHA``).
+            scatter glyphs (``_bokeh_circle_alpha``).
 
         Returns
         -------
@@ -1803,11 +1803,10 @@ def render_bokeh(
         r = int(hex_color[1:3], 16)
         g = int(hex_color[3:5], 16)
         b = int(hex_color[5:7], 16)
-        return "#{:02x}{:02x}{:02x}".format(
-            round(alpha * r + (1 - alpha) * 255),
-            round(alpha * g + (1 - alpha) * 255),
-            round(alpha * b + (1 - alpha) * 255),
-        )
+        ra = round(alpha * r + (1 - alpha) * 255)
+        ga = round(alpha * g + (1 - alpha) * 255)
+        ba = round(alpha * b + (1 - alpha) * 255)
+        return f"#{ra:02x}{ga:02x}{ba:02x}"
 
     _n = len(colors) if colors is not None else 256
     _half = _n // 2
@@ -1851,7 +1850,7 @@ def render_bokeh(
 
     # Workaround for Bokeh's missing ColorBar alpha support.
     # See the "Bokeh ColorBar design deficiency" section in the docstring above.
-    _score_palette_display = [_blend_with_white(c, _BOKEH_CIRCLE_ALPHA) for c in _score_palette]
+    _score_palette_display = [_blend_with_white(c, _bokeh_circle_alpha) for c in _score_palette]
 
     # low/high are extended by ±0.5 so that each colour band is exactly 1
     # score-unit wide and the integer tick coordinate (placed by FixedTicker)
@@ -1884,20 +1883,52 @@ def render_bokeh(
     _p.text(x='x', y='y', text='mutation', text_color='c', text_font_size='10px', text_font_style='bold', source=_mysource)
     _p.title.align = 'center'
     _p.title.text_font_size = '14pt'
-    print(f"Info: Writing into {outfile_prefix} + '.html'")
-    bokeh.plotting.output_file(outfile_prefix + '.html')
-    # Embed the git commit hash in the HTML <title> so that stale pre-generated
-    # files are immediately identifiable without opening the browser DevTools.
-    # bokeh.plotting.save()/show() accept an optional `title` kwarg that sets
-    # the <title> tag of the standalone HTML page.
+
+    # Embed the git version string visually in the Bokeh canvas as a small
+    # footnote label in the bottom-right corner (screen coordinates).  This
+    # mirrors the figure.text() footnote added to matplotlib PNG/PDF output.
+    # Using screen units makes the label position independent of data range.
+    _version_label_text = f"mutation_scatter_plot v{VERSION}  git:{_GIT_VERSION}"
+    _version_label = bokeh.models.Label(
+        x=5, y=5,
+        x_units='screen', y_units='screen',
+        text=_version_label_text,
+        text_font_size='9pt', text_color='#808080',  # medium gray — subtle footnote
+        text_align='left',
+        background_fill_color=None,
+    )
+    _p.add_layout(_version_label)
+
     _html_title = (
         f"{os.path.basename(outfile_prefix)} "
         f"| mutation_scatter_plot v{VERSION} git:{_GIT_VERSION}"
     )
+    print(f"Info: Writing into {outfile_prefix} + '.html'")
+    bokeh.plotting.output_file(outfile_prefix + '.html')
     if show:
         bokeh.plotting.show(_p)
     else:
+        # `title=` kwarg sets the HTML <title> tag in Bokeh >= 2.4.
+        # We also post-process the file below to set it unconditionally,
+        # guarding against older Bokeh versions that ignore the kwarg.
         bokeh.plotting.save(_p, title=_html_title)
+
+    # Post-process: set/replace <title> tag unconditionally so the version
+    # string is visible in the browser tab and page source regardless of
+    # the installed Bokeh version.
+    _html_path = outfile_prefix + '.html'
+    if os.path.exists(_html_path):
+        with open(_html_path, 'r', encoding='utf-8') as _fh:
+            _html_content = _fh.read()
+        import re as _re
+        _title_tag = f'<title>{_html_title}</title>'
+        if '<title>' in _html_content:
+            _html_content = _re.sub(r'<title>[^<]*</title>', _title_tag, _html_content, count=1)
+        else:
+            _html_content = _html_content.replace('<head>', f'<head>\n  {_title_tag}', 1)
+        with open(_html_path, 'w', encoding='utf-8') as _fh:
+            _fh.write(_html_content)
+
     pretty_print_bokeh_html(outfile_prefix + '.html')
 
 
