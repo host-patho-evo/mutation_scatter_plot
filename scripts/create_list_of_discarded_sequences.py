@@ -151,11 +151,21 @@ _parser.add_argument(
 _parser.add_argument(
     "--outfile-prefix", dest="outfile_prefix", default="",
     help=(
-        "Stem used for all output filenames instead of the one derived from "
-        "--infilename.  E.g. '--outfile-prefix=mydir/prefix' produces "
-        "mydir/prefix.discarded_sha256_hashes.txt and "
-        "mydir/prefix.discarded_original_ids.txt. "
+        "Stem (basename) used for all output filenames instead of the one derived "
+        "from --infilename.  Combined with --path when provided. "
+        "E.g. '--path=/data --outfile-prefix=spikenuc.native2ascii' produces "
+        "/data/spikenuc.native2ascii.discarded_sha256_hashes.txt. "
         "Follows the same convention as count_same_sequences.py."
+    ),
+)
+_parser.add_argument(
+    "--path", dest="path", default="",
+    help=(
+        "Directory in which to look for auto-detected ancillary files "
+        "(*.sha256_to_ids.tsv) and where output files are written when "
+        "--outfile-prefix is a bare filename (no directory part). "
+        "Has no effect when --outfile-prefix already contains a directory "
+        "component or when --outfile is given explicitly."
     ),
 )
 _parser.add_argument(
@@ -251,19 +261,33 @@ def main():
             f"Did you mean: --outfile-prefix={myoptions.outfile_prefix.split('=', 1)[-1]}"
         )
 
-    # Derive the stem: explicit --outfile-prefix takes priority over --infilename.
+    # Derive the stem:
+    #   1. --outfile-prefix given: use it directly (may already include directory).
+    #   2. --path given: join it with the basename derived from --infilename.
+    #   3. Neither: derive from --infilename as-is (strips FASTA extensions).
     if myoptions.outfile_prefix:
-        infile_stem = myoptions.outfile_prefix
+        if myoptions.path and not os.path.isabs(myoptions.outfile_prefix) \
+                and not os.path.dirname(myoptions.outfile_prefix):
+            # Bare prefix + explicit path -> combine.
+            infile_stem = os.path.join(myoptions.path, myoptions.outfile_prefix)
+        else:
+            infile_stem = myoptions.outfile_prefix
     else:
-        infile_stem = myoptions.infilename
+        # Strip backup + FASTA extensions from --infilename.
+        raw = myoptions.infilename
         for ext in ('.old', '.ori', '.orig', '.bak', '.backup'):
-            if infile_stem.endswith(ext):
-                infile_stem = infile_stem[:-len(ext)]
+            if raw.endswith(ext):
+                raw = raw[:-len(ext)]
                 break
         for ext in ('.fasta.gz', '.fastq.gz', '.fasta', '.fastq', '.fa', '.fq'):
-            if infile_stem.endswith(ext):
-                infile_stem = infile_stem[:-len(ext)]
+            if raw.endswith(ext):
+                raw = raw[:-len(ext)]
                 break
+        if myoptions.path and not os.path.dirname(raw):
+            # Bare filename stem + explicit path -> combine.
+            infile_stem = os.path.join(myoptions.path, os.path.basename(raw))
+        else:
+            infile_stem = raw
 
     # Auto-detect mapping TSV when not provided.
     if not myoptions.mapping_outfile:
