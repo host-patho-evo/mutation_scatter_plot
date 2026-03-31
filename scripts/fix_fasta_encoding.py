@@ -349,7 +349,7 @@ def _fmt_eta(seconds: float) -> str:
 
 
 def _progress_line(path: str, bytes_done: int, total_bytes: int,
-                   lines_done: int, changed: int, elapsed: float) -> str:
+                   changed: int, elapsed: float) -> str:
     """Build a single-line progress string in the style of scp / dd.
 
     Example output (fits in 80 columns)::
@@ -495,7 +495,7 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
             if show_progress and (now - t_last) >= _PROGRESS_INTERVAL:
                 elapsed = now - t_start
                 line = _progress_line(path, bytes_read, total_bytes,
-                                      lines_read, changed, elapsed)
+                                      changed, elapsed)
                 print(f"\r{line}", end="", flush=True, file=sys.stderr)
                 t_last = now
 
@@ -504,7 +504,7 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
         elapsed = time.monotonic() - t_start
         if changed:
             line = _progress_line(path, total_bytes, total_bytes,
-                                  lines_read, changed, elapsed)
+                                  changed, elapsed)
             print(f"\r{line}", flush=True, file=sys.stderr)
         else:
             # Clear the progress line if nothing changed.
@@ -527,7 +527,7 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     )
 
     # Encoding-mix summary — always printed when there are changes.
-    _MIX_LABELS = [
+    _mix_labels = [
         (frozenset({'esc'}),            "\\uXXXX escapes only"),
         (frozenset({'lat1'}),           "Latin-1 raw bytes only"),
         (frozenset({'utf8'}),           "Valid UTF-8 multi-byte only"),
@@ -539,13 +539,13 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     ]
     if mix_counter:
         print("  Encoding-mix breakdown (per changed line):", file=sys.stderr)
-        for key, label in _MIX_LABELS:
+        for key, label in _mix_labels:
             cnt = mix_counter.get(key, 0)
             if cnt:
                 print(f"    {label:<52s}: {cnt:>8,}", file=sys.stderr)
         # Print any unexpected combinations not in the label table.
         for key, cnt in mix_counter.items():
-            if not any(key == k for k, _ in _MIX_LABELS):
+            if not any(key == k for k, _ in _mix_labels):
                 print(f"    (other: {sorted(key)}): {cnt:>8,}", file=sys.stderr)
 
     if dry_run:
@@ -567,6 +567,7 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
 # ── entry point ──────────────────────────────────────────────────────────────
 
 def main() -> None:
+    """Normalise FASTA header encoding for each input file."""
     opts = _parser.parse_args()
 
     total_files = 0

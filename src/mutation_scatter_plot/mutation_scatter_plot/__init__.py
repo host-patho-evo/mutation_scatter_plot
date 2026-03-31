@@ -416,7 +416,7 @@ _score_cache: dict = {}
 # iterate the matrix themselves.  Left as None until load_matrix() is called so
 # that any code path that scores mutations before loading a matrix fails loudly
 # rather than silently using a stale -11 default.
-_min_theoretical_score: typing.Optional[int] = None
+_min_theoretical_score: typing.Optional[int] = None  # pylint: disable=invalid-name
 
 
 def get_score(myoptions, matrix, codon_on_input, old_codon_or_aa, new_codon_or_aa):
