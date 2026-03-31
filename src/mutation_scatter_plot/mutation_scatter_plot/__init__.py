@@ -1920,10 +1920,9 @@ def render_bokeh(
     if os.path.exists(_html_path):
         with open(_html_path, 'r', encoding='utf-8') as _fh:
             _html_content = _fh.read()
-        import re as _re
         _title_tag = f'<title>{_html_title}</title>'
         if '<title>' in _html_content:
-            _html_content = _re.sub(r'<title>[^<]*</title>', _title_tag, _html_content, count=1)
+            _html_content = re.sub(r'<title>[^<]*</title>', _title_tag, _html_content, count=1)
         else:
             _html_content = _html_content.replace('<head>', f'<head>\n  {_title_tag}', 1)
         with open(_html_path, 'w', encoding='utf-8') as _fh:

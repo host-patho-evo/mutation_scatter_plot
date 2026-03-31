@@ -38,6 +38,11 @@ import numpy as np
 import matplotlib
 import matplotlib.colors as mc
 
+# pytest injects fixtures by matching parameter names to fixture function names.
+# This looks like "redefining the outer-scope fixture function" to pylint, but
+# is correct and idiomatic pytest.  Suppress W0621 for the whole test module.
+# pylint: disable=redefined-outer-name
+
 matplotlib.use("Agg")  # non-interactive backend
 
 # ── palette definition ────────────────────────────────────────────────────────
@@ -162,6 +167,7 @@ class TestColorbarsMatchCircles:
     """
 
     def test_palette_entry_matches_circle_for_score_zero(self, aa_norm):
+        """Score 0 circle colour and colorbar palette band must be identical."""
         n = len(_AA_CHANGES_COLORS)       # 39
         half = n // 2                     # 19
         palette = [_AA_CHANGES_COLORS[max(0, min(n - 1, aa_norm(s)))]
@@ -172,6 +178,7 @@ class TestColorbarsMatchCircles:
             f"palette[{half}]={palette[half]!r}, circle={circle_color_0!r}"
 
     def test_palette_entry_matches_circle_for_score_plus2(self, aa_norm):
+        """Score +2 circle colour and colorbar palette band must be identical."""
         n = len(_AA_CHANGES_COLORS)
         half = n // 2
         palette = [_AA_CHANGES_COLORS[max(0, min(n - 1, aa_norm(s)))]

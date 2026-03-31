@@ -535,11 +535,12 @@ def main() -> None:
             parent_label = ''
 
         if do_discard and p is not None:
+            _em = '\u2014'  # em dash — pre-assigned to avoid backslash inside f-string {} (Python < 3.12)
             if i in discard_data:
                 n_d, s_d = discard_data[i]
                 disc_cols = f"{sep}{n_d:>{w_disc1},}{sep}{s_d:>{w_disc2},}"
             else:
-                disc_cols = f"{sep}{'\u2014':>{w_disc1}}{sep}{'\u2014':>{w_disc2}}"
+                disc_cols = f"{sep}{_em:>{w_disc1}}{sep}{_em:>{w_disc2}}"
         else:
             disc_cols = ''
 
