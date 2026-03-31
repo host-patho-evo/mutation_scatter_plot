@@ -1,4 +1,34 @@
-"""Unit tests for calculate_codon_frequencies."""
+"""Unit tests for calculate_codon_frequencies.
+
+Known pitfall — `git diff --word-diff=color` in `self.fail()` messages
+-----------------------------------------------------------------------
+ANSI escape sequences produced by `--word-diff=color --color=always` corrupt
+pytest failure messages when they are embedded inside `self.fail(f"...{diff.stdout}")`.  The terminal
+escape codes are captured verbatim (capture_output=True) but rendered as raw
+byte sequences in contexts that do not interpret colour (pytest output, CI
+logs, `--tb=short`, piped output).  The specific symptom observed in
+March 2026 when the DEL sentinel score changed from -11 to -6:
+
+    git word-diff inline representation:   [-11-]{+6+}
+    rendered in non-colour pytest output:  -116
+
+The ``[-`` and ``-]`` deletion markers are invisible in plain text, so what
+remained was the literal characters ``-11`` (from the deletion sequence) and
+``6`` (from the addition sequence), merging into the nonsensical value ``-116``
+and making it impossible to tell which value was old and which was new.
+
+Fix (applied throughout this test module and test_mutation_scatter_plot.py):
+  1. Run `git diff --color=always` as before for human-readable terminal output.
+  2. `print(diff.stdout, file=sys.stderr)` so the coloured diff is visible when
+     running pytest interactively in a colour terminal (e.g. `pytest -s`).
+  3. Pass only a plain-English summary string to `self.fail()`; never embed the
+     raw diff output text in the failure message.
+
+History: `--word-diff=color` was introduced in commit 25d396a (2026-03-29) as
+an improvement over the previous `diff -u -w`.  The ANSI corruption was first
+observed when the DEL score changed from -11 → -6 (matrix-dynamic lookup,
+2026-03-31), creating the spurious "-116" artefact documented above.
+"""
 import filecmp
 import json
 import os
@@ -86,14 +116,19 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 # Compare contents
                 is_match = filecmp.cmp(generated_file, expected_file, shallow=False)
                 if not is_match:
-                    # Run git diff --word-diff-regex=. to show character-level differences
+                    # Run git diff --word-diff=color for the human reader.
+                    # DO NOT embed diff.stdout in self.fail(): the ANSI escape
+                    # codes corrupt pytest output (e.g. [-11-]{+6+} renders as
+                    # "-116" in non-colour contexts).  Print to stderr instead.
                     diff_result = subprocess.run(
                         ["git", "diff", "--no-index", "--word-diff=color",
                          "--word-diff-regex=.", "--color=always",
                          expected_file, generated_file],
                         capture_output=True, text=True, check=False
                     )
-                    self.fail(f"File {generated_file} does not match golden file {expected_file}.\nDifferences:\n{diff_result.stdout}")
+                    print(diff_result.stdout, file=sys.stderr)
+                    self.fail(f"File {generated_file} does not match golden file "
+                              f"{expected_file}. (see colorized diff above)")
 
             # Append coverage tracking metrics to our teardown table
             if suffix == ".tsv" and self.__class__.golden_mutations:
@@ -463,14 +498,19 @@ class TestSha256CountFormat(unittest.TestCase):
                 if os.path.exists(golden):
                     is_match = filecmp.cmp(generated, golden, shallow=False)
                     if not is_match:
+                        # DO NOT embed diff.stdout in self.fail(): ANSI escape
+                        # codes from --word-diff=color corrupt pytest output.
+                        # Print to stderr so the coloured diff is visible in an
+                        # interactive pytest -s run.
                         diff = subprocess.run(
                             ["git", "diff", "--no-index", "--word-diff=color",
                              "--word-diff-regex=.", "--color=always",
                              golden, generated],
                             capture_output=True, text=True, check=False,
                         )
+                        print(diff.stdout, file=sys.stderr)
                         self.fail(
-                            f"{generated} does not match golden {golden}.\n"
-                            f"Differences (check total_codons_per_site column):\n"
-                            f"{diff.stdout}"
+                            f"{generated} does not match golden {golden} "
+                            f"(check total_codons_per_site column — "
+                            f"see colorized diff above)"
                         )

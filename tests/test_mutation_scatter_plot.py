@@ -1,4 +1,33 @@
-"""Unit tests for mutation_scatter_plot."""
+"""Unit tests for mutation_scatter_plot.
+
+Known pitfall — `git diff --word-diff=color` in `self.fail()` messages
+-----------------------------------------------------------------------
+ANSI escape sequences produced by `--word-diff=color --color=always` corrupt
+pytest failure messages when embedded directly in `self.fail(f"...{diff.stdout}")`.
+Escape codes are captured verbatim by `capture_output=True` but rendered as
+raw byte sequences in environments that do not interpret colour (pytest output,
+CI logs, `--tb=short`, piped output).  The specific symptom observed in
+March 2026 when the DEL sentinel score changed from -11 to -6:
+
+    git word-diff inline representation:   [-11-]{+6+}
+    rendered in non-colour pytest output:  -116
+
+The ``[-`` and ``-]`` deletion markers are invisible in plain text, so the
+literal characters ``-11`` (deleted) and ``6`` (added) merged into the
+nonsensical value ``-116``, making it impossible to identify what changed.
+
+Fix applied throughout this module and test_calculate_codon_frequencies.py:
+  1. Invoke `git diff --color=always` as before for human-readable output.
+  2. `print(diff.stdout, file=sys.stderr)` so the coloured diff is visible in
+     an interactive `pytest -s` run in a colour-capable terminal.
+  3. Pass only a plain-English summary to `self.fail()`; never embed the raw
+     diff text in the assertion message.
+
+History: `--word-diff=color` was introduced in commit 25d396a (2026-03-29) as
+an improvement over the prior `diff -u -w`.  The ANSI corruption was first
+observed when the DEL score changed from -11 → -6 (matrix-dynamic lookup,
+2026-03-31), producing the spurious "-116" artefact documented above.
+"""
 import contextlib
 import filecmp
 import io
@@ -95,7 +124,12 @@ class TestMutationScatterPlot(unittest.TestCase):
                                  f_exp.name, f_gen.name],
                                 capture_output=True, text=True, check=False
                             )
-                            self.fail(f"Bokeh internal data points differ for {gen_file}!\nDifferences:\n{diff_res.stdout}")
+                            # Print the colorized diff for the human reader; do NOT embed it
+                            # in self.fail() because ANSI escape codes corrupt the failure
+                            # message (e.g. [-11]{+6} renders as "-116" without a terminal).
+                            print(diff_res.stdout, file=sys.stderr)
+                            self.fail(f"Bokeh internal data points differ for {gen_file}! "
+                                      f"(see colorized diff above)")
                         else:
                             print(f"Info: HTML file {gen_file} byte-mismatch ignored because internal Bokeh JSON structural mapping matched perfectly.")
                     elif any(gen_file.endswith(ext) for ext in [".png", ".pdf"]):
@@ -418,7 +452,11 @@ class TestMutationScatterPlot(unittest.TestCase):
                      f_a.name, f_b.name],
                     capture_output=True, text=True, check=False
                 )
-                self.fail(f"HTML JSON structural mapping differed between --aminoacids and --aminoacids --include-synonymous:\n{diff_res.stdout}")
+                # Print for human viewing; keep self.fail() clean of ANSI codes.
+                print(diff_res.stdout, file=sys.stderr)
+                self.fail("HTML JSON structural mapping differed between "
+                          "--aminoacids and --aminoacids --include-synonymous "
+                          "(see colorized diff above)")
 
     def test5_compare_codons(self):
         """mutation_scatter_plot pairwise compare: codon mode vs codon mode --include-synonymous HTML JSONs"""
@@ -486,7 +524,11 @@ class TestMutationScatterPlot(unittest.TestCase):
                      f_a.name, f_b.name],
                     capture_output=True, text=True, check=False
                 )
-                self.fail(f"HTML JSON structural mapping differed between codon default and --include-synonymous:\n{diff_res.stdout}")
+                # Print for human viewing; keep self.fail() clean of ANSI codes.
+                print(diff_res.stdout, file=sys.stderr)
+                self.fail("HTML JSON structural mapping differed between codon "
+                          "default and --include-synonymous "
+                          "(see colorized diff above)")
 
     def test_display_suppression(self):
         """Verify that --disable-showing-bokeh and --disable-showing-mplcursors work without failure"""
