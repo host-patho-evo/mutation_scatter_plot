@@ -340,7 +340,7 @@ def get_colormap(myoptions, colormapname):
     # direct-index code path in adjust_size_and_color and a separate
     # continuous-Normalize colorbar in render_matplotlib.
     if _norm is None and _cmap is not None:
-        _n_std = 23  # covers scores −11 … +11 (BLOSUM80 including DEL/INS −11)
+        _n_std = 23  # covers scores −11 … +11 (BLOSUM80 non-stop range; DEL/INS use _min_theoretical_score)
         _colors = [
             matplotlib.colors.to_hex(_cmap(i / (_n_std - 1)))
             for i in range(_n_std)
@@ -409,6 +409,15 @@ def resolve_codon_or_aa(myoptions, old_codon_or_aa, new_codon_or_aa):
 # used in successive calls within the same Python process.
 _score_cache: dict = {}
 
+# Module-level worst-case score, set by load_matrix() from the active matrix.
+#
+# Used as the sentinel score for DEL/INS entries and OverflowError fallbacks
+# in get_score() / adjust_size_and_color() without requiring those functions to
+# iterate the matrix themselves.  Left as None until load_matrix() is called so
+# that any code path that scores mutations before loading a matrix fails loudly
+# rather than silently using a stale -11 default.
+_min_theoretical_score: typing.Optional[int] = None
+
 
 def get_score(myoptions, matrix, codon_on_input, old_codon_or_aa, new_codon_or_aa):
     """Return the integer substitution score for an amino acid (or codon) pair.
@@ -433,8 +442,10 @@ def get_score(myoptions, matrix, codon_on_input, old_codon_or_aa, new_codon_or_a
     Returns
     -------
     int
-        The BLOSUM (or custom matrix) substitution score, clipped to -11 on
-        arithmetic overflow.
+        The BLOSUM (or custom matrix) substitution score.  On arithmetic
+        overflow the score falls back to ``_min_theoretical_score`` — the
+        stop-codon penalty from the active matrix (e.g. −6 for BLOSUM80),
+        set by ``load_matrix()``.
 
     Performance notes
     -----------------
@@ -457,7 +468,14 @@ def get_score(myoptions, matrix, codon_on_input, old_codon_or_aa, new_codon_or_a
     try:
         _score = int(matrix[_old_aa][_new_aa])
     except OverflowError:
-        _score = -11
+        # Fall back to the pre-computed module-level worst score rather than
+        # a hardcoded constant.  _min_theoretical_score is set by load_matrix()
+        # from the active matrix (e.g. -6 for BLOSUM80).
+        if _min_theoretical_score is None:
+            raise RuntimeError(
+                "_min_theoretical_score is not initialised — call load_matrix() before scoring"
+            ) from None
+        _score = _min_theoretical_score
     except KeyError as exc:
         raise ValueError(f"Cannot get a score for myoptions.matrix='{myoptions.matrix}', old_codon_or_aa='{old_codon_or_aa}', new_codon_or_aa='{new_codon_or_aa}'") from exc
     _score_cache[_cache_key] = _score
@@ -560,7 +578,14 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
             print(f"Info: some single-letter but neither asterisk nor dash amino acid residue: _old_codon_or_aa='{_old_codon_or_aa}', new_codon_or_aa='{new_codon_or_aa}'")
 
     if _new_codon_or_aa in ('---', 'DEL', 'INS'):
-        _score = -11
+        # Use the pre-computed module-level worst score (set by load_matrix())
+        # as the sentinel for deletions/insertions instead of a hardcoded -11.
+        # For BLOSUM80 this equals matrix['A']['*'] = -6; other matrices differ.
+        if _min_theoretical_score is None:
+            raise RuntimeError(
+                "_min_theoretical_score is not initialised — call load_matrix() before scoring"
+            )
+        _score = _min_theoretical_score
     else:
         _score = get_score(myoptions, matrix, codon_on_input, _old_codon_or_aa, _new_codon_or_aa)
 
@@ -586,7 +611,7 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
         _color = '#219f11'  # dark green — synonymous sentinel colour
         _score = 12
     elif old_codon_or_aa in ('---', 'DEL', 'INS', '*') or new_codon_or_aa in ('---', 'DEL', 'INS', '*', 'TGA', 'TAA', 'TAG'):
-        # DEL/INS/STOP: score stays -11 (set above). No override here.
+        # DEL/INS/STOP: score is already set to _min_theoretical_score (above). No override here.
         _color = '#ff0000'  # pure red — deletion, insertion, or stop codon
     elif _old_codon_or_aa in ('X', 'NNN') or new_codon_or_aa in ('X', 'NNN'):
         _color = '#808080'  # medium gray — ambiguous/unknown codon or amino acid
@@ -733,7 +758,11 @@ def load_matrix(myoptions):
         for _score in _scores_dict.values():
             _theoretical_scores.add(_score)
     print(f"Info: Using {_matrix_name} matrix now. Theoretical minimum score is {min(_theoretical_scores)}, theoretical maximum score is {max(_theoretical_scores)}, values are {str(_theoretical_scores)}")
-    _min_theoretical_score, _max_theoretical_score = int(min(_theoretical_scores)), int(max(_theoretical_scores))
+    # Publish to the module-level sentinel so get_score() / adjust_size_and_color()
+    # can use it without a matrix dict lookup.
+    global _min_theoretical_score  # pylint: disable=global-statement
+    _min_theoretical_score = int(min(_theoretical_scores))
+    _max_theoretical_score = int(max(_theoretical_scores))
 
     return _matrix, _matrix_name, _min_theoretical_score, _max_theoretical_score, _outfile_prefix
 
@@ -1884,20 +1913,19 @@ def render_bokeh(
     _p.title.align = 'center'
     _p.title.text_font_size = '14pt'
 
-    # Embed the git version string visually in the Bokeh canvas as a small
-    # footnote label in the bottom-right corner (screen coordinates).  This
-    # mirrors the figure.text() footnote added to matplotlib PNG/PDF output.
-    # Using screen units makes the label position independent of data range.
+    # Embed the git version string in the lower-right border margin (below the
+    # x-axis), mirroring the figure.text() footnote in matplotlib PNG/PDF output.
+    # A Bokeh Title in the 'below' layout slot lives outside the data canvas in
+    # the white border area and supports align='right', making it fully
+    # independent of the data range and the stretch_width sizing mode.
     _version_label_text = f"mutation_scatter_plot v{VERSION}  git:{_GIT_VERSION}"
-    _version_label = bokeh.models.Label(
-        x=5, y=5,
-        x_units='screen', y_units='screen',
+    _version_label = bokeh.models.Title(
         text=_version_label_text,
+        align='right',
         text_font_size='9pt', text_color='#808080',  # medium gray — subtle footnote
-        text_align='left',
-        background_fill_color=None,
+        text_font_style='normal',
     )
-    _p.add_layout(_version_label)
+    _p.add_layout(_version_label, 'below')
 
     _html_title = (
         f"{os.path.basename(outfile_prefix)} "
