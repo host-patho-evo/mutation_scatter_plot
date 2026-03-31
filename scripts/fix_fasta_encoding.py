@@ -252,7 +252,9 @@ Usage examples
 import argparse
 import os
 import re
+import shutil
 import sys
+import time
 
 VERSION = "202603312000"
 
@@ -285,10 +287,66 @@ _parser.add_argument(
         "per-file summary line."
     ),
 )
+_parser.add_argument(
+    "--verbose", "-v", action="store_true",
+    help=(
+        "Show a per-line diff of every changed line even during a real "
+        "(non-dry-run) pass.  Also forces progress output even when stderr "
+        "is not a TTY (e.g. when redirected to a log file)."
+    ),
+)
 _parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+
+_PROGRESS_INTERVAL = 0.2   # seconds between progress line updates
+
+
+def _fmt_size(n: int) -> str:
+    """Return *n* bytes formatted as a human-readable string (B/KB/MB/GB)."""
+    for unit, threshold in (('GB', 1 << 30), ('MB', 1 << 20), ('KB', 1 << 10)):
+        if n >= threshold:
+            return f"{n / threshold:.1f} {unit}"
+    return f"{n} B"
+
+
+def _fmt_speed(bps: float) -> str:
+    """Return *bps* bytes/second as a human-readable speed string."""
+    return _fmt_size(int(bps)) + "/s"
+
+
+def _fmt_eta(seconds: float) -> str:
+    """Return ETA as 'h:mm:ss' or 'mm:ss'.  Returns '--:--' when unknown."""
+    if seconds < 0 or seconds > 86400 * 2:
+        return '--:--'
+    m, s = divmod(int(seconds), 60)
+    h, m = divmod(m, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
+
+
+def _progress_line(path: str, bytes_done: int, total_bytes: int,
+                   lines_done: int, changed: int, elapsed: float) -> str:
+    """Build a single-line progress string in the style of scp / dd.
+
+    Example output (fits in 80 columns)::
+
+        spikenuc1207.fasta   87%  112 MB   14.2 MB/s   00:08  1,234 changed
+    """
+    pct = int(bytes_done / total_bytes * 100) if total_bytes else 0
+    speed = bytes_done / elapsed if elapsed > 1e-6 else 0
+    eta = (total_bytes - bytes_done) / speed if speed > 0 else 0
+    cols = shutil.get_terminal_size(fallback=(80, 24)).columns
+    name = os.path.basename(path)
+    # Truncate long filenames to leave room for the stats.
+    max_name = max(10, cols - 52)
+    if len(name) > max_name:
+        name = name[:max_name - 1] + '…'
+    return (
+        f"{name:<{max_name}}  {pct:3d}%  {_fmt_size(bytes_done):>8}  "
+        f"{_fmt_speed(speed):>11}  {_fmt_eta(eta):>7}  {changed:,} changed"
+    )
+
 
 def _unescape_unicode(s: str) -> str:
     r"""Convert literal \uXXXX escape sequences to real Unicode characters.
@@ -336,7 +394,7 @@ def _decode_line(raw: bytes) -> str:
 
 
 def _process_file(path: str, dry_run: bool, overwrite: bool,
-                  stats_only: bool) -> int:
+                  stats_only: bool, verbose: bool) -> int:
     """Normalize *path* in-place.  Returns the number of lines changed."""
     orig_path = path + ".orig"
 
@@ -348,46 +406,87 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
         )
         return 0
 
-    # Read all lines, decoding as we go.
+    # Show progress when stderr is a TTY or when --verbose forces it.
+    show_progress = verbose or sys.stderr.isatty()
+
+    total_bytes = os.path.getsize(path)
+    bytes_read = 0
+    lines_read = 0
     changed = 0
     out_lines: list[str] = []
+    t_start = time.monotonic()
+    t_last = t_start
+
     with open(path, "rb") as fh:
         for raw in fh:
+            bytes_read += len(raw)
+            lines_read += 1
             # Preserve the original line ending (strip nothing here).
             original_text = raw.decode("latin-1")   # lossless reference decode
             clean = _decode_line(raw)
             out_lines.append(clean if clean.endswith("\n") else clean.rstrip("\r\n") + "\n")
             if clean.rstrip("\r\n") != original_text.rstrip("\r\n"):
                 changed += 1
-                if not stats_only and not dry_run:
-                    pass  # changes written silently; flag them in dry-run below
-                elif not stats_only:
-                    # dry-run: show diff
+                if verbose or (not stats_only and dry_run):
+                    # Print diff line; clear any in-progress progress line first.
+                    if show_progress:
+                        print("", file=sys.stderr)  # newline to move off progress row
+                        show_progress = False        # don't overwrite the diff output
                     print(
                         f"  ~ {original_text.rstrip()!r}\n"
                         f"  + {clean.rstrip()!r}",
                     )
 
+            # Emit progress update every _PROGRESS_INTERVAL seconds.
+            now = time.monotonic()
+            if show_progress and (now - t_last) >= _PROGRESS_INTERVAL:
+                elapsed = now - t_start
+                line = _progress_line(path, bytes_read, total_bytes,
+                                      lines_read, changed, elapsed)
+                print(f"\r{line}", end="", flush=True, file=sys.stderr)
+                t_last = now
+
+    # Final progress update / line clear.
+    if show_progress:
+        elapsed = time.monotonic() - t_start
+        if changed:
+            line = _progress_line(path, total_bytes, total_bytes,
+                                  lines_read, changed, elapsed)
+            print(f"\r{line}", flush=True, file=sys.stderr)
+        else:
+            # Clear the progress line if nothing changed.
+            width = shutil.get_terminal_size(fallback=(80, 24)).columns
+            print(f"\r{' ' * width}\r", end="", flush=True, file=sys.stderr)
+
     if changed == 0:
-        print(f"  {path}: no changes needed.")
+        print(f"  {path}: no changes needed.", file=sys.stderr)
         return 0
 
-    action = "Would write" if dry_run else "Writing"
-    print(f"  {action} {path}: {changed:,} line(s) changed.")
+    elapsed = time.monotonic() - t_start
+    speed_str = _fmt_speed(total_bytes / elapsed) if elapsed > 1e-6 else ""
+    action = "Would write" if dry_run else "Wrote"
+    print(
+        f"  {action} {path}: {changed:,} line(s) changed"
+        + (f", {speed_str}" if speed_str else ""),
+        file=sys.stderr,
+    )
 
     if dry_run:
         return changed
 
-    # Write clean UTF-8 to a temp path, then rename into place.
+    # Write clean UTF-8 to a temp path next to the original, then rename.
+    # The temp file lives in the same directory so both os.rename() calls
+    # are on the same filesystem (guaranteed atomic on POSIX).
     tmp_path = path + ".encoding_fix_tmp"
     with open(tmp_path, "w", encoding="utf-8") as fh:
         fh.writelines(out_lines)
 
     # Backup original (or overwrite existing backup if --overwrite).
     os.rename(path, orig_path)
-    print(f"  Renamed {os.path.basename(path)} -> {os.path.basename(orig_path)}")
+    print(f"  Renamed {os.path.basename(path)} -> {os.path.basename(orig_path)}",
+          file=sys.stderr)
     os.rename(tmp_path, path)
-    print(f"  Wrote clean UTF-8 -> {os.path.basename(path)}")
+    print(f"  Written clean UTF-8 -> {os.path.basename(path)}", file=sys.stderr)
     return changed
 
 
@@ -408,6 +507,7 @@ def main() -> None:
             dry_run=opts.dry_run,
             overwrite=opts.overwrite,
             stats_only=opts.stats_only,
+            verbose=opts.verbose,
         )
         total_files += 1
         total_changed += n
