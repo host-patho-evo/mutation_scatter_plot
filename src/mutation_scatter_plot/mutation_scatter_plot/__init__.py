@@ -1240,33 +1240,94 @@ def render_bokeh(
 
     Colorbar implementation notes
     ------------------------------
-    Bokeh's ``LinearColorMapper`` maps the continuous interval ``[low, high]``
-    linearly across the palette list.  With a palette of N discrete colours we
-    need each colour band to be exactly 1 score-unit wide and centred on its
-    integer score value so that the tick label (an integer) falls at the visual
-    centre of the band, and so that score 0 always maps to the correct colour
-    (yellow in the ``amino_acid_changes`` palette).
 
-    The key relationships are:
+    Colour indexing — discrete palettes (amino_acid_changes, dkeenan)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    When ``norm`` is a ``BoundaryNorm`` the scatter circles are coloured by
+    evaluating ``colors[norm(score)]`` inside ``adjust_size_and_color``.
+    ``BoundaryNorm(np.arange(low, high, 1), N)`` partitions the score axis
+    into ``high - low`` equal bands (each exactly 1 score-unit wide) and maps
+    them into ``N`` palette indices using ``np.digitize``.  For the default
+    ``amino_acid_changes`` palette the boundaries span ``-19`` to ``+18``,
+    which defines 38 bands — yet the palette has 39 colours, so the norm
+    rescales 38 bins into 39 colour slots.  Importantly this means:
 
-    * ``low  = -half - 0.5``  (half = N // 2)
-    * ``high = +half + 0.5``
-    * Total range = N units → band width = 1.0 exactly.
-    * Score *s* occupies the band ``[s - 0.5, s + 0.5]``, centred on *s*.
-    * Ticks are placed at plain integers via ``FixedTicker``.
+    * Score  0 → ``norm(0)``  = 20 → ``colors[20]`` = yellow ``#ffff00``
+    * Score +1 → ``norm(+1)`` = 21 → ``colors[21]`` = gold   ``#ffcc00``
+    * Score +2 → ``norm(+2)`` = 22 → ``colors[22]`` = orange ``#ffa200``
 
-    Why ``cmap(norm(s))`` rather than indexing ``colors`` directly:
-        The ``amino_acid_changes`` palette has 39 colour entries but
-        ``BoundaryNorm(np.arange(-19, 19, 1), 39)`` defines only 38 boundary
-        edges (37 bins between them) and then rescales those into 39 colour
-        slots.  As a result, colour index 20 (yellow, ``#ffff00``) maps to
-        score 0 via the norm, while a naive ``colors[19]`` (index 19) would
-        return the wrong brown colour (``#9c644b``).  Evaluating
-        ``cmap(norm(s))`` replicates the exact same rescaling that matplotlib
-        uses for the scatter points, guaranteeing that the colorbar colours
-        match the plotted circles for every score value.
+    A naïve ``colors[score + 19]`` (shifting by half) would be wrong because
+    the BoundaryNorm rescaling shifts the palette index by one extra slot.
 
-    Fallback for continuous colormaps (``norm`` is ``None``):
+    Colour indexing — continuous colormaps (coolwarm_r, etc.)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    When ``norm`` is ``None`` (continuous path) the palette is sampled linearly
+    across the full ``[0, 1]`` cmap interval at ``N`` equally spaced positions::
+
+        _score_palette[i] = cmap(i / (N - 1))   for i in 0 .. N-1
+
+    Score *s* maps to palette index ``s + half`` (no BoundaryNorm rescaling
+    needed), so ``_score_palette[half + s]`` gives the expected colour and the
+    integer tick label for score *s* sits at the centre of that band.
+
+    Tick label placement relative to colour bands
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Bokeh's ``LinearColorMapper`` divides the interval ``[low, high]`` into
+    ``len(palette)`` equal bands and assigns colour ``palette[i]`` to band *i*.
+    For a tick label to appear **centred inside** the band for score *s*, the
+    tick coordinate must equal the band's midpoint.  Setting::
+
+        low  = -half - 0.5      (half = len(colors) // 2)
+        high = +half + 0.5
+
+    gives a total range of ``2 * half + 1 = N`` units and a band width of
+    exactly ``1.0``.  Band *i* covers ``[low + i, low + i + 1)`` and has its
+    midpoint at ``low + i + 0.5``.  For score *s* → palette index ``s + half``
+    the midpoint is::
+
+        low + (s + half) + 0.5 = (-half - 0.5) + (s + half) + 0.5 = s
+
+    i.e. the midpoint of the band for score *s* is the integer *s* itself,
+    which is exactly where ``FixedTicker`` places the tick label.  This ensures
+    every integer label sits at the visual centre of its colour band.
+
+    Bokeh ColorBar alpha deficiency and workaround
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Bokeh's ``ColorBar`` widget does **not** expose a global ``alpha`` property
+    for the rendered colour bands.  The ``LinearColorMapper`` stores hex colour
+    strings and renders them at full opacity (alpha = 1.0) regardless of any
+    ``fill_alpha`` or ``alpha`` attribute on the glyph renderers in the same
+    figure.  This is a known Bokeh design limitation: the ``ColorBar`` is
+    drawn as a separate overlay with its own rendering pipeline that does not
+    inherit the glyph-level transparency settings.
+
+    The scatter circles, on the other hand, are rendered with ``alpha=0.5``
+    (stored in the ``a`` column of the ``ColumnDataSource``).  On the white
+    plot background this blends each circle colour *C* towards white::
+
+        apparent_channel = alpha * C + (1 - alpha) * 255
+
+    For example, with alpha = 0.5::
+
+        score  0  (yellow  #ffff00) → apparent #ffff80  (pale yellow)
+        score +1  (gold    #ffcc00) → apparent #ffe680  (pale gold)
+        score +2  (orange  #ffa200) → apparent #ffd080  (pale orange)
+
+    Without compensation the full-opacity colorbar band for score +1 (#ffcc00)
+    appears visually identical to the alpha-blended circle for score +2
+    (#ffd080), making users think a score-+2 mutation is coloured with the
+    score-+1 label — which is the exact regression this fix addresses.
+
+    Workaround: ``_blend_with_white`` pre-blends every palette entry with
+    white at ``alpha = _BOKEH_CIRCLE_ALPHA = 0.5`` before handing the list
+    to ``LinearColorMapper``, so the static colorbar bands display the same
+    apparent shade as the corresponding semi-transparent scatter circle.
+    The ``ColumnDataSource`` colour column (``c``) continues to store the
+    raw hex values; Bokeh applies the glyph alpha at render time as usual.
+    Only the colorbar palette is pre-blended — it is purely a visual
+    compensation for a Bokeh API deficiency.
+
+    Fallback for continuous colormaps (``norm`` is ``None``)::
         The palette is sampled linearly across the cmap at ``N`` equally spaced
         positions.  If ``cmap`` is also ``None`` a flat grey palette is used.
 
@@ -1403,24 +1464,124 @@ def render_bokeh(
     _p.axis.major_label_text_font_size = "12px"
     _p.scatter(x='x', y='y', size='s', marker='m', color='c', alpha='a', source=_mysource)
 
-    # Build the Bokeh colorbar palette so it matches the scatter circle colours.
+    # -------------------------------------------------------------------------
+    # Colorbar palette construction
+    # -------------------------------------------------------------------------
     #
-    # For *discrete* colormaps (amino_acid_changes, dkeenan — norm is a
-    # BoundaryNorm) the scatter circles are coloured by
-    #   colors[norm(score)]        (in adjust_size_and_color)
-    # so the palette must use the same lookup.  Using cmap(norm(s)) is WRONG
-    # here because BoundaryNorm returns a large integer (e.g. norm(0) == 20 for
-    # amino_acid_changes), and calling cmap(20) on a ListedColormap treats 20
-    # as a normalised float far above 1.0, clipping every band to the last
-    # "over" colour.
+    # The goal is a Bokeh LinearColorMapper whose colour bands visually match
+    # the alpha=0.5 scatter glyphs rendered on the white plot background.
     #
-    # For *continuous* colormaps (coolwarm_r etc. — norm is None) colors is a
-    # pre-sampled list built in get_colormap; we sample cmap linearly to match.
+    # Two sub-problems must be solved:
+    #
+    # 1. Correct colour lookup (score → hex)
+    #    For *discrete* colormaps (amino_acid_changes, dkeenan — norm is a
+    #    BoundaryNorm) the scatter circles are coloured by:
+    #        colors[norm(score)]        (in adjust_size_and_color)
+    #    The palette must use the same lookup.  Calling cmap(norm(s)) is WRONG
+    #    here because BoundaryNorm returns a large integer (e.g. norm(0) == 20
+    #    for amino_acid_changes), and calling cmap(20) on a ListedColormap
+    #    treats 20 as a normalised float far above 1.0, clipping every band to
+    #    the last "over" colour.  Instead we index colors[] directly with the
+    #    norm-rescaled index and then convert via to_rgba/to_hex.
+    #
+    #    For *continuous* colormaps (coolwarm_r etc. — norm is None) the
+    #    palette is sampled linearly from the cmap at N equally spaced [0,1]
+    #    positions, where N equals the length of the colors list.
+    #
+    # 2. Alpha matching — Bokeh ColorBar design deficiency
+    #    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #    Bokeh's ColorBar does NOT expose an alpha property for its colour
+    #    bands.  The LinearColorMapper stores raw hex strings and renders them
+    #    at full opacity (alpha=1.0) regardless of any alpha set on the
+    #    scatter glyphs.  This is a fundamental limitation of the Bokeh
+    #    ColorBar widget: it is drawn as a separate overlay whose rendering
+    #    pipeline is isolated from the glyph-level transparency settings.
+    #
+    #    Scatter circles use alpha=0.5 (see _circles_bokeh constant below).
+    #    On the white (#ffffff) background each circle colour blends as:
+    #
+    #        apparent_channel = alpha * source_channel + (1 - alpha) * 255
+    #
+    #    Without compensation the full-opacity colorbar band for score +1
+    #    (gold #ffcc00) appears the same shade as the alpha-blended circle
+    #    for score +2 (orange #ffa200 → apparent pale orange #ffd080), making
+    #    it look as though score-2 mutations carry the +1 label colour.
+    #
+    #    Workaround: pre-blend every palette entry with white at the same
+    #    alpha value before passing the list to LinearColorMapper.  The
+    #    ColumnDataSource `c` column retains the raw hex values; Bokeh applies
+    #    glyph alpha at render time as normal.  The pre-blend is applied only
+    #    to the colorbar palette — it is purely a visual compensation for the
+    #    Bokeh API deficiency and does not affect the stored glyph colours.
+    _BOKEH_CIRCLE_ALPHA = 0.5  # Must match the alpha stored in _circles_bokeh tuples.
+
+    def _blend_with_white(hex_color: str, alpha: float) -> str:
+        """Return *hex_color* pre-blended with white at *alpha* opacity.
+
+        This simulates how a semi-transparent glyph appears when composited
+        over the plain-white Bokeh plot background.  The formula is the
+        standard alpha-compositing equation with a white (255, 255, 255)
+        background::
+
+            apparent_channel = round(alpha * source + (1 - alpha) * 255)
+
+        Used exclusively to make the Bokeh ``ColorBar`` palette bands look
+        identical to the scatter glyphs that are rendered with ``alpha=0.5``.
+        Bokeh's ``ColorBar`` widget does not expose a transparency control for
+        its colour bands (a known design limitation), so this pre-blend is the
+        only available workaround.
+
+        Parameters
+        ----------
+        hex_color : str
+            Six-digit CSS hex colour string, e.g. ``'#ffa200'``.
+        alpha : float
+            Opacity in [0, 1].  Must match the ``alpha`` value used for the
+            scatter glyphs (``_BOKEH_CIRCLE_ALPHA``).
+
+        Returns
+        -------
+        str
+            Six-digit CSS hex colour string of the blended colour.
+
+        Examples
+        --------
+        >>> _blend_with_white('#ffff00', 0.5)   # yellow at half opacity
+        '#ffff80'
+        >>> _blend_with_white('#ffa200', 0.5)   # orange at half opacity
+        '#ffd080'
+        >>> _blend_with_white('#000000', 0.5)   # black at half opacity
+        '#808080'
+        """
+        r = int(hex_color[1:3], 16)
+        g = int(hex_color[3:5], 16)
+        b = int(hex_color[5:7], 16)
+        return "#{:02x}{:02x}{:02x}".format(
+            round(alpha * r + (1 - alpha) * 255),
+            round(alpha * g + (1 - alpha) * 255),
+            round(alpha * b + (1 - alpha) * 255),
+        )
+
     _n = len(colors) if colors is not None else 256
     _half = _n // 2
+    # _score_range covers all integer scores from -_half to +_half inclusive
+    # (39 values for amino_acid_changes: -19 … +19; 27 for dkeenan: -13 … +13).
     _score_range = range(-_half, _half + 1)
     if norm is not None and colors is not None:
-        # Discrete ListedColormap path: mirror adjust_size_and_color exactly.
+        # Discrete ListedColormap path (amino_acid_changes, dkeenan).
+        # Mirror adjust_size_and_color exactly: index colors[] using the
+        # norm-rescaled integer returned by BoundaryNorm.
+        #
+        # Why not cmap(norm(s))?
+        #   BoundaryNorm(np.arange(-19, 19, 1), 39) rescales 38 bins into 39
+        #   colour slots, so norm(0) returns 20 (not 19).  Calling cmap(20)
+        #   on a 39-entry ListedColormap interprets 20 as a normalised float
+        #   >> 1.0 and clips to the "over" colour.  Indexing colors[norm(s)]
+        #   matches the exact lookup used for the scatter circles.
+        #
+        # Clamping with max/min guards against the two edge slots that
+        # BoundaryNorm reserves for "under" and "over" values.
+        #
         # matplotlib.colors.to_rgba handles both '#rrggbb' hex strings and
         # CSS colour names (e.g. 'palegreen') that may appear in _colors.
         _score_palette = [
@@ -1429,20 +1590,39 @@ def render_bokeh(
             for s in _score_range
         ]
     elif cmap is not None:
-        # Continuous cmap path (coolwarm_r etc.): sample linearly.
+        # Continuous cmap path (coolwarm_r etc.).
+        # Sample the cmap uniformly across [0, 1] at _n positions.
+        # Score s maps to palette index (s + _half), so the integer tick label
+        # for score s sits at the centre of band (s + _half) — which will be
+        # correct once low/high are set to -_half-0.5 / +_half+0.5 below.
         _score_palette = [
             matplotlib.colors.to_hex(cmap(i / max(1, _n - 1)))
             for i in range(_n)
         ]
     else:
         _score_palette = ['#aaaaaa'] * _n
-    # low/high extended by ±0.5 so each band is exactly 1 unit wide and the
-    # integer score tick sits at the centre of its band.
+
+    # Workaround for Bokeh's missing ColorBar alpha support.
+    # See the "Bokeh ColorBar design deficiency" section in the docstring above.
+    _score_palette_display = [_blend_with_white(c, _BOKEH_CIRCLE_ALPHA) for c in _score_palette]
+
+    # low/high are extended by ±0.5 so that each colour band is exactly 1
+    # score-unit wide and the integer tick coordinate (placed by FixedTicker)
+    # falls at the geometric centre of the corresponding band.
+    #
+    # Derivation: with N bands in [low, high]:
+    #   band_width = (high - low) / N = (2*_half + 1) / (_n) = 1.0  ✓
+    #   midpoint of band i = low + i + 0.5
+    #   for score s → band index (s + _half):
+    #       midpoint = (-_half - 0.5) + (s + _half) + 0.5 = s   ✓
     _color_mapper = bokeh.models.LinearColorMapper(
-        palette=_score_palette,
+        palette=_score_palette_display,
         low=-_half - 0.5,
         high= _half + 0.5,
     )
+    # FixedTicker places one tick label at every integer score in _score_range.
+    # These tick coordinate values equal the band midpoints (see derivation
+    # above), so each label sits visually centred inside its colour band.
     _tick_positions = list(_score_range)
     _colorbar = bokeh.models.ColorBar(
         color_mapper=_color_mapper,
@@ -1536,6 +1716,68 @@ def render_matplotlib(
     gives the exact ``(_padded_position, row_index, ...)`` tuple that was used
     to plot the point, guaranteeing that the hover annotation always refers to
     the correct position and codon/amino-acid.
+
+    Colorbar implementation notes
+    ------------------------------
+
+    Colour indexing — discrete palettes (amino_acid_changes, dkeenan)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    When ``norm`` is a ``BoundaryNorm`` matplotlib natively handles colour
+    indexing: the scatter's ``ScalarMappable`` (``_mpl_scatterplot``) is
+    created with ``c=cm_c`` (raw integer scores) plus ``cmap=cmap, norm=norm``.
+    Matplotlib then internally evaluates ``cmap(norm(score))`` to colour each
+    point, which routes through BoundaryNorm's ``np.digitize``-based rescaling::
+
+        score  0 → norm(0)  = 20 → colors[20] = yellow  ``#ffff00``
+        score +1 → norm(+1) = 21 → colors[21] = gold    ``#ffcc00``
+        score +2 → norm(+2) = 22 → colors[22] = orange  ``#ffa200``
+
+    Passing the same ``_mpl_scatterplot`` to ``figure.colorbar()`` derives the
+    colorbar palette from the identical ``ScalarMappable``, guaranteeing that
+    the colorbar bands and the scatter circles always use the same colour lookup.
+
+    Tick label placement — discrete path
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    For the BoundaryNorm path the colorbar's y-range corresponds to the
+    normalised [0, 1] space defined by the ScalarMappable.  Matplotlib places
+    tick labels at the positions given to ``set_yticks``.  To centre each
+    integer label inside its colour band we pass positions **halfway between
+    adjacent integer scores** and pair them with integer labels::
+
+        set_yticks(
+            np.arange(-18.5, 18.5, 1),   # tick positions: -18.5, -17.5, ...
+            np.arange(-19,   18,   1),   # tick labels:   -19,   -18, ...
+        )
+
+    Position -18.5 falls at the mid-point of the band that spans [-19, -18),
+    so label ``-19`` appears centred inside the ``score=-19`` colour band.
+    This is the discrete-path equivalent of the Bokeh ``low=-half-0.5`` trick.
+
+    Colour indexing — continuous colormaps (coolwarm_r, etc.)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    When ``norm`` is ``None`` the scatter hex colours are pre-resolved in
+    ``adjust_size_and_color`` and passed directly as a list of hex strings
+    (``c=list(cm_hex)``).  This bypasses any ScalarMappable, so there is no
+    implicit colour lookup.  A standalone ``ScalarMappable`` is created for the
+    colorbar with a ``Normalize(vmin=-half, vmax=+half)`` range, sampling the
+    continuous cmap smoothly from its cold (negative) to warm (positive) end.
+    Integer ticks are placed uniformly via::
+
+        set_yticks(np.arange(-_cb_half, _cb_half + 1, 1))
+
+    Because the colorbar data range is ``[-half, +half]`` (integer-bounded,
+    unlike the BoundaryNorm path) the integer values fall at the colour
+    transitions rather than at band centres.  This is correct for a continuous
+    colormap where there are no distinct discrete bands.
+
+    Alpha transparency — matplotlib vs. Bokeh
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Unlike Bokeh, matplotlib's ``figure.colorbar(alpha=0.5)`` natively applies
+    the given transparency to the colourbar bands.  The scatter circles also
+    use ``alpha=0.5``, so both elements are blended identically by the rendering
+    engine and their apparent colours always match without any manual pre-blending.
+    This is the key advantage of the matplotlib output path over the Bokeh
+    HTML path (see ``render_bokeh`` for the Bokeh workaround).
     """
 
     if circles_matplotlib:
@@ -1568,13 +1810,31 @@ def render_matplotlib(
 
     _colorbar_label = f"{matrix_name} score values (synonymous codon changes shown in dark green)"
     if norm is not None:
-        # BoundaryNorm path: colorbar is derived from the scatter ScalarMappable.
+        # Discrete BoundaryNorm path (amino_acid_changes, dkeenan).
+        # The scatter's ScalarMappable (_mpl_scatterplot) already carries the
+        # correct cmap+norm, so passing it directly to colorbar() produces a
+        # band for every score via the same norm(score) colour lookup used for
+        # the scatter circles.  No separate ScalarMappable needed here.
+        #
+        # Tick label placement: set_yticks with half-offset positions centres
+        # each integer label inside its colour band (see docstring above).
+        # np.arange(-18.5, 18.5, 1) generates 37 positions for the 37 inner
+        # score bands (-18 to +18); the outermost bands (-19 and +18) each
+        # consume one additional tick.
+        # alpha=0.5 is supported natively by matplotlib.colorbar — unlike
+        # Bokeh's ColorBar which requires the pre-blend workaround in
+        # render_bokeh.
         _colorbar = figure.colorbar(_mpl_scatterplot, cax=ax3, label=_colorbar_label, location='right', pad=-0.1, alpha=0.5)
         _colorbar.ax.set_yticks(np.arange(-18.5, 18.5, 1), np.arange(-19, 18, 1))
         _colorbar.ax.tick_params(axis='y', which='minor', length=0)
     else:
-        # Standard cmap path: scatter has no ScalarMappable, so drive the
-        # colorbar from a standalone ScalarMappable with a Normalize range.
+        # Continuous cmap path (coolwarm_r etc.).
+        # The scatter used pre-resolved hex strings with no ScalarMappable, so
+        # a standalone ScalarMappable with a plain Normalize is needed to drive
+        # the colorbar.  The colorbar range [-_cb_half, +_cb_half] corresponds
+        # to the raw score axis; integer ticks land at colour transitions rather
+        # than band centres (correct for a continuous gradient).
+        # alpha=0.5 is applied natively by matplotlib, matching the scatter.
         _cb_half = len(colors) // 2
         _cb_norm = matplotlib.colors.Normalize(vmin=-_cb_half, vmax=_cb_half)
         _sm = matplotlib.cm.ScalarMappable(cmap=cmap, norm=_cb_norm)
