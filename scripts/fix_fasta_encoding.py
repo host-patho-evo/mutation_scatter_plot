@@ -422,6 +422,13 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     lines_read = 0
     changed = 0
     out_lines: list[str] = []
+    # Encoding-mix statistics: counts how many changed lines had each
+    # combination of the three encoding forms.
+    #   'esc'  — literal \uXXXX escape sequences
+    #   'lat1' — raw Latin-1 bytes (not valid UTF-8)
+    #   'utf8' — valid UTF-8 multi-byte sequences
+    from collections import Counter
+    mix_counter: Counter = Counter()
     t_start = time.monotonic()
     t_last = t_start
 
@@ -435,6 +442,18 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
             out_lines.append(clean if clean.endswith("\n") else clean.rstrip("\r\n") + "\n")
             if clean.rstrip("\r\n") != original_text.rstrip("\r\n"):
                 changed += 1
+                # Classify which encoding forms are present on this line.
+                decoded_surr = raw.decode('utf-8', errors='surrogateescape')
+                enc_types: set[str] = set()
+                if re.search(r'\\u[0-9a-fA-F]{4}', original_text):
+                    enc_types.add('esc')
+                if any(0xDC80 <= ord(ch) <= 0xDCFF for ch in decoded_surr):
+                    enc_types.add('lat1')
+                if any(ord(ch) > 0x7F and not (0xDC80 <= ord(ch) <= 0xDCFF)
+                       for ch in decoded_surr):
+                    enc_types.add('utf8')
+                mix_counter[frozenset(enc_types)] += 1
+
                 if verbose or (not stats_only and dry_run):
                     # Print diff line; clear the progress line first if active.
                     if show_progress:
@@ -478,6 +497,28 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
         + (f", {speed_str}" if speed_str else ""),
         file=sys.stderr,
     )
+
+    # Encoding-mix summary — always printed when there are changes.
+    _MIX_LABELS = [
+        (frozenset({'esc'}),            "\\uXXXX escapes only"),
+        (frozenset({'lat1'}),           "Latin-1 raw bytes only"),
+        (frozenset({'utf8'}),           "Valid UTF-8 multi-byte only"),
+        (frozenset({'esc', 'utf8'}),    "\\uXXXX escapes  +  valid UTF-8 multi-byte"),
+        (frozenset({'esc', 'lat1'}),    "\\uXXXX escapes  +  Latin-1 raw bytes"),
+        (frozenset({'lat1', 'utf8'}),   "Latin-1 raw bytes  +  valid UTF-8 *** MIXED ***"),
+        (frozenset({'esc','lat1','utf8'}),
+                                        "All three (\\uXXXX + Latin-1 + UTF-8) *** MIXED ***"),
+    ]
+    if mix_counter:
+        print("  Encoding-mix breakdown (per changed line):", file=sys.stderr)
+        for key, label in _MIX_LABELS:
+            cnt = mix_counter.get(key, 0)
+            if cnt:
+                print(f"    {label:<52s}: {cnt:>8,}", file=sys.stderr)
+        # Print any unexpected combinations not in the label table.
+        for key, cnt in mix_counter.items():
+            if not any(key == k for k, _ in _MIX_LABELS):
+                print(f"    (other: {sorted(key)}): {cnt:>8,}", file=sys.stderr)
 
     if dry_run:
         return changed
