@@ -311,10 +311,11 @@ def main():
                         original_id_lines.extend(orig_ids)
                         actual_original_count += len(orig_ids)
                         if len(orig_ids) != count:
+                            _dir = "fewer" if len(orig_ids) < count else "more"
                             print(
                                 f"Warning: sha256 {digest[:16]}...: count {count:,} in mapping"
-                                f" but {len(orig_ids):,} IDs stored —"
-                                f" discrepancy of {abs(count - len(orig_ids)):,}",
+                                f" but {len(orig_ids):,} IDs stored"
+                                f" ({_dir} than expected by {abs(count - len(orig_ids)):,})",
                                 file=sys.stderr,
                             )
                         n_sha += 1
@@ -372,10 +373,11 @@ def main():
                         original_id_lines.extend(orig_ids)
                         actual_original_count += len(orig_ids)
                         if len(orig_ids) != count:
+                            _dir = "fewer" if len(orig_ids) < count else "more"
                             print(
                                 f"Warning: sha256 {digest[:16]}...: expected {count:,} IDs"
-                                f" but mapping has {len(orig_ids):,} —"
-                                f" discrepancy of {abs(count - len(orig_ids)):,}",
+                                f" but mapping has {len(orig_ids):,}"
+                                f" ({_dir} than expected by {abs(count - len(orig_ids)):,})",
                                 file=sys.stderr,
                             )
             print(
@@ -404,10 +406,11 @@ def main():
                 exp = int(rec_name[:x_pos]) if (x_pos > 0 and rec_name[:x_pos].isdigit()) else 1
                 got = sha256_hit_counts.get(sha, 0)
                 if got != exp:
+                    _dir = "fewer" if got < exp else "more"
                     print(
                         f"Warning: {rec_name}: expected {exp:,} occurrences in"
                         f" {myoptions.original_infilename} but found {got:,}"
-                        f" — discrepancy of {abs(exp - got):,}",
+                        f" ({_dir} than expected by {abs(exp - got):,})",
                         file=sys.stderr,
                     )
             print(
