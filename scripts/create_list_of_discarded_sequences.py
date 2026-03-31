@@ -88,6 +88,7 @@ import argparse
 import datetime
 import hashlib
 import os
+import subprocess
 import sys
 
 VERSION = "202603311815"
@@ -191,6 +192,34 @@ _parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+
+def _line_count(line: str) -> int:
+    """Return the NNNNx prefix count from a sha256-hash line, or 1."""
+    x_pos = line.find('x')
+    if x_pos > 0:
+        try:
+            return int(line[:x_pos])
+        except ValueError:
+            pass
+    return 1
+
+
+def _sort_inplace(path: str, sort_args: list) -> None:
+    """Sort *path* in-place using the system 'sort' command.
+
+    Uses ``sort -o path path`` which GNU sort guarantees to be safe
+    (reads input fully before overwriting the output).
+    """
+    result = subprocess.run(
+        ['sort'] + sort_args + ['-o', path, path],
+        capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        print(
+            f"Warning: sort failed for {path}: {result.stderr.strip()}",
+            file=sys.stderr,
+        )
+
 
 def _extract_sha256(record_id):
     """Return the sha256hex from an ID of the form NNNNx.SHA256HEX, or None."""
@@ -586,7 +615,11 @@ def main():
                 file=sys.stderr,
             )
 
-    # ── Step 3: write sha256 hashes file ──────────────────────────────────────────
+    # ── Step 3: write and sort sha256 hashes file ────────────────────────────
+    # sha256 hashes file: sort -rn so lines are ordered by the leading
+    # integer count (NNNNx.) descending — most-duplicated sequences first.
+    # original IDs file: sort -V (version/natural sort) so embedded numbers
+    # in FASTA IDs are compared by value, not lexicographically.
     total_count = sum(_line_count(ln) for ln in sha256_lines)
 
     if myoptions.outfile == '/dev/null':
@@ -599,6 +632,8 @@ def main():
         with open(myoptions.outfile, "w", encoding="utf-8") as out:
             for line in sha256_lines:
                 out.write(line + "\n")
+        # Sort by leading count descending: most-duplicated sequences first.
+        _sort_inplace(myoptions.outfile, ['-rn'])
         print(
             f"Info: wrote {len(sha256_lines):,} sha256 hash entries"
             f" (total count: {total_count:,}) to {myoptions.outfile}",
@@ -618,6 +653,8 @@ def main():
         with open(_original_ids_outfile, "w", encoding="utf-8") as out:
             for line in original_id_lines:
                 out.write(line + "\n")
+        # Natural/version sort: numeric substrings compared by value.
+        _sort_inplace(_original_ids_outfile, ['-V'])
         print(
             f"Info: wrote {len(original_id_lines):,} original FASTA IDs"
             f" to {_original_ids_outfile}",
