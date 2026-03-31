@@ -1,44 +1,252 @@
 #!/usr/bin/env python3
-"""Normalize the character encoding of FASTA files in-place.
+r"""Normalize the character encoding of FASTA files in-place.
 
-Reads each input file with a two-stage decode:
-  1. Bytes → str: UTF-8 attempted first; on UnicodeDecodeError falls back to
-     Latin-1 (ISO-8859-1).  This handles GISAID FASTA files that mix UTF-8
-     and Latin-1 encoded characters in sample description lines.
-  2. Literal escape conversion: ``\\uXXXX`` sequences (produced by some GISAID
-     export or native2ascii pipelines) are replaced with the real Unicode
-     codepoint (e.g. ``\\u00e9`` → ``é``).
+Background
+----------
+GISAID FASTA exports are aggregated from submissions made by thousands of
+labs worldwide, each using different software, operating systems, and locale
+settings.  As a result, a single FASTA file may contain header lines whose
+non-ASCII characters were encoded in three distinct ways:
 
-The cleaned file is written as strict UTF-8 and the original is renamed to
-``{infile}.orig`` as a backup.  If ``{infile}.orig`` already exists, the file
-is skipped to prevent overwriting a previous backup.
+  1. **Valid UTF-8 multi-byte sequences** — the correct modern encoding.
+     Example: Polish ``ś`` (U+015B) encoded as the two bytes ``\xC5 \x9B``,
+     or ``ą`` (U+0105) as ``\xC4 \x85``.
 
-The equivalent manual pipeline this replaces::
+  2. **Raw Latin-1 (ISO-8859-1) bytes** — single bytes ``\x80``–``\xFF``
+     that represent Western European accented characters in the ISO-8859-1
+     code page.  Example: French ``é`` as the single byte ``\xe9``, or
+     Spanish ``ó`` as ``\xf3``.
 
-    # 1. Convert \\uXXXX escapes to real Unicode (Java native2ascii):
+  3. **Literal ``\uXXXX`` escape sequences** — the ASCII representation of
+     Unicode code points produced by Java's ``native2ascii`` tool or by
+     Python's ``repr()``/``unicode_escape`` codec.  These look like the
+     six-character text string ``\u00e9`` rather than the real ``é`` glyph.
+
+All three forms can appear *on the same FASTA header line*, because GISAID's
+aggregator concatenated fields from labs that each had a different broken
+pipeline.
+
+This script normalises all three forms to proper UTF-8 in a single pass.
+
+Encoding strategy
+-----------------
+A naïve ``try UTF-8 / except → Latin-1`` per-line approach breaks down when
+a single line mixes valid UTF-8 multi-byte sequences (e.g. ``\xC5\x9B`` = ś)
+with raw Latin-1 bytes (e.g. ``\xe9`` = é).  In that case the entire line
+falls back to Latin-1, which corrupts the UTF-8 multi-byte pairs.
+
+This script uses Python's ``surrogateescape`` error handler instead:
+
+  Step 1 — ``raw.decode('utf-8', errors='surrogateescape')``:
+      Valid UTF-8 multi-byte sequences are decoded to the correct Unicode
+      character.  Every individual byte that is NOT part of a valid UTF-8
+      sequence is mapped to a *surrogate code point* U+DC80..U+DCFF rather
+      than raising an exception.
+
+  Step 2 — Surrogate → Latin-1:
+      Each surrogate U+DC80+b is converted back to ``chr(b)``, giving the
+      Latin-1 interpretation of that raw byte.  This is lossless at the
+      byte level: every byte of the original file is represented exactly
+      once in the output.
+
+  Step 3 — ``\uXXXX`` unescape:
+      Literal six-character escape sequences ``\uXXXX`` are replaced with
+      the real Unicode codepoint they represent.  A fast-path check
+      (``'\\u' not in s``) makes this essentially free for the vast majority
+      of lines (sequence lines, clean headers) that contain no escapes.
+
+Why ``unidecode`` failed
+------------------------
+The ``unidecode`` command-line tool reads its input as pure UTF-8.  When it
+encounters a raw Latin-1 byte such as ``\xe9`` (é) — which is not a valid
+UTF-8 continuation byte in isolation — it raises::
+
+    Unable to decode input line NNNNNN: invalid continuation byte,
+    start: 260, end: 261
+
+Running this script first normalises the file to strict UTF-8, after which
+``unidecode`` runs without errors (if ASCII-only output is required).
+
+Character reference — ``\uXXXX`` escapes seen in GISAID data
+-------------------------------------------------------------
+The following escapes appear in real GISAID FASTA header lines.  All are
+converted to their proper Unicode glyphs by this script:
+
+    \u00c0  À   Latin capital A with grave          (French)
+    \u00c1  Á   Latin capital A with acute
+    \u00c2  Â   Latin capital A with circumflex
+    \u00c3  Ã   Latin capital A with tilde
+    \u00c4  Ä   Latin capital A with diaeresis       (German)
+    \u00c5  Å   Latin capital A with ring above      (Scandinavian)
+    \u00c6  Æ   Latin capital AE ligature
+    \u00c7  Ç   Latin capital C with cedilla        (French, Portuguese)
+    \u00c8  È   Latin capital E with grave
+    \u00c9  É   Latin capital E with acute
+    \u00ca  Ê   Latin capital E with circumflex
+    \u00cb  Ë   Latin capital E with diaeresis
+    \u00cc  Ì   Latin capital I with grave
+    \u00cd  Í   Latin capital I with acute          (Spanish)
+    \u00ce  Î   Latin capital I with circumflex
+    \u00cf  Ï   Latin capital I with diaeresis
+    \u00d1  Ñ   Latin capital N with tilde          (Spanish)
+    \u00d3  Ó   Latin capital O with acute
+    \u00d4  Ô   Latin capital O with circumflex
+    \u00d5  Õ   Latin capital O with tilde
+    \u00d6  Ö   Latin capital O with diaeresis      (German, Swedish)
+    \u00d8  Ø   Latin capital O with stroke         (Norwegian)
+    \u00d9  Ù   Latin capital U with grave
+    \u00da  Ú   Latin capital U with acute
+    \u00db  Û   Latin capital U with circumflex
+    \u00dc  Ü   Latin capital U with diaeresis      (German)
+    \u00df  ß   Latin small letter sharp S          (German)
+    \u00e0  à   Latin small a with grave            (French, Italian)
+    \u00e1  á   Latin small a with acute
+    \u00e2  â   Latin small a with circumflex
+    \u00e3  ã   Latin small a with tilde            (Portuguese)
+    \u00e4  ä   Latin small a with diaeresis        (German)
+    \u00e5  å   Latin small a with ring above       (Scandinavian)
+    \u00e6  æ   Latin small ae ligature
+    \u00e7  ç   Latin small c with cedilla         (French, Portuguese)
+    \u00e8  è   Latin small e with grave            (French, Italian)
+    \u00e9  é   Latin small e with acute            (French) ← very common
+    \u00ea  ê   Latin small e with circumflex
+    \u00eb  ë   Latin small e with diaeresis
+    \u00ec  ì   Latin small i with grave
+    \u00ed  í   Latin small i with acute            (Spanish)  ← common
+    \u00ee  î   Latin small i with circumflex
+    \u00ef  ï   Latin small i with diaeresis
+    \u00f1  ñ   Latin small n with tilde            (Spanish)
+    \u00f3  ó   Latin small o with acute            (Spanish, Polish)
+    \u00f4  ô   Latin small o with circumflex
+    \u00f5  õ   Latin small o with tilde
+    \u00f6  ö   Latin small o with diaeresis        (German, Swedish) ← common
+    \u00f8  ø   Latin small o with stroke           (Norwegian)
+    \u00f9  ù   Latin small u with grave
+    \u00fa  ú   Latin small u with acute
+    \u00fb  û   Latin small u with circumflex
+    \u00fc  ü   Latin small u with diaeresis        (German, Swedish) ← common
+    \u00fd  ý   Latin small y with acute
+    \u00ff  ÿ   Latin small y with diaeresis
+    \u0105  ą   Latin small a with ogonek           (Polish)
+    \u0107  ć   Latin small c with acute            (Polish)
+    \u010d  č   Latin small c with caron            (Czech, Slovak)
+    \u0111  đ   Latin small d with stroke           (Croatian)
+    \u0119  ę   Latin small e with ogonek           (Polish)
+    \u011b  ě   Latin small e with caron            (Czech)
+    \u0142  ł   Latin small l with stroke           (Polish)
+    \u0144  ń   Latin small n with acute            (Polish)
+    \u015b  ś   Latin small s with acute            (Polish)
+    \u015f  ş   Latin small s with cedilla          (Turkish, Romanian)
+    \u0160  Š   Latin capital S with caron          (Czech, Slovak)
+    \u0161  š   Latin small s with caron            (Czech, Slovak)
+    \u017a  ź   Latin small z with acute            (Polish)
+    \u017c  ż   Latin small z with dot above        (Polish)
+    \u017e  ž   Latin small z with caron            (Czech, Slovak)
+    \u0171  ű   Latin small u with double acute     (Hungarian)
+    \u0151  ő   Latin small o with double acute     (Hungarian)
+    \u00e3  ã   Latin small a with tilde            (Portuguese: São Paulo)
+    \u201c  "   Left double quotation mark          (Italian hospital names)
+    \u201d  "   Right double quotation mark
+
+Real-world examples (from spikenuc1207.fasta dry-run)
+------------------------------------------------------
+Each ``~`` line shows the raw header as stored in the FASTA file (with
+literal ``\uXXXX`` sequences).  Each ``+`` line shows the normalised result.
+
+French (Québec, Canada)::
+
+    ~ >...Hospital Universitario de Gran Canaria Dr. Negr\u00edn|...
+    + >...Hospital Universitario de Gran Canaria Dr. Negrín|...
+
+    ~ >...Laboratoire de sant\u00e9 publique du Qu\u00e9bec|...
+    + >...Laboratoire de santé publique du Québec|...
+
+German (Austria)::
+
+    ~ >...Institut f\u00fcr Virologie am Department f\u00fcr Hygiene|...
+    + >...Institut für Virologie am Department für Hygiene|...
+
+    ~ >...Ludwig Boltzmann Institut f\u00fcr Experimentelle und Klinische Traumatologie|...
+    + >...Ludwig Boltzmann Institut für Experimentelle und Klinische Traumatologie|...
+
+Swedish (Sweden)::
+
+    ~ >...The Public Health Agency of Sweden|Svartstr\u00f6m|...
+    + >...The Public Health Agency of Sweden|Svartström|...
+
+Portuguese (Brazil)::
+
+    ~ >...hCoV-19^^S\u00e3o Paulo|Human|Diagn\u00f3sticos da Am\u00e9rica - DASA|...
+    + >...hCoV-19^^São Paulo|Human|Diagnósticos da América - DASA|...
+
+    ~ >...Laborat\u00f3rio de Virologia - Instituto de Medicina Tropical - Universidade de S\u00e3o Paulo|...
+    + >...Laboratório de Virologia - Instituto de Medicina Tropical - Universidade de São Paulo|...
+
+Italian (Italy)::
+
+    ~ >...AOU Policlinico Umberto I; Sapienza Universit\u00e0 di Roma|...
+    + >...AOU Policlinico Umberto I; Sapienza Università di Roma|...
+
+    ~ >...Fondazione Policlinico Universitario \u201cA. Gemelli\u201d IRCCS|...
+    + >...Fondazione Policlinico Universitario "A. Gemelli" IRCCS|...
+
+Belgian French::
+
+    ~ >...Institut de Pathologie et G\u00e9n\u00e9tique (IPG)|...
+    + >...Institut de Pathologie et Génétique (IPG)|...
+
+French (France)::
+
+    ~ >...Cerballiance Montlh\u00e9ry|...
+    + >...Cerballiance Montlhéry|...
+
+Equivalent manual pipeline
+--------------------------
+The following shell commands achieve the same result but require a Java
+runtime (``native2ascii``) and may fail on mixed-encoding files::
+
+    # Convert \uXXXX escapes to real Unicode (Java native2ascii):
     native2ascii -encoding UTF-8 -reverse input.fasta output.fasta
 
-    # 2. Optionally transliterate remaining non-ASCII to ASCII (unidecode):
+    # Optionally transliterate remaining non-ASCII to ASCII:
     unidecode output.fasta > output.fasta.tmp && mv output.fasta.tmp output.fasta
 
-This script only performs step 1 (lossless).  Step 2 (lossy ASCII
-transliteration via the ``unidecode`` CLI/library) is not applied here because
-it discards information; re-run ``unidecode`` manually if ASCII-only output is
-required.
+This script only performs the lossless normalisation step (equivalent to
+``native2ascii -reverse`` but in pure Python with no Java dependency), and
+additionally handles raw Latin-1 bytes mixed into the same line.  The lossy
+ASCII transliteration via ``unidecode`` is not applied here; run it manually
+on the output if ASCII-only downstream tools require it.
 
-Usage examples::
+Usage examples
+--------------
+::
 
-    # Fix a single file:
-    fix_fasta_encoding.py spikenuc1207.native2ascii.no_junk.fasta
+    # Preview changes without touching any file (safe, recommended first step):
+    fix_fasta_encoding.py --dry-run spikenuc1207.fasta
 
-    # Fix all matching FASTA files under a directory:
+    # Preview with counts only (no per-line diff):
+    fix_fasta_encoding.py --stats-only spikenuc1207.fasta
+
+    # Fix a single file (renames .fasta → .fasta.orig, writes clean UTF-8):
+    fix_fasta_encoding.py spikenuc1207.fasta
+
+    # Fix all FASTA files in a directory:
     fix_fasta_encoding.py /data/seqs/*.fasta
 
-    # Dry-run (show what would be done without modifying files):
-    fix_fasta_encoding.py --dry-run spikenuc1207.native2ascii.no_junk.fasta
+    # Fix all FASTA files recursively (with bash globstar):
+    fix_fasta_encoding.py /data/seqs/**/*.fasta
 
-    # Force re-processing even when .orig backup already exists:
-    fix_fasta_encoding.py --overwrite spikenuc1207.native2ascii.no_junk.fasta
+    # Re-process a file that was already fixed (overwrites the .orig backup):
+    fix_fasta_encoding.py --overwrite spikenuc1207.fasta
+
+    # After fixing, regenerate pipeline artefacts:
+    #   rm *.sha256_to_ids.tsv *.sha256_to_descr_lines.tsv
+    #   rm *.discarded_sha256_hashes.txt *.discarded_original_ids.txt
+    #   summarize_fasta_pipeline.py /data/seqs/ spikenuc1207 --full-fasta-header
+
+    # If ASCII-only output is needed, run unidecode after this script:
+    fix_fasta_encoding.py spikenuc1207.fasta
+    unidecode spikenuc1207.fasta > spikenuc1207.ascii.fasta
 """
 
 import argparse
