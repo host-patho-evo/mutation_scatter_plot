@@ -629,7 +629,7 @@ def adjust_size_and_color_neutralized_escape(neutralized_parent_difference, codo
             _color = '#00ff04'
     else:
         _size = 0
-        _color = 'black'
+        _color = '#000000'
     return _size, _color
 
 
@@ -638,16 +638,16 @@ def adjust_size_and_color_weighted(weighted_diff_escape_neutralized, generic_cir
 
     if weighted_diff_escape_neutralized > 1:
         _size = weighted_diff_escape_neutralized * generic_circle_size
-        _color = 'black'
+        _color = '#000000'
     elif weighted_diff_escape_neutralized > 0.1:
         _size = weighted_diff_escape_neutralized * weighted_diff_escape_neutralized_size1
-        _color = 'darkblue'
+        _color = '#00008b'  # darkblue
     elif weighted_diff_escape_neutralized > 0.01:
         _size = weighted_diff_escape_neutralized * weighted_diff_escape_neutralized_size2
-        _color = 'skyblue'
+        _color = '#87ceeb'  # skyblue
     else:
         _size = abs(weighted_diff_escape_neutralized) * 0
-        _color = 'black'
+        _color = '#000000'
     return _size, _color
 
 
@@ -1051,7 +1051,7 @@ def setup_matplotlib_figure(
     if myoptions.xaxis_bins:
         plt.locator_params(axis='x', nbins=myoptions.xaxis_bins)
 
-    _ax1.grid(True, linestyle='--', alpha=0.3, color='gray')
+    _ax1.grid(True, linestyle='--', alpha=0.3, color='#808080')
 
     _ax2 = None
     if not myoptions.disable_2nd_Y_axis:
@@ -1066,9 +1066,9 @@ def setup_matplotlib_figure(
         _ax2.figure.canvas.draw()
 
         if myoptions.aminoacids:
-            _ax2.bar(unique_aa_padded_positions, _total_frequencies, color='black', alpha=0.5, width=0.8, align='center')
+            _ax2.bar(unique_aa_padded_positions, _total_frequencies, color='#000000', alpha=0.5, width=0.8, align='center')
         else:
-            _ax2.bar(unique_padded_codon_positions, _total_frequencies, color='black', alpha=0.5, width=0.8, align='center')
+            _ax2.bar(unique_padded_codon_positions, _total_frequencies, color='#000000', alpha=0.5, width=0.8, align='center')
 
 
     if myoptions.aminoacids:
@@ -1318,10 +1318,10 @@ def collect_scatter_data(
 
                 if _score < 0:
                     _circles_matplotlib.append((_padded_position, i, float(np.abs(_size) * 5000), 'circle_x', _color, 0.5, _score, _aa_position, _padded_position, _hover_text))
-                    _markers.append((_padded_position, i, 1, 'dot', 'black', 0.5))
+                    _markers.append((_padded_position, i, 1, 'dot', '#000000', 0.5))
                 else:
                     _circles_matplotlib.append((_padded_position, i, float(np.abs(_size) * 5000), 'circle', _color, 0.5, _score, _aa_position, _padded_position, _hover_text))
-                    _markers.append((_padded_position, i, 1, 'circle', 'black', 0.5))
+                    _markers.append((_padded_position, i, 1, 'circle', '#000000', 0.5))
                 _used_colors.add(_color)
 
                 # Record for .colors.tsv
@@ -1335,7 +1335,7 @@ def collect_scatter_data(
                 # just draw some tiny dot otherwise pandas will drop empty Y-rows for unused amino acids or codons,
                 # which sucks and it btw does happen for charts with codons too although they have more data and
                 # supposedly are less likely to run into this issue but it does happen too
-                _size, _color = 0.00000000009, 'black'
+                _size, _color = 0.00000000009, '#000000'
                 _score = get_score(myoptions, matrix, _codon_on_input, _old_codon_or_aa, _new_codon_or_aa)
                 _dots.append((_padded_position, i, _size, 'dot', _color, 0.5, _score))
 
@@ -2074,11 +2074,11 @@ def render_matplotlib(
 
     if markers:
         mk_x, mk_y, mk_s, _, _, _ = zip(*markers)
-        ax1.scatter(mk_x, mk_y, s=mk_s, marker='x', color='black', alpha=0.5)
+        ax1.scatter(mk_x, mk_y, s=mk_s, marker='x', color='#000000', alpha=0.5)
 
     if dots:
         dt_x, dt_y, dt_s, _, _, _, _ = zip(*dots)
-        ax1.scatter(dt_x, dt_y, s=dt_s, marker='.', color='black', alpha=0.5)
+        ax1.scatter(dt_x, dt_y, s=dt_s, marker='.', color='#000000', alpha=0.5)
 
     for _label in ax1.get_xticklabels():
         _label.set_rotation(90)
@@ -2118,7 +2118,7 @@ def render_matplotlib(
             _size, _color = adjust_size_and_color_weighted(Decimal(_freq))
         else:
             _score, _size, _color = adjust_size_and_color(myoptions, Decimal(_freq), _codon_on_input, _junk, _junk, _junk, _junk, matrix, norm, colors)
-        _handle = ax2.scatter(0, - 400 + _freq, s=float(_freq * 5000), color='gray', alpha=0.5, label=f'{_freq:.1%}') # Frequency
+        _handle = ax2.scatter(0, - 400 + _freq, s=float(_freq * 5000), color='#808080', alpha=0.5, label=f'{_freq:.1%}') # Frequency
         _label = str(_freq)
         _handles.append(_handle)
         _labels.append(_label)
