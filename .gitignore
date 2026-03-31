@@ -19,3 +19,6 @@ profile_*_t*_out*.tsv
 profile_*_t*_out*.txt
 profile_*_t*.lprof
 bench_*.tsv
+
+# Local working output directory — never committed
+tmp/
