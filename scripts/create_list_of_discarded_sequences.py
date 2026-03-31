@@ -54,7 +54,7 @@ import hashlib
 import os
 import sys
 
-VERSION = "202603292130"
+VERSION = "202603311728"
 
 _parser = argparse.ArgumentParser(description=__doc__,
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -91,7 +91,12 @@ _parser.add_argument(
 )
 _parser.add_argument(
     "--outfile", default="",
-    help="Output file path. Defaults to {infilename_stem}.discarded_original_ids.txt.",
+    help=(
+        "Output path for sha256-hash entries (NNNNx.sha256hex lines from --infilename). "
+        "Defaults to {infilename_stem}.discarded_sha256_hashes.txt. "
+        "A companion .discarded_original_ids.txt is always written alongside it "
+        "when --mapping-outfile or --original-infilename is available."
+    ),
 )
 _parser.add_argument(
     "--debug", type=int, default=0,
@@ -196,12 +201,19 @@ def main():
             myoptions.mapping_outfile = guessed_mapping
             print(f"Info: auto-detected mapping TSV: {guessed_mapping}", file=sys.stderr)
 
-    # Default --outfile.
+    # Default --outfile: now the sha256-hashes file.
     if not myoptions.outfile:
-        myoptions.outfile = infile_stem + '.discarded_original_ids.txt'
-        print(f"Info: output will be written to {myoptions.outfile}", file=sys.stderr)
+        myoptions.outfile = infile_stem + '.discarded_sha256_hashes.txt'
+        print(f"Info: sha256 hashes will be written to {myoptions.outfile}", file=sys.stderr)
 
-    # ── timestamp-aware output guard ─────────────────────────────────────────
+    # Companion original-IDs file (always alongside the sha256 hashes file).
+    if myoptions.outfile == '/dev/null':
+        _original_ids_outfile = '/dev/null'
+    else:
+        _original_ids_outfile = infile_stem + '.discarded_original_ids.txt'
+        print(f"Info: original IDs will be written to {_original_ids_outfile}", file=sys.stderr)
+
+    # ── timestamp-aware output guard ────────────────────────────────────────────
     input_files = [myoptions.infilename]
     if myoptions.original_infilename:
         input_files.append(myoptions.original_infilename)
@@ -209,18 +221,18 @@ def main():
         input_files.append(myoptions.mapping_outfile)
     input_mtime_max = max(os.path.getmtime(f) for f in input_files)
 
-    if myoptions.outfile != '/dev/null' and os.path.exists(myoptions.outfile):
-        out_mtime = os.path.getmtime(myoptions.outfile)
-        if out_mtime > input_mtime_max and not myoptions.overwrite:
-            print(f"Info: output is up-to-date, skipping: {myoptions.outfile}",
-                  file=sys.stderr)
+    for _outpath in (myoptions.outfile, _original_ids_outfile):
+        if _outpath == '/dev/null' or not os.path.exists(_outpath):
+            continue
+        _out_mtime = os.path.getmtime(_outpath)
+        if _out_mtime > input_mtime_max and not myoptions.overwrite:
+            print(f"Info: output is up-to-date, skipping: {_outpath}", file=sys.stderr)
             sys.exit(0)
-        if out_mtime <= input_mtime_max and not myoptions.overwrite:
+        if _out_mtime <= input_mtime_max and not myoptions.overwrite:
             raise RuntimeError(
-                f"Output is stale (older than one or more inputs): {myoptions.outfile}\n"
+                f"Output is stale (older than one or more inputs): {_outpath}\n"
                 "Use --overwrite to regenerate it."
             )
-        # else: --overwrite set, proceed
 
     # ── Step 1: build sha256 set from --infilename ────────────────────────────
     infile_sha256s = {}    # sha256 -> dedup_id (NNNNx or NNNNx.sha256)
@@ -247,8 +259,8 @@ def main():
         )
         if not myoptions.mapping_outfile:
             print(
-                "Tip: to avoid this, regenerate --infilename in modern format by running:\n"
-                "  count_same_sequences.py --infilename=<original_pre-compaction.fasta>"
+                "Tip: to avoid this, regenerate --infilename with modern sha256 IDs:\n"
+                "  count_same_sequences.py --infilename=<original.fasta>"
                 " --outfile-prefix=<prefix>\n"
                 "This produces NNNNx.sha256 IDs and a .sha256_to_ids.tsv mapping.",
                 file=sys.stderr,
@@ -261,28 +273,28 @@ def main():
 
     target_sha256s = set(infile_sha256s.keys())
 
-    # ── Step 2: resolve / filter IDs ─────────────────────────────────────────
-    lines_to_emit = []
+    # ── Step 2: build sha256_lines and original_id_lines ──────────────────────────
+    #
+    # sha256_lines    → *.discarded_sha256_hashes.txt
+    #   One NNNNx.sha256hex entry per unique sequence.  In default (non-inverted)
+    #   mode these come directly from infile_sha256s.values().  In inverted mode
+    #   they are reconstructed from the mapping TSV or omitted (FASTA scan gives
+    #   no count prefix).
+    #
+    # original_id_lines → *.discarded_original_ids.txt
+    #   One original FASTA ID per individual sequence (count expanded).  Total
+    #   lines must equal the sum of the count prefixes; discrepancies are reported.
+    #   Generated only when --mapping-outfile or --original-infilename is given.
+
+    sha256_lines = []        # NNNNx.sha256hex entries for the sha256 hashes file
+    original_id_lines = []   # expanded original FASTA IDs for the original IDs file
+    expected_original_count = infile_total_count  # sum of counts from --infilename
+    actual_original_count = 0
 
     if myoptions.inverted:
-        if myoptions.original_infilename:
-            n_scanned = n_emitted = 0
-            for rec_name, rec_header, rec_seq in _iter_fasta(myoptions.original_infilename):
-                sha = hashlib.sha256(rec_seq.upper().encode()).hexdigest()
-                n_scanned += 1
-                if sha not in target_sha256s:
-                    lines_to_emit.append(rec_header)
-                    n_emitted += 1
-                if myoptions.debug and n_scanned % 500_000 == 0:
-                    print(f"Info: scanned {n_scanned:,}, emitted {n_emitted:,}",
-                          file=sys.stderr)
-            print(
-                f"Info: scanned {n_scanned:,} original records,"
-                f" {n_emitted:,} not in infilename (discarded)",
-                file=sys.stderr,
-            )
-        else:
-            n_emitted = n_emitted_total = 0
+        # In inverted mode --infilename is the *kept* set; we want the discarded.
+        if myoptions.mapping_outfile:
+            n_sha = 0
             with open(myoptions.mapping_outfile, "r", encoding="utf-8") as fh:
                 for tsv_line in fh:
                     fields = tsv_line.rstrip("\n").split("\t")
@@ -290,90 +302,183 @@ def main():
                         continue
                     digest = fields[0]
                     if digest not in target_sha256s:
-                        for orig_id in fields[2:]:
-                            lines_to_emit.append(orig_id)
-                        n_emitted += len(fields) - 2
                         try:
-                            n_emitted_total += int(fields[1])
+                            count = int(fields[1])
                         except (ValueError, IndexError):
-                            n_emitted_total += len(fields) - 2
+                            count = len(fields) - 2
+                        orig_ids = fields[2:]
+                        sha256_lines.append(f"{count}x.{digest}")
+                        original_id_lines.extend(orig_ids)
+                        actual_original_count += len(orig_ids)
+                        if len(orig_ids) != count:
+                            print(
+                                f"Warning: sha256 {digest[:16]}...: count {count:,} in mapping"
+                                f" but {len(orig_ids):,} IDs stored —"
+                                f" discrepancy of {abs(count - len(orig_ids)):,}",
+                                file=sys.stderr,
+                            )
+                        n_sha += 1
+            # expected_original_count is unknwon for inverted mode without pre-scan;
+            # set it to actual so the final check is meaningful only if a FASTA
+            # scan path was used.
+            expected_original_count = actual_original_count
             print(
-                f"Info: found {n_emitted:,} discarded original IDs"
-                f" (total sequence count: {n_emitted_total:,}) via mapping TSV",
+                f"Info: {n_sha:,} discarded sha256 entries"
+                f" ({actual_original_count:,} original IDs) via mapping TSV (inverted)",
+                file=sys.stderr,
+            )
+        elif myoptions.original_infilename:
+            n_scanned = 0
+            for _rec_name, rec_header, rec_seq in _iter_fasta(myoptions.original_infilename):
+                sha = hashlib.sha256(rec_seq.upper().encode()).hexdigest()
+                n_scanned += 1
+                if sha not in target_sha256s:
+                    original_id_lines.append(rec_header)
+                    actual_original_count += 1
+                if myoptions.debug and n_scanned % 500_000 == 0:
+                    print(f"Info: scanned {n_scanned:,}, emitted {actual_original_count:,}",
+                          file=sys.stderr)
+            expected_original_count = actual_original_count  # no count prefix available
+            print(
+                f"Info: scanned {n_scanned:,} original records,"
+                f" {actual_original_count:,} not in infilename (discarded, inverted)",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                "Warning: --inverted mode without --mapping-outfile or"
+                " --original-infilename — no output can be generated",
                 file=sys.stderr,
             )
 
-    elif myoptions.original_infilename:
-        n_scanned = n_matched = 0
-        for rec_name, rec_header, rec_seq in _iter_fasta(myoptions.original_infilename):
-            sha = hashlib.sha256(rec_seq.upper().encode()).hexdigest()
-            n_scanned += 1
-            if sha in target_sha256s:
-                lines_to_emit.append(rec_header)
-                n_matched += 1
-            if myoptions.debug and n_scanned % 500_000 == 0:
-                print(f"Info: scanned {n_scanned:,}, matched {n_matched:,}", file=sys.stderr)
-        print(
-            f"Info: scanned {n_scanned:,} original records,"
-            f" {n_matched:,} matched infilename sha256s",
-            file=sys.stderr,
-        )
-
-    elif myoptions.mapping_outfile and not ids_computed:
-        n_matched = n_matched_total = 0
-        with open(myoptions.mapping_outfile, "r", encoding="utf-8") as fh:
-            for tsv_line in fh:
-                fields = tsv_line.rstrip("\n").split("\t")
-                if len(fields) < 3:
-                    continue
-                digest = fields[0]
-                if digest in target_sha256s:
-                    for orig_id in fields[2:]:
-                        lines_to_emit.append(orig_id)
-                    n_matched += len(fields) - 2
-                    try:
-                        n_matched_total += int(fields[1])
-                    except (ValueError, IndexError):
-                        n_matched_total += len(fields) - 2
-        print(
-            f"Info: found {n_matched:,} original IDs"
-            f" (total sequence count: {n_matched_total:,}) via mapping TSV",
-            file=sys.stderr,
-        )
-
     else:
-        lines_to_emit = list(infile_sha256s.values())
-        print("Info: outputting deduplicated IDs from --infilename", file=sys.stderr)
+        # Default (non-inverted) mode: sha256_lines = dedup IDs from --infilename.
+        sha256_lines = list(infile_sha256s.values())
 
-    # ── Step 3: write output ──────────────────────────────────────────────────
-    total_count = sum(_line_count(ln) for ln in lines_to_emit)
+        if myoptions.mapping_outfile and not ids_computed:
+            # Fast path: expand via pre-built mapping TSV.
+            with open(myoptions.mapping_outfile, "r", encoding="utf-8") as fh:
+                for tsv_line in fh:
+                    fields = tsv_line.rstrip("\n").split("\t")
+                    if len(fields) < 3:
+                        continue
+                    digest = fields[0]
+                    if digest in target_sha256s:
+                        try:
+                            count = int(fields[1])
+                        except (ValueError, IndexError):
+                            count = len(fields) - 2
+                        orig_ids = fields[2:]
+                        original_id_lines.extend(orig_ids)
+                        actual_original_count += len(orig_ids)
+                        if len(orig_ids) != count:
+                            print(
+                                f"Warning: sha256 {digest[:16]}...: expected {count:,} IDs"
+                                f" but mapping has {len(orig_ids):,} —"
+                                f" discrepancy of {abs(count - len(orig_ids)):,}",
+                                file=sys.stderr,
+                            )
+            print(
+                f"Info: found {actual_original_count:,} original IDs"
+                f" (expected {expected_original_count:,}) via mapping TSV",
+                file=sys.stderr,
+            )
+
+        elif myoptions.original_infilename:
+            # Slow path: scan original FASTA and match by sha256.
+            n_scanned = 0
+            sha256_hit_counts: dict = {}  # sha256 → how many times seen in original
+            for _rec_name, rec_header, rec_seq in _iter_fasta(myoptions.original_infilename):
+                sha = hashlib.sha256(rec_seq.upper().encode()).hexdigest()
+                n_scanned += 1
+                if sha in target_sha256s:
+                    original_id_lines.append(rec_header)
+                    actual_original_count += 1
+                    sha256_hit_counts[sha] = sha256_hit_counts.get(sha, 0) + 1
+                if myoptions.debug and n_scanned % 500_000 == 0:
+                    print(f"Info: scanned {n_scanned:,}, matched {actual_original_count:,}",
+                          file=sys.stderr)
+            # Per-sha256 discrepancy check.
+            for sha, rec_name in infile_sha256s.items():
+                x_pos = rec_name.find('x')
+                exp = int(rec_name[:x_pos]) if (x_pos > 0 and rec_name[:x_pos].isdigit()) else 1
+                got = sha256_hit_counts.get(sha, 0)
+                if got != exp:
+                    print(
+                        f"Warning: {rec_name}: expected {exp:,} occurrences in"
+                        f" {myoptions.original_infilename} but found {got:,}"
+                        f" — discrepancy of {abs(exp - got):,}",
+                        file=sys.stderr,
+                    )
+            print(
+                f"Info: scanned {n_scanned:,} original records,"
+                f" {actual_original_count:,} matched (expected {expected_original_count:,})",
+                file=sys.stderr,
+            )
+
+        else:
+            print(
+                "Info: no --mapping-outfile or --original-infilename provided;"
+                f" {_original_ids_outfile} will not be generated",
+                file=sys.stderr,
+            )
+
+    # Overall discrepancy report for the original IDs file.
+    if original_id_lines:
+        if actual_original_count != expected_original_count:
+            print(
+                f"Warning: {actual_original_count:,} original IDs found but expected"
+                f" {expected_original_count:,} (sum of count prefixes in --infilename);"
+                f" total discrepancy of {abs(expected_original_count - actual_original_count):,}",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"Info: original ID count ({actual_original_count:,}) matches"
+                f" expected total ({expected_original_count:,}) — no discrepancy",
+                file=sys.stderr,
+            )
+
+    # ── Step 3: write sha256 hashes file ──────────────────────────────────────────
+    total_count = sum(_line_count(ln) for ln in sha256_lines)
 
     if myoptions.outfile == '/dev/null':
-        # Stats-only mode: summarize_fasta_pipeline.py uses --outfile=/dev/null
-        # because it only wants the counts, not a persistent list of IDs.
         print(
-            f"Info: {len(lines_to_emit):,} FASTA ID tags"
-            f" (total sum of the count values in the FASTA IDs: {total_count:,})"
-            " — IDs not written anywhere",
+            f"Info: {len(sha256_lines):,} sha256 hash entries"
+            f" (total count: {total_count:,}) — not written (stats-only mode)",
             file=sys.stderr,
         )
     elif myoptions.outfile:
         with open(myoptions.outfile, "w", encoding="utf-8") as out:
-            for line in lines_to_emit:
+            for line in sha256_lines:
                 out.write(line + "\n")
         print(
-            f"Info: wrote {len(lines_to_emit):,} FASTA ID tags"
-            f" (total sum of the count values in the FASTA IDs: {total_count:,})"
-            f" to {myoptions.outfile}",
+            f"Info: wrote {len(sha256_lines):,} sha256 hash entries"
+            f" (total count: {total_count:,}) to {myoptions.outfile}",
             file=sys.stderr,
         )
     else:
-        for line in lines_to_emit:
+        for line in sha256_lines:
             sys.stdout.write(line + "\n")
         print(
-            f"Info: wrote {len(lines_to_emit):,} FASTA ID tags"
-            f" (total sum of the count values in the FASTA IDs: {total_count:,})"
-            " to stdout",
+            f"Info: wrote {len(sha256_lines):,} sha256 hash entries"
+            f" (total count: {total_count:,}) to stdout",
+            file=sys.stderr,
+        )
+
+    # ── Step 4: write original IDs file ─────────────────────────────────────────
+    if original_id_lines and _original_ids_outfile != '/dev/null':
+        with open(_original_ids_outfile, "w", encoding="utf-8") as out:
+            for line in original_id_lines:
+                out.write(line + "\n")
+        print(
+            f"Info: wrote {len(original_id_lines):,} original FASTA IDs"
+            f" to {_original_ids_outfile}",
+            file=sys.stderr,
+        )
+    elif not original_id_lines and _original_ids_outfile != '/dev/null':
+        print(
+            f"Info: no original IDs resolved — {_original_ids_outfile} not written",
             file=sys.stderr,
         )
 
