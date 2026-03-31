@@ -70,6 +70,7 @@ import sys
 import re
 import json
 import typing
+import subprocess
 
 from decimal import Decimal, ExtendedContext, setcontext, getcontext
 import pandas as pd
@@ -95,9 +96,88 @@ c.prec = 99
 VERSION = "0.3"
 
 
+def _get_git_version() -> str:
+    """Return a git-derived version string, populated for all deployment scenarios.
+
+    Resolution order (first hit wins):
+
+    **Tier 1 — git archive / release tarball** (``_version.py`` export-subst)
+        When ``git archive`` creates a release tarball or zip, git substitutes
+        the ``$Format:%H$`` placeholder in
+        ``src/mutation_scatter_plot/mutation_scatter_plot/_version.py``
+        (controlled by ``.gitattributes``).  If the hash in that file does *not*
+        start with ``$Format:`` (i.e., substitution happened), we use it.
+        This covers tarballs and zips distributed without the ``.git`` directory.
+
+    **Tier 2 — installed package** (``importlib.metadata``)
+        After a ``pip install`` the package version from the wheel/egg metadata
+        is available via ``importlib.metadata.version("mutation-scatter-plot")``.
+        The version string comes from ``pyproject.toml`` (or setuptools-scm if
+        configured).
+
+    **Tier 3 — live git checkout** (``git describe``)
+        In a developer checkout where ``.git/`` is present, ``git describe
+        --always --dirty --tags`` returns a human-readable string such as
+        ``v0.3-14-gabcdef1-dirty``.
+
+    Falls back to ``"unknown"`` if all three tiers fail (e.g., running from a
+    plain source copy with no git and no package installation).
+
+    Returns
+    -------
+    str
+        A version string such as ``"v0.3-14-gabcdef1"`` or ``"abcdef1234..."``
+        or the package version ``"0.3"`` depending on the tier that succeeded.
+    """
+    _here = os.path.dirname(os.path.abspath(__file__))
+
+    # ------------------------------------------------------------------
+    # Tier 1: git archive export-subst
+    # The .gitattributes rule marks _version.py with "export-subst", so
+    # ``git archive`` replaces $Format:%H$ with the 40-char commit hash.
+    # In a live checkout the placeholder is left unexpanded (starts with "$").
+    # ------------------------------------------------------------------
+    try:
+        from . import _version as _ver_mod  # pylint: disable=import-outside-toplevel
+        _hash = getattr(_ver_mod, '_GIT_ARCHIVE_HASH', '')
+        if _hash and not _hash.startswith('$'):
+            # Export-subst replacement happened: use the full commit hash.
+            # Also check for a tag reference from _GIT_ARCHIVE_REF.
+            _ref = getattr(_ver_mod, '_GIT_ARCHIVE_REF', '')
+            for _part in _ref.split(','):
+                _part = _part.strip()
+                if _part.startswith('tag:'):
+                    return _part[4:].strip()
+            return _hash[:10]  # abbreviated commit hash if no tag found
+    except Exception:  # pylint: disable=broad-except
+        pass
+
+    # ------------------------------------------------------------------
+    # Tier 2: importlib.metadata (works after ``pip install``)
+    # ------------------------------------------------------------------
+    try:
+        import importlib.metadata as _imeta  # pylint: disable=import-outside-toplevel
+        return _imeta.version("mutation-scatter-plot")
+    except Exception:  # pylint: disable=broad-except
+        pass
+
+    # ------------------------------------------------------------------
+    # Tier 3: live git checkout — shell out to ``git describe``
+    # ------------------------------------------------------------------
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--always", "--dirty", "--tags"],
+            capture_output=True, text=True, check=True,
+            cwd=_here,
+        )
+        return result.stdout.strip() or "unknown"
+    except Exception:  # pylint: disable=broad-except
+        return "unknown"
+
 
 __all__ = [
     "VERSION",
+    "_GIT_VERSION",
     "alt_translate",
     "get_colormap",
     "resolve_codon_or_aa",
@@ -114,6 +194,18 @@ __all__ = [
     "render_bokeh",
     "render_matplotlib",
 ]
+
+# Git commit hash / version string evaluated once at module import time.
+#
+# Unlike CVS/SVN which embed a $Revision:$ keyword directly into source files
+# at checkout time, git does not modify source files.  We resolve the version
+# once here via _get_git_version() and cache the result in this module-level
+# constant.  Both render_bokeh() and render_matplotlib() reference _GIT_VERSION
+# directly — no subprocess is spawned during rendering.  Callers that need the
+# version for logging can import this constant:
+#
+#     from mutation_scatter_plot.mutation_scatter_plot import _GIT_VERSION
+_GIT_VERSION: str = _get_git_version()
 
 
 def get_colormap(myoptions, colormapname):
@@ -132,7 +224,12 @@ def get_colormap(myoptions, colormapname):
     _custom_found = True
     # Handle custom hardcoded colormaps first to avoid "not found" warnings
     if colormapname == 'amino_acid_changes':
-        _colors = ["#930000", "#930000", "#930000", "#930000", "#930000", "#930000", "#960000", "#580041", "#8200ff", "#c500ff", "#ff00fd", "#CC79A7", "#eea1d0", "#cc0000", "#ff0000", "#ff4f00", "#ff7c7c", "#ff9999", "#c58a24", "#9c644b", "#ffff00", "#ffcc00", "#ffa200", "#7DCCFF", "#0042ff", "#0000ff", "#D6D6D6", "#B7B7B7", "#8B8B8B", "palegreen", "#bbff00", "#97CE2F", "#219f11", "#930000", "#930000", "#930000", "#930000", "#930000", "#930000"]
+        # All entries are explicit hex strings — no CSS named colours — so
+        # that every downstream consumer (_blend_with_white, Bokeh palette
+        # builder, matplotlib ListedColormap) receives a uniform format.
+        # Previously index 29 was the CSS name "palegreen"; it is now its
+        # exact hex equivalent #98fb98 (R=152 G=251 B=152).
+        _colors = ["#930000", "#930000", "#930000", "#930000", "#930000", "#930000", "#960000", "#580041", "#8200ff", "#c500ff", "#ff00fd", "#CC79A7", "#eea1d0", "#cc0000", "#ff0000", "#ff4f00", "#ff7c7c", "#ff9999", "#c58a24", "#9c644b", "#ffff00", "#ffcc00", "#ffa200", "#7DCCFF", "#0042ff", "#0000ff", "#D6D6D6", "#B7B7B7", "#8B8B8B", "#98fb98", "#bbff00", "#97CE2F", "#219f11", "#930000", "#930000", "#930000", "#930000", "#930000", "#930000"]
         _cmap = matplotlib.colors.ListedColormap(_colors, "amino_acid_changes", len(_colors))
         myoptions.colormap = 'amino_acid_changes'
         _norm = matplotlib.colors.BoundaryNorm(np.arange(-19, 19, 1), _cmap.N)
@@ -1639,10 +1736,18 @@ def render_bokeh(
     _p.title.text_font_size = '14pt'
     print(f"Info: Writing into {outfile_prefix} + '.html'")
     bokeh.plotting.output_file(outfile_prefix + '.html')
+    # Embed the git commit hash in the HTML <title> so that stale pre-generated
+    # files are immediately identifiable without opening the browser DevTools.
+    # bokeh.plotting.save()/show() accept an optional `title` kwarg that sets
+    # the <title> tag of the standalone HTML page.
+    _html_title = (
+        f"{os.path.basename(outfile_prefix)} "
+        f"| mutation_scatter_plot v{VERSION} git:{_GIT_VERSION}"
+    )
     if show:
         bokeh.plotting.show(_p)
     else:
-        bokeh.plotting.save(_p)
+        bokeh.plotting.save(_p, title=_html_title)
     pretty_print_bokeh_html(outfile_prefix + '.html')
 
 
@@ -1928,6 +2033,20 @@ def render_matplotlib(
         with open(outfile_prefix + ".matplotlib_hovers.json", "w", encoding="utf-8") as f:
             json.dump(_mpl_hovers, f, indent=2)
 
+    # Embed the git commit hash as a small footnote so that PNG and PDF
+    # files can always be traced back to the exact code version that produced
+    # them.  The text is placed at the very bottom-right of the figure in a
+    # tiny 6pt font so it does not interfere with the main plot area.
+    _version_label = (
+        f"mutation_scatter_plot v{VERSION}  git:{_GIT_VERSION}  "
+        f"{os.path.basename(outfile_prefix)}"
+    )
+    figure.text(
+        0.99, 0.002, _version_label,
+        ha='right', va='bottom',
+        fontsize=6, color='#808080',
+        transform=figure.transFigure,
+    )
     for _ext in ('.png', '.pdf'):
         _wholefig = plt.gcf()
         _figsize = _wholefig.get_size_inches()*_wholefig.dpi
