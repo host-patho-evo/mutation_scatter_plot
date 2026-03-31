@@ -133,23 +133,32 @@ converted to their proper Unicode glyphs by this script:
     \u0111  đ   Latin small d with stroke           (Croatian)
     \u0119  ę   Latin small e with ogonek           (Polish)
     \u011b  ě   Latin small e with caron            (Czech)
+    \u0141  Ł   Latin capital L with stroke        (Polish) ← e.g. ZAKŁAD
     \u0142  ł   Latin small l with stroke           (Polish)
     \u0144  ń   Latin small n with acute            (Polish)
     \u015b  ś   Latin small s with acute            (Polish)
     \u015f  ş   Latin small s with cedilla          (Turkish, Romanian)
+    \u0159  ř   Latin small r with caron            (Czech) ← e.g. Kovaříková, laboratoř
     \u0160  Š   Latin capital S with caron          (Czech, Slovak)
     \u0161  š   Latin small s with caron            (Czech, Slovak)
+    \u0179  Ź   Latin capital Z with acute          (Polish) ← e.g. KOŹLE
     \u017a  ź   Latin small z with acute            (Polish)
+    \u017b  Ż   Latin capital Z with dot above      (Polish) ← e.g. Żarach, Żaganiu
     \u017c  ż   Latin small z with dot above        (Polish)
     \u017e  ž   Latin small z with caron            (Czech, Slovak)
     \u0171  ű   Latin small u with double acute     (Hungarian)
     \u0151  ő   Latin small o with double acute     (Hungarian)
     \u00e3  ã   Latin small a with tilde            (Portuguese: São Paulo)
+    \u0219  ș   Latin small s with comma below      (Romanian) ← e.g. Babeș, Timișoara
+    \u021b  ț   Latin small t with comma below      (Romanian)
+    \u00eb  ë   Latin small e with diaeresis        (Albanian/Kosovo) ← e.g. Prishtinë
+    \u00a0      Non-breaking space (NBSP)           (appears in some Italian lab names)
     \u201c  "   Left double quotation mark          (Italian hospital names)
     \u201d  "   Right double quotation mark
     \u2018  '   Left single quotation mark
     \u2019  '   Right single quotation mark / apostrophe  ← common in Italian
                     (e.g. dell\u2019Abruzzo, dell\u2019Aquila)
+    \u2013  –   En dash                             (Greek hospital names)
 
 Real-world examples (from spikenuc1207.fasta dry-run)
 ------------------------------------------------------
