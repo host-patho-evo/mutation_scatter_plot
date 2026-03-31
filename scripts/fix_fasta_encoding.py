@@ -266,7 +266,10 @@ import os
 import re
 import shutil
 import sys
+import tempfile
 import time
+from collections import Counter
+
 
 VERSION = "202603312000"
 
@@ -437,19 +440,24 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     changed = 0
     # Stream output to a temp file immediately — avoids holding the whole
     # file in RAM (input files can be tens of GB).
-    tmp_path = path + ".encoding_fix_tmp"
+    # Create a uniquely-named temp file in the same directory so that
+    # os.rename() is guaranteed to be atomic (same filesystem).
+    tmp_fd, tmp_path = tempfile.mkstemp(
+        dir=os.path.dirname(os.path.abspath(path)),
+        prefix=".fix_enc_",
+        suffix=".tmp",
+    )
     # Encoding-mix statistics: counts how many changed lines had each
     # combination of the three encoding forms.
     #   'esc'  — literal \uXXXX escape sequences
     #   'lat1' — raw Latin-1 bytes (not valid UTF-8)
     #   'utf8' — valid UTF-8 multi-byte sequences
-    from collections import Counter
     mix_counter: Counter = Counter()
     t_start = time.monotonic()
     t_last = t_start
 
     with open(path, "rb") as fh, \
-         open(tmp_path, "w", encoding="utf-8") as fh_tmp:
+         os.fdopen(tmp_fd, "w", encoding="utf-8") as fh_tmp:
         for raw in fh:
             bytes_read += len(raw)
             lines_read += 1
