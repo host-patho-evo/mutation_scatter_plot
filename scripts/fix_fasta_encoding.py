@@ -356,16 +356,18 @@ def _progress_line(path: str, bytes_done: int, total_bytes: int,
     pct = int(bytes_done / total_bytes * 100) if total_bytes else 0
     speed = bytes_done / elapsed if elapsed > 1e-6 else 0
     eta = (total_bytes - bytes_done) / speed if speed > 0 else 0
-    cols = shutil.get_terminal_size(fallback=(80, 24)).columns
+    cols = min(shutil.get_terminal_size(fallback=(80, 24)).columns, 120)
     name = os.path.basename(path)
-    # Truncate long filenames to leave room for the stats.
-    max_name = max(10, cols - 52)
+    # Cap filename column; the fixed stats portion needs ~52 chars.
+    max_name = max(10, min(40, cols - 52))
     if len(name) > max_name:
         name = name[:max_name - 1] + '…'
-    return (
+    line = (
         f"{name:<{max_name}}  {pct:3d}%  {_fmt_size(bytes_done):>8}  "
         f"{_fmt_speed(speed):>11}  {_fmt_eta(eta):>7}  {changed:,} changed"
     )
+    # Hard-clip to terminal width so the line never wraps.
+    return line[:cols]
 
 
 def _unescape_unicode(s: str) -> str:
