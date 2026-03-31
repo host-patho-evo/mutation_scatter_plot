@@ -88,6 +88,7 @@ import argparse
 import datetime
 import hashlib
 import os
+import re
 import subprocess
 import sys
 
@@ -231,14 +232,31 @@ def _extract_sha256(record_id):
     return None
 
 
+def _unescape_unicode(s: str) -> str:
+    r"""Convert literal \uXXXX escape sequences to real Unicode characters.
+
+    Some GISAID exports encode accented characters as the literal six-character
+    sequence \u00e9 rather than the proper UTF-8 glyph.  This function is
+    applied after byte-decoding so both forms end up as the same Unicode string.
+    The fast path (no '\\u' substring) adds negligible overhead for normal lines.
+    """
+    if '\\u' not in s:
+        return s
+    return re.sub(r'\\u([0-9a-fA-F]{4})',
+                  lambda m: chr(int(m.group(1), 16)), s)
+
+
 def _decode_fasta_line(raw: bytes) -> str:
     """Decode a FASTA line to str, trying UTF-8 first then falling back to
-    Latin-1. Handles GISAID headers that mix UTF-8 and Latin-1/Latin-2
-    encoded characters in sample descriptions."""
+    Latin-1.  Handles GISAID headers that mix UTF-8 and Latin-1/Latin-2
+    encoded characters in sample descriptions.  Also converts literal
+    \\uXXXX escape sequences (produced by some GISAID export pipelines)
+    to real Unicode characters."""
     try:
-        return raw.decode("utf-8")
+        line = raw.decode("utf-8")
     except UnicodeDecodeError:
-        return raw.decode("latin-1")
+        line = raw.decode("latin-1")
+    return _unescape_unicode(line)
 
 
 def _iter_fasta(path):
