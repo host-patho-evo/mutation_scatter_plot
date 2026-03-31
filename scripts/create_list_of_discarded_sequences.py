@@ -194,15 +194,6 @@ _parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
-def _line_count(line: str) -> int:
-    """Return the NNNNx prefix count from a sha256-hash line, or 1."""
-    x_pos = line.find('x')
-    if x_pos > 0:
-        try:
-            return int(line[:x_pos])
-        except ValueError:
-            pass
-    return 1
 
 
 def _sort_inplace(path: str, sort_args: list) -> None:

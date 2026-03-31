@@ -191,7 +191,7 @@ class TestSummarizePipelineHelpers(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             parent = os.path.join(d, "a.fasta")
             child  = os.path.join(d, "a.counts.fasta")
-            txt    = os.path.join(d, "a.counts.discarded_original_ids.txt")
+            txt    = os.path.join(d, "a.counts.discarded_sha256_hashes.txt")
             for p in (parent, child):
                 _touch(p)
             time.sleep(0.05)
