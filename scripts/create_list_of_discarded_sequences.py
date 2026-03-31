@@ -149,6 +149,16 @@ _parser.add_argument(
     ),
 )
 _parser.add_argument(
+    "--outfile-prefix", dest="outfile_prefix", default="",
+    help=(
+        "Stem used for all output filenames instead of the one derived from "
+        "--infilename.  E.g. '--outfile-prefix=mydir/prefix' produces "
+        "mydir/prefix.discarded_sha256_hashes.txt and "
+        "mydir/prefix.discarded_original_ids.txt. "
+        "Follows the same convention as count_same_sequences.py."
+    ),
+)
+_parser.add_argument(
     "--debug", type=int, default=0,
     help="Debug verbosity level [0].",
 )
@@ -233,16 +243,27 @@ def main():
     if myoptions.inverted and not myoptions.original_infilename and not myoptions.mapping_outfile:
         _parser.error("--inverted requires --original-infilename or --mapping-outfile")
 
-    # Derive the stem from --infilename by stripping backup suffix + FASTA extension.
-    infile_stem = myoptions.infilename
-    for ext in ('.old', '.ori', '.orig', '.bak', '.backup'):
-        if infile_stem.endswith(ext):
-            infile_stem = infile_stem[:-len(ext)]
-            break
-    for ext in ('.fasta.gz', '.fastq.gz', '.fasta', '.fastq', '.fa', '.fq'):
-        if infile_stem.endswith(ext):
-            infile_stem = infile_stem[:-len(ext)]
-            break
+    # Guard against common typo --outfile-prefix=--infilename=...
+    if myoptions.outfile_prefix and '=' in myoptions.outfile_prefix:
+        _parser.error(
+            f"--outfile-prefix value '{myoptions.outfile_prefix}' contains '=' — "
+            "this looks like a double-flag typo. "
+            f"Did you mean: --outfile-prefix={myoptions.outfile_prefix.split('=', 1)[-1]}"
+        )
+
+    # Derive the stem: explicit --outfile-prefix takes priority over --infilename.
+    if myoptions.outfile_prefix:
+        infile_stem = myoptions.outfile_prefix
+    else:
+        infile_stem = myoptions.infilename
+        for ext in ('.old', '.ori', '.orig', '.bak', '.backup'):
+            if infile_stem.endswith(ext):
+                infile_stem = infile_stem[:-len(ext)]
+                break
+        for ext in ('.fasta.gz', '.fastq.gz', '.fasta', '.fastq', '.fa', '.fq'):
+            if infile_stem.endswith(ext):
+                infile_stem = infile_stem[:-len(ext)]
+                break
 
     # Auto-detect mapping TSV when not provided.
     if not myoptions.mapping_outfile:
