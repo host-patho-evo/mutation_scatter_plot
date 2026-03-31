@@ -26,7 +26,8 @@ jobs:
         #       with statements — both used in the codebase.
         # 3.11: catches f-string backslash/nesting restrictions (relaxed in 3.12+).
         # 3.13: current stable release.
-        python-version: ["3.10", "3.11", "3.13"]
+        # 3.12: first version relaxing f-string backslash/nesting (PEP 701).
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
     - uses: actions/checkout@v4
