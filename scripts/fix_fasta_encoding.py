@@ -204,20 +204,12 @@ Italian (Italy)::
 
 Belgian French::
 
-    ~ >...Institut de Pathologie et G\u00e9n\u00e9tique (IPG)|...
-    + >...Institut de Pathologie et Génétique (IPG)|...
-
-French (France)::
-
-    ~ >...Cerballiance Montlh\u00e9ry|...
-    + >...Cerballiance Montlhéry|...
-
-Equivalent manual pipeline
+    ~ >...Institut de Pathologie et G\u00e9n\u00e9tique (IPEquivalent manual pipeline
 --------------------------
 The following shell commands achieve the same result but require a Java
 runtime (``native2ascii``) and may fail on mixed-encoding files::
 
-    # Convert \uXXXX escapes to real Unicode (Java native2ascii):
+    # Convert \\uXXXX escapes to real Unicode (Java native2ascii):
     native2ascii -encoding UTF-8 -reverse input.fasta output.fasta
 
     # Optionally transliterate remaining non-ASCII to ASCII:
@@ -239,6 +231,12 @@ Usage examples
     # Preview with counts only (no per-line diff):
     fix_fasta_encoding.py --stats-only spikenuc1207.fasta
 
+    # Preview with per-line diffs printed to stdout (verbose):
+    fix_fasta_encoding.py --dry-run --verbose spikenuc1207.fasta
+
+    # Fix a single file with scp-style progress meter on stderr:
+    fix_fasta_encoding.py --progress spikenuc1207.fasta
+
     # Fix a single file (renames .fasta → .fasta.orig, writes clean UTF-8):
     fix_fasta_encoding.py spikenuc1207.fasta
 
@@ -259,6 +257,98 @@ Usage examples
     # If ASCII-only output is needed, run unidecode after this script:
     fix_fasta_encoding.py spikenuc1207.fasta
     unidecode spikenuc1207.fasta > spikenuc1207.ascii.fasta
+
+Progress display (--progress)
+------------------------------
+The ``--progress`` flag (or automatic detection of a TTY stderr) prints a
+single-line scp/dd-style progress gauge that updates in-place::
+
+    spikenuc1207.fasta           87%    55.1 GB   15.4 MB/s  0:09:45  1,231,006 changed
+
+The line is hard-clipped to the terminal width (max 120 chars) so it never
+wraps and the carriage-return overwrite works correctly.
+
+Log file (always created)
+--------------------------
+Every invocation appends a full diagnostic report to::
+
+    {stem}.fix_fasta_encoding.{YYYYMMDD_HHMMSS}.log
+
+where ``{stem}`` is the input path with any FASTA suffix stripped
+(``.fasta``, ``.fasta.orig``, ``.fasta.ori``, ``.fasta.old``).  The
+datetime is fixed once per invocation so all files processed in one run
+share the same log timestamp.
+
+Example log for ``spikenuc1207.fasta`` (63.4 GB, processed 2026-03-31)::
+
+    === 2026-03-31T23:18:27.713536  spikenuc1207.fasta ===
+      Wrote spikenuc1207.fasta: 1,413,630 line(s) changed, 14.3 MB/s
+      Encoding-mix breakdown (per changed line):
+        \\uXXXX escapes only                                 : 1,398,889
+        Valid UTF-8 multi-byte only                         :   14,646
+        Latin-1 raw bytes  +  valid UTF-8 *** MIXED ***     :       95
+      \\uXXXX codepoint frequency (top 30, across all changed lines):
+        U+00E9  é  :  504,307
+        U+00F3  ó  :  294,344
+        U+00FC  ü  :  288,911
+        U+00ED  í  :  229,251
+        U+00F6  ö  :  165,809
+        U+00E4  ä  :   96,839
+        U+00D6  Ö  :   90,164
+        U+00FA  ú  :   75,447
+        U+00E1  á  :   53,409
+        U+00A0     :   49,139
+        U+0107  ć  :   48,264
+        U+2013  –  :   41,515
+        U+0161  š  :   39,467
+        U+00F1  ñ  :   36,954
+        U+010D  č  :   36,863
+        U+017E  ž  :   29,029
+        U+0308  ̈  :   28,134
+        U+00E0  à  :   27,439
+        U+00E5  å  :   26,204
+        U+00E7  ç  :   24,738
+        U+00DC  Ü  :   24,457
+        U+00E8  è  :   23,634
+        U+0301  ́  :   22,184
+        U+00F4  ô  :   20,436
+        U+0101  ā  :   18,870
+        U+2019  '  :   18,491
+        U+0144  ń  :   17,946
+        U+201C  "  :   15,531
+        U+201D  "  :   14,944
+        U+0142  ł  :   12,829
+      WARNING — sample lines (Valid UTF-8 multi-byte only):
+        '>...Universidade Federal de SÃ£o Paulo...'
+        '>...Instituto Nacional de Salud- DirecciÃ³n de InvestigaciÃ³n...'
+        '>...VeselÄ\u00abvas Centrs 4...'
+        '>...MVZ fÃ¼r Laboratoriumsmedizin...'
+      WARNING — sample lines (Latin-1 raw bytes  +  valid UTF-8 *** MIXED ***):
+        '>...HÃ\u00b4pitaux de Paris, UniversitÃ© Paris-Est...'
+      Renamed spikenuc1207.fasta -> spikenuc1207.fasta.orig
+      Written clean UTF-8 -> spikenuc1207.fasta
+
+Notes on the warning categories
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``Valid UTF-8 multi-byte only`` (14,646 lines in example above):
+    These headers contain **raw UTF-8 bytes** but *no* ``\\uXXXX`` escapes.
+    The garbled-looking ``SÃ£o`` / ``fÃ¼r`` patterns are classic Windows-1252
+    Mojibake: the bytes of a UTF-8 sequence were stored as if each byte were
+    a separate Latin-1 character, then submitted to GISAID as-is.  The
+    surrogate-escape decoder re-encodes them to well-formed UTF-8 output.
+    The result is still Mojibake (the source data was already corrupt), but
+    downstream tools will at least not crash on UnicodeDecodeError.
+
+``Latin-1 raw bytes + valid UTF-8 *** MIXED ***`` (95 lines in example):
+    The most pathological case: a header whose fields were assembled from
+    sources with entirely different encodings — some using raw ``\\xNN``
+    Latin-1 bytes, others submitting valid multi-byte UTF-8 sequences.
+    The surrogate-escape strategy handles all bytes losslessly.
+
+``\\uXXXX escapes + valid UTF-8 multi-byte``:
+    Headers where GISAID's export added ``\\uXXXX`` escapes for some
+    characters while separately including raw UTF-8 for others (typically
+    from different metadata fields).
 """
 
 import argparse
