@@ -105,6 +105,7 @@ import datetime
 import glob
 import hashlib
 import os
+import re
 import subprocess
 import sys
 
@@ -268,12 +269,27 @@ def _fresh_descr_tsv(parent_path: str) -> str | None:
     return None  # stale
 
 
+def _unescape_unicode(s: str) -> str:
+    r"""Convert literal \uXXXX escape sequences to real Unicode characters.
+
+    Some GISAID exports encode accented characters as the literal six-character
+    sequence \u00e9 rather than the proper UTF-8 glyph.  Applied after
+    byte-decoding so both forms end up as the same Unicode string.
+    """
+    if '\\u' not in s:
+        return s
+    return re.sub(r'\\u([0-9a-fA-F]{4})',
+                  lambda m: chr(int(m.group(1), 16)), s)
+
+
 def _decode_fasta_line(raw: bytes) -> str:
-    """Decode a raw FASTA byte line to str (UTF-8 with Latin-1 fallback)."""
+    """Decode a raw FASTA byte line to str (UTF-8 with Latin-1 fallback).
+    Also converts literal \\uXXXX escape sequences to real Unicode characters."""
     try:
-        return raw.decode("utf-8")
+        line = raw.decode("utf-8")
     except UnicodeDecodeError:
-        return raw.decode("latin-1")
+        line = raw.decode("latin-1")
+    return _unescape_unicode(line)
 
 
 def _extract_sha256_from_id(record_id: str) -> str | None:
