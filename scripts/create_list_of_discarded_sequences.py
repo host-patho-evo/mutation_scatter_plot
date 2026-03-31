@@ -7,46 +7,81 @@ The input ``--infilename`` is a deduplicated counts FASTA produced by
 In both cases sha256 is derived from sequence content when not present in the ID.
 
 **Default mode** (``--infilename`` = a file of *discarded* sequences):
-  Scan ``--original-infilename``; emit records whose sha256 **IS** present in
-  ``--infilename``.  I.e. "which original IDs were compacted into the discarded
-  entries?"
+  Scan ``--original-infilename`` or ``--mapping-outfile``; emit records whose
+  sha256 **IS** present in ``--infilename``.  I.e. "which original IDs were
+  compacted into the discarded entries?"
 
 **Inverted mode** (``--inverted``, ``--infilename`` = the *kept* sequences):
-  Scan ``--original-infilename``; emit records whose sha256 is **NOT** present
-  in ``--infilename``.  I.e. "which original IDs were dropped / discarded?"
+  Scan ``--original-infilename`` or ``--mapping-outfile``; emit records whose
+  sha256 is **NOT** present in ``--infilename``.  I.e. "which original IDs
+  were dropped / discarded?"
 
-The mapping TSV (``--mapping-outfile``) provides a fast path for the default
-mode when IDs already carry sha256 *and* the TSV was pre-built by
-``count_same_sequences.py --mapping-outfile``.
+Output files
+------------
+Two files are always written (unless ``--outfile=/dev/null``):
+
+``{stem}.discarded_sha256_hashes.txt``  (controlled by ``--outfile``)
+    One ``NNNNx.sha256hex`` entry per *unique* discarded sequence.  The sum
+    of all ``NNNNx`` prefixes equals the total number of individual original
+    sequences that were discarded.  Used as the fast-read cache by
+    ``summarize_fasta_pipeline.py``.
+
+``{stem}.discarded_original_ids.txt``  (auto-generated companion)
+    One original FASTA header per *individual* discarded sequence
+    (count-expanded).  ``wc -l`` of this file should equal the sum of all
+    ``NNNNx`` prefixes in the sha256-hashes file when there are no
+    discrepancies.  Generated only when ``--mapping-outfile`` or
+    ``--original-infilename`` is provided (auto-detected from the stem when
+    omitted).
+
+The mapping TSV (``--mapping-outfile``, typically ``*.sha256_to_ids.tsv``)
+provides a fast path without needing the original FASTA: it maps each sha256
+to the list of original FASTA IDs and is auto-detected when not provided.
 
 Behaviour
 ---------
-* Output guard: if the output file exists and is *newer* than all input files
-  the script prints ``Info: up-to-date, skipping`` and exits 0.  Pass
-  ``--overwrite`` to force regeneration even when the output is fresh.
-* If the output exists and is *older* than any input the script raises a
-  ``RuntimeError`` — add ``--overwrite`` to regenerate.
-* Passing ``--outfile=/dev/null`` bypasses the timestamp guard entirely (used
-  internally by ``summarize_fasta_pipeline.py`` for inline stats).
+* Output guard: if the output files exist and are *newer* than all inputs the
+  script prints ``Info: up-to-date, skipping`` and exits 0.  Pass
+  ``--overwrite`` to force regeneration.
+* If an output is *older* than any input the script raises ``RuntimeError``
+  — add ``--overwrite`` to regenerate.
+* ``--outfile=/dev/null`` bypasses the timestamp guard entirely (stats-only
+  mode used internally by ``summarize_fasta_pipeline.py``).
+* Legacy IDs (no sha256 in ID): sha256 is computed from sequence content and
+  a tip to regenerate with modern NNNNx.sha256hex IDs is printed.
 
 Usage examples::
 
-    # Default mode – expand sha256-format discarded file to original IDs (via TSV)
+    # Default mode – sha256-format discarded file; TSV auto-detected
     create_list_of_discarded_sequences.py \\
-        --infilename=filename_prefix.counts.clean.longer_3822.fasta \\
-        --mapping-outfile=filename_prefix.sha256_to_ids.tsv
+        --infilename=prefix.counts.clean.longer_3822.fasta
+    # Writes:
+    #   prefix.counts.clean.longer_3822.discarded_sha256_hashes.txt
+    #   prefix.counts.clean.longer_3822.discarded_original_ids.txt
 
-    # Default mode – expand any format discarded file by re-scanning original FASTA
+    # Default mode – explicit TSV
     create_list_of_discarded_sequences.py \\
-        --infilename=filename_prefix.counts.clean.longer_3822.fasta \\
-        --original-infilename=filename_prefix.fasta
+        --infilename=prefix.counts.clean.longer_3822.fasta \\
+        --mapping-outfile=prefix.sha256_to_ids.tsv
 
-    # Inverted mode – given the KEPT file, list what was discarded from original
+    # Default mode – re-scan from original FASTA (slow)
     create_list_of_discarded_sequences.py \\
-        --infilename=filename_prefix.counts.clean.exactly_3822.fasta \\
-        --original-infilename=filename_prefix.fasta \\
-        --inverted \\
-        --outfile=filename_prefix.counts.clean.exactly_3822.discarded_original_ids.txt
+        --infilename=prefix.counts.clean.longer_3822.fasta \\
+        --original-infilename=prefix.fasta
+
+    # Inverted mode – given the KEPT file, list what was discarded
+    create_list_of_discarded_sequences.py \\
+        --infilename=prefix.counts.clean.exactly_3822.fasta \\
+        --mapping-outfile=prefix.sha256_to_ids.tsv \\
+        --inverted
+    # Writes:
+    #   prefix.counts.clean.exactly_3822.discarded_sha256_hashes.txt
+    #   prefix.counts.clean.exactly_3822.discarded_original_ids.txt
+    #
+    # Verify no discrepancy:
+    #   wc -l prefix.counts.clean.exactly_3822.discarded_original_ids.txt
+    #   awk '{print $1}' prefix.counts.clean.exactly_3822.discarded_sha256_hashes.txt \\
+    #       | sed 's/x.*//' | awk '{s+=$1} END {print s}'
 """
 
 import argparse

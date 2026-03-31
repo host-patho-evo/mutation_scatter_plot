@@ -14,9 +14,32 @@ pre-computed ancillary files are used when they exist and are up-to-date
 (newer than both FASTA files), otherwise create_list_of_discarded_sequences.py
 is invoked in --inverted mode.
 
+Per-step output files written alongside each child FASTA
+---------------------------------------------------------
+{child_stem}.discarded_sha256_hashes.txt
+    One NNNNx.sha256hex entry per unique discarded sequence.  The sum of all
+    NNNNx prefixes equals the total number of individual sequences discarded
+    at this pipeline step.  Used as the tier-1 speed cache by this script.
+
+{child_stem}.discarded_original_ids.txt
+    One original FASTA header per individual discarded sequence (count-expanded).
+    'wc -l' of this file should equal the sum of all NNNNx prefixes in the
+    .discarded_sha256_hashes.txt.  Any discrepancy is reported as a Warning
+    by create_list_of_discarded_sequences.py.  Generated automatically whenever
+    a mapping TSV or original FASTA is available.
+
+Auto-migration of legacy files
+-------------------------------
+Older runs wrote NNNNx.sha256hex content into *.discarded_original_ids.txt
+(before the sha256-hashes / original-IDs naming split).  On first run,
+summarize_fasta_pipeline.py detects such files by peeking at the first line
+and renames them automatically to *.discarded_sha256_hashes.txt.  Genuine
+*.discarded_original_ids.txt files (containing plain FASTA headers) are never
+renamed.
+
 Cache priority (fastest first):
-  1. <child_base>.discarded_sha256_hashes.txt  newer than parent + child FASTA
-  2. <parent_base>.sha256_to_ids.tsv           newer than parent FASTA
+  1. <child_stem>.discarded_sha256_hashes.txt  newer than parent + child FASTA
+  2. <parent_stem>.sha256_to_ids.tsv           newer than parent FASTA
   3. Full FASTA scan via --original-infilename (slow fallback)
 
 Usage:
@@ -47,9 +70,25 @@ Options:
                          Only applies to deduplicated files whose IDs have
                          an NNNNx count prefix.
 
-Example:
+Examples:
+    # Show full pipeline table with per-step discard statistics
     summarize_fasta_pipeline.py . spikenuc1207.native2ascii.no_junk
+
+    # Fast table only (skip discard stats)
     summarize_fasta_pipeline.py .. spikenuc1207.native2ascii.no_junk --no-discard-stats
+
+    # Upgrade legacy NNNNx IDs to NNNNx.sha256hex in all matching FASTA files
+    summarize_fasta_pipeline.py . spikenuc1207.native2ascii.no_junk \
+        --add-missing-checksums-to-fasta-files
+
+    # Per step the following files are written (example for one step):
+    #   spikenuc1207...counts.clean.exactly_3822.discarded_sha256_hashes.txt
+    #   spikenuc1207...counts.clean.exactly_3822.discarded_original_ids.txt
+    #
+    # Verify no discrepancy for that step:
+    #   wc -l *exactly_3822.discarded_original_ids.txt
+    #   awk '{print $1}' *exactly_3822.discarded_sha256_hashes.txt \
+    #       | sed 's/x.*//' | awk '{s+=$1} END {print s}'
 """
 
 import datetime
