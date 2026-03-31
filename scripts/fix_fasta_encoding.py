@@ -453,6 +453,11 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     #   'lat1' — raw Latin-1 bytes (not valid UTF-8)
     #   'utf8' — valid UTF-8 multi-byte sequences
     mix_counter: Counter = Counter()
+    # Per-codepoint frequency: how many changed lines contained each \uXXXX escape.
+    cp_counter: Counter = Counter()
+    # Sample lines for each non-trivial encoding category (max 5 per type).
+    _MAX_SAMPLES = 5
+    warn_samples: dict = {}   # frozenset -> list[str]
     t_start = time.monotonic()
     t_last = t_start
 
@@ -479,6 +484,15 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
                        for ch in decoded_surr):
                     enc_types.add('utf8')
                 mix_counter[frozenset(enc_types)] += 1
+                # Count individual \uXXXX codepoints on this line.
+                for cp_hex in re.findall(r'\\u([0-9a-fA-F]{4})', original_text):
+                    cp_counter[int(cp_hex, 16)] += 1
+                # Collect a sample for any non-pure-esc (warning) category.
+                key = frozenset(enc_types)
+                if key != frozenset({'esc'}) and key != frozenset():
+                    samples = warn_samples.setdefault(key, [])
+                    if len(samples) < _MAX_SAMPLES:
+                        samples.append(original_text.rstrip())
 
                 if verbose or (not stats_only and dry_run):
                     # Print diff line; clear the progress line first if active.
@@ -547,6 +561,32 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
         for key, cnt in mix_counter.items():
             if not any(key == k for k, _ in _mix_labels):
                 print(f"    (other: {sorted(key)}): {cnt:>8,}", file=sys.stderr)
+
+    # Codepoint frequency table (most common first, top 30).
+    if cp_counter:
+        print("  \\uXXXX codepoint frequency (top 30, across all changed lines):",
+              file=sys.stderr)
+        for cp, cnt in cp_counter.most_common(30):
+            ch = chr(cp)
+            print(f"    U+{cp:04X}  {ch}  : {cnt:>8,}", file=sys.stderr)
+
+    # Warning samples for non-pure-esc lines (mixed / double-encoded).
+    _warn_keys = [
+        frozenset({'utf8'}),
+        frozenset({'lat1'}),
+        frozenset({'esc', 'utf8'}),
+        frozenset({'esc', 'lat1'}),
+        frozenset({'lat1', 'utf8'}),
+        frozenset({'esc', 'lat1', 'utf8'}),
+    ]
+    for key in _warn_keys:
+        samples = warn_samples.get(key)
+        if not samples:
+            continue
+        label = next((lb for k, lb in _mix_labels if k == key), str(sorted(key)))
+        print(f"  WARNING — sample lines ({label}):", file=sys.stderr)
+        for s in samples:
+            print(f"    {s!r}", file=sys.stderr)
 
     if dry_run:
         os.unlink(tmp_path)
