@@ -50,6 +50,7 @@ Usage examples::
 """
 
 import argparse
+import datetime
 import hashlib
 import os
 import sys
@@ -312,9 +313,13 @@ def main():
                         actual_original_count += len(orig_ids)
                         if len(orig_ids) != count:
                             _dir = "fewer" if len(orig_ids) < count else "more"
+                            _tsv_mtime = datetime.datetime.fromtimestamp(
+                                os.path.getmtime(myoptions.mapping_outfile)
+                            ).strftime('%Y-%m-%d %H:%M:%S')
                             print(
-                                f"Warning: sha256 {digest[:16]}...: count {count:,} in mapping"
-                                f" but {len(orig_ids):,} IDs stored"
+                                f"Warning: sha256 {digest[:16]}...: expected {count:,} IDs"
+                                f" but mapping file {myoptions.mapping_outfile}"
+                                f" created on {_tsv_mtime} has {len(orig_ids):,}"
                                 f" ({_dir} than expected by {abs(count - len(orig_ids)):,})",
                                 file=sys.stderr,
                             )
@@ -374,9 +379,13 @@ def main():
                         actual_original_count += len(orig_ids)
                         if len(orig_ids) != count:
                             _dir = "fewer" if len(orig_ids) < count else "more"
+                            _tsv_mtime = datetime.datetime.fromtimestamp(
+                                os.path.getmtime(myoptions.mapping_outfile)
+                            ).strftime('%Y-%m-%d %H:%M:%S')
                             print(
                                 f"Warning: sha256 {digest[:16]}...: expected {count:,} IDs"
-                                f" but mapping has {len(orig_ids):,}"
+                                f" but mapping file {myoptions.mapping_outfile}"
+                                f" created on {_tsv_mtime} has {len(orig_ids):,}"
                                 f" ({_dir} than expected by {abs(count - len(orig_ids)):,})",
                                 file=sys.stderr,
                             )
@@ -407,9 +416,13 @@ def main():
                 got = sha256_hit_counts.get(sha, 0)
                 if got != exp:
                     _dir = "fewer" if got < exp else "more"
+                    _orig_mtime = datetime.datetime.fromtimestamp(
+                        os.path.getmtime(myoptions.original_infilename)
+                    ).strftime('%Y-%m-%d %H:%M:%S')
                     print(
-                        f"Warning: {rec_name}: expected {exp:,} occurrences in"
-                        f" {myoptions.original_infilename} but found {got:,}"
+                        f"Warning: {rec_name}: expected {exp:,} occurrences"
+                        f" but original FASTA file {myoptions.original_infilename}"
+                        f" created on {_orig_mtime} has {got:,}"
                         f" ({_dir} than expected by {abs(exp - got):,})",
                         file=sys.stderr,
                     )
