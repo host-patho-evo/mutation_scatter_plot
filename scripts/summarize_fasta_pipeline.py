@@ -69,6 +69,16 @@ Options:
                          Skipped if a .fasta.orig backup already exists.
                          Only applies to deduplicated files whose IDs have
                          an NNNNx count prefix.
+    --full-fasta-header
+                         When building *.sha256_to_ids.tsv files, also write
+                         a companion *.sha256_to_descr_lines.tsv that stores
+                         the full FASTA header line (everything after '>'),
+                         not just the first whitespace-delimited word.  This
+                         second file is built in the same single FASTA scan
+                         so no extra I/O is needed.  When present,
+                         *.sha256_to_descr_lines.tsv is used as the mapping
+                         source for *.discarded_original_ids.txt, giving
+                         the full description in those files.
 
 Examples:
     # Show full pipeline table with per-step discard statistics
@@ -242,6 +252,22 @@ def _fresh_tsv(parent_path: str) -> str | None:
     return None  # stale
 
 
+def _fresh_descr_tsv(parent_path: str) -> str | None:
+    """Return path to a valid .sha256_to_descr_lines.tsv if it exists and is
+    newer than the parent FASTA file, else None.
+
+    This file has the same tab-separated format as .sha256_to_ids.tsv but
+    stores the full FASTA header line (everything after '>') instead of just
+    the first whitespace-delimited word.
+    """
+    candidate = _strip_fasta_suffix(parent_path) + '.sha256_to_descr_lines.tsv'
+    if not os.path.exists(candidate):
+        return None
+    if _mtime(candidate) > _mtime(parent_path):
+        return candidate
+    return None  # stale
+
+
 def _decode_fasta_line(raw: bytes) -> str:
     """Decode a raw FASTA byte line to str (UTF-8 with Latin-1 fallback)."""
     try:
@@ -260,8 +286,10 @@ def _extract_sha256_from_id(record_id: str) -> str | None:
     return None
 
 
-def _build_tsv(fasta_path: str, tsv_path: str, verbose: bool = True) -> dict:
-    """Single-pass scan of *fasta_path* to build a sha256→IDs mapping TSV.
+def _build_tsv(fasta_path: str, tsv_path: str,
+               descr_tsv_path: str = "",
+               verbose: bool = True) -> dict:
+    """Single-pass scan of *fasta_path* to build a sha256->IDs mapping TSV.
 
     For each record the sha256 is computed over the uppercase, dash-stripped
     sequence — identical to the normalisation used by count_same_sequences.py.
@@ -269,21 +297,31 @@ def _build_tsv(fasta_path: str, tsv_path: str, verbose: bool = True) -> dict:
     Output TSV columns (tab-separated, no header):
         sha256hex   count   id_1   id_2   ...
 
-    Returns a dict mapping each original ID to its sha256hex string, which
-    callers can use to rewrite the FASTA with sha256 embedded in the IDs.
+    When *descr_tsv_path* is non-empty, a second TSV is written in the same
+    scan using the full FASTA header line (everything after '>') instead of
+    just the first word.  Both files are produced from a single I/O pass.
+
+    Returns a dict mapping each FASTA ID (first word) to its sha256hex string.
     """
-    mapping: dict = {}   # sha256 -> [count, [id, ...]]
+    id_map: dict = {}    # sha256 -> [count, [first-word-id, ...]]
+    descr_map: dict = {} # sha256 -> [count, [full-header, ...]]
     name = None
+    full_header = None
     seq_parts: list = []
 
-    def _flush(flush_name: str, flush_parts: list) -> None:
+    def _flush(flush_name: str, flush_full: str, flush_parts: list) -> None:
         seq = "".join(flush_parts).rstrip("\r\n").replace("-", "").upper()
         digest = hashlib.sha256(seq.encode()).hexdigest()
-        if digest in mapping:
-            mapping[digest][0] += 1
-            mapping[digest][1].append(flush_name)
+        if digest in id_map:
+            id_map[digest][0] += 1
+            id_map[digest][1].append(flush_name)
+            if descr_tsv_path:
+                descr_map[digest][0] += 1
+                descr_map[digest][1].append(flush_full)
         else:
-            mapping[digest] = [1, [flush_name]]
+            id_map[digest] = [1, [flush_name]]
+            if descr_tsv_path:
+                descr_map[digest] = [1, [flush_full]]
 
     n_in = 0
     with open(fasta_path, "rb") as fh:
@@ -293,27 +331,41 @@ def _build_tsv(fasta_path: str, tsv_path: str, verbose: bool = True) -> dict:
                 continue
             if line[0] == ">":
                 if name is not None:
-                    _flush(name, seq_parts)
+                    _flush(name, full_header, seq_parts)
                     n_in += 1
-                toks = line[1:].split()
+                hdr = line[1:]
+                toks = hdr.split()
                 name = toks[0] if toks else ""
+                # Escape any embedded TAB characters as the two-character
+                # literal '\t' so the TSV field delimiter is unambiguous.
+                # Readers of *.sha256_to_descr_lines.tsv must unescape
+                # '\\t' back to '\t' when consuming description fields.
+                # (Actual TABs in FASTA headers are extremely rare, but
+                # this encoding is lossless unlike replacing with a space.)
+                full_header = hdr.replace("\t", "\\t")
                 seq_parts = []
             else:
                 seq_parts.append(line)
         if name is not None:
-            _flush(name, seq_parts)
+            _flush(name, full_header, seq_parts)
             n_in += 1
 
     with open(tsv_path, "w", encoding="utf-8") as out:
-        for digest, (count, ids) in mapping.items():
+        for digest, (count, ids) in id_map.items():
             out.write("\t".join([digest, str(count)] + ids) + "\n")
 
+    if descr_tsv_path:
+        with open(descr_tsv_path, "w", encoding="utf-8") as out:
+            for digest, (count, descrs) in descr_map.items():
+                out.write("\t".join([digest, str(count)] + descrs) + "\n")
+
     if verbose:
-        print(f"    Info: built TSV with {len(mapping):,} unique sequences"
-              f" from {n_in:,} records \u2192 {tsv_path}", flush=True)
+        extra = f" + {os.path.basename(descr_tsv_path)}" if descr_tsv_path else ""
+        print(f"    Info: built TSV with {len(id_map):,} unique sequences"
+              f" from {n_in:,} records -> {tsv_path}{extra}", flush=True)
 
     # Return inverted mapping: id -> sha256 (one entry per original record).
-    return {orig_id: sha for sha, (_, ids) in mapping.items() for orig_id in ids}
+    return {orig_id: sha for sha, (_, ids) in id_map.items() for orig_id in ids}
 
 
 def _has_legacy_ids(id_to_sha: dict) -> bool:
@@ -374,24 +426,34 @@ def _enrich_fasta(fasta_path: str, id_to_sha: dict) -> str | None:
 
 
 def _ensure_tsv(parent_path: str, add_checksums: bool = False,
-                verbose: bool = True) -> str | None:
-    """Return a fresh .sha256_to_ids.tsv for *parent_path*, generating it by
-    scanning the FASTA in-process if one does not already exist or is stale.
+                full_fasta_header: bool = False,
+                verbose: bool = True) -> tuple[str | None, str | None]:
+    """Return (ids_tsv_path, descr_tsv_path) for *parent_path*.
+
+    ids_tsv_path  : path to *.sha256_to_ids.tsv (first-word IDs), or None.
+    descr_tsv_path: path to *.sha256_to_descr_lines.tsv (full headers), or
+                    None when *full_fasta_header* is False or generation failed.
+
+    Both TSVs are produced from a single FASTA scan when they need to be
+    (re)built.  Any embedded TABs in full headers are replaced with spaces.
 
     When *add_checksums* is True and the file has legacy NNNNx IDs (no sha256
     embedded), the FASTA is rewritten in-place with NNNNx.sha256hex IDs and
-    the original is renamed to .fasta.orig.  This makes all future analyses
-    faster since sha256 can be read from the ID instead of being recomputed.
-
-    Returns the TSV path on success, or None if generation failed.
+    the original is renamed to .fasta.orig.
     """
-    tsv = _fresh_tsv(parent_path)
-    if tsv and not add_checksums:
-        return tsv
-    # If add_checksums: always rebuild the TSV after enrichment so the TSV
-    # reflects the new IDs (which now embed sha256 directly).
-    if tsv and add_checksums:
-        # Check quickly whether the file already has modern IDs.
+    stem = _strip_fasta_suffix(parent_path)
+    candidate     = stem + '.sha256_to_ids.tsv'
+    descr_candidate = stem + '.sha256_to_descr_lines.tsv' if full_fasta_header else ""
+
+    ids_tsv   = _fresh_tsv(parent_path)
+    descr_tsv = _fresh_descr_tsv(parent_path) if full_fasta_header else None
+
+    # If both TSVs are fresh and no checksums requested, return immediately.
+    if ids_tsv and (not full_fasta_header or descr_tsv) and not add_checksums:
+        return ids_tsv, descr_tsv
+
+    # If add_checksums: check whether the FASTA already has modern IDs.
+    if ids_tsv and add_checksums:
         try:
             with open(parent_path, "rb") as fh:
                 for raw in fh:
@@ -399,33 +461,39 @@ def _ensure_tsv(parent_path: str, add_checksums: bool = False,
                     if line.startswith(">"):
                         first_id = line[1:].split()[0]
                         if _extract_sha256_from_id(first_id) is not None:
-                            return tsv  # already modern format
-                        break  # first record lacks sha256 — fall through
+                            # Already modern; only rebuild descr_tsv if missing.
+                            if full_fasta_header and not descr_tsv:
+                                break  # fall through to build
+                            return ids_tsv, descr_tsv
+                        break  # legacy IDs — fall through
         except OSError:
-            return tsv  # can't read, just use existing TSV
+            return ids_tsv, descr_tsv
 
-    candidate = _strip_fasta_suffix(parent_path) + '.sha256_to_ids.tsv'
     if verbose:
         print(f"  [auto-generating TSV] scanning {os.path.basename(parent_path)} \u2026",
               flush=True)
     try:
-        id_to_sha = _build_tsv(parent_path, candidate, verbose=verbose)
+        id_to_sha = _build_tsv(parent_path, candidate,
+                               descr_tsv_path=descr_candidate,
+                               verbose=verbose)
     except OSError as exc:
         print(f"    [TSV generation failed: {exc}]", flush=True)
-        return None
+        return None, None
 
     if add_checksums and _has_legacy_ids(id_to_sha):
         _enrich_fasta(parent_path, id_to_sha)
-        # Rebuild the TSV against the new file so IDs match the enriched form.
         if verbose:
             print("  [auto-generating TSV] rebuilding TSV from enriched FASTA \u2026",
                   flush=True)
         try:
-            _build_tsv(parent_path, candidate, verbose=verbose)
+            _build_tsv(parent_path, candidate,
+                       descr_tsv_path=descr_candidate,
+                       verbose=verbose)
         except OSError as exc:
             print(f"    [TSV rebuild failed: {exc}]", flush=True)
 
-    return candidate
+    return (candidate,
+            descr_candidate if full_fasta_header else None)
 
 
 def _read_discarded_txt_stats(txt_path: str) -> tuple[int, int]:
@@ -452,6 +520,7 @@ def _read_discarded_txt_stats(txt_path: str) -> tuple[int, int]:
 
 def _compute_discard_stats(parent_path: str, child_path: str,
                            add_checksums: bool = False,
+                           full_fasta_header: bool = False,
                            save_discard_list: bool = True,
                            verbose: bool = True
                            ) -> tuple[int, int] | tuple[None, None]:
@@ -499,10 +568,15 @@ def _compute_discard_stats(parent_path: str, child_path: str,
         print(f"  [discard stats] script not found: {DISCARD_SCRIPT}", flush=True)
         return None, None
 
-    tsv = _ensure_tsv(parent_path, add_checksums=add_checksums, verbose=verbose)
-    if tsv:
-        source_arg   = f'--mapping-outfile={tsv}'
-        source_label = f"TSV: {os.path.basename(tsv)}"
+    tsv, descr_tsv = _ensure_tsv(parent_path, add_checksums=add_checksums,
+                                  full_fasta_header=full_fasta_header,
+                                  verbose=verbose)
+    # Prefer the descr TSV (full headers) when the caller requested it
+    # and it was successfully built; fall back to ID-only TSV otherwise.
+    mapping_tsv = descr_tsv if (full_fasta_header and descr_tsv) else tsv
+    if mapping_tsv:
+        source_arg   = f'--mapping-outfile={mapping_tsv}'
+        source_label = f"TSV: {os.path.basename(mapping_tsv)}"
     else:
         source_arg   = f'--original-infilename={parent_path}'
         source_label = f"FASTA scan: {parent_base}"
@@ -524,6 +598,7 @@ def _compute_discard_stats(parent_path: str, child_path: str,
         source_arg,
         '--inverted',
         '--output-context=discarded',
+        *(['--full-fasta-header'] if full_fasta_header else []),
         *outfile_args,
     ]
     if verbose:
@@ -561,6 +636,7 @@ def main() -> None:
     verbose            = '--verbose'                               in args
     save_discard_list  = '--disable-discarded-original-ids-file'   not in args
     add_checksums      = '--add-missing-checksums-to-fasta-files'  in args
+    full_fasta_header  = '--full-fasta-header'                     in args
 
     # ── collect matching files ────────────────────────────────────────────────
     found: set[str] = set()
@@ -619,6 +695,7 @@ def main() -> None:
                 n_d, s_d = _compute_discard_stats(
                     files[p], f_child,
                     add_checksums=add_checksums,
+                    full_fasta_header=full_fasta_header,
                     save_discard_list=save_discard_list,
                     verbose=verbose,
                 )

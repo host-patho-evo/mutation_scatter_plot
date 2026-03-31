@@ -149,6 +149,17 @@ _parser.add_argument(
     ),
 )
 _parser.add_argument(
+    "--full-fasta-header", dest="full_fasta_header", action="store_true",
+    help=(
+        "When reading the mapping TSV, prefer *.sha256_to_descr_lines.tsv "
+        "(full FASTA header lines, everything after '>') over "
+        "*.sha256_to_ids.tsv (first-word ID only).  The descr TSV is "
+        "auto-detected from the mapping TSV path when not provided explicitly. "
+        "Embedded '\\t' two-character sequences in description fields are "
+        "unescaped back to real TAB characters on read."
+    ),
+)
+_parser.add_argument(
     "--outfile-prefix", dest="outfile_prefix", default="",
     help=(
         "Stem (basename) used for all output filenames instead of the one derived "
@@ -296,6 +307,26 @@ def main():
             myoptions.mapping_outfile = guessed_mapping
             print(f"Info: auto-detected mapping TSV: {guessed_mapping}", file=sys.stderr)
 
+    # When --full-fasta-header, prefer *.sha256_to_descr_lines.tsv over the
+    # ID-only TSV.  Auto-detect it from the mapping TSV path when possible.
+    if myoptions.full_fasta_header and myoptions.mapping_outfile:
+        descr_candidate = myoptions.mapping_outfile.replace(
+            '.sha256_to_ids.tsv', '.sha256_to_descr_lines.tsv'
+        )
+        if descr_candidate != myoptions.mapping_outfile and os.path.exists(descr_candidate):
+            print(
+                f"Info: --full-fasta-header: switching to descr TSV: {descr_candidate}",
+                file=sys.stderr,
+            )
+            myoptions.mapping_outfile = descr_candidate
+        else:
+            print(
+                f"Warning: --full-fasta-header: descr TSV not found ({descr_candidate}); "
+                "falling back to ID-only TSV.  Run summarize_fasta_pipeline.py with "
+                "--full-fasta-header to build *.sha256_to_descr_lines.tsv files.",
+                file=sys.stderr,
+            )
+
     # Default --outfile: context-aware sha256-hashes filename.
     _ctx = myoptions.output_context  # 'discarded' or 'effectively_used'
     if not myoptions.outfile:
@@ -391,6 +422,7 @@ def main():
         # In inverted mode --infilename is the *kept* set; we want the discarded.
         if myoptions.mapping_outfile:
             n_sha = 0
+            _is_descr_tsv = myoptions.mapping_outfile.endswith('.sha256_to_descr_lines.tsv')
             with open(myoptions.mapping_outfile, "r", encoding="utf-8") as fh:
                 for tsv_line in fh:
                     fields = tsv_line.rstrip("\n").split("\t")
@@ -403,6 +435,10 @@ def main():
                         except (ValueError, IndexError):
                             count = len(fields) - 2
                         orig_ids = fields[2:]
+                        # Unescape '\t' -> TAB in description fields
+                        # (only the descr TSV uses this encoding).
+                        if _is_descr_tsv:
+                            orig_ids = [s.replace('\\t', '\t') for s in orig_ids]
                         sha256_lines.append(f"{count}x.{digest}")
                         original_id_lines.extend(orig_ids)
                         actual_original_count += len(orig_ids)
