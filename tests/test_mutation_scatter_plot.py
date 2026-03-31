@@ -630,16 +630,27 @@ class TestMutationScatterPlot(unittest.TestCase):
                     + "\n".join(wrong_color[:5]),
                 )
 
-            # 2. Bokeh colorbar palette: the centre band (index _half) must be yellow.
-            # The HTML stores the palette inline.  Grep for the colour mapper spec.
+            # 2. Bokeh colorbar palette: the centre band must be the alpha=0.5
+            # pre-blended yellow on white.
+            # The ColumnDataSource circle colours still carry the raw #ffff00;
+            # the colorbar LinearColorMapper palette uses the blended value
+            # so the bands are perceptually identical to the glyphs.
+            #   raw yellow #ffff00 @ alpha=0.5 on white = #ffff7f
             html_files = [f for f in os.listdir(tmpdir) if f.endswith(".html")]
             self.assertGreater(len(html_files), 0, "No HTML output generated")
             html_path = os.path.join(tmpdir, html_files[0])
             with open(html_path, encoding="utf-8") as fh:
                 html_text = fh.read()
+            # The circle CDS still holds the raw yellow (unblended).
             self.assertIn(
                 "#ffff00", html_text,
-                "Bokeh HTML must contain #ffff00 (yellow) in the colorbar palette",
+                "Bokeh HTML must contain #ffff00 (raw yellow) in the circle ColumnDataSource",
+            )
+            # The colorbar palette holds the blended yellow (alpha=0.5 on white).
+            # #ffff00 + alpha=0.5 on white: B channel = round(0.5*0 + 127.5) = 128 = 0x80
+            self.assertIn(
+                "#ffff80", html_text,
+                "Bokeh HTML must contain #ffff80 (blended yellow) in the colorbar palette",
             )
 
 if __name__ == "__main__":
