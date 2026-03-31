@@ -523,6 +523,7 @@ def _compute_discard_stats(parent_path: str, child_path: str,
         f'--infilename={child_path}',
         source_arg,
         '--inverted',
+        '--output-context=discarded',
         *outfile_args,
     ]
     if verbose:
