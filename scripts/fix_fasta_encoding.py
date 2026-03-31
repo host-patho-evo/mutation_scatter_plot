@@ -435,7 +435,9 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     bytes_read = 0
     lines_read = 0
     changed = 0
-    out_lines: list[str] = []
+    # Stream output to a temp file immediately — avoids holding the whole
+    # file in RAM (input files can be tens of GB).
+    tmp_path = path + ".encoding_fix_tmp"
     # Encoding-mix statistics: counts how many changed lines had each
     # combination of the three encoding forms.
     #   'esc'  — literal \uXXXX escape sequences
@@ -446,14 +448,16 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     t_start = time.monotonic()
     t_last = t_start
 
-    with open(path, "rb") as fh:
+    with open(path, "rb") as fh, \
+         open(tmp_path, "w", encoding="utf-8") as fh_tmp:
         for raw in fh:
             bytes_read += len(raw)
             lines_read += 1
             # Preserve the original line ending (strip nothing here).
             original_text = raw.decode("latin-1")   # lossless reference decode
             clean = _decode_line(raw)
-            out_lines.append(clean if clean.endswith("\n") else clean.rstrip("\r\n") + "\n")
+            clean_line = clean if clean.endswith("\n") else clean.rstrip("\r\n") + "\n"
+            fh_tmp.write(clean_line)
             if clean.rstrip("\r\n") != original_text.rstrip("\r\n"):
                 changed += 1
                 # Classify which encoding forms are present on this line.
@@ -499,7 +503,9 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
             width = shutil.get_terminal_size(fallback=(80, 24)).columns
             print(f"\r{' ' * width}\r", end="", flush=True, file=sys.stderr)
 
+    # If nothing changed or dry-run, remove the temp file.
     if changed == 0:
+        os.unlink(tmp_path)
         print(f"  {path}: no changes needed.", file=sys.stderr)
         return 0
 
@@ -535,15 +541,12 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
                 print(f"    (other: {sorted(key)}): {cnt:>8,}", file=sys.stderr)
 
     if dry_run:
+        os.unlink(tmp_path)
         return changed
 
-    # Write clean UTF-8 to a temp path next to the original, then rename.
+    # Temp file is already written; just rename into place.
     # The temp file lives in the same directory so both os.rename() calls
     # are on the same filesystem (guaranteed atomic on POSIX).
-    tmp_path = path + ".encoding_fix_tmp"
-    with open(tmp_path, "w", encoding="utf-8") as fh:
-        fh.writelines(out_lines)
-
     # Backup original (or overwrite existing backup if --overwrite).
     os.rename(path, orig_path)
     print(f"  Renamed {os.path.basename(path)} -> {os.path.basename(orig_path)}",
