@@ -465,7 +465,90 @@ def get_score(myoptions, matrix, codon_on_input, old_codon_or_aa, new_codon_or_a
 
 
 def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa, new_codon_or_aa, _old_codon_or_aa, _new_codon_or_aa, matrix, norm, colors):
-    """Define colors for basic type of scatterplot figures."""
+    """Assign BLOSUM score, relative size, and colour to one scatter data-point.
+
+    Parameters
+    ----------
+    myoptions : argparse.Namespace
+        Parsed CLI options (used for ``debug`` and ``colormap`` context).
+    frequency : Decimal
+        Observed mutation frequency; controls the rendered circle area.
+    codon_on_input : bool
+        True when old_codon_or_aa / _old_codon_or_aa are 3-nt codon strings
+        rather than single-letter amino acid codes.
+    old_codon_or_aa : str
+        Raw reference string from the TSV: a codon (e.g. ``'GCC'``) in codon
+        mode or an amino acid letter (e.g. ``'A'``) in aminoacids mode.
+    new_codon_or_aa : str
+        Raw observed string from the TSV (codon or amino acid).
+    _old_codon_or_aa : str
+        Resolved reference: codon string if ``codon_on_input`` else translated
+        amino acid (output of ``resolve_codon_or_aa``).
+    _new_codon_or_aa : str
+        Resolved observed codon or amino acid.
+    matrix : blosum.BLOSUM
+        Substitution-score matrix used for non-synonymous mutations.
+    norm : matplotlib.colors.BoundaryNorm or None
+        Discrete colour normaliser for ``amino_acid_changes`` colormap;
+        ``None`` for continuous colormaps (``coolwarm_r``, etc.).
+    colors : list[str]
+        Palette as hex strings, indexed by ``norm(score)`` or by the
+        centre-offset formula.
+
+    Returns
+    -------
+    tuple[int, Decimal, str]
+        ``(_score, frequency, _color)`` where ``_score`` is the BLOSUM
+        substitution score (or a sentinel value, see below) and ``_color``
+        is a hex colour string.
+
+    Dark-green (``#219f11``) override — when and why
+    -------------------------------------------------
+    Synonymous substitutions carry no amino acid change but are scientifically
+    meaningful (e.g. codon-usage bias, RNA secondary structure).  To distinguish
+    them visually from missense mutations they are painted in dark green
+    (``#219f11``) and assigned the sentinel score **+12**, which places them in
+    a dedicated band at the top of the colour scale.
+
+    The override is applied under **three mutually exclusive conditions**,
+    checked in priority order:
+
+    1. **Identical raw strings** (``old_codon_or_aa == new_codon_or_aa``)
+       The most common case in codon mode: the unchanged-codon TSV contains
+       entries where original and mutant codon are the same letter-for-letter
+       (e.g. ``GCC → GCC``).  In aminoacids mode this catches ``A → A``.
+
+    2. **Identical resolved strings** (``_old_codon_or_aa == _new_codon_or_aa``)
+       After ``resolve_codon_or_aa()``, if the resolved labels are equal but the
+       raw strings differed (e.g. raw ``'GCC'`` vs resolved ``'A'`` in aminoacids
+       mode), this branch triggers.
+
+    3. **Different codons encoding the same amino acid** (codon mode only)
+       ``alt_translate(old_codon) == alt_translate(new_codon)`` catches true
+       synonymous *substitutions* (e.g. ``GCC → GCT``, both encoding Ala).
+       This is the case the user most likely means by "synonymous mutation".
+
+    **Sentinel score +12**
+        For the ``amino_acid_changes`` ListedColormap, ``BoundaryNorm`` maps
+        +12 to index 32, where ``colors[32] == '#219f11'`` (dark green).  For
+        continuous colormaps (``coolwarm_r`` etc.) the pre-resolved
+        ``_color = '#219f11'`` hex string is passed directly to the scatter
+        call (``c=cm_hex`` path), so the same colour appears regardless of
+        what score +12 would map to in that colormap's gradient.
+
+    **When the override is NOT applied**
+        - In ``--aminoacids`` mode without ``--include-synonymous``: the entry
+          is silently **skipped** in ``collect_scatter_data()`` before this
+          function is ever called (line 1101 in that function).  No circle is
+          drawn at all — not even in the wrong colour.
+        - In ``--aminoacids`` mode **with** ``--include-synonymous``: the entry
+          reaches this function, branch 1 or 2 fires, and the dark-green circle
+          is rendered as a diamond marker (``'D'``) instead of the default hex.
+        - In codon mode (no ``--aminoacids``): synonymous codon entries from
+          both the main frequencies TSV (branch 3, e.g. GCC→GCT) and the
+          unchanged-codons TSV (branch 1, e.g. GCC→GCC) are **always** drawn
+          in dark green, regardless of ``--include-synonymous``.
+    """
 
     if not codon_on_input:
         if not _old_codon_or_aa:
@@ -489,12 +572,17 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
         _colorindex = max(0, min(len(colors) - 1, int(_score) + len(colors) // 2))
 
     if old_codon_or_aa.upper() == new_codon_or_aa.upper():
-        # Synonymous: canonical score +12 so the colorbar band at +12 shows '#219f11'.
-        # BoundaryNorm maps score +12 -> index 32 in amino_acid_changes palette (colors[32]='#219f11').
-        # The continuous-cmap (coolwarm_r) colorbar has '#219f11' appended at slot index _n (see render_bokeh).
+        # Dark green override — Branch 1: identical raw strings.
+        # Covers unchanged-codon TSV entries (e.g. GCC→GCC) and aminoacids
+        # entries where original_aa == mutant_aa (A→A).
+        # Sentinel score +12 maps to colors[32]='#219f11' in amino_acid_changes;
+        # for continuous colormaps the pre-resolved #219f11 hex is used directly.
         _color = '#219f11'
         _score = 12
     elif _old_codon_or_aa.upper() == _new_codon_or_aa.upper():
+        # Dark green override — Branch 2: identical *resolved* labels.
+        # Fires when the raw strings differ but resolve to the same amino acid
+        # label after resolve_codon_or_aa() (rare edge case).
         _color = '#219f11'
         _score = 12
     elif old_codon_or_aa in ('---', 'DEL', 'INS', '*') or new_codon_or_aa in ('---', 'DEL', 'INS', '*', 'TGA', 'TAA', 'TAG'):
@@ -504,6 +592,9 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
         _color = '#808080'
     elif codon_on_input:
         if alt_translate(_old_codon_or_aa) == alt_translate(_new_codon_or_aa):
+            # Dark green override — Branch 3: different codons, same amino acid.
+            # True synonymous codon substitution, e.g. GCC→GCT (both Ala).
+            # This is the primary case for codon-mode scatter plots.
             _color = '#219f11'
             _score = 12
         elif alt_translate(_new_codon_or_aa) == 'X':
@@ -1098,6 +1189,15 @@ def collect_scatter_data(
                     _warn_once.append(_padded_position)
                 continue
             _codon_on_input, _old_codon_or_aa, _new_codon_or_aa = resolve_codon_or_aa(myoptions, _old_codon, _some_codon_or_aa)
+            # Dark-green override gate: in aminoacids mode, synonymous entries
+            # (where the resolved amino acid label is unchanged, e.g. A→A from
+            # GCC→GCT) are only included when --include-synonymous is given.
+            # Without that flag, we skip the entry entirely here — adjust_size_and_color
+            # is never called, no circle is emitted, and there is no colour to
+            # get wrong.  In codon mode (myoptions.aminoacids=False) this gate
+            # is never reached: synonymous codons are always drawn in dark green
+            # by adjust_size_and_color Branch 1 (GCC→GCC) or Branch 3 (GCC→GCT).
+            # See the adjust_size_and_color docstring for the full decision tree.
             if myoptions.aminoacids and not myoptions.include_synonymous and _old_codon_or_aa == _new_codon_or_aa:
                 continue
 
