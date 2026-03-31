@@ -290,9 +290,17 @@ _parser.add_argument(
 _parser.add_argument(
     "--verbose", "-v", action="store_true",
     help=(
-        "Show a per-line diff of every changed line even during a real "
-        "(non-dry-run) pass.  Also forces progress output even when stderr "
-        "is not a TTY (e.g. when redirected to a log file)."
+        "Print a per-line diff of every changed header line.  Works in "
+        "both dry-run and real-write modes."
+    ),
+)
+_parser.add_argument(
+    "--progress", action="store_true",
+    help=(
+        "Show a scp/dd-style progress line with bytes read, percentage, "
+        "throughput, ETA, and number of lines changed.  Enabled "
+        "automatically when stderr is a TTY; this flag forces it also "
+        "when stderr is redirected (e.g. to a log file)."
     ),
 )
 _parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
@@ -394,7 +402,7 @@ def _decode_line(raw: bytes) -> str:
 
 
 def _process_file(path: str, dry_run: bool, overwrite: bool,
-                  stats_only: bool, verbose: bool) -> int:
+                  stats_only: bool, verbose: bool, progress: bool) -> int:
     """Normalize *path* in-place.  Returns the number of lines changed."""
     orig_path = path + ".orig"
 
@@ -406,8 +414,8 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
         )
         return 0
 
-    # Show progress when stderr is a TTY or when --verbose forces it.
-    show_progress = verbose or sys.stderr.isatty()
+    # Show progress when stderr is a TTY or when --progress forces it.
+    show_progress = progress or sys.stderr.isatty()
 
     total_bytes = os.path.getsize(path)
     bytes_read = 0
@@ -428,10 +436,10 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
             if clean.rstrip("\r\n") != original_text.rstrip("\r\n"):
                 changed += 1
                 if verbose or (not stats_only and dry_run):
-                    # Print diff line; clear any in-progress progress line first.
+                    # Print diff line; clear the progress line first if active.
                     if show_progress:
-                        print("", file=sys.stderr)  # newline to move off progress row
-                        show_progress = False        # don't overwrite the diff output
+                        print("", file=sys.stderr)  # move off progress row
+                        show_progress = False        # don't overwrite the diff
                     print(
                         f"  ~ {original_text.rstrip()!r}\n"
                         f"  + {clean.rstrip()!r}",
@@ -508,6 +516,7 @@ def main() -> None:
             overwrite=opts.overwrite,
             stats_only=opts.stats_only,
             verbose=opts.verbose,
+            progress=opts.progress,
         )
         total_files += 1
         total_changed += n
