@@ -128,6 +128,17 @@ def _get_git_version() -> str:
     str
         A version string such as ``"v0.3-14-gabcdef1"`` or ``"abcdef1234..."``
         or the package version ``"0.3"`` depending on the tier that succeeded.
+
+    Note on ``pip install -e .`` (editable installs)
+    --------------------------------------------------
+    With an editable install the package is importable directly from the source
+    tree and ``importlib.metadata`` would return the static ``"0.3"`` from
+    *pyproject.toml*, masking the real commit hash.  To avoid this, Tier 2
+    (git describe) is tried **before** Tier 3 (importlib.metadata): when
+    ``.git/`` is reachable ``git describe`` always produces richer information
+    (commit distance, hash, dirty flag) regardless of whether the package is
+    installed.  ``importlib.metadata`` is kept as a last-resort fallback for
+    pure PyPI installs where git is not available.
     """
     _here = os.path.dirname(os.path.abspath(__file__))
 
@@ -153,16 +164,13 @@ def _get_git_version() -> str:
         pass
 
     # ------------------------------------------------------------------
-    # Tier 2: importlib.metadata (works after ``pip install``)
-    # ------------------------------------------------------------------
-    try:
-        import importlib.metadata as _imeta  # pylint: disable=import-outside-toplevel
-        return _imeta.version("mutation-scatter-plot")
-    except Exception:  # pylint: disable=broad-except
-        pass
-
-    # ------------------------------------------------------------------
-    # Tier 3: live git checkout — shell out to ``git describe``
+    # Tier 2: live git checkout — shell out to ``git describe``
+    #
+    # This is tried BEFORE importlib.metadata so that developers using
+    # ``pip install -e .`` (editable installs) see the real commit hash
+    # and dirty flag rather than just the static version from pyproject.toml.
+    # git describe succeeds whenever .git/ is reachable regardless of
+    # whether the package is installed.
     # ------------------------------------------------------------------
     try:
         result = subprocess.run(
@@ -170,9 +178,25 @@ def _get_git_version() -> str:
             capture_output=True, text=True, check=True,
             cwd=_here,
         )
-        return result.stdout.strip() or "unknown"
+        ver = result.stdout.strip()
+        if ver:
+            return ver
+    except Exception:  # pylint: disable=broad-except
+        pass
+
+    # ------------------------------------------------------------------
+    # Tier 3: installed package (importlib.metadata)
+    #
+    # Last-resort fallback: covers pure PyPI installs where git is not
+    # available (no .git/ directory, no git executable).  Returns the
+    # static version from pyproject.toml, e.g. "0.3".
+    # ------------------------------------------------------------------
+    try:
+        import importlib.metadata as _imeta  # pylint: disable=import-outside-toplevel
+        return _imeta.version("mutation-scatter-plot")
     except Exception:  # pylint: disable=broad-except
         return "unknown"
+
 
 
 __all__ = [
