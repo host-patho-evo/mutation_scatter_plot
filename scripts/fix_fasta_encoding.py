@@ -98,17 +98,33 @@ def _unescape_unicode(s: str) -> str:
 
 
 def _decode_line(raw: bytes) -> str:
-    """Decode one raw FASTA byte line to a clean Unicode str.
+    r"""Decode one raw FASTA byte line to a clean Unicode str.
 
-    Steps (same as summarize_fasta_pipeline.py / create_list_of_discarded_sequences.py):
-      1. Try UTF-8; on failure fall back to Latin-1.
-      2. Convert literal \\uXXXX escape sequences to real Unicode codepoints.
+    Handles GISAID FASTA files that mix UTF-8 and Latin-1 *within the same
+    line* (e.g. Polish ``ś`` as UTF-8 \\xC5\\x9B and French ``é`` as raw
+    Latin-1 \\xe9 in the same header):
+
+      1. ``decode('utf-8', errors='surrogateescape')``: valid multi-byte UTF-8
+         sequences decode normally; every individual byte that is not part of
+         a valid UTF-8 sequence becomes a surrogate code point U+DC80..U+DCFF.
+      2. Each surrogate U+DC80+b is mapped back to chr(b), giving the Latin-1
+         interpretation of that byte.  This is lossless — all bytes end up
+         correctly decoded.
+      3. Literal ``\\uXXXX`` escape sequences (produced by some GISAID export
+         pipelines) are then converted to real Unicode codepoints.
+
+    This is why ``unidecode`` previously failed: it received a file where
+    some bytes were valid UTF-8 multi-byte sequences and others were raw
+    Latin-1 bytes, so any attempt to decode the whole line as pure UTF-8
+    raised UnicodeDecodeError.
     """
-    try:
-        line = raw.decode("utf-8")
-    except UnicodeDecodeError:
-        line = raw.decode("latin-1")
-    return _unescape_unicode(line)
+    s = raw.decode("utf-8", errors="surrogateescape")
+    if any(0xDC80 <= ord(ch) <= 0xDCFF for ch in s):
+        s = "".join(
+            chr(ord(ch) - 0xDC00) if 0xDC80 <= ord(ch) <= 0xDCFF else ch
+            for ch in s
+        )
+    return _unescape_unicode(s)
 
 
 def _process_file(path: str, dry_run: bool, overwrite: bool,

@@ -283,13 +283,21 @@ def _unescape_unicode(s: str) -> str:
 
 
 def _decode_fasta_line(raw: bytes) -> str:
-    """Decode a raw FASTA byte line to str (UTF-8 with Latin-1 fallback).
-    Also converts literal \\uXXXX escape sequences to real Unicode characters."""
-    try:
-        line = raw.decode("utf-8")
-    except UnicodeDecodeError:
-        line = raw.decode("latin-1")
-    return _unescape_unicode(line)
+    r"""Decode one raw FASTA byte line to a clean Unicode str.
+
+    Handles GISAID FASTA files that mix UTF-8 and Latin-1 *within the same
+    line*.  Uses surrogateescape so each non-UTF-8 byte is individually
+    mapped to its Latin-1 equivalent rather than triggering a whole-line
+    fallback that would corrupt valid UTF-8 multi-byte sequences.
+    Also converts literal ``\uXXXX`` escape sequences to real codepoints.
+    """
+    s = raw.decode("utf-8", errors="surrogateescape")
+    if any(0xDC80 <= ord(ch) <= 0xDCFF for ch in s):
+        s = "".join(
+            chr(ord(ch) - 0xDC00) if 0xDC80 <= ord(ch) <= 0xDCFF else ch
+            for ch in s
+        )
+    return _unescape_unicode(s)
 
 
 def _extract_sha256_from_id(record_id: str) -> str | None:

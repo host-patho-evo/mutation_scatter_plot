@@ -247,16 +247,30 @@ def _unescape_unicode(s: str) -> str:
 
 
 def _decode_fasta_line(raw: bytes) -> str:
-    """Decode a FASTA line to str, trying UTF-8 first then falling back to
-    Latin-1.  Handles GISAID headers that mix UTF-8 and Latin-1/Latin-2
-    encoded characters in sample descriptions.  Also converts literal
-    \\uXXXX escape sequences (produced by some GISAID export pipelines)
-    to real Unicode characters."""
-    try:
-        line = raw.decode("utf-8")
-    except UnicodeDecodeError:
-        line = raw.decode("latin-1")
-    return _unescape_unicode(line)
+    r"""Decode one raw FASTA byte line to a clean Unicode str.
+
+    Handles GISAID FASTA files that mix UTF-8 and Latin-1 *within the same
+    line* (e.g. a header containing both Polish UTF-8 multi-byte chars like
+    ``ś`` (\xC5\x9B) and raw Latin-1 bytes like ``é`` (\xe9)).
+
+    Strategy:
+      1. Decode as UTF-8 with ``errors='surrogateescape'``: valid multi-byte
+         sequences decode normally; every byte that is not part of a valid
+         UTF-8 sequence becomes a surrogate code point (U+DC80..U+DCFF).
+      2. Map each surrogate U+DC80+b back to chr(b), i.e. the Latin-1
+         interpretation of the original byte.  This is lossless — all bytes
+         end up correctly decoded.
+      3. Convert literal ``\uXXXX`` escape sequences (produced by some GISAID
+         export pipelines) to real Unicode codepoints.
+    """
+    s = raw.decode("utf-8", errors="surrogateescape")
+    # Convert surrogates from non-UTF-8 bytes to their Latin-1 equivalents.
+    if any(0xDC80 <= ord(ch) <= 0xDCFF for ch in s):
+        s = "".join(
+            chr(ord(ch) - 0xDC00) if 0xDC80 <= ord(ch) <= 0xDCFF else ch
+            for ch in s
+        )
+    return _unescape_unicode(s)
 
 
 def _iter_fasta(path):
