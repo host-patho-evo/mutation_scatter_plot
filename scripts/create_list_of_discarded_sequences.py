@@ -90,7 +90,7 @@ import hashlib
 import os
 import sys
 
-VERSION = "202603311728"
+VERSION = "202603311815"
 
 _parser = argparse.ArgumentParser(description=__doc__,
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -121,16 +121,30 @@ _parser.add_argument(
     "--inverted", action="store_true",
     help=(
         "Invert match: emit original records whose sha256 is NOT present in "
-        "--infilename (i.e. --infilename is the kept file, output is discarded). "
-        "Requires --original-infilename."
+        "--infilename (i.e. --infilename is the kept file, output is what was "
+        "discarded).  Requires --original-infilename or --mapping-outfile."
+    ),
+)
+_parser.add_argument(
+    "--output-context", dest="output_context",
+    choices=["discarded", "effectively_used"], default="discarded",
+    help=(
+        "Label used in the output filenames to indicate what the file contains. "
+        "'discarded' (default): output files are named *.discarded_sha256_hashes.txt "
+        "and *.discarded_original_ids.txt. "
+        "'effectively_used': output files are named *.effectively_used_sha256_hashes.txt "
+        "and *.effectively_used_original_ids.txt. "
+        "Set to 'effectively_used' when --infilename is the *kept* file and "
+        "--inverted is NOT set (i.e. you are expanding what was kept, not discarded)."
     ),
 )
 _parser.add_argument(
     "--outfile", default="",
     help=(
-        "Output path for sha256-hash entries (NNNNx.sha256hex lines from --infilename). "
-        "Defaults to {infilename_stem}.discarded_sha256_hashes.txt. "
-        "A companion .discarded_original_ids.txt is always written alongside it "
+        "Output path for sha256-hash entries (NNNNx.sha256hex lines). "
+        "Defaults to {infilename_stem}.{output_context}_sha256_hashes.txt "
+        "where output_context is 'discarded' or 'effectively_used'. "
+        "A companion {output_context}_original_ids.txt is always written alongside "
         "when --mapping-outfile or --original-infilename is available."
     ),
 )
@@ -237,16 +251,17 @@ def main():
             myoptions.mapping_outfile = guessed_mapping
             print(f"Info: auto-detected mapping TSV: {guessed_mapping}", file=sys.stderr)
 
-    # Default --outfile: now the sha256-hashes file.
+    # Default --outfile: context-aware sha256-hashes filename.
+    _ctx = myoptions.output_context  # 'discarded' or 'effectively_used'
     if not myoptions.outfile:
-        myoptions.outfile = infile_stem + '.discarded_sha256_hashes.txt'
+        myoptions.outfile = infile_stem + f'.{_ctx}_sha256_hashes.txt'
         print(f"Info: sha256 hashes will be written to {myoptions.outfile}", file=sys.stderr)
 
     # Companion original-IDs file (always alongside the sha256 hashes file).
     if myoptions.outfile == '/dev/null':
         _original_ids_outfile = '/dev/null'
     else:
-        _original_ids_outfile = infile_stem + '.discarded_original_ids.txt'
+        _original_ids_outfile = infile_stem + f'.{_ctx}_original_ids.txt'
         print(f"Info: original IDs will be written to {_original_ids_outfile}", file=sys.stderr)
 
     # ── timestamp-aware output guard ────────────────────────────────────────────
