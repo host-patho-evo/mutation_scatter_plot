@@ -120,10 +120,70 @@ def _pct_str(current: int, reference: int) -> str:
 
 # ── ancillary-file helpers ─────────────────────────────────────────────────────
 
+def _is_sha256_hashes_content(path: str) -> bool:
+    """Return True if the first non-empty line of *path* looks like a
+    NNNNx.sha256hex entry (i.e. the file contains sha256-hash lines, not
+    expanded original FASTA headers).
+
+    Detection heuristic: the first word of the first non-empty line must match
+    ``\\d+x.[0-9a-f]{64}`` — the NNNNx.sha256hex format produced by
+    create_list_of_discarded_sequences.py.  Original FASTA headers (GISAID
+    accessions, plain descriptions) never match this pattern.
+    """
+    try:
+        with open(path, 'r', encoding='utf-8', errors='replace') as fh:
+            for raw_line in fh:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                first_word = line.split()[0]
+                xdot = first_word.find('x.')
+                if xdot > 0 and first_word[:xdot].isdigit():
+                    suffix = first_word[xdot + 2:]
+                    if len(suffix) == 64 and all(c in '0123456789abcdefABCDEF' for c in suffix):
+                        return True
+                return False  # first non-empty line does not match
+    except OSError:
+        pass
+    return False
+
+
+def _migrate_legacy_discarded_txt(stem: str) -> None:
+    """Rename a legacy *.discarded_original_ids.txt to *.discarded_sha256_hashes.txt
+    when it contains NNNNx.sha256hex content (the old naming convention).
+
+    The rename is skipped when:
+      - the new *.discarded_sha256_hashes.txt already exists (nothing to do), or
+      - the file content looks like expanded original FASTA headers (real
+        original-IDs file — must not be renamed).
+    """
+    old_path = stem + '.discarded_original_ids.txt'
+    new_path = stem + '.discarded_sha256_hashes.txt'
+    if os.path.exists(new_path):
+        return  # already migrated
+    if not os.path.exists(old_path):
+        return  # nothing to migrate
+    if not _is_sha256_hashes_content(old_path):
+        return  # genuine original-IDs file — leave it alone
+    os.rename(old_path, new_path)
+    print(
+        f"  [migrate] renamed {os.path.basename(old_path)}"
+        f" -> {os.path.basename(new_path)}"
+        f" (detected sha256-hash content in legacy file)",
+        flush=True,
+    )
+
+
 def _fresh_discarded_txt(child_path: str, parent_path: str) -> str | None:
     """Return path to a valid .discarded_sha256_hashes.txt if it exists and is
-    newer than BOTH the child and parent FASTA files, else None."""
-    candidate = _strip_fasta_suffix(child_path) + '.discarded_sha256_hashes.txt'
+    newer than BOTH the child and parent FASTA files, else None.
+
+    Automatically migrates a legacy .discarded_original_ids.txt that contains
+    NNNNx.sha256hex content to the new filename before the freshness check.
+    """
+    stem = _strip_fasta_suffix(child_path)
+    _migrate_legacy_discarded_txt(stem)
+    candidate = stem + '.discarded_sha256_hashes.txt'
     if not os.path.exists(candidate):
         return None
     txt_mtime = _mtime(candidate)
