@@ -147,6 +147,9 @@ converted to their proper Unicode glyphs by this script:
     \u00e3  ã   Latin small a with tilde            (Portuguese: São Paulo)
     \u201c  "   Left double quotation mark          (Italian hospital names)
     \u201d  "   Right double quotation mark
+    \u2018  '   Left single quotation mark
+    \u2019  '   Right single quotation mark / apostrophe  ← common in Italian
+                    (e.g. dell\u2019Abruzzo, dell\u2019Aquila)
 
 Real-world examples (from spikenuc1207.fasta dry-run)
 ------------------------------------------------------
