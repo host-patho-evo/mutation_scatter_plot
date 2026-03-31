@@ -15,8 +15,8 @@ pre-computed ancillary files are used when they exist and are up-to-date
 is invoked in --inverted mode.
 
 Cache priority (fastest first):
-  1. <child_base>.discarded_original_ids.txt  newer than parent + child FASTA
-  2. <parent_base>.sha256_to_ids.tsv          newer than parent FASTA
+  1. <child_base>.discarded_sha256_hashes.txt  newer than parent + child FASTA
+  2. <parent_base>.sha256_to_ids.tsv           newer than parent FASTA
   3. Full FASTA scan via --original-infilename (slow fallback)
 
 Usage:
@@ -29,12 +29,13 @@ Options:
                          TSV], and Info: lines).  By default only the table
                          itself is shown.
     --disable-discarded-original-ids-file
-                         Do not write per-step .discarded_original_ids.txt
-                         files.  By default the files are always written
-                         (following the established {child_stem}.
-                         discarded_original_ids.txt naming convention);
-                         they serve as a cache for subsequent fast reads
-                         and let you inspect discarded IDs at any time.
+                         Do not write per-step .discarded_sha256_hashes.txt
+                         files (or the companion .discarded_original_ids.txt).
+                         By default both are always written alongside each
+                         pipeline step; .discarded_sha256_hashes.txt serves as
+                         a fast-read cache of NNNNx.sha256hex entries for
+                         subsequent runs, and .discarded_original_ids.txt
+                         provides the expanded original FASTA IDs for review.
     --add-missing-checksums-to-fasta-files
                          If a pipeline FASTA file has legacy NNNNx IDs (no
                          sha256 hex in the ID), rewrite it in-place with
@@ -120,9 +121,9 @@ def _pct_str(current: int, reference: int) -> str:
 # ── ancillary-file helpers ─────────────────────────────────────────────────────
 
 def _fresh_discarded_txt(child_path: str, parent_path: str) -> str | None:
-    """Return path to a valid .discarded_original_ids.txt if it exists and is
+    """Return path to a valid .discarded_sha256_hashes.txt if it exists and is
     newer than BOTH the child and parent FASTA files, else None."""
-    candidate = _strip_fasta_suffix(child_path) + '.discarded_original_ids.txt'
+    candidate = _strip_fasta_suffix(child_path) + '.discarded_sha256_hashes.txt'
     if not os.path.exists(candidate):
         return None
     txt_mtime = _mtime(candidate)
@@ -329,7 +330,12 @@ def _ensure_tsv(parent_path: str, add_checksums: bool = False,
 
 
 def _read_discarded_txt_stats(txt_path: str) -> tuple[int, int]:
-    """Return (n_ids, nnnx_sum) from a .discarded_original_ids.txt."""
+    """Return (n_ids, nnnx_sum) from a .discarded_sha256_hashes.txt.
+
+    Each line is a NNNNx.sha256hex entry (one per unique discarded sequence).
+    - n_ids   = number of lines (unique sequences)
+    - nnnx_sum = sum of the NNNNx count prefixes (original-sequence total)
+    """
     n_ids = int(subprocess.run(
         f"wc -l < {_shell_quote(txt_path)}",
         shell=True, capture_output=True, text=True, check=False,
@@ -388,7 +394,11 @@ def _compute_discard_stats(parent_path: str, child_path: str,
         source_label = f"FASTA scan: {parent_base}"
 
     if save_discard_list:
-        outfile = child_stem + '.discarded_original_ids.txt'
+        # Write the sha256-hashes file (NNNNx.sha256hex entries); this is what
+        # _read_discarded_txt_stats() reads for the pipeline summary table.
+        # create_list_of_discarded_sequences.py also auto-generates the companion
+        # .discarded_original_ids.txt (expanded original FASTA headers) alongside.
+        outfile = child_stem + '.discarded_sha256_hashes.txt'
         outfile_args = [f'--outfile={outfile}', '--overwrite']
     else:
         outfile      = None
@@ -414,6 +424,10 @@ def _compute_discard_stats(parent_path: str, child_path: str,
 
     if outfile and os.path.exists(outfile):
         return _read_discarded_txt_stats(outfile)
+    # Fallback: check if the sha256-hashes file was written with a non-default name.
+    sha_file = child_stem + '.discarded_sha256_hashes.txt'
+    if os.path.exists(sha_file):
+        return _read_discarded_txt_stats(sha_file)
     return None, None
 
 
