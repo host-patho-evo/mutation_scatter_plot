@@ -269,6 +269,7 @@ import sys
 import tempfile
 import time
 from collections import Counter
+from datetime import datetime
 
 
 VERSION = "202603312000"
@@ -418,16 +419,39 @@ def _decode_line(raw: bytes) -> str:
     return _unescape_unicode(s)
 
 
+def _make_log_path(path: str, dt_str: str) -> str:
+    """Return the log file path for *path*.
+
+    Strips known FASTA suffixes (including .orig/.ori) so that
+    ``spikenuc1207.fasta`` and ``spikenuc1207.fasta.orig`` both produce
+    ``spikenuc1207.fix_fasta_encoding.<dt>.log``.
+    """
+    stem = path
+    for sfx in ('.fasta.orig', '.fasta.ori', '.fasta.old', '.fasta'):
+        if stem.endswith(sfx):
+            stem = stem[:-len(sfx)]
+            break
+    return f"{stem}.fix_fasta_encoding.{dt_str}.log"
+
+
 def _process_file(path: str, dry_run: bool, overwrite: bool,
-                  stats_only: bool, verbose: bool, progress: bool) -> int:
+                  stats_only: bool, verbose: bool, progress: bool,
+                  log_fh) -> int:
     """Normalize *path* in-place.  Returns the number of lines changed."""
+
+    def _emit(msg: str = "", **kwargs) -> None:
+        """Print *msg* to stderr and tee to *log_fh* (no progress animation)."""
+        print(msg, file=sys.stderr, **kwargs)
+        if log_fh is not None:
+            # Strip the keyword 'end' if present; always use newline in log.
+            print(msg, file=log_fh)
+
     orig_path = path + ".orig"
 
     if os.path.exists(orig_path) and not overwrite:
-        print(
+        _emit(
             f"  Skipping {path}: backup {os.path.basename(orig_path)} already "
-            "exists (use --overwrite to force).",
-            file=sys.stderr,
+            "exists (use --overwrite to force)."
         )
         return 0
 
@@ -528,16 +552,15 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     # If nothing changed or dry-run, remove the temp file.
     if changed == 0:
         os.unlink(tmp_path)
-        print(f"  {path}: no changes needed.", file=sys.stderr)
+        _emit(f"  {path}: no changes needed.")
         return 0
 
     elapsed = time.monotonic() - t_start
     speed_str = _fmt_speed(total_bytes / elapsed) if elapsed > 1e-6 else ""
     action = "Would write" if dry_run else "Wrote"
-    print(
+    _emit(
         f"  {action} {path}: {changed:,} line(s) changed"
-        + (f", {speed_str}" if speed_str else ""),
-        file=sys.stderr,
+        + (f", {speed_str}" if speed_str else "")
     )
 
     # Encoding-mix summary — always printed when there are changes.
@@ -552,23 +575,22 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
                                         "All three (\\uXXXX + Latin-1 + UTF-8) *** MIXED ***"),
     ]
     if mix_counter:
-        print("  Encoding-mix breakdown (per changed line):", file=sys.stderr)
+        _emit("  Encoding-mix breakdown (per changed line):")
         for key, label in _mix_labels:
             cnt = mix_counter.get(key, 0)
             if cnt:
-                print(f"    {label:<52s}: {cnt:>8,}", file=sys.stderr)
+                _emit(f"    {label:<52s}: {cnt:>8,}")
         # Print any unexpected combinations not in the label table.
         for key, cnt in mix_counter.items():
             if not any(key == k for k, _ in _mix_labels):
-                print(f"    (other: {sorted(key)}): {cnt:>8,}", file=sys.stderr)
+                _emit(f"    (other: {sorted(key)}): {cnt:>8,}")
 
     # Codepoint frequency table (most common first, top 30).
     if cp_counter:
-        print("  \\uXXXX codepoint frequency (top 30, across all changed lines):",
-              file=sys.stderr)
+        _emit("  \\uXXXX codepoint frequency (top 30, across all changed lines):")
         for cp, cnt in cp_counter.most_common(30):
             ch = chr(cp)
-            print(f"    U+{cp:04X}  {ch}  : {cnt:>8,}", file=sys.stderr)
+            _emit(f"    U+{cp:04X}  {ch}  : {cnt:>8,}")
 
     # Warning samples for non-pure-esc lines (mixed / double-encoded).
     _warn_keys = [
@@ -584,9 +606,9 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
         if not samples:
             continue
         label = next((lb for k, lb in _mix_labels if k == key), str(sorted(key)))
-        print(f"  WARNING — sample lines ({label}):", file=sys.stderr)
+        _emit(f"  WARNING \u2014 sample lines ({label}):")
         for s in samples:
-            print(f"    {s!r}", file=sys.stderr)
+            _emit(f"    {s!r}")
 
     if dry_run:
         os.unlink(tmp_path)
@@ -597,10 +619,9 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     # are on the same filesystem (guaranteed atomic on POSIX).
     # Backup original (or overwrite existing backup if --overwrite).
     os.rename(path, orig_path)
-    print(f"  Renamed {os.path.basename(path)} -> {os.path.basename(orig_path)}",
-          file=sys.stderr)
+    _emit(f"  Renamed {os.path.basename(path)} -> {os.path.basename(orig_path)}")
     os.rename(tmp_path, path)
-    print(f"  Written clean UTF-8 -> {os.path.basename(path)}", file=sys.stderr)
+    _emit(f"  Written clean UTF-8 -> {os.path.basename(path)}")
     return changed
 
 
@@ -609,6 +630,7 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
 def main() -> None:
     """Normalise FASTA header encoding for each input file."""
     opts = _parser.parse_args()
+    dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     total_files = 0
     total_changed = 0
@@ -616,23 +638,27 @@ def main() -> None:
         if not os.path.isfile(path):
             print(f"Warning: not a file, skipping: {path}", file=sys.stderr)
             continue
-        print(f"{path}:", file=sys.stderr)
-        n = _process_file(
-            path,
-            dry_run=opts.dry_run,
-            overwrite=opts.overwrite,
-            stats_only=opts.stats_only,
-            verbose=opts.verbose,
-            progress=opts.progress,
-        )
+        log_path = _make_log_path(path, dt_str)
+        print(f"{path}:  (log -> {log_path})", file=sys.stderr)
+        with open(log_path, "a", encoding="utf-8") as log_fh:
+            log_fh.write(f"\n=== {datetime.now().isoformat()}  {path} ===\n")
+            n = _process_file(
+                path,
+                dry_run=opts.dry_run,
+                overwrite=opts.overwrite,
+                stats_only=opts.stats_only,
+                verbose=opts.verbose,
+                progress=opts.progress,
+                log_fh=log_fh,
+            )
         total_files += 1
         total_changed += n
 
-    print(
+    summary = (
         f"\nDone: {total_files} file(s) processed, "
-        f"{total_changed:,} total line(s) changed.",
-        file=sys.stderr,
+        f"{total_changed:,} total line(s) changed."
     )
+    print(summary, file=sys.stderr)
 
 
 if __name__ == "__main__":
