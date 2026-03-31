@@ -458,26 +458,41 @@ def _compute_discard_stats(parent_path: str, child_path: str,
     """Compute discarded-ID stats for a parent->child pipeline pair.
 
     Cache priority (fastest first — checked by timestamp):
-      1. Existing .discarded_original_ids.txt newer than both FASTAs -> read directly.
+      1. Existing .discarded_sha256_hashes.txt newer than both FASTAs -> read directly.
+         Exception: if the companion .discarded_original_ids.txt is missing and
+         save_discard_list is True, falls through to tiers 2-4 so the companion is
+         generated without touching any FASTA files.
       2. Existing .sha256_to_ids.tsv newer than parent FASTA         -> TSV scan.
       3. Auto-generate .sha256_to_ids.tsv (in-process FASTA scan)   -> then TSV scan.
       4. Fallback: full FASTA scan via --original-infilename (slow).
 
     Returns (n_discard_ids, n_discard_nnnx_sum), or (None, None) on failure.
-    When *save_discard_list* is True (default), the discarded-ID list is written
-    to ``{child_stem}.discarded_original_ids.txt`` (project naming convention),
-    which is then picked up by tier 1 on subsequent runs.
+    When *save_discard_list* is True (default), both output files are written:
+      {child_stem}.discarded_sha256_hashes.txt  (NNNNx.sha256hex entries; fast cache)
+      {child_stem}.discarded_original_ids.txt   (expanded original FASTA headers)
     """
     parent_base = os.path.basename(parent_path)
     child_base  = os.path.basename(child_path)
     child_stem  = _strip_fasta_suffix(child_path)
 
-    # ── tier 1: fresh .discarded_original_ids.txt ─────────────────────────
+    # ── tier 1: fresh .discarded_sha256_hashes.txt ───────────────────────────
     txt = _fresh_discarded_txt(child_path, parent_path)
     if txt:
+        original_ids_path = child_stem + '.discarded_original_ids.txt'
+        companion_missing = save_discard_list and not os.path.exists(original_ids_path)
+        if not companion_missing:
+            if verbose:
+                print(f"  \u21b3 [cached TXT] {os.path.basename(txt)}", flush=True)
+            return _read_discarded_txt_stats(txt)
+        # Companion .discarded_original_ids.txt is missing: fall through to
+        # regenerate both files.  No FASTA timestamp change needed.
         if verbose:
-            print(f"  \u21b3 [cached TXT] {os.path.basename(txt)}", flush=True)
-        return _read_discarded_txt_stats(txt)
+            print(
+                f"  \u21b3 [cached TXT] {os.path.basename(txt)}"
+                f" but companion {os.path.basename(original_ids_path)} missing"
+                " \u2014 regenerating both",
+                flush=True,
+            )
 
     # ── tiers 2–4: invoke create_list_of_discarded_sequences.py ────────
     if not os.path.exists(DISCARD_SCRIPT):
