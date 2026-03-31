@@ -556,7 +556,7 @@ class TestMutationScatterPlot(unittest.TestCase):
             ]
             self.assertEqual(
                 non_green, [],
-                f"Expected all synonymous rows to be #219f11 (dark green) but got:\n"
+                "Expected all synonymous rows to be #219f11 (dark green) but got:\n"
                 + "\n".join(non_green[:10]),
             )
 
