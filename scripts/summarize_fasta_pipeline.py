@@ -310,6 +310,36 @@ def _extract_sha256_from_id(record_id: str) -> str | None:
     return None
 
 
+def _collect_sha256_set(fasta_path: str) -> tuple[set[str], int]:
+    """Header-only scan of *fasta_path*: extract ID-embedded sha256 values.
+
+    Returns:
+        sha256_set : set of lowercase sha256hex strings from NNNNx.sha256hex IDs
+        n_legacy   : number of header lines with no embedded sha256 (e.g. GISAID
+                     accession IDs that pre-date the NNNNx.sha256hex convention)
+
+    Only header lines (starting with '>') are read; sequence lines are skipped.
+    This makes the scan much faster than a full sequence pass.
+    """
+    sha256_set: set[str] = set()
+    n_legacy = 0
+    try:
+        with open(fasta_path, "rb") as fh:
+            for raw in fh:
+                if raw[:1] != b'>':
+                    continue
+                line = _decode_fasta_line(raw).rstrip("\r\n")
+                toks = line[1:].split()
+                sha = _extract_sha256_from_id(toks[0]) if toks else None
+                if sha is not None:
+                    sha256_set.add(sha)
+                else:
+                    n_legacy += 1
+    except OSError:
+        pass
+    return sha256_set, n_legacy
+
+
 def _build_tsv(fasta_path: str, tsv_path: str,
                descr_tsv_path: str = "",
                verbose: bool = True) -> dict:
@@ -713,11 +743,13 @@ def main() -> None:
 
     # ── gather per-file data ─────────────────────────────────────────────────
     rows: list[tuple[str, str, int, int]] = []
+    sha256_sets: list[tuple[set[str], int]] = []  # (sha256_set, n_legacy) per file
     for f in files:
         display = os.path.relpath(f, search_path)
         print(f"  scanning {display} \u2026", file=sys.stderr, flush=True)
         mtime_s = datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M')
         rows.append((display, mtime_s, _count_records(f), _sum_nnnx_counts(f)))
+        sha256_sets.append(_collect_sha256_set(f))
 
     # ── phase 2: compute discard stats for all pairs ─────────────────────────
     # Runs before table printing so the numbers can appear as proper columns.
@@ -740,14 +772,16 @@ def main() -> None:
     # ── print table ──────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))
     sep, w_num, w_delta, w_ts = "  ", 14, 16, 16
-    w_disc1 = len("'Discarded original FASTA IDs'")   # 30
-    w_disc2 = len("'Sum of discarded sequences'")       # 28
+    w_disc1  = len("'Discarded original FASTA IDs'")   # 30
+    w_disc2  = len("'Sum of discarded sequences'")       # 28
+    w_novel  = len("'Novel sha256s'")                   # 15
 
     _hdr_disc1  = "'Discarded original FASTA IDs'"
     _hdr_disc2  = "'Sum of discarded sequences'"
     _hdr_nnnx   = "'Sum of NNNNx'"
     _hdr_drec   = '\u0394Records'
     _hdr_dsum   = '\u0394SumToParent'
+    _hdr_novel  = "'Novel sha256s'"
     disc_header = (
         f"{sep}{_hdr_disc1:>{w_disc1}}{sep}{_hdr_disc2:>{w_disc2}}"
         if do_discard else ""
@@ -756,7 +790,8 @@ def main() -> None:
         f"{'File':<{col_file}}{sep}"
         f"{'Modified':<{w_ts}}{sep}"
         f"{'Records':>{w_num}}{sep}{_hdr_drec:>{w_delta}}{sep}"
-        f"{_hdr_nnnx:>{w_num}}{sep}{_hdr_dsum:>{w_delta}}"
+        f"{_hdr_nnnx:>{w_num}}{sep}{_hdr_dsum:>{w_delta}}{sep}"
+        f"{_hdr_novel:>{w_novel}}"
         + disc_header
     )
     rule = '-' * len(header)
@@ -775,8 +810,26 @@ def main() -> None:
             d_rec = d_sum = '\u2014'
             parent_label = ''
 
+        # ── novel sha256s column ──────────────────────────────────────────────
+        _em = '\u2014'  # em dash — pre-assigned to avoid backslash in f-string (Python < 3.12)
+        if p is not None:
+            child_sha_set, child_legacy = sha256_sets[i]
+            parent_sha_set, parent_legacy = sha256_sets[p]
+            parent_total = rows[p][2]  # record count of parent
+            if parent_legacy == parent_total:
+                # Parent has only plain (non-NNNNx) IDs — sha256 set is empty,
+                # comparison is not meaningful.
+                novel_col = f"{sep}{_em:>{w_novel}}"
+            else:
+                n_novel = len(child_sha_set - parent_sha_set)
+                novel_str = f"{n_novel:,}"
+                if child_legacy > 0:
+                    novel_str += "+"  # '+' = some records in child also lack embedded sha256
+                novel_col = f"{sep}{novel_str:>{w_novel}}"
+        else:
+            novel_col = f"{sep}{_em:>{w_novel}}"
+
         if do_discard and p is not None:
-            _em = '\u2014'  # em dash — pre-assigned to avoid backslash inside f-string {} (Python < 3.12)
             if i in discard_data:
                 n_d, s_d = discard_data[i]
                 disc_cols = f"{sep}{n_d:>{w_disc1},}{sep}{s_d:>{w_disc2},}"
@@ -790,6 +843,7 @@ def main() -> None:
             f"{mtime_s:<{w_ts}}{sep}"
             f"{n_rec:>{w_num},}{sep}{d_rec:>{w_delta}}{sep}"
             f"{n_sum:>{w_num},}{sep}{d_sum:>{w_delta}}"
+            + novel_col
             + disc_cols
             + (f"  ({parent_label})" if parent_label else '')
         )
