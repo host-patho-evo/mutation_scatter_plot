@@ -570,7 +570,7 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     # Per-codepoint frequency: how many changed lines contained each \uXXXX escape.
     cp_counter: Counter = Counter()
     # Sample lines for each non-trivial encoding category (max 5 per type).
-    _MAX_SAMPLES = 5
+    _max_samples = 5
     warn_samples: dict = {}   # frozenset -> list[str]
     t_start = time.monotonic()
     t_last = t_start
@@ -605,7 +605,7 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
                 key = frozenset(enc_types)
                 if key != frozenset({'esc'}) and key != frozenset():
                     samples = warn_samples.setdefault(key, [])
-                    if len(samples) < _MAX_SAMPLES:
+                    if len(samples) < _max_samples:
                         samples.append(original_text.rstrip())
 
                 if verbose or (not stats_only and dry_run):
