@@ -6,8 +6,8 @@ Each unique sequence gets a FASTA ID of the form::
     {count}x.{sha256hex}
 
 where *count* is the number of occurrences and *sha256hex* is the 64-character
-hexadecimal SHA-256 of the uppercase, alignment-dash-stripped sequence — the
-same normalisation that ``reformat.sh fastawrap=0`` applies.
+hexadecimal SHA-256 of the uppercase sequence (alignment dashes preserved,
+CR/LF stripped) — identical to what ``reformat.sh fastawrap=0`` produces.
 
 In addition to the deduplicated FASTA (``{prefix}.counts.fasta``) the script
 produces a TSV mapping file (``{prefix}.sha256_to_ids.tsv``) that maps every
@@ -43,6 +43,7 @@ import argparse
 import hashlib
 import io
 import os
+import re
 import subprocess
 import sys
 
@@ -50,13 +51,32 @@ VERSION = "202603292130"
 
 
 def _decode_fasta_line(raw: bytes) -> str:
-    """Decode a FASTA line to str, trying UTF-8 first then falling back to
-    Latin-1. Handles GISAID headers that mix UTF-8 and Latin-1/Latin-2
-    encoded characters in sample descriptions."""
-    try:
-        return raw.decode("utf-8")
-    except UnicodeDecodeError:
-        return raw.decode("latin-1")
+    r"""Decode one raw FASTA byte line to a clean Unicode str.
+
+    Handles GISAID FASTA files that mix UTF-8 and Latin-1 *within the same
+    line* (e.g. a header containing both Polish UTF-8 multi-byte chars like
+    ``ś`` (\xC5\x9B) and raw Latin-1 bytes like ``é`` (\xe9)).
+
+    Strategy:
+      1. Decode as UTF-8 with ``errors='surrogateescape'``: valid multi-byte
+         sequences decode normally; every byte that is not part of a valid
+         UTF-8 sequence becomes a surrogate code point (U+DC80..U+DCFF).
+      2. Map each surrogate U+DC80+b back to chr(b), i.e. the Latin-1
+         interpretation of the original byte.  This is lossless — all bytes
+         end up correctly decoded.
+      3. Convert literal ``\uXXXX`` escape sequences (produced by some GISAID
+         export pipelines) to real Unicode codepoints.
+    """
+    s = raw.decode("utf-8", errors="surrogateescape")
+    if any(0xDC80 <= ord(ch) <= 0xDCFF for ch in s):
+        s = "".join(
+            chr(ord(ch) - 0xDC00) if 0xDC80 <= ord(ch) <= 0xDCFF else ch
+            for ch in s
+        )
+    # Convert literal \uXXXX escape sequences to real codepoints.
+    s = re.sub(r'\\u([0-9a-fA-F]{4})',
+               lambda m: chr(int(m.group(1), 16)), s)
+    return s
 
 
 def read_and_count_sequences(infilename, outfileh, infile_format,
