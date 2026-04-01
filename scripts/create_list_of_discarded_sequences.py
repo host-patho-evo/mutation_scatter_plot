@@ -426,7 +426,7 @@ def main():
     for rec_name, _header, rec_seq in _iter_fasta(myoptions.infilename):
         sha = _extract_sha256(rec_name)
         if sha is None:
-            sha = hashlib.sha256(rec_seq.replace('-', '').upper().encode()).hexdigest()
+            sha = hashlib.sha256(rec_seq.replace('\r', '').replace('\n', '').replace('-', '').upper().encode()).hexdigest()
             ids_computed += 1
         infile_sha256s[sha] = rec_name
         x_pos = rec_name.find('x')
@@ -531,7 +531,7 @@ def main():
         elif myoptions.original_infilename:
             n_scanned = 0
             for _rec_name, rec_header, rec_seq in _iter_fasta(myoptions.original_infilename):
-                sha = hashlib.sha256(rec_seq.upper().encode()).hexdigest()
+                sha = hashlib.sha256(rec_seq.replace('\r', '').replace('\n', '').upper().encode()).hexdigest()
                 n_scanned += 1
                 if sha not in target_sha256s:
                     original_id_lines.append(rec_header)
@@ -595,7 +595,7 @@ def main():
             n_scanned = 0
             sha256_hit_counts: dict = {}  # sha256 → how many times seen in original
             for _rec_name, rec_header, rec_seq in _iter_fasta(myoptions.original_infilename):
-                sha = hashlib.sha256(rec_seq.upper().encode()).hexdigest()
+                sha = hashlib.sha256(rec_seq.replace('\r', '').replace('\n', '').upper().encode()).hexdigest()
                 n_scanned += 1
                 if sha in target_sha256s:
                     original_id_lines.append(rec_header)
