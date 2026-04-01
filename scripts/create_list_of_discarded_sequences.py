@@ -426,7 +426,7 @@ def main():
     for rec_name, _header, rec_seq in _iter_fasta(myoptions.infilename):
         sha = _extract_sha256(rec_name)
         if sha is None:
-            sha = hashlib.sha256(rec_seq.replace('\r', '').replace('\n', '').replace('-', '').upper().encode()).hexdigest()
+            sha = hashlib.sha256(rec_seq.replace('\r', '').replace('\n', '').upper().encode()).hexdigest()
             ids_computed += 1
         infile_sha256s[sha] = rec_name
         x_pos = rec_name.find('x')
