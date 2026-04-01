@@ -129,8 +129,8 @@ def build_sha256_id_mapping(infilename, mapping_outfile, debug=0):
     original file to reconstruct the mapping.
 
     For each record the same SHA-256 is computed as in read_and_count_sequences():
-    uppercase sequence, dashes removed, no trailing newline — identical to
-    what reformat.sh + sort|uniq produces.
+    uppercase sequence, dashes preserved (alignment padding must not be removed),
+    no embedded newlines — identical to what reformat.sh + sort|uniq produces.
 
     Output TSV columns (tab-separated, no header line):
         sha256hex   count   id_1    id_2    ...
@@ -147,10 +147,14 @@ def build_sha256_id_mapping(infilename, mapping_outfile, debug=0):
     seq_parts = []
 
     def _flush(flush_name, flush_parts):
-        # Normalise to match what reformat.sh does in read_and_count_sequences():
-        # uppercase (reformat.sh converts to uppercase by default) and strip
-        # alignment dashes so the hash is stable across padded/unpadded forms.
-        seq = "".join(flush_parts).replace("\r", "").replace("\n", "").replace("-", "").upper()
+        # Normalise to match what reformat.sh + sort|uniq does in
+        # read_and_count_sequences(): uppercase only.  Dashes are intentionally
+        # KEPT here, because read_and_count_sequences() also keeps them
+        # (removing them would break subsequence slicing on padded alignments,
+        # per the docstring of that function).  Stripping dashes would produce
+        # a different sha256 than the one embedded in the counts FASTA ID,
+        # making TSV lookups fail for any alignment-padded input file.
+        seq = "".join(flush_parts).replace("\r", "").replace("\n", "").upper()
         digest = hashlib.sha256(seq.encode()).hexdigest()
         if digest in mapping:
             mapping[digest][0] += 1
