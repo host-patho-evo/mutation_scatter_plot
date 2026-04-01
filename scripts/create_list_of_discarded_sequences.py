@@ -362,22 +362,27 @@ def main():
     # When --full-fasta-header, prefer *.sha256_to_descr_lines.tsv over the
     # ID-only TSV.  Auto-detect it from the mapping TSV path when possible.
     if myoptions.full_fasta_header and myoptions.mapping_outfile:
-        descr_candidate = myoptions.mapping_outfile.replace(
-            '.sha256_to_ids.tsv', '.sha256_to_descr_lines.tsv'
-        )
-        if descr_candidate != myoptions.mapping_outfile and os.path.exists(descr_candidate):
-            print(
-                f"Info: --full-fasta-header: switching to descr TSV: {descr_candidate}",
-                file=sys.stderr,
-            )
-            myoptions.mapping_outfile = descr_candidate
+        if myoptions.mapping_outfile.endswith('.sha256_to_descr_lines.tsv'):
+            # summarize_fasta_pipeline.py already provided the descr TSV directly;
+            # nothing to switch — suppress the spurious "not found" warning.
+            pass
         else:
-            print(
-                f"Warning: --full-fasta-header: descr TSV not found ({descr_candidate}); "
-                "falling back to ID-only TSV.  Run summarize_fasta_pipeline.py with "
-                "--full-fasta-header to build *.sha256_to_descr_lines.tsv files.",
-                file=sys.stderr,
+            descr_candidate = myoptions.mapping_outfile.replace(
+                '.sha256_to_ids.tsv', '.sha256_to_descr_lines.tsv'
             )
+            if descr_candidate != myoptions.mapping_outfile and os.path.exists(descr_candidate):
+                print(
+                    f"Info: --full-fasta-header: switching to descr TSV: {descr_candidate}",
+                    file=sys.stderr,
+                )
+                myoptions.mapping_outfile = descr_candidate
+            else:
+                print(
+                    f"Warning: --full-fasta-header: descr TSV not found ({descr_candidate}); "
+                    "falling back to ID-only TSV.  Run summarize_fasta_pipeline.py with "
+                    "--full-fasta-header to build *.sha256_to_descr_lines.tsv files.",
+                    file=sys.stderr,
+                )
 
     # Default --outfile: context-aware sha256-hashes filename.
     _ctx = myoptions.output_context  # 'discarded' or 'effectively_used'
