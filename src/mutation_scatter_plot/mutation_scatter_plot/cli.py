@@ -214,6 +214,16 @@ def build_option_parser():
              " perceptual appearance of the matplotlib figure.",
     )
     myparser.add_argument(
+        "--linear-circle-size", action="store_true",
+        dest="linear_circle_size", default=False,
+        help="Render circles with radius proportional to frequency in BOTH"
+             " Matplotlib and Bokeh.  Matplotlib: s = freq\u00b2 \u00d7 5000 so that"
+             " radius \u221d frequency.  Bokeh: diameter = freq \u00d7 100."
+             " Implies --disable-bokeh-sqrt-size so that both figure types"
+             " use the same linear-radius formula and remain visually in sync."
+             " Matches the v0.2 Bokeh rendering. [default: False]",
+    )
+    myparser.add_argument(
         "--show-invisible-placeholder-dots", action="store_true",
         dest="show_invisible_placeholder_dots", default=False,
         help="Include below-threshold dots in the plot. [default: False]",
@@ -225,6 +235,11 @@ def main():  # pylint: disable=too-many-locals
     """Entry point: parse options and run the full scatter-plot pipeline."""
     myparser = build_option_parser()
     myoptions = myparser.parse_args()
+    # --linear-circle-size implies --disable-bokeh-sqrt-size so that both the
+    # Matplotlib and Bokeh figures use the same linear-radius formula and
+    # remain visually in sync with each other.
+    if myoptions.linear_circle_size:
+        myoptions.bokeh_sqrt_size = False
 
     _matrix, _matrix_name, _min_theoretical_score, _max_theoretical_score, \
         _outfile_prefix = load_matrix(myoptions)
