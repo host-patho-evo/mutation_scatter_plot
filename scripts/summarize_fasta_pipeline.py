@@ -334,8 +334,19 @@ def _build_tsv(fasta_path: str, tsv_path: str,
     seq_parts: list = []
 
     def _flush(flush_name: str, flush_full: str, flush_parts: list) -> None:
-        seq = "".join(flush_parts).rstrip("\r\n").replace("-", "").upper()
-        digest = hashlib.sha256(seq.encode()).hexdigest()
+        # Prefer the sha256 already embedded in the ID (NNNNx.sha256hex format).
+        # Recomputing from the current sequence is WRONG for FASTAs whose sequences
+        # were transformed after deduplication (e.g. blastn alignment, reverse-
+        # complementing, indel correction) while preserving the original NNNNx.sha256
+        # ID from count_same_sequences.py.  Recomputing creates a different sha256
+        # that no longer matches the ID, causing false duplicates in the TSV and
+        # corrupting all downstream discard statistics.
+        # Fall back to sequence-based computation only for legacy NNNNx IDs (no sha256)
+        # or plain GISAID accession IDs.
+        digest = _extract_sha256_from_id(flush_name)
+        if digest is None:
+            seq = "".join(flush_parts).rstrip("\r\n").replace("-", "").upper()
+            digest = hashlib.sha256(seq.encode()).hexdigest()
         if digest in id_map:
             id_map[digest][0] += 1
             id_map[digest][1].append(flush_name)
