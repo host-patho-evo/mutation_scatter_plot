@@ -866,6 +866,21 @@ def load_and_clean_dataframe(myoptions, infilename, padded_position2position):
         print(f"Info: Originally there were {_before} rows but after discarding codons with [N n *] there are only {_after} left")
     else:
         print(f"Info: Originally there were {_before} rows but after discarding codons with [N n DEL] there are only {_after} left")
+
+    # Apply threshold and mutation-type filters here (matching v0.3 behaviour) so
+    # that the returned df already contains only renderable rows.  cli.py saves this
+    # df to *.actually_rendered.tsv immediately after this call, before
+    # build_frequency_tables is invoked, so the file must be pre-filtered.
+    _freq_col = myoptions.column_with_frequencies
+    if myoptions.include_synonymous or not myoptions.aminoacids:
+        _cond_mutation = True
+    else:
+        _cond_mutation = df['original_aa'] != df['mutant_aa']
+    _cond_threshold = df[_freq_col].astype(float).abs() >= myoptions.threshold
+    _mask = _cond_mutation & _cond_threshold
+    df = df.loc[_mask]
+    print(f"Info: After applying threshold {myoptions.threshold} and mutation filter: {len(df)} rows remain")
+
     return df, padded_position2position
 
 
