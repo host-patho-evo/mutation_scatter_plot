@@ -1298,6 +1298,9 @@ def collect_scatter_data(
                     _matrix_values.add(_score)
                 if myoptions.debug:
                     print(f"Debug: Padded AA position: {_padded_position}, Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
+                # bokeh_sqrt_size is False when --linear-circle-size is active
+                # (main() enforces the implication) or when --disable-bokeh-sqrt-size
+                # is passed explicitly.
                 _bokeh_size = float(np.sqrt(abs(_size)) * 100) if myoptions.bokeh_sqrt_size else float(abs(_size) * 100)
 
                 # --- O(1) Hover Metadata Reconstruction (Matplotlib) ---
@@ -1386,11 +1389,20 @@ def collect_scatter_data(
                 _mutations.append(_mutation_str)
                 _hover_text_bokeh.append(_hover_text)
 
+                # Matplotlib scatter s= is area in pt².  Two sizing modes:
+                #   default (area-mode):        s = |freq| × 5000    → area ∝ freq  → radius ∝ √freq
+                #   linear-radius (--linear-circle-size): s = freq² × 5000 → radius ∝ freq
+                # The factor 5000 is kept identical in both modes so that the largest
+                # circles have the same absolute size regardless of mode.
+                if myoptions.linear_circle_size:
+                    _mpl_s = float(np.abs(_size) ** 2 * 5000)
+                else:
+                    _mpl_s = float(np.abs(_size) * 5000)
                 if _score < 0:
-                    _circles_matplotlib.append((_padded_position, i, float(np.abs(_size) * 5000), 'circle_x', _color, 0.5, _score, _aa_position, _padded_position, _hover_text))
+                    _circles_matplotlib.append((_padded_position, i, _mpl_s, 'circle_x', _color, 0.5, _score, _aa_position, _padded_position, _hover_text))
                     _markers.append((_padded_position, i, 1, 'dot', '#000000', 0.5))    # black cross marker for negative-score circles
                 else:
-                    _circles_matplotlib.append((_padded_position, i, float(np.abs(_size) * 5000), 'circle', _color, 0.5, _score, _aa_position, _padded_position, _hover_text))
+                    _circles_matplotlib.append((_padded_position, i, _mpl_s, 'circle', _color, 0.5, _score, _aa_position, _padded_position, _hover_text))
                     _markers.append((_padded_position, i, 1, 'circle', '#000000', 0.5))  # black rim marker for non-negative circles
                 _used_colors.add(_color)
 
@@ -1624,32 +1636,39 @@ def render_bokeh(
 
     Circle size scaling
     -------------------
-    Bokeh's ``scatter(size=...)`` interprets the value as a **diameter in
-    screen pixels**, so area ∝ size².  A naive linear mapping
-    (``size = frequency × 100``) therefore makes large frequencies appear
-    disproportionately large.
+    Three modes are available, controlled by two CLI flags:
 
-    Two modes are available via ``--disable-bokeh-sqrt-size``:
+    **Default (area-proportional mode)**
+        ``matplotlib.scatter(s=...)`` interprets *s* as **area in points²**::
 
-    sqrt mode (default, ``myoptions.bokeh_sqrt_size = True``)::
+            _mpl_s = freq × 5000          # area ∝ freq  →  radius ∝ √freq
 
-        _bokeh_size = float(np.sqrt(np.abs(_size)) * 100)
+        Bokeh's ``scatter(size=...)`` is a **diameter in screen pixels**, so
+        the sqrt transform is applied to match matplotlib's perceived scaling::
 
-    Diameter ∝ sqrt(frequency), so area ∝ frequency — matching human
-    perception and matching the visual appearance of the matplotlib figure.
+            _bokeh_size = √freq × 100     # diameter ∝ √freq  →  area ∝ freq
 
-    Linear mode (``--disable-bokeh-sqrt-size``)::
+        Both backends: **area ∝ frequency**, perceived radius ∝ √frequency.
 
-        _bokeh_size = float(np.abs(_size) * 100)
+    **Linear-radius mode** (``--linear-circle-size``)
+        Both backends render radius linearly proportional to frequency so that
+        a mutation twice as common appears exactly twice as wide::
 
-    Diameter ∝ frequency, area ∝ frequency².
+            _mpl_s      = freq² × 5000    # s = (freq × √5000)²  →  radius ∝ freq
+            _bokeh_size = freq  × 100     # diameter ∝ freq       →  radius ∝ freq
 
-    Relationship to matplotlib scatter:
-        ``matplotlib.scatter(s=...)`` interprets *s* as **area in points²**, so
-        ``s = frequency × 5000`` already gives perceived radius ∝
-        sqrt(frequency) without an explicit sqrt.  The Bokeh sqrt mode mirrors
-        this behaviour.  Use ``--disable-bokeh-sqrt-size`` to revert to
-        diameter-proportional scaling in Bokeh only.
+        The factor 5000 / 100 is kept identical to the default so the largest
+        circle has the same absolute size in both modes.  This matches the
+        v0.2 Bokeh rendering and corrects the Matplotlib side consistently.
+
+    **Legacy Bokeh-only linear mode** (``--disable-bokeh-sqrt-size``)
+        Only Bokeh reverts to diameter-proportional scaling; matplotlib
+        is unchanged (area-proportional)::
+
+            _mpl_s      = freq  × 5000    # area ∝ freq (unchanged)
+            _bokeh_size = freq  × 100     # diameter ∝ freq
+
+        The two backends are then perceptually inconsistent.
 
     X-axis tick layout
     ------------------
