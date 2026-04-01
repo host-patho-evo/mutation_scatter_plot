@@ -488,27 +488,34 @@ def main():
                     digest = fields[0]
                     if digest not in target_sha256s:
                         try:
-                            count = int(fields[1])
+                            tsv_count = int(fields[1])
                         except (ValueError, IndexError):
-                            count = len(fields) - 2
+                            tsv_count = len(fields) - 2
                         orig_ids = fields[2:]
                         # Unescape '\t' -> TAB in description fields
                         # (only the descr TSV uses this encoding).
                         if _is_descr_tsv:
                             orig_ids = [s.replace('\\t', '\t') for s in orig_ids]
-                        sha256_lines.append(f"{count}x.{digest}")
+                        # Use the NNNNx count embedded in each ID (e.g. "17342x.sha256")
+                        # rather than fields[1] (how many times the sha256 appears in
+                        # the parent FASTA file).  For a deduplicated counts FASTA,
+                        # fields[1] is always 1, but the IDs carry the true multiplicity.
+                        # For non-deduplicated FASTAs (plain GISAID IDs), _line_count
+                        # returns 1 per ID, so the sum equals len(orig_ids) = tsv_count.
+                        nnnx_count = sum(_line_count(oid) for oid in orig_ids)
+                        sha256_lines.append(f"{nnnx_count}x.{digest}")
                         original_id_lines.extend(orig_ids)
-                        actual_original_count += len(orig_ids)
-                        if len(orig_ids) != count:
-                            _dir = "fewer" if len(orig_ids) < count else "more"
+                        actual_original_count += nnnx_count
+                        if len(orig_ids) != tsv_count:
+                            _dir = "fewer" if len(orig_ids) < tsv_count else "more"
                             _tsv_mtime = datetime.datetime.fromtimestamp(
                                 os.path.getmtime(myoptions.mapping_outfile)
                             ).strftime('%Y-%m-%d %H:%M:%S')
                             print(
-                                f"Warning: sha256 {digest[:16]}...: expected {count:,} IDs"
+                                f"Warning: sha256 {digest[:16]}...: expected {tsv_count:,} IDs"
                                 f" but mapping file {myoptions.mapping_outfile}"
                                 f" created on {_tsv_mtime} has {len(orig_ids):,}"
-                                f" ({_dir} than expected by {abs(count - len(orig_ids)):,})",
+                                f" ({_dir} than expected by {abs(tsv_count - len(orig_ids)):,})",
                                 file=sys.stderr,
                             )
                         n_sha += 1
