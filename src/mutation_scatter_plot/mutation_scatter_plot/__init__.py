@@ -750,7 +750,8 @@ def load_matrix(myoptions):
         if not _changed:
             break
 
-    _outfile_prefix = _clean_prefix + '.' + _matrix_name + '.' + myoptions.colormap
+    _scaling_suffix = 'linear_scaling' if myoptions.linear_circle_size else 'area_scaling'
+    _outfile_prefix = _clean_prefix + '.' + _matrix_name + '.' + _scaling_suffix + '.' + myoptions.colormap
     print(f"Info: _outfile_prefix={_outfile_prefix}")
 
     _theoretical_scores = set()

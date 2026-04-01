@@ -252,13 +252,28 @@ Detailed performance audit results are available in [src/docs/profiling_report.m
 
 ### Graphical Scaling & Rendering Architecture
 
-The tool implements a perceptually linear area-to-frequency scaling law (1:10:100:300) across both Matplotlib and Bokeh backends. Detailed mathematical specifications and verification results can be found in [docs/rendering_scaling.md](docs/rendering_scaling.md).
+The tool supports three circle-size scaling modes that control how mutation
+frequencies map to circle sizes across both the Matplotlib and Bokeh backends.
+The active mode is encoded in every output filename between the matrix name and
+the colormap name (e.g. `.BLOSUM80.area_scaling.amino_acid_changes.pdf`):
+
+| Mode | Flag | Matplotlib `s=` | Bokeh `size=` | Result |
+|:---|:---|:---|:---|:---|
+| **area_scaling** (default) | *(none)* | `freq × 5000` | `√freq × 100` | area ∝ freq — recommended for bubble charts |
+| **linear_scaling** | `--linear-circle-size` | `freq² × 5000` | `freq × 100` | radius ∝ freq — matches v0.2 Bokeh |
+| Legacy | `--disable-bokeh-sqrt-size` | `freq × 5000` | `freq × 100` | inconsistent between backends |
+
+The default **area_scaling** mode implements a perceptually linear area-to-frequency
+scaling law (1 : 10 : 100 : 300 for frequencies 0.1 % : 1 % : 10 % : 30 %).  The
+**linear_scaling** mode makes low-frequency mutations appear relatively larger and
+matches the classic v0.2 Bokeh rendering.  Detailed mathematical specifications
+and verification results can be found in [docs/rendering_scaling.md](docs/rendering_scaling.md).
 
 ## Detailed Technical Documentation
 
 For in-depth analysis of specific modules and subsystems, refer to the following documentation:
 
-- **[Graphical Scaling Architecture](docs/rendering_scaling.md)**: Mathematical proof of the 1:10:100:300 area-proportional rendering law.
+- **[Graphical Scaling Architecture](docs/rendering_scaling.md)**: Three scaling modes (area_scaling, linear_scaling, legacy), mathematical derivations, and pixel-level rasterization verification.
 - **[Performance Profiling Report](docs/profiling_report.md)**: End-to-end latency analysis and comparison against the v0.3 baseline.
 - **[Codon Frequency Optimizations](docs/performance_calculate_codon_frequencies.md)**: Technical breakdown of streaming, grouping, and caching strategies.
 - **[Testing Framework Guide](docs/testing_framework.md)**: Overview of the regression suite, golden file management, and automated verification protocols.
@@ -361,11 +376,11 @@ Info: The file tests/outputs/test2_full.x_after_count.frequencies.tsv contains n
 Info: Originally there were 23 rows but after discarding codons with [N n] there are only 21 left
 Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.actually_rendered.tsv
 Info: Title will be tests/outputs/test2_full.x_after_count
-Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.codon.frequencies.colors.tsv
+Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.BLOSUM80.area_scaling.codon.frequencies.colors.tsv
 Info: The following values were collected from matrix BLOSUM80 based on the actual data (some values from matrix might not be needed for your data, hence are not listed here): [-6, -4, -3, -2, -1, 0, 1, 2] . Range spans 9 values (before symmetrization).
-Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.html
-Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.png, figure size is [16.  9.] inches and [1600.  900.] dpi
-Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.pdf, figure size is [16.  9.] inches and [1600.  900.] dpi
+Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.BLOSUM80.area_scaling.amino_acid_changes.html
+Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.BLOSUM80.area_scaling.amino_acid_changes.png, figure size is [16.  9.] inches and [1600.  900.] dpi
+Info: Writing into tests/outputs/test2_full.x_after_count.scatter_codons.BLOSUM80.area_scaling.amino_acid_changes.pdf, figure size is [16.  9.] inches and [1600.  900.] dpi
 
 $ # Example hover output for position 498
 Info: _padded_position=515, ypos=21
@@ -425,7 +440,7 @@ usage: mutation_scatter_plot [options] [-h] [--tsv TSV_FILE_PATH] [--column COLU
                             [--x-axis-label-start XAXIS_LABEL_START] [--aminoacids] [--show-STOP] [--show-INS] [--show-DEL] [--show-X] [--enable-colorbar]
                             [--disable-short-legend] [--include-synonymous] [--threshold THRESHOLD] [--title TITLE] [--disable-2nd-Y-axis] [--disable-showing-bokeh]
                             [--disable-showing-mplcursors] [--legend] [--matrix MATRIX] [--matrix-file MATRIX_FILE] [--colormap COLORMAP] [--dpi DPI] [--backend BACKEND]
-                            [--debug DEBUG] [--disable-bokeh-sqrt-size] [--show-invisible-placeholder-dots]
+                             [--debug DEBUG] [--disable-bokeh-sqrt-size] [--linear-circle-size] [--show-invisible-placeholder-dots]
 
 Render scatter figures of amino acid or codon mutation frequencies from TSV files using Matplotlib and Bokeh
 
@@ -483,6 +498,9 @@ options:
   --disable-bokeh-sqrt-size
                         Disable sqrt scaling for Bokeh circle sizes; size (diameter) will be proportional to frequency, area proportional to frequency². By default sqrt scaling is on,
                         matching the perceptual appearance of the matplotlib figure. (default: True)
+  --linear-circle-size  Render circles with radius proportional to frequency in BOTH Matplotlib and Bokeh. Matplotlib: s = freq² × 5000 so that radius ∝ frequency. Bokeh: diameter =
+                        freq × 100. Implies --disable-bokeh-sqrt-size so that both figure types use the same linear-radius formula and remain visually in sync. Matches the v0.2 Bokeh
+                        rendering. The scaling mode is encoded in output filenames as 'linear_scaling' (default: False)
   --show-invisible-placeholder-dots
                         Include below-threshold dots in the plot. [default: False] (default: False)
 ```

@@ -411,8 +411,8 @@ class TestMutationScatterPlot(unittest.TestCase):
             self.assertEqual(res_b_code, 0, f"Command B failed:\n{res_b_out}")
 
             # Extract data
-            html_a = f"{outfile_prefix_a}.BLOSUM80.amino_acid_changes.html"
-            html_b = f"{outfile_prefix_b}.BLOSUM80.amino_acid_changes.html"
+            html_a = f"{outfile_prefix_a}.BLOSUM80.area_scaling.amino_acid_changes.html"
+            html_b = f"{outfile_prefix_b}.BLOSUM80.area_scaling.amino_acid_changes.html"
 
             data_a = self._extract_bokeh_data(html_a)
             data_b = self._extract_bokeh_data(html_b)
@@ -490,8 +490,8 @@ class TestMutationScatterPlot(unittest.TestCase):
             self.assertEqual(res_b_code, 0, f"Command B failed:\n{res_b_out}")
 
             # Extract data
-            html_a = f"{outfile_prefix_a}.BLOSUM80.amino_acid_changes.html"
-            html_b = f"{outfile_prefix_b}.BLOSUM80.amino_acid_changes.html"
+            html_a = f"{outfile_prefix_a}.BLOSUM80.area_scaling.amino_acid_changes.html"
+            html_b = f"{outfile_prefix_b}.BLOSUM80.area_scaling.amino_acid_changes.html"
 
             data_a = self._extract_bokeh_data(html_a)
             data_b = self._extract_bokeh_data(html_b)
@@ -548,8 +548,8 @@ class TestMutationScatterPlot(unittest.TestCase):
 
             # Check that files were still generated
             expected_files = [
-                f"{target_prefix}.BLOSUM80.amino_acid_changes.html",
-                f"{target_prefix}.BLOSUM80.amino_acid_changes.png"
+                f"{target_prefix}.BLOSUM80.area_scaling.amino_acid_changes.html",
+                f"{target_prefix}.BLOSUM80.area_scaling.amino_acid_changes.png"
             ]
             for f in expected_files:
                 self.assertTrue(os.path.exists(os.path.join(tmpdir, f)), f"Output file {f} was not generated")
