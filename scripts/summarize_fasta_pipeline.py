@@ -437,40 +437,59 @@ def _build_tsv(fasta_path: str, tsv_path: str,
     return {orig_id: sha for sha, (_, ids) in id_map.items() for orig_id in ids}
 
 
-def _verify_sha256(fasta_path: str) -> tuple[int, int] | None:
+def _verify_sha256(
+        fasta_path: str,
+        known_sha256s: set[str] | None = None,
+) -> tuple[int, int, int, int] | None:
     """Check ID-embedded sha256 against current sequence content.
 
-    For each record with a NNNNx.sha256hex ID the sequence is read, dashes
-    stripped, and uppercased, then sha256 is recomputed.  If it differs from
-    the sha256 in the ID, the sequence was modified (truncated, corrected, …)
+    For each NNNNx.sha256hex record the sequence is read, dashes stripped,
+    uppercased, and sha256 recomputed.  If the result differs from the sha256
+    in the ID the sequence was modified (truncated, corrected, re-aligned …)
     after the deduplication step that created the ID.
 
+    Mismatching records are split into two groups:
+      * "→existing": the new computed sha256 IS in *known_sha256s* (it maps
+        to another sequence already present somewhere in this pipeline run).
+      * "→novel":    the new computed sha256 is NOT in *known_sha256s* (a
+        genuinely new biological sequence was produced by the processing step).
+
+    Args:
+        fasta_path:    FASTA file to verify.
+        known_sha256s: Universe of all sha256 values seen elsewhere in the
+                       pipeline run (union of all _collect_sha256_set results).
+                       Pass None to treat every mismatch as "novel".
+
     Returns:
-        (n_changed, sum_nnnx_changed) — records with sha256 mismatch and their
-        combined NNNNx multiplicity.
-        None — the file has no ID-embedded sha256 (GISAID / legacy IDs) so
-        verification is not possible.
+        (n_existing, sum_nnnx_existing, n_novel, sum_nnnx_novel) or None when
+        the file has no ID-embedded sha256 (GISAID / legacy) or is empty.
     """
-    n_changed = 0
-    sum_nnnx: int = 0
-    is_nnnx_file: bool | None = None  # determined from the first header seen
+    n_existing  = 0;  sum_existing  = 0
+    n_novel     = 0;  sum_novel     = 0
+    is_nnnx_file: bool | None = None
     name: str | None = None
     seq_parts: list = []
 
     def _chk(flush_name: str, flush_parts: list) -> None:
-        nonlocal n_changed, sum_nnnx
+        nonlocal n_existing, sum_existing, n_novel, sum_novel
         id_sha = _extract_sha256_from_id(flush_name)
         if id_sha is None:
             return
         seq = "".join(flush_parts).replace("\r", "").replace("\n", "").replace("-", "").upper()
-        if hashlib.sha256(seq.encode()).hexdigest() != id_sha:
-            xpos = flush_name.find('x.')
-            try:
-                nnnx = int(flush_name[:xpos]) if xpos > 0 else 1
-            except ValueError:
-                nnnx = 1
-            n_changed += 1
-            sum_nnnx  += nnnx
+        new_sha = hashlib.sha256(seq.encode()).hexdigest()
+        if new_sha == id_sha:
+            return  # unchanged
+        xpos = flush_name.find('x.')
+        try:
+            nnnx = int(flush_name[:xpos]) if xpos > 0 else 1
+        except ValueError:
+            nnnx = 1
+        if known_sha256s is not None and new_sha in known_sha256s:
+            n_existing  += 1
+            sum_existing += nnnx
+        else:
+            n_novel  += 1
+            sum_novel += nnnx
 
     try:
         with open(fasta_path, "rb") as fh:
@@ -498,7 +517,7 @@ def _verify_sha256(fasta_path: str) -> tuple[int, int] | None:
 
     if is_nnnx_file is None:
         return None  # empty file
-    return n_changed, sum_nnnx
+    return n_existing, sum_existing, n_novel, sum_novel
 
 
 def _has_legacy_ids(id_to_sha: dict) -> bool:
@@ -813,25 +832,34 @@ def main() -> None:
     # ── gather per-file data ─────────────────────────────────────────────────
     rows: list[tuple[str, str, int, int]] = []
     sha256_sets:  list[tuple[set[str], int]] = []  # (sha256_set, n_legacy) per file
-    verify_data:  list[tuple[int, int] | None] = []  # (n_changed, sum_nnnx) or None
+    verify_data:  list[tuple[int, int, int, int] | None] = []  # (n_ex, sum_ex, n_nv, sum_nv) or None
     for f in files:
         display = os.path.relpath(f, search_path)
         print(f"  scanning {display} \u2026", file=sys.stderr, flush=True)
         mtime_s = datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M')
         rows.append((display, mtime_s, _count_records(f), _sum_nnnx_counts(f)))
         sha256_sets.append(_collect_sha256_set(f))
-        if verify_sha256:
-            vd = _verify_sha256(f)
-            verify_data.append(vd)
-            if vd is not None and vd[0] > 0:
+        verify_data.append(None)  # placeholder; filled after all_sha256s is built
+
+    # Build the universe of all known sha256 values (union across all files)
+    # so _verify_sha256 can classify mismatches as →existing or →novel.
+    all_sha256s: set[str] = set()
+    for sha_set, _ in sha256_sets:
+        all_sha256s |= sha_set
+
+    if verify_sha256:
+        for idx, f in enumerate(files):
+            display = os.path.relpath(f, search_path)
+            vd = _verify_sha256(f, all_sha256s)
+            verify_data[idx] = vd
+            if vd is not None and (vd[0] > 0 or vd[2] > 0):
                 print(
-                    f"    Warning: {display}: {vd[0]:,} record(s) have a sha256"
-                    f" mismatch (sequence was modified after deduplication);"
-                    f" combined NNNNx = {vd[1]:,}",
+                    f"    Warning: {display}:"
+                    + (f" {vd[0]:,} record(s) sha256→existing" if vd[0] else "")
+                    + (f" {vd[2]:,} record(s) sha256→novel" if vd[2] else "")
+                    + f" (NNNNx: {vd[1]+vd[3]:,} total)",
                     file=sys.stderr,
                 )
-        else:
-            verify_data.append(None)
 
     # ── phase 2: compute discard stats for all pairs ─────────────────────────
     # Runs before table printing so the numbers can appear as proper columns.
@@ -857,10 +885,14 @@ def main() -> None:
     w_disc1  = len("'Discarded original FASTA IDs'")   # 30
     w_disc2  = len("'Sum of discarded sequences'")       # 28
     w_novel  = len("'Novel sha256s'")                   # 15
-    w_chg1   = len("'Seq changed'")                     # 13 — pad to w_num
+    w_chg1   = len("'Seq→exist'")                    # 11 — pad to w_num
     w_chg1   = max(w_chg1, w_num)
-    w_chg2   = len("'NNNNx changed'")                  # 14
+    w_chg2   = len("'NNNNx→exist'")                   # 13
     w_chg2   = max(w_chg2, w_num)
+    w_chg3   = len("'Seq→novel'")                     # 11 — pad to w_num
+    w_chg3   = max(w_chg3, w_num)
+    w_chg4   = len("'NNNNx→novel'")                   # 13
+    w_chg4   = max(w_chg4, w_num)
 
     _hdr_disc1  = "'Discarded original FASTA IDs'"
     _hdr_disc2  = "'Sum of discarded sequences'"
@@ -868,10 +900,13 @@ def main() -> None:
     _hdr_drec   = '\u0394Records'
     _hdr_dsum   = '\u0394SumToParent'
     _hdr_novel  = "'Novel sha256s'"
-    _hdr_chg1   = "'Seq changed'"
-    _hdr_chg2   = "'NNNNx changed'"
+    _hdr_chg1   = "'Seq\u2192exist'"
+    _hdr_chg2   = "'NNNNx\u2192exist'"
+    _hdr_chg3   = "'Seq\u2192novel'"
+    _hdr_chg4   = "'NNNNx\u2192novel'"
     verify_cols_hdr = (
         f"{sep}{_hdr_chg1:>{w_chg1}}{sep}{_hdr_chg2:>{w_chg2}}"
+        f"{sep}{_hdr_chg3:>{w_chg3}}{sep}{_hdr_chg4:>{w_chg4}}"
         if verify_sha256 else ""
     )
     disc_header = (
@@ -926,10 +961,16 @@ def main() -> None:
         if verify_sha256:
             vd = verify_data[i]
             if vd is None:
-                verify_cols = f"{sep}{_em:>{w_chg1}}{sep}{_em:>{w_chg2}}"
+                verify_cols = (
+                    f"{sep}{_em:>{w_chg1}}{sep}{_em:>{w_chg2}}"
+                    f"{sep}{_em:>{w_chg3}}{sep}{_em:>{w_chg4}}"
+                )
             else:
-                n_chg, s_chg = vd
-                verify_cols = f"{sep}{n_chg:>{w_chg1},}{sep}{s_chg:>{w_chg2},}"
+                n_ex, s_ex, n_nv, s_nv = vd
+                verify_cols = (
+                    f"{sep}{n_ex:>{w_chg1},}{sep}{s_ex:>{w_chg2},}"
+                    f"{sep}{n_nv:>{w_chg3},}{sep}{s_nv:>{w_chg4},}"
+                )
         else:
             verify_cols = ""
 
