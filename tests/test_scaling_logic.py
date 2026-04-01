@@ -60,6 +60,7 @@ class TestScalingLogic(unittest.TestCase):
                 self.disable_showing_bokeh = True
                 self.disable_showing_mplcursors = True
                 self.bokeh_sqrt_size = True
+                self.linear_circle_size = False
 
         opts = Options()
         opts.tsv_file_path = self.tsv_path
