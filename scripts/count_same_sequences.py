@@ -150,7 +150,7 @@ def build_sha256_id_mapping(infilename, mapping_outfile, debug=0):
         # Normalise to match what reformat.sh does in read_and_count_sequences():
         # uppercase (reformat.sh converts to uppercase by default) and strip
         # alignment dashes so the hash is stable across padded/unpadded forms.
-        seq = "".join(flush_parts).rstrip("\r\n").replace("-", "").upper()
+        seq = "".join(flush_parts).replace("\r", "").replace("\n", "").replace("-", "").upper()
         digest = hashlib.sha256(seq.encode()).hexdigest()
         if digest in mapping:
             mapping[digest][0] += 1

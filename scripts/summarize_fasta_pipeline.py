@@ -375,7 +375,7 @@ def _build_tsv(fasta_path: str, tsv_path: str,
         # or plain GISAID accession IDs.
         digest = _extract_sha256_from_id(flush_name)
         if digest is None:
-            seq = "".join(flush_parts).rstrip("\r\n").replace("-", "").upper()
+            seq = "".join(flush_parts).replace("\r", "").replace("\n", "").replace("-", "").upper()
             digest = hashlib.sha256(seq.encode()).hexdigest()
         if digest in id_map:
             id_map[digest][0] += 1
