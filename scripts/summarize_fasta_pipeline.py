@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3  # pylint: disable=too-many-lines
 """Summarize FASTA pipeline: record counts and NNNNx count sums across pipeline stages.
 
 For each file found under <search_path> matching <filename_prefix>*.fasta{,.old,.ori,.orig},
@@ -464,8 +464,10 @@ def _verify_sha256(
         (n_existing, sum_nnnx_existing, n_novel, sum_nnnx_novel) or None when
         the file has no ID-embedded sha256 (GISAID / legacy) or is empty.
     """
-    n_existing  = 0;  sum_existing  = 0
-    n_novel     = 0;  sum_novel     = 0
+    n_existing = 0
+    sum_existing = 0
+    n_novel = 0
+    sum_novel = 0
     is_nnnx_file: bool | None = None
     name: str | None = None
     seq_parts: list = []
