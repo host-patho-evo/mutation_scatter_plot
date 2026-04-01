@@ -375,7 +375,11 @@ def _build_tsv(fasta_path: str, tsv_path: str,
         # or plain GISAID accession IDs.
         digest = _extract_sha256_from_id(flush_name)
         if digest is None:
-            seq = "".join(flush_parts).replace("\r", "").replace("\n", "").upper()
+            # Sequences in counts.fasta and downstream files may carry
+            # alignment-padding dashes, but sha256 is always of the unpadded
+            # biological sequence (dashes stripped) to be consistent with what
+            # count_same_sequences.py embeds in the NNNNx.sha256hex ID.
+            seq = "".join(flush_parts).replace("\r", "").replace("\n", "").replace("-", "").upper()
             digest = hashlib.sha256(seq.encode()).hexdigest()
         if digest in id_map:
             id_map[digest][0] += 1
@@ -431,6 +435,70 @@ def _build_tsv(fasta_path: str, tsv_path: str,
 
     # Return inverted mapping: id -> sha256 (one entry per original record).
     return {orig_id: sha for sha, (_, ids) in id_map.items() for orig_id in ids}
+
+
+def _verify_sha256(fasta_path: str) -> tuple[int, int] | None:
+    """Check ID-embedded sha256 against current sequence content.
+
+    For each record with a NNNNx.sha256hex ID the sequence is read, dashes
+    stripped, and uppercased, then sha256 is recomputed.  If it differs from
+    the sha256 in the ID, the sequence was modified (truncated, corrected, …)
+    after the deduplication step that created the ID.
+
+    Returns:
+        (n_changed, sum_nnnx_changed) — records with sha256 mismatch and their
+        combined NNNNx multiplicity.
+        None — the file has no ID-embedded sha256 (GISAID / legacy IDs) so
+        verification is not possible.
+    """
+    n_changed = 0
+    sum_nnnx: int = 0
+    is_nnnx_file: bool | None = None  # determined from the first header seen
+    name: str | None = None
+    seq_parts: list = []
+
+    def _chk(flush_name: str, flush_parts: list) -> None:
+        nonlocal n_changed, sum_nnnx
+        id_sha = _extract_sha256_from_id(flush_name)
+        if id_sha is None:
+            return
+        seq = "".join(flush_parts).replace("\r", "").replace("\n", "").replace("-", "").upper()
+        if hashlib.sha256(seq.encode()).hexdigest() != id_sha:
+            xpos = flush_name.find('x.')
+            try:
+                nnnx = int(flush_name[:xpos]) if xpos > 0 else 1
+            except ValueError:
+                nnnx = 1
+            n_changed += 1
+            sum_nnnx  += nnnx
+
+    try:
+        with open(fasta_path, "rb") as fh:
+            for raw in fh:
+                line = _decode_fasta_line(raw).rstrip("\r\n")
+                if not line:
+                    continue
+                if line[0] == ">":
+                    if name is not None and is_nnnx_file:
+                        _chk(name, seq_parts)
+                    hdr  = line[1:]
+                    toks = hdr.split()
+                    name = toks[0] if toks else ""
+                    seq_parts = []
+                    if is_nnnx_file is None:
+                        if _extract_sha256_from_id(name) is None:
+                            return None  # GISAID / legacy file — skip
+                        is_nnnx_file = True
+                else:
+                    seq_parts.append(line)
+            if name is not None and is_nnnx_file:
+                _chk(name, seq_parts)
+    except OSError:
+        return None
+
+    if is_nnnx_file is None:
+        return None  # empty file
+    return n_changed, sum_nnnx
 
 
 def _has_legacy_ids(id_to_sha: dict) -> bool:
@@ -702,6 +770,7 @@ def main() -> None:
     save_discard_list  = '--disable-discarded-original-ids-file'   not in args
     add_checksums      = '--add-missing-checksums-to-fasta-files'  in args
     full_fasta_header  = '--full-fasta-header'                     in args
+    verify_sha256      = '--verify-sha256'                         in args
 
     # ── collect matching files ────────────────────────────────────────────────
     found: set[str] = set()
@@ -743,13 +812,26 @@ def main() -> None:
 
     # ── gather per-file data ─────────────────────────────────────────────────
     rows: list[tuple[str, str, int, int]] = []
-    sha256_sets: list[tuple[set[str], int]] = []  # (sha256_set, n_legacy) per file
+    sha256_sets:  list[tuple[set[str], int]] = []  # (sha256_set, n_legacy) per file
+    verify_data:  list[tuple[int, int] | None] = []  # (n_changed, sum_nnnx) or None
     for f in files:
         display = os.path.relpath(f, search_path)
         print(f"  scanning {display} \u2026", file=sys.stderr, flush=True)
         mtime_s = datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M')
         rows.append((display, mtime_s, _count_records(f), _sum_nnnx_counts(f)))
         sha256_sets.append(_collect_sha256_set(f))
+        if verify_sha256:
+            vd = _verify_sha256(f)
+            verify_data.append(vd)
+            if vd is not None and vd[0] > 0:
+                print(
+                    f"    Warning: {display}: {vd[0]:,} record(s) have a sha256"
+                    f" mismatch (sequence was modified after deduplication);"
+                    f" combined NNNNx = {vd[1]:,}",
+                    file=sys.stderr,
+                )
+        else:
+            verify_data.append(None)
 
     # ── phase 2: compute discard stats for all pairs ─────────────────────────
     # Runs before table printing so the numbers can appear as proper columns.
@@ -775,6 +857,10 @@ def main() -> None:
     w_disc1  = len("'Discarded original FASTA IDs'")   # 30
     w_disc2  = len("'Sum of discarded sequences'")       # 28
     w_novel  = len("'Novel sha256s'")                   # 15
+    w_chg1   = len("'Seq changed'")                     # 13 — pad to w_num
+    w_chg1   = max(w_chg1, w_num)
+    w_chg2   = len("'NNNNx changed'")                  # 14
+    w_chg2   = max(w_chg2, w_num)
 
     _hdr_disc1  = "'Discarded original FASTA IDs'"
     _hdr_disc2  = "'Sum of discarded sequences'"
@@ -782,6 +868,12 @@ def main() -> None:
     _hdr_drec   = '\u0394Records'
     _hdr_dsum   = '\u0394SumToParent'
     _hdr_novel  = "'Novel sha256s'"
+    _hdr_chg1   = "'Seq changed'"
+    _hdr_chg2   = "'NNNNx changed'"
+    verify_cols_hdr = (
+        f"{sep}{_hdr_chg1:>{w_chg1}}{sep}{_hdr_chg2:>{w_chg2}}"
+        if verify_sha256 else ""
+    )
     disc_header = (
         f"{sep}{_hdr_disc1:>{w_disc1}}{sep}{_hdr_disc2:>{w_disc2}}"
         if do_discard else ""
@@ -792,6 +884,7 @@ def main() -> None:
         f"{'Records':>{w_num}}{sep}{_hdr_drec:>{w_delta}}{sep}"
         f"{_hdr_nnnx:>{w_num}}{sep}{_hdr_dsum:>{w_delta}}{sep}"
         f"{_hdr_novel:>{w_novel}}"
+        + verify_cols_hdr
         + disc_header
     )
     rule = '-' * len(header)
@@ -829,6 +922,17 @@ def main() -> None:
         else:
             novel_col = f"{sep}{_em:>{w_novel}}"
 
+        # ── sha256 verification columns ────────────────────────────────────
+        if verify_sha256:
+            vd = verify_data[i]
+            if vd is None:
+                verify_cols = f"{sep}{_em:>{w_chg1}}{sep}{_em:>{w_chg2}}"
+            else:
+                n_chg, s_chg = vd
+                verify_cols = f"{sep}{n_chg:>{w_chg1},}{sep}{s_chg:>{w_chg2},}"
+        else:
+            verify_cols = ""
+
         if do_discard and p is not None:
             if i in discard_data:
                 n_d, s_d = discard_data[i]
@@ -844,6 +948,7 @@ def main() -> None:
             f"{n_rec:>{w_num},}{sep}{d_rec:>{w_delta}}{sep}"
             f"{n_sum:>{w_num},}{sep}{d_sum:>{w_delta}}"
             + novel_col
+            + verify_cols
             + disc_cols
             + (f"  ({parent_label})" if parent_label else '')
         )
