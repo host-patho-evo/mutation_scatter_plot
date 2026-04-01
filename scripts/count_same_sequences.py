@@ -137,7 +137,7 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
                     # 1  Cytologiczn Szpital Specjalistyczny im Edmunda Biernackiego w Mielcu|1. Tricity SARS-CoV-2 sequencing ATGTTT...
                     myvalues = line.split()
                     count, sequence = myvalues[0], myvalues[-1]
-            digest = hashlib.sha256(sequence.encode()).hexdigest()
+            digest = hashlib.sha256(sequence.replace('-', '').upper().encode()).hexdigest()
             outfileh.write(f">{count}x.{digest}{os.linesep}{sequence}{os.linesep}")
 
 
@@ -174,7 +174,7 @@ def build_sha256_id_mapping(infilename, mapping_outfile, debug=0):
         # per the docstring of that function).  Stripping dashes would produce
         # a different sha256 than the one embedded in the counts FASTA ID,
         # making TSV lookups fail for any alignment-padded input file.
-        seq = "".join(flush_parts).replace("\r", "").replace("\n", "").upper()
+        seq = "".join(flush_parts).replace("\r", "").replace("\n", "").replace("-", "").upper()
         digest = hashlib.sha256(seq.encode()).hexdigest()
         if digest in mapping:
             mapping[digest][0] += 1
