@@ -311,17 +311,43 @@ def _extract_sha256_from_id(record_id: str) -> str | None:
 
 
 def _collect_sha256_set(fasta_path: str) -> tuple[set[str], int]:
-    """Header-only scan of *fasta_path*: extract ID-embedded sha256 values.
+    """Collect sha256 values associated with *fasta_path*.
+
+    Priority:
+      1. Read the first column of the cached *.sha256_to_ids.tsv — up to 60×
+         faster than reading the full FASTA because the TSV contains only
+         sha256 hex strings and IDs, not gigabytes of sequence data.
+      2. Fall back to a header-only FASTA scan when no valid TSV cache exists.
+
+    The sha256 set is used to build the universe of all known sequence
+    fingerprints so that --verify-sha256 can classify mismatches as
+    →existing (sequence changed to a known sha256) or →novel (new sha256).
 
     Returns:
-        sha256_set : set of lowercase sha256hex strings from NNNNx.sha256hex IDs
-        n_legacy   : number of header lines with no embedded sha256 (e.g. GISAID
-                     accession IDs that pre-date the NNNNx.sha256hex convention)
-
-    Only header lines (starting with '>') are read; sequence lines are skipped.
-    This makes the scan much faster than a full sequence pass.
+        sha256_set : set of lowercase 64-char sha256hex strings
+        n_legacy   : number of records with no embedded sha256 (GISAID IDs)
+                     — meaningful only from the FASTA fallback path; from
+                     the TSV path every first-column entry IS a sha256 so
+                     n_legacy is always 0 there.
     """
-    sha256_set: set[str] = set()
+    # ── TSV fast path ─────────────────────────────────────────────────────
+    tsv_candidate = _strip_fasta_suffix(fasta_path) + '.sha256_to_ids.tsv'
+    if (os.path.exists(tsv_candidate)
+            and os.path.getmtime(tsv_candidate) >= os.path.getmtime(fasta_path)):
+        sha256_set: set[str] = set()
+        try:
+            with open(tsv_candidate, "rb") as fh:
+                for raw in fh:
+                    # TSV first column is sha256hex; split on first tab only.
+                    sha_bytes = raw.split(b'\t', 1)[0].strip()
+                    if len(sha_bytes) == 64:
+                        sha256_set.add(sha_bytes.decode('ascii').lower())
+        except OSError:
+            pass
+        return sha256_set, 0  # every TSV row is a sha256 — no legacy count
+
+    # ── FASTA fallback: header-only scan ───────────────────────────────────
+    sha256_set = set()
     n_legacy = 0
     try:
         with open(fasta_path, "rb") as fh:
