@@ -529,10 +529,11 @@ def _verify_sha256(
 
     Mismatching records are split into two groups:
       * "clipped→dup": the new computed sha256 IS in *known_sha256s* (the
-        clipped sequence is already present elsewhere in this pipeline run —
-        e.g. a shorter isolate that exactly matches after the alignment clip).
-      * "clipped→new": the new computed sha256 is NOT in *known_sha256s* (the
-        clipped sequence is genuinely new — not seen anywhere in the pipeline).
+        sequence was end-clipped by the alignment to match a shorter isolate
+        already present in the pipeline).
+      * "padded→new": the new computed sha256 is NOT in *known_sha256s* (the
+        alignment inserted internal gap-dashes; after stripping them the
+        resulting sequence is genuinely new to the pipeline).
 
     Args:
         fasta_path:    FASTA file to verify.
@@ -545,7 +546,7 @@ def _verify_sha256(
         the file has no ID-embedded sha256 (GISAID / legacy) or is empty.
 
     Returns:
-        (n_clipped_dup, sum_nnnx_clipped_dup, n_clipped_new, sum_nnnx_clipped_new,
+        (n_clipped_dup, sum_nnnx_clipped_dup, n_padded_new, sum_nnnx_padded_new,
          altered_id_sha256s)
         where *altered_id_sha256s* is the set of id-embedded sha256 strings for every
         record whose current sequence sha256 differs from the one in its ID.
@@ -1084,10 +1085,10 @@ def main() -> None:
     w_disc1  = len("'Discarded original FASTA IDs'")   # 30
     w_disc2  = len("'Sum of discarded sequences'")       # 28
     w_novel  = len("'Novel sha256s'")                   # 15
-    w_chg1   = max(len("'Seq clipped(dup)'"), w_num)   # clipped during alignment; result = known dup
+    w_chg1   = max(len("'Seq clipped(dup)'"), w_num)   # end-clipped; result = known duplicate
     w_chg2   = max(len("'NNNNx clipped(dup)'"), w_num)
-    w_chg3   = max(len("'Seq clipped(new)'"), w_num)   # clipped during alignment; result = new seq
-    w_chg4   = max(len("'NNNNx clipped(new)'"), w_num)
+    w_chg3   = max(len("'Seq padded(new)'"), w_num)    # internal gaps; result = novel sequence
+    w_chg4   = max(len("'NNNNx padded(new)'"), w_num)
     w_surv   = max(len("'Total surv.'"), w_num)        # unaltered + altered = total in child
 
     _hdr_disc1  = "'Discarded original FASTA IDs'"
@@ -1098,8 +1099,8 @@ def main() -> None:
     _hdr_novel  = "'Novel sha256s'"
     _hdr_chg1   = "'Seq clipped(dup)'"
     _hdr_chg2   = "'NNNNx clipped(dup)'"
-    _hdr_chg3   = "'Seq clipped(new)'"
-    _hdr_chg4   = "'NNNNx clipped(new)'"
+    _hdr_chg3   = "'Seq padded(new)'"
+    _hdr_chg4   = "'NNNNx padded(new)'"
     _hdr_surv   = "'Total surv.'"
     verify_cols_hdr = (
         f"{sep}{_hdr_chg1:>{w_chg1}}{sep}{_hdr_chg2:>{w_chg2}}"
