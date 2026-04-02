@@ -100,10 +100,12 @@ Options:
                          second pass over each file's direct parent FASTA to
                          compare the depadded post- and pre-alignment sequences
                          and classify each mismatch as:
-                           Clip-only   right-, left-, or both-ends clipped
+                           Altered due to end-clipping
+                                       right-, left-, or both-ends clipped
                                        (internal content intact — expected
                                        alignment trimming)
-                           Internal    current is not a substring of original
+                           Altered inside the sequence
+                                       current is not a substring of original
                                        (internal bases were changed, not just
                                        end-trimmed — investigate further)
                          Adds two columns to the table.  Gated behind this flag
@@ -1185,8 +1187,8 @@ def main() -> None:
     w_chg2   = max(len("'NNNNx clipped(dup)'"), w_num)
     w_chg3   = max(len("'Seq clipped(new)'"), w_num)
     w_chg4   = max(len("'NNNNx clipped(new)'"), w_num)
-    w_clip   = max(len("'Clip-only'"), w_num)   # right+left+both_ends clips
-    w_itrn   = max(len("'Internal'"), w_num)    # other: internal base change
+    w_clip   = max(len("'Altered due to end-clipping'"), w_num)
+    w_itrn   = max(len("'Altered inside the sequence'"), w_num)
 
     _hdr_disc1 = "'Discarded original FASTA IDs'"
     _hdr_disc2 = "'Sum of discarded sequences'"
@@ -1198,8 +1200,8 @@ def main() -> None:
     _hdr_chg2  = "'NNNNx clipped(dup)'"
     _hdr_chg3  = "'Seq clipped(new)'"
     _hdr_chg4  = "'NNNNx clipped(new)'"
-    _hdr_clip  = "'Clip-only'"
-    _hdr_itrn  = "'Internal'"
+    _hdr_clip  = "'Altered due to end-clipping'"
+    _hdr_itrn  = "'Altered inside the sequence'"
     verify_cols_hdr = (
         f"{sep}{_hdr_chg1:>{w_chg1}}{sep}{_hdr_chg2:>{w_chg2}}"
         f"{sep}{_hdr_chg3:>{w_chg3}}{sep}{_hdr_chg4:>{w_chg4}}"
