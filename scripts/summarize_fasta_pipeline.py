@@ -1,4 +1,5 @@
-#!/usr/bin/env python3  # pylint: disable=too-many-lines
+#!/usr/bin/env python3
+# pylint: disable=too-many-lines
 """Summarize FASTA pipeline: record counts and NNNNx count sums across pipeline stages.
 
 For each file found under <search_path> matching <filename_prefix>*.fasta{,.old,.ori,.orig},
