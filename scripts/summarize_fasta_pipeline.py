@@ -629,14 +629,14 @@ def _write_original_descr_lines(
     output files are written alongside the FASTA:
 
       *.sha256_to_original_descr_lines_survivors.tsv
-          sha256s present in this child file.
+          sha256s present in this child file whose sequence is UNCHANGED
+          (altered sequences are excluded from this file).
       *.sha256_to_original_descr_lines_discarded.tsv
           sha256s in the parent that are absent from this child.
       *.sha256_to_original_descr_lines_altered.tsv
           sha256s whose embedded sequence sha256 changed (sequence was
           modified by the pipeline step that produced this file).  These
-          sha256s also appear in _survivors because the record IS present;
-          the _altered file pinpoints which survivors were modified.
+          are mutually exclusive with _survivors.
 
     Output columns: sha256hex<TAB>original_gisaid_header
     (the count column from the root TSV is omitted; columns 3 and onwards
@@ -686,7 +686,9 @@ def _write_original_descr_lines(
                 out_line = sha256 + '\t' + header + '\n'
                 matched = False
                 for surv_set, disc_set, alt_set, stem in file_cats:
-                    if surv_set and sha256 in surv_set:
+                    # Survivors: present in child AND not altered (mutually exclusive
+                    # with _altered — an altered record goes only into _altered).
+                    if surv_set and sha256 in surv_set and not (alt_set and sha256 in alt_set):
                         _fh(stem + '.sha256_to_original_descr_lines_survivors.tsv').write(out_line)  # type: ignore[union-attr]
                         matched = True
                     if disc_set and sha256 in disc_set:
