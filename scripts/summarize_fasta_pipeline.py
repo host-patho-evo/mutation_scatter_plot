@@ -157,7 +157,30 @@ def _count_records(path: str) -> int:
 
 
 def _sum_nnnx_counts(path: str) -> int:
-    """Sum of the leading NNNNx integer prefixes across all FASTA header IDs."""
+    """Sum of the leading NNNNx integer prefixes across all FASTA header IDs.
+
+    Peeks at the first FASTA header only.  If it has no NNNNx prefix (e.g.
+    a GISAID accession like 'Spike|hCoV-19/…'), the sum must be 0 for every
+    record — no further file reading is needed.
+    """
+    # ── fast path: check first header ────────────────────────────────────────
+    try:
+        with open(path, "rb") as fh:
+            for raw in fh:
+                if raw[:1] != b'>':
+                    continue
+                first_id = _decode_fasta_line(raw)[1:].split()[0] if raw else ""
+                xpos = first_id.find('x.')
+                if xpos > 0:
+                    try:
+                        int(first_id[:xpos])  # valid NNNNx prefix
+                    except ValueError:
+                        return 0  # not a number before x.
+                    break  # NNNNx file — fall through to full scan
+                return 0  # no 'x.' at all — plain GISAID/legacy ID
+    except OSError:
+        return 0
+    # ── full scan: file has NNNNx IDs ────────────────────────────────────────
     cmd = (
         "grep '^>' " + _shell_quote(path) + r" | cut -c 2-"
         r" | awk '{print $1}'"
@@ -374,6 +397,12 @@ def _collect_sha256_set(fasta_path: str) -> tuple[set[str], int]:
                 line = _decode_fasta_line(raw).rstrip("\r\n")
                 toks = line[1:].split()
                 sha = _extract_sha256_from_id(toks[0]) if toks else None
+                if n_legacy == 0 and sha is None:
+                    # First header has no embedded sha256 → GISAID/legacy file.
+                    # All records use the same ID format, so no sha256 exists
+                    # anywhere in this file.  Return immediately using wc
+                    # just for the n_legacy count.
+                    return set(), _count_records(fasta_path)
                 if sha is not None:
                     sha256_set.add(sha)
                 else:
