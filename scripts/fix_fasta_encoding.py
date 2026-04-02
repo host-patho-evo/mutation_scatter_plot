@@ -55,6 +55,28 @@ This script uses Python's ``surrogateescape`` error handler instead:
       (``'\\u' not in s``) makes this essentially free for the vast majority
       of lines (sequence lines, clean headers) that contain no escapes.
 
+  Step 4 — C0 control character stripping:
+      ASCII control characters 0x01–0x1F (excluding ``\\t`` 0x09, ``\\n``
+      0x0A, ``\\r`` 0x0D) are stripped from every line.  A real-world
+      example is the ETX byte ``\\x03`` in GISAID record EPI_ISL_2016759::
+
+          >...Run20210508\x03template bulk upload 20210508.xlsx...
+
+      Two failure modes interact here:
+
+      1. **Header truncation**: BBTools ``filterbyname.sh`` may treat ``\\x03``
+         as a record delimiter, so the header appears to end at
+         ``'[Run20210508`` and the accession ``EPI_ISL_2016759`` is never
+         extracted — the name-list match therefore fails silently.
+
+      2. **ignorejunk=t interaction**: if BBTools considers the malformed
+         record "junk" (due to the control byte), the ``ignorejunk=t`` option
+         causes it to be forwarded to the output **without** testing against
+         the filter list at all.
+
+      In either case the sequence escapes the junk-removal step.  Stripping
+      the byte here resolves both failure modes at the source.
+
 Why ``unidecode`` failed
 ------------------------
 The ``unidecode`` command-line tool reads its input as pure UTF-8.  When it
@@ -215,11 +237,21 @@ runtime (``native2ascii``) and may fail on mixed-encoding files::
     # Optionally transliterate remaining non-ASCII to ASCII:
     unidecode output.fasta > output.fasta.tmp && mv output.fasta.tmp output.fasta
 
-This script only performs the lossless normalisation step (equivalent to
-``native2ascii -reverse`` but in pure Python with no Java dependency), and
-additionally handles raw Latin-1 bytes mixed into the same line.  The lossy
-ASCII transliteration via ``unidecode`` is not applied here; run it manually
-on the output if ASCII-only downstream tools require it.
+   Step 4 — C0 control character stripping:
+       ASCII control characters in the range ``\x01``–``\x1F`` that are not
+       ``\t`` (tab, \x09), ``\n`` (newline, \x0A), or ``\r`` (carriage
+       return, \x0D) have no valid role in a FASTA file.  They are silently
+       stripped from every line.  A prominent real-world example is the ETX
+       byte ``\x03`` seen in GISAID record EPI_ISL_2016759::
+
+           >...Run20210508\x03template bulk upload 20210508.xlsx...
+
+       ``filterbyname.sh`` from BBTools treats ``\x03`` as a record
+       delimiter, splitting the header at that point.  As a result, the
+       downstream accession ``EPI_ISL_2016759`` is never seen by the name
+       matcher, so the entry is silently omitted from the junk-filtering step.
+       Stripping the byte here prevents that failure.
+
 
 Usage examples
 --------------
@@ -362,7 +394,7 @@ from collections import Counter
 from datetime import datetime
 
 
-VERSION = "202603312000"
+VERSION = "202604030000"
 
 _parser = argparse.ArgumentParser(
     description=__doc__,
@@ -479,6 +511,22 @@ def _unescape_unicode(s: str) -> str:
     )
 
 
+# C0 control characters to strip: 0x01–0x1F minus TAB (0x09), LF (0x0A), CR (0x0D).
+_C0_STRIP = re.compile(r'[\x01-\x08\x0b\x0c\x0e-\x1f]')
+
+
+def _strip_c0_controls(s: str) -> str:
+    """Remove ASCII C0 control bytes (0x01–0x1f, excluding \\t/\\n/\\r) from *s*.
+
+    These bytes have no valid meaning in a FASTA file and can break downstream
+    parsers that use them as implicit record delimiters (e.g. BBTools
+    filterbyname.sh treats ETX \\x03 as a header terminator).
+    """
+    if not _C0_STRIP.search(s):
+        return s
+    return _C0_STRIP.sub('', s)
+
+
 def _decode_line(raw: bytes) -> str:
     r"""Decode one raw FASTA byte line to a clean Unicode str.
 
@@ -506,7 +554,8 @@ def _decode_line(raw: bytes) -> str:
             chr(ord(ch) - 0xDC00) if 0xDC80 <= ord(ch) <= 0xDCFF else ch
             for ch in s
         )
-    return _unescape_unicode(s)
+    s = _unescape_unicode(s)
+    return _strip_c0_controls(s)
 
 
 def _make_log_path(path: str, dt_str: str) -> str:
@@ -597,6 +646,9 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
                 if any(ord(ch) > 0x7F and not (0xDC80 <= ord(ch) <= 0xDCFF)
                        for ch in decoded_surr):
                     enc_types.add('utf8')
+                if any(0x01 <= b <= 0x1F and b not in (0x09, 0x0A, 0x0D)
+                       for b in raw):
+                    enc_types.add('ctrl')
                 mix_counter[frozenset(enc_types)] += 1
                 # Count individual \uXXXX codepoints on this line.
                 for cp_hex in re.findall(r'\\u([0-9a-fA-F]{4})', original_text):
@@ -655,14 +707,18 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
 
     # Encoding-mix summary — always printed when there are changes.
     _mix_labels = [
-        (frozenset({'esc'}),            "\\uXXXX escapes only"),
-        (frozenset({'lat1'}),           "Latin-1 raw bytes only"),
-        (frozenset({'utf8'}),           "Valid UTF-8 multi-byte only"),
-        (frozenset({'esc', 'utf8'}),    "\\uXXXX escapes  +  valid UTF-8 multi-byte"),
-        (frozenset({'esc', 'lat1'}),    "\\uXXXX escapes  +  Latin-1 raw bytes"),
-        (frozenset({'lat1', 'utf8'}),   "Latin-1 raw bytes  +  valid UTF-8 *** MIXED ***"),
+        (frozenset({'esc'}),              "\\uXXXX escapes only"),
+        (frozenset({'lat1'}),             "Latin-1 raw bytes only"),
+        (frozenset({'utf8'}),             "Valid UTF-8 multi-byte only"),
+        (frozenset({'ctrl'}),             "C0 control characters only (e.g. ETX \\x03)"),
+        (frozenset({'esc', 'utf8'}),      "\\uXXXX escapes  +  valid UTF-8 multi-byte"),
+        (frozenset({'esc', 'lat1'}),      "\\uXXXX escapes  +  Latin-1 raw bytes"),
+        (frozenset({'lat1', 'utf8'}),     "Latin-1 raw bytes  +  valid UTF-8 *** MIXED ***"),
+        (frozenset({'ctrl', 'esc'}),      "C0 control  +  \\uXXXX escapes"),
+        (frozenset({'ctrl', 'lat1'}),     "C0 control  +  Latin-1 raw bytes"),
+        (frozenset({'ctrl', 'utf8'}),     "C0 control  +  valid UTF-8 multi-byte"),
         (frozenset({'esc','lat1','utf8'}),
-                                        "All three (\\uXXXX + Latin-1 + UTF-8) *** MIXED ***"),
+                                          "All three (\\uXXXX + Latin-1 + UTF-8) *** MIXED ***"),
     ]
     if mix_counter:
         _emit("  Encoding-mix breakdown (per changed line):")
@@ -686,8 +742,12 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     _warn_keys = [
         frozenset({'utf8'}),
         frozenset({'lat1'}),
+        frozenset({'ctrl'}),
         frozenset({'esc', 'utf8'}),
         frozenset({'esc', 'lat1'}),
+        frozenset({'ctrl', 'esc'}),
+        frozenset({'ctrl', 'lat1'}),
+        frozenset({'ctrl', 'utf8'}),
         frozenset({'lat1', 'utf8'}),
         frozenset({'esc', 'lat1', 'utf8'}),
     ]
