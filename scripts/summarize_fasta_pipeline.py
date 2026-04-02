@@ -667,7 +667,7 @@ def _write_original_descr_lines(
 
     def _fh(path: str) -> object:
         if path not in open_fhs:
-            open_fhs[path] = open(path, 'w', encoding='utf-8')  # type: ignore[assignment]
+            open_fhs[path] = open(path, 'w', encoding='utf-8')  # type: ignore[assignment]  # pylint: disable=consider-using-with
         return open_fhs[path]
 
     # Stream root TSV, dispatch each sha256 to matching output files ────────────
