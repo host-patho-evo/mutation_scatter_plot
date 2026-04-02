@@ -88,14 +88,26 @@ Options:
                          Mismatches indicate the sequence was modified after
                          deduplication (e.g. truncated by a downstream tool).
                          Adds four diagnostic columns to the table:
-                           Seq→exist   records whose new sha256 is already known
-                                       elsewhere in the pipeline (seq changed to
-                                       a previously seen sequence)
-                           NNNNx→exist sum of NNNNx prefixes for those records
-                           Seq→novel   records whose new sha256 is not known
-                                       anywhere in the pipeline (genuine novel
-                                       modification / truncation)
-                           NNNNx→novel sum of NNNNx prefixes for those records
+                           Seq clipped(dup)   records whose new sha256 is in the
+                                              direct parent's sha256 set (became
+                                              a known duplicate after modification)
+                           NNNNx clipped(dup) sum of NNNNx prefixes for those
+                           Seq clipped(new)   records whose new sha256 is NOT in
+                                              the parent (genuinely novel result)
+                           NNNNx clipped(new) sum of NNNNx prefixes for those
+    --classify-mismatches
+                         When --verify-sha256 detects mismatches, perform a
+                         second pass over each file's direct parent FASTA to
+                         compare the depadded post- and pre-alignment sequences
+                         and classify each mismatch as:
+                           Clip-only   right-, left-, or both-ends clipped
+                                       (internal content intact — expected
+                                       alignment trimming)
+                           Internal    current is not a substring of original
+                                       (internal bases were changed, not just
+                                       end-trimmed — investigate further)
+                         Adds two columns to the table.  Gated behind this flag
+                         because it requires an extra scan of each parent FASTA.
 
 Examples:
     # Show full pipeline table with per-step discard statistics
@@ -557,7 +569,8 @@ def _verify_sha256(
     sum_existing = 0
     n_novel = 0
     sum_novel = 0
-    altered_id_shas: set[str] = set()  # id-embedded sha256 of every mismatch record
+    altered_id_shas: set[str] = set()   # id-embedded sha256 of every mismatch
+    mismatch_seqs:   dict[str, str] = {}  # id-embedded sha256 → depadded current seq
     is_nnnx_file: bool | None = None
     name: str | None = None
     seq_parts: list = []
@@ -578,7 +591,8 @@ def _verify_sha256(
         new_sha = hashlib.sha256(seq.encode()).hexdigest()
         if new_sha == id_sha:
             return  # unchanged
-        altered_id_shas.add(id_sha)  # record the original (id-embedded) sha256
+        altered_id_shas.add(id_sha)
+        mismatch_seqs[id_sha] = seq  # store depadded current seq for classification
         xpos = flush_name.find('x.')
         try:
             nnnx = int(flush_name[:xpos]) if xpos > 0 else 1
@@ -617,7 +631,77 @@ def _verify_sha256(
 
     if is_nnnx_file is None:
         return None  # empty file
-    return n_existing, sum_existing, n_novel, sum_novel, altered_id_shas
+    return n_existing, sum_existing, n_novel, sum_novel, altered_id_shas, mismatch_seqs
+
+
+def _classify_mismatches(
+        mismatch_seqs: dict[str, str],
+        parent_path: str,
+) -> dict[str, int]:
+    """Classify mismatch sequences against original sequences in *parent_path*.
+
+    *mismatch_seqs* maps id-embedded sha256 → depadded post-alignment sequence.
+    Scans *parent_path* (the direct-parent FASTA with NNNNx.sha256hex IDs) and
+    for each record whose sha256 matches a key in *mismatch_seqs*, compares
+    the original (depadded) and current sequences:
+
+      right_clipped     – current is a prefix of original (right end trimmed)
+      left_clipped      – current is a suffix of original (left end trimmed)
+      both_ends_clipped – current is an interior substring of original
+      other             – current is not a substring of original at all
+                          (internal bases were altered, not just ends clipped)
+
+    Early-exits as soon as all sha256s in *mismatch_seqs* are resolved, so for
+    rare mismatches (e.g. 130 out of 800 K records) only a small fraction of
+    the parent FASTA is actually read.
+    """
+    cats: dict[str, int] = {
+        'right_clipped': 0, 'left_clipped': 0, 'both_ends_clipped': 0, 'other': 0,
+    }
+    if not mismatch_seqs:
+        return cats
+
+    remaining = dict(mismatch_seqs)  # sha256 → current depadded seq; shrinks as resolved
+    name: str | None = None
+    parts: list = []
+
+    def _resolve(orig_name: str, orig_parts: list) -> None:
+        sha = _extract_sha256_from_id(orig_name)
+        if sha not in remaining:
+            return
+        orig_seq = (''.join(orig_parts)
+                    .replace('\r', '').replace('\n', '').replace('-', '').upper())
+        curr_seq = remaining.pop(sha)
+        if orig_seq.startswith(curr_seq):
+            cats['right_clipped'] += 1
+        elif orig_seq.endswith(curr_seq):
+            cats['left_clipped'] += 1
+        elif curr_seq in orig_seq:
+            cats['both_ends_clipped'] += 1
+        else:
+            cats['other'] += 1
+
+    try:
+        with open(parent_path, 'rb') as fh:
+            for raw in fh:
+                line = _decode_fasta_line(raw).rstrip('\r\n')
+                if not line:
+                    continue
+                if line[0] == '>':
+                    if name is not None:
+                        _resolve(name, parts)
+                    name = line[1:].split()[0] if line[1:].split() else ''
+                    parts = []
+                    if not remaining:
+                        break  # all resolved — stop early
+                else:
+                    parts.append(line)
+            if name is not None and remaining:
+                _resolve(name, parts)
+    except OSError as exc:
+        print(f'  Warning: _classify_mismatches: cannot read {parent_path}: {exc}',
+              file=sys.stderr)
+    return cats
 
 
 def _write_original_descr_lines(
@@ -985,8 +1069,11 @@ def main() -> None:
     full_fasta_header  = '--full-fasta-header'                     in args
     # verify_sha256 is ON by default; pass --no-verify-sha256 to disable.
     # The old --verify-sha256 flag is accepted silently for backwards compat.
-    verify_sha256           = '--no-verify-sha256'                      not in args
-    write_original_descr    = '--write-original-descr-lines'            in args
+    verify_sha256        = '--no-verify-sha256'             not in args
+    write_original_descr = '--write-original-descr-lines'  in args
+    # Classify mismatches as clip-only (right/left/both-ends) vs internal change.
+    # Requires an extra scan of each parent FASTA; opt-in only.
+    classify_mismatches  = '--classify-mismatches'          in args
 
     # ── collect matching files ────────────────────────────────────────────────
     found: set[str] = set()
@@ -1028,15 +1115,17 @@ def main() -> None:
 
     # ── gather per-file data ─────────────────────────────────────────────────
     rows: list[tuple[str, str, int, int]] = []
-    sha256_sets:  list[tuple[set[str], int]] = []  # (sha256_set, n_legacy) per file
-    verify_data:  list[tuple | None] = []  # (n_ex, sum_ex, n_nv, sum_nv, altered_sha256s) | None
+    sha256_sets:   list[tuple[set[str], int]] = []  # (sha256_set, n_legacy) per file
+    verify_data:   list[tuple | None] = []  # (n_ex,s_ex,n_nv,s_nv,altered_shas,mismatch_seqs)|None
+    classify_data: list[dict[str, int] | None] = []  # right_clipped/left_clipped/both_ends/other
     for f in files:
         display = os.path.relpath(f, search_path)
         print(f"  scanning {display} \u2026", file=sys.stderr, flush=True)
         mtime_s = datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M')
         rows.append((display, mtime_s, _count_records(f), _sum_nnnx_counts(f)))
         sha256_sets.append(_collect_sha256_set(f))
-        verify_data.append(None)  # placeholder; filled in the verify pass below
+        verify_data.append(None)    # placeholder; filled in the verify pass below
+        classify_data.append(None)  # placeholder; filled after verify if --classify-mismatches
 
     # sha256_sets is still needed in the table-printing loop for the
     # 'Novel sha256s' column.  It is freed after that loop completes.
@@ -1061,6 +1150,12 @@ def main() -> None:
                     + f" (NNNNx: {vd[1]+vd[3]:,} total)",
                     file=sys.stderr,
                 )
+            if classify_mismatches and vd is not None and p is not None:
+                mismatch_seqs_vd: dict[str, str] = vd[5] if len(vd) > 5 else {}
+                if mismatch_seqs_vd:
+                    classify_data[idx] = _classify_mismatches(
+                        mismatch_seqs_vd, files[p]
+                    )
 
     # ── phase 2: compute discard stats for all pairs ─────────────────────────
     # Runs before table printing so the numbers can appear as proper columns.
@@ -1086,24 +1181,30 @@ def main() -> None:
     w_disc1  = len("'Discarded original FASTA IDs'")   # 30
     w_disc2  = len("'Sum of discarded sequences'")       # 28
     w_novel  = len("'Novel sha256s'")                   # 15
-    w_chg1   = max(len("'Seq clipped(dup)'"), w_num)   # clipped; result = known duplicate
+    w_chg1   = max(len("'Seq clipped(dup)'"), w_num)
     w_chg2   = max(len("'NNNNx clipped(dup)'"), w_num)
-    w_chg3   = max(len("'Seq clipped(new)'"), w_num)   # clipped; result = unseen sequence
+    w_chg3   = max(len("'Seq clipped(new)'"), w_num)
     w_chg4   = max(len("'NNNNx clipped(new)'"), w_num)
+    w_clip   = max(len("'Clip-only'"), w_num)   # right+left+both_ends clips
+    w_itrn   = max(len("'Internal'"), w_num)    # other: internal base change
 
-    _hdr_disc1  = "'Discarded original FASTA IDs'"
-    _hdr_disc2  = "'Sum of discarded sequences'"
-    _hdr_nnnx   = "'Sum of NNNNx'"
-    _hdr_drec   = '\u0394Records'
-    _hdr_dsum   = '\u0394SumToParent'
-    _hdr_novel  = "'Novel sha256s'"
-    _hdr_chg1   = "'Seq clipped(dup)'"
-    _hdr_chg2   = "'NNNNx clipped(dup)'"
-    _hdr_chg3   = "'Seq clipped(new)'"
-    _hdr_chg4   = "'NNNNx clipped(new)'"
+    _hdr_disc1 = "'Discarded original FASTA IDs'"
+    _hdr_disc2 = "'Sum of discarded sequences'"
+    _hdr_nnnx  = "'Sum of NNNNx'"
+    _hdr_drec  = '\u0394Records'
+    _hdr_dsum  = '\u0394SumToParent'
+    _hdr_novel = "'Novel sha256s'"
+    _hdr_chg1  = "'Seq clipped(dup)'"
+    _hdr_chg2  = "'NNNNx clipped(dup)'"
+    _hdr_chg3  = "'Seq clipped(new)'"
+    _hdr_chg4  = "'NNNNx clipped(new)'"
+    _hdr_clip  = "'Clip-only'"
+    _hdr_itrn  = "'Internal'"
     verify_cols_hdr = (
         f"{sep}{_hdr_chg1:>{w_chg1}}{sep}{_hdr_chg2:>{w_chg2}}"
         f"{sep}{_hdr_chg3:>{w_chg3}}{sep}{_hdr_chg4:>{w_chg4}}"
+        + (f"{sep}{_hdr_clip:>{w_clip}}{sep}{_hdr_itrn:>{w_itrn}}"
+           if classify_mismatches else "")
         if verify_sha256 else ""
     )
     disc_header = (
@@ -1161,12 +1262,27 @@ def main() -> None:
                 verify_cols = (
                     f"{sep}{_em:>{w_chg1}}{sep}{_em:>{w_chg2}}"
                     f"{sep}{_em:>{w_chg3}}{sep}{_em:>{w_chg4}}"
+                    + (f"{sep}{_em:>{w_clip}}{sep}{_em:>{w_itrn}}"
+                       if classify_mismatches else "")
                 )
             else:
                 n_ex, s_ex, n_nv, s_nv, *_ = vd
+                if classify_mismatches:
+                    cd = classify_data[i]
+                    if cd is None:
+                        clip_str = _em
+                        itrn_str = _em
+                    else:
+                        n_clip = cd['right_clipped'] + cd['left_clipped'] + cd['both_ends_clipped']
+                        clip_str = f"{n_clip:,}"
+                        itrn_str = f"{cd['other']:,}"
+                    classify_cols = f"{sep}{clip_str:>{w_clip}}{sep}{itrn_str:>{w_itrn}}"
+                else:
+                    classify_cols = ""
                 verify_cols = (
                     f"{sep}{n_ex:>{w_chg1},}{sep}{s_ex:>{w_chg2},}"
                     f"{sep}{n_nv:>{w_chg3},}{sep}{s_nv:>{w_chg4},}"
+                    + classify_cols
                 )
         else:
             verify_cols = ""
