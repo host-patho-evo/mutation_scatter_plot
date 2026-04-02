@@ -542,11 +542,18 @@ def _verify_sha256(
     Returns:
         (n_existing, sum_nnnx_existing, n_novel, sum_nnnx_novel) or None when
         the file has no ID-embedded sha256 (GISAID / legacy) or is empty.
+
+    Returns:
+        (n_existing, sum_nnnx_existing, n_novel, sum_nnnx_novel, altered_id_sha256s)
+        where *altered_id_sha256s* is the set of id-embedded sha256 strings for every
+        record whose current sequence sha256 differs from the one in its ID.
+        Returns None when the file has no ID-embedded sha256 or is empty.
     """
     n_existing = 0
     sum_existing = 0
     n_novel = 0
     sum_novel = 0
+    altered_id_shas: set[str] = set()  # id-embedded sha256 of every mismatch record
     is_nnnx_file: bool | None = None
     name: str | None = None
     seq_parts: list = []
@@ -567,6 +574,7 @@ def _verify_sha256(
         new_sha = hashlib.sha256(seq.encode()).hexdigest()
         if new_sha == id_sha:
             return  # unchanged
+        altered_id_shas.add(id_sha)  # record the original (id-embedded) sha256
         xpos = flush_name.find('x.')
         try:
             nnnx = int(flush_name[:xpos]) if xpos > 0 else 1
@@ -605,7 +613,100 @@ def _verify_sha256(
 
     if is_nnnx_file is None:
         return None  # empty file
-    return n_existing, sum_existing, n_novel, sum_novel
+    return n_existing, sum_existing, n_novel, sum_novel, altered_id_shas
+
+
+def _write_original_descr_lines(
+        root_descr_tsv: str,
+        files: list[str],
+        parent_map: dict[int, int],
+        sha256_sets: list[tuple[set[str], int]],
+        verify_data: list[tuple | None],
+) -> None:
+    """Stream *root_descr_tsv* once, writing per-step traceability TSV files.
+
+    For each child file (those with a direct parent in the pipeline) three
+    output files are written alongside the FASTA:
+
+      *.sha256_to_original_descr_lines_survivors.tsv
+          sha256s present in this child file.
+      *.sha256_to_original_descr_lines_discarded.tsv
+          sha256s in the parent that are absent from this child.
+      *.sha256_to_original_descr_lines_altered.tsv
+          sha256s whose embedded sequence sha256 changed (sequence was
+          modified by the pipeline step that produced this file).  These
+          sha256s also appear in _survivors because the record IS present;
+          the _altered file pinpoints which survivors were modified.
+
+    Output columns: sha256hex<TAB>original_gisaid_header
+    (the count column from the root TSV is omitted; columns 3 and onwards
+    of root_descr_tsv are included verbatim as the header field).
+
+    All output files are opened lazily and written in one streaming pass.
+    """
+    # Build per-file category sets ─────────────────────────────────────────────
+    # Each element: (survivor_set | None, discarded_set | None, altered_set | None, stem)
+    file_cats: list[tuple] = []
+    for i, f in enumerate(files):
+        p = parent_map.get(i)
+        child_sha256s, _ = sha256_sets[i]
+        stem = _strip_fasta_suffix(f)
+        surv_set = child_sha256s if (p is not None and child_sha256s) else None
+        disc_set: set[str] | None = None
+        if p is not None:
+            parent_sha256s, _ = sha256_sets[p]
+            diff = parent_sha256s - child_sha256s
+            disc_set = diff if diff else None
+        vd = verify_data[i]
+        alt_set: set[str] | None = (
+            vd[4] if (vd is not None and len(vd) > 4 and vd[4]) else None
+        )
+        file_cats.append((surv_set, disc_set, alt_set, stem))
+
+    # Open output files lazily ─────────────────────────────────────────────────
+    open_fhs: dict[str, object] = {}
+
+    def _fh(path: str) -> object:
+        if path not in open_fhs:
+            open_fhs[path] = open(path, 'w', encoding='utf-8')  # type: ignore[assignment]
+        return open_fhs[path]
+
+    # Stream root TSV, dispatch each sha256 to matching output files ────────────
+    n_written = 0
+    try:
+        print(f"\n  streaming {os.path.basename(root_descr_tsv)}"
+              " for traceability files …", file=sys.stderr, flush=True)
+        with open(root_descr_tsv, 'r', encoding='utf-8', errors='replace') as rf:
+            for line in rf:
+                parts = line.rstrip('\n').split('\t', 2)
+                if len(parts) < 3:
+                    continue
+                sha256, _, header = parts
+                # Output: sha256 TAB original_header (cols 3+ from root TSV)
+                out_line = sha256 + '\t' + header + '\n'
+                matched = False
+                for surv_set, disc_set, alt_set, stem in file_cats:
+                    if surv_set and sha256 in surv_set:
+                        _fh(stem + '.sha256_to_original_descr_lines_survivors.tsv').write(out_line)  # type: ignore[union-attr]
+                        matched = True
+                    if disc_set and sha256 in disc_set:
+                        _fh(stem + '.sha256_to_original_descr_lines_discarded.tsv').write(out_line)  # type: ignore[union-attr]
+                        matched = True
+                    if alt_set and sha256 in alt_set:
+                        _fh(stem + '.sha256_to_original_descr_lines_altered.tsv').write(out_line)  # type: ignore[union-attr]
+                        matched = True
+                if matched:
+                    n_written += 1
+    except OSError as exc:
+        print(f"  Warning: could not read root TSV {root_descr_tsv}: {exc}",
+              file=sys.stderr)
+    finally:
+        for fh in open_fhs.values():
+            fh.close()  # type: ignore[union-attr]
+        if open_fhs:
+            print(f"  Info: wrote original GISAID headers for {n_written:,} unique"
+                  f" sha256s into {len(open_fhs):,} traceability TSV file(s).",
+                  file=sys.stderr, flush=True)
 
 
 def _has_legacy_ids(id_to_sha: dict) -> bool:
@@ -877,7 +978,10 @@ def main() -> None:
     save_discard_list  = '--disable-discarded-original-ids-file'   not in args
     add_checksums      = '--add-missing-checksums-to-fasta-files'  in args
     full_fasta_header  = '--full-fasta-header'                     in args
-    verify_sha256      = '--verify-sha256'                         in args
+    # verify_sha256 is ON by default; pass --no-verify-sha256 to disable.
+    # The old --verify-sha256 flag is accepted silently for backwards compat.
+    verify_sha256           = '--no-verify-sha256'                      not in args
+    write_original_descr    = '--write-original-descr-lines'            in args
 
     # ── collect matching files ────────────────────────────────────────────────
     found: set[str] = set()
@@ -920,7 +1024,7 @@ def main() -> None:
     # ── gather per-file data ─────────────────────────────────────────────────
     rows: list[tuple[str, str, int, int]] = []
     sha256_sets:  list[tuple[set[str], int]] = []  # (sha256_set, n_legacy) per file
-    verify_data:  list[tuple[int, int, int, int] | None] = []  # (n_ex, sum_ex, n_nv, sum_nv) or None
+    verify_data:  list[tuple | None] = []  # (n_ex, sum_ex, n_nv, sum_nv, altered_sha256s) | None
     for f in files:
         display = os.path.relpath(f, search_path)
         print(f"  scanning {display} \u2026", file=sys.stderr, flush=True)
@@ -1058,7 +1162,7 @@ def main() -> None:
                     f"{sep}{_em:>{w_chg3}}{sep}{_em:>{w_chg4}}"
                 )
             else:
-                n_ex, s_ex, n_nv, s_nv = vd
+                n_ex, s_ex, n_nv, s_nv, *_ = vd
                 verify_cols = (
                     f"{sep}{n_ex:>{w_chg1},}{sep}{s_ex:>{w_chg2},}"
                     f"{sep}{n_nv:>{w_chg3},}{sep}{s_nv:>{w_chg4},}"
@@ -1089,7 +1193,23 @@ def main() -> None:
 
 
     print(rule)
-    del sha256_sets  # no longer needed after table; free RAM
+
+    # ── write original-header traceability TSV files ───────────────────────────
+    if write_original_descr:
+        root_stem = _strip_fasta_suffix(files[0])
+        root_descr_tsv = root_stem + '.sha256_to_descr_lines.tsv'
+        if not os.path.exists(root_descr_tsv):
+            root_descr_tsv = root_stem + '.sha256_to_ids.tsv'
+        if os.path.exists(root_descr_tsv):
+            _write_original_descr_lines(
+                root_descr_tsv, files, parent_map, sha256_sets, verify_data,
+            )
+        else:
+            print(f"  Warning: --write-original-descr-lines: root mapping TSV not found"
+                  f" ({root_stem}.sha256_to_descr_lines.tsv). Run with"
+                  " --full-fasta-header first to build it.", file=sys.stderr)
+
+    del sha256_sets  # no longer needed; free RAM
 
     # ── overall summary ───────────────────────────────────────────────────────
     if len(rows) >= 2:
