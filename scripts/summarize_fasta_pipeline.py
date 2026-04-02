@@ -628,15 +628,14 @@ def _write_original_descr_lines(
     For each child file (those with a direct parent in the pipeline) three
     output files are written alongside the FASTA:
 
-      *.sha256_to_original_descr_lines_survivors.tsv
+      *.sha256_to_original_descr_lines_of_survived.tsv
           sha256s present in this child file whose sequence is UNCHANGED
-          (altered sequences are excluded from this file).
-      *.sha256_to_original_descr_lines_discarded.tsv
+          (altered sequences are excluded — they appear only in _of_survived_altered).
+      *.sha256_to_original_descr_lines_of_discarded.tsv
           sha256s in the parent that are absent from this child.
-      *.sha256_to_original_descr_lines_altered.tsv
-          sha256s whose embedded sequence sha256 changed (sequence was
-          modified by the pipeline step that produced this file).  These
-          are mutually exclusive with _survivors.
+      *.sha256_to_original_descr_lines_of_survived_altered.tsv
+          sha256s whose embedded sequence sha256 changed (the pipeline step
+          modified the sequence).  Mutually exclusive with _of_survived.
 
     Output columns: sha256hex<TAB>original_gisaid_header
     (the count column from the root TSV is omitted; columns 3 and onwards
@@ -689,13 +688,13 @@ def _write_original_descr_lines(
                     # Survivors: present in child AND not altered (mutually exclusive
                     # with _altered — an altered record goes only into _altered).
                     if surv_set and sha256 in surv_set and not (alt_set and sha256 in alt_set):
-                        _fh(stem + '.sha256_to_original_descr_lines_survivors.tsv').write(out_line)  # type: ignore[union-attr]
+                        _fh(stem + '.sha256_to_original_descr_lines_of_survived.tsv').write(out_line)  # type: ignore[union-attr]
                         matched = True
                     if disc_set and sha256 in disc_set:
-                        _fh(stem + '.sha256_to_original_descr_lines_discarded.tsv').write(out_line)  # type: ignore[union-attr]
+                        _fh(stem + '.sha256_to_original_descr_lines_of_discarded.tsv').write(out_line)  # type: ignore[union-attr]
                         matched = True
                     if alt_set and sha256 in alt_set:
-                        _fh(stem + '.sha256_to_original_descr_lines_altered.tsv').write(out_line)  # type: ignore[union-attr]
+                        _fh(stem + '.sha256_to_original_descr_lines_of_survived_altered.tsv').write(out_line)  # type: ignore[union-attr]
                         matched = True
                 if matched:
                     n_written += 1
@@ -1091,6 +1090,7 @@ def main() -> None:
     w_chg3   = max(w_chg3, w_num)
     w_chg4   = len("'NNNNx→novel'")                   # 13
     w_chg4   = max(w_chg4, w_num)
+    w_surv   = max(len("'Total surv.'"), w_num)        # unaltered + altered = total in child
 
     _hdr_disc1  = "'Discarded original FASTA IDs'"
     _hdr_disc2  = "'Sum of discarded sequences'"
@@ -1102,9 +1102,11 @@ def main() -> None:
     _hdr_chg2   = "'NNNNx\u2192exist'"
     _hdr_chg3   = "'Seq\u2192novel'"
     _hdr_chg4   = "'NNNNx\u2192novel'"
+    _hdr_surv   = "'Total surv.'"
     verify_cols_hdr = (
         f"{sep}{_hdr_chg1:>{w_chg1}}{sep}{_hdr_chg2:>{w_chg2}}"
         f"{sep}{_hdr_chg3:>{w_chg3}}{sep}{_hdr_chg4:>{w_chg4}}"
+        f"{sep}{_hdr_surv:>{w_surv}}"
         if verify_sha256 else ""
     )
     disc_header = (
@@ -1155,19 +1157,25 @@ def main() -> None:
         else:
             novel_col = f"{sep}{_em:>{w_novel}}"
 
-        # ── sha256 verification columns ────────────────────────────────────
+        # ── sha256 verification + total survivors columns ──────────────────────
         if verify_sha256:
             vd = verify_data[i]
+            # Total survivors = unaltered + altered = len(child sha256 set).
+            # sha256_sets[i][0] is available for every file regardless of loop order.
+            n_total_surv: int | None = len(sha256_sets[i][0]) if p is not None else None
             if vd is None:
                 verify_cols = (
                     f"{sep}{_em:>{w_chg1}}{sep}{_em:>{w_chg2}}"
                     f"{sep}{_em:>{w_chg3}}{sep}{_em:>{w_chg4}}"
+                    f"{sep}{(f'{n_total_surv:,}' if n_total_surv is not None else _em):>{w_surv}}"
                 )
             else:
                 n_ex, s_ex, n_nv, s_nv, *_ = vd
+                surv_total_str = f"{n_total_surv:,}" if n_total_surv is not None else _em
                 verify_cols = (
                     f"{sep}{n_ex:>{w_chg1},}{sep}{s_ex:>{w_chg2},}"
                     f"{sep}{n_nv:>{w_chg3},}{sep}{s_nv:>{w_chg4},}"
+                    f"{sep}{surv_total_str:>{w_surv}}"
                 )
         else:
             verify_cols = ""
