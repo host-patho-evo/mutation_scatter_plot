@@ -80,6 +80,22 @@ Options:
                          source for *.discarded_original_ids.txt, giving
                          the full description in those files.
 
+    --verify-sha256
+                         For each NNNNx.sha256hex file, recompute sha256 from
+                         the unpadded sequence (dashes stripped, uppercased) and
+                         compare it against the value embedded in the ID.
+                         Mismatches indicate the sequence was modified after
+                         deduplication (e.g. truncated by a downstream tool).
+                         Adds four diagnostic columns to the table:
+                           Seq→exist   records whose new sha256 is already known
+                                       elsewhere in the pipeline (seq changed to
+                                       a previously seen sequence)
+                           NNNNx→exist sum of NNNNx prefixes for those records
+                           Seq→novel   records whose new sha256 is not known
+                                       anywhere in the pipeline (genuine novel
+                                       modification / truncation)
+                           NNNNx→novel sum of NNNNx prefixes for those records
+
 Examples:
     # Show full pipeline table with per-step discard statistics
     summarize_fasta_pipeline.py . spikenuc1207.native2ascii.no_junk
