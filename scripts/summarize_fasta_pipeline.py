@@ -165,6 +165,20 @@ def _is_prot_file(path: str) -> bool:
     return any(path.endswith(sfx) for sfx in PROT_SUFFIXES)
 
 
+def _fasta_sha256(path: str) -> str:
+    """Return sha256 hex digest of the raw byte content of *path*.
+
+    Reads the file in 4 MB chunks so arbitrarily large files (tens of GB)
+    can be checked without loading them into RAM.  Used for content-identity
+    checks before the expensive per-file gather phase.
+    """
+    h = hashlib.sha256()
+    with open(path, 'rb') as fh:
+        while chunk := fh.read(4 << 20):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def _mtime(path: str) -> float:
     """Return mtime of path, or 0.0 if it does not exist."""
     try:
@@ -1189,21 +1203,63 @@ def main() -> None:
         if p is not None:
             parent_map[i] = p
 
+    # ── detect identical files (size + sha256) to skip redundant scans ──────
+    # Two files with the same raw content produce identical records, sha256 IDs,
+    # and prot-unique counts.  We process the first (primary) and copy results.
+    # Only triggered for size-tied pairs — computing sha256 of a 33 GB file
+    # takes ~3 min but saves ~38 min of Python-level _verify_sha256 per twin.
+    content_twin: dict[int, int] = {}   # duplicate file-index → primary file-index
+    _size_groups: dict[int, list[int]] = {}  # size → [file indices]
+    for idx, f in enumerate(files):
+        try:
+            sz = os.path.getsize(f)
+        except OSError:
+            continue
+        _size_groups.setdefault(sz, []).append(idx)
+    for sz, idxs in _size_groups.items():
+        if len(idxs) < 2 or sz == 0:
+            continue
+        # Compute sha256 in original file-list order; first per sha256 = primary.
+        sha_to_primary: dict[str, int] = {}
+        for idx in idxs:
+            sha = _fasta_sha256(files[idx])
+            if sha in sha_to_primary:
+                content_twin[idx] = sha_to_primary[sha]
+                print(
+                    f"  Info: identical content detected — "
+                    f"{os.path.basename(files[idx])} ≡ "
+                    f"{os.path.basename(files[sha_to_primary[sha]])} "
+                    f"(sha256={sha[:16]}…) — reusing scan results.",
+                    file=sys.stderr, flush=True,
+                )
+            else:
+                sha_to_primary[sha] = idx
+
     # ── gather per-file data ─────────────────────────────────────────────────
     rows: list[tuple[str, str, int, int]] = []
     sha256_sets:   list[tuple[set[str], int]] = []  # (sha256_set, n_legacy) per file
     verify_data:   list[tuple | None] = []  # (n_ex,s_ex,n_nv,s_nv,altered_shas,mismatch_seqs)|None
     classify_data: list[dict[str, int] | None] = []  # right_clipped/left_clipped/both_ends/other
     prot_unique:   list[int | None] = []             # distinct protein seq count (prot files only)
-    for f in files:
+    for idx, f in enumerate(files):
         display = os.path.relpath(f, search_path)
-        print(f"  scanning {display} \u2026", file=sys.stderr, flush=True)
         mtime_s = datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M')
-        rows.append((display, mtime_s, _count_records(f), _sum_nnnx_counts(f)))
-        sha256_sets.append(_collect_sha256_set(f))
+        pri = content_twin.get(idx)          # None if primary; primary index if twin
+        if pri is not None:
+            # Twin: reuse record count, NNNNx sum, sha256 set, prot_unique from primary.
+            # display and mtime_s are always file-specific.
+            _, _, n_rec, n_sum = rows[pri]
+            rows.append((display, mtime_s, n_rec, n_sum))
+            sha256_sets.append(sha256_sets[pri])
+            prot_unique.append(prot_unique[pri])
+            print(f"  (reused)  {display}", file=sys.stderr, flush=True)
+        else:
+            print(f"  scanning  {display} \u2026", file=sys.stderr, flush=True)
+            rows.append((display, mtime_s, _count_records(f), _sum_nnnx_counts(f)))
+            sha256_sets.append(_collect_sha256_set(f))
+            prot_unique.append(_count_prot_unique(f) if _is_prot_file(f) else None)
         verify_data.append(None)    # placeholder; filled in the verify pass below
         classify_data.append(None)  # placeholder; filled after verify if --classify-mismatches
-        prot_unique.append(_count_prot_unique(f) if _is_prot_file(f) else None)
 
     # sha256_sets is still needed in the table-printing loop for the
     # 'Novel sha256s' column.  It is freed after that loop completes.
@@ -1214,6 +1270,21 @@ def main() -> None:
                 # The ID contains a DNA sha256 which will always differ from the
                 # protein sequence sha256 — skip verification for protein files.
                 continue
+            pri = content_twin.get(idx)
+            if pri is not None:
+                # This file is content-identical to its primary (pri).
+                # If its parent is also content-identical to the primary's parent
+                # (or IS the primary itself), the sha256 comparison is guaranteed
+                # to yield all-zeros: every record matches its own sha256 set.
+                # We can skip the expensive scan and synthesise the result.
+                p = parent_map.get(idx)
+                p_pri = parent_map.get(pri)
+                if (p == pri                              # parent of twin IS the primary
+                        or content_twin.get(p) == p_pri  # parent of twin is twin of primary's parent
+                        or p == p_pri):                   # same parent (e.g. both root files)
+                    verify_data[idx] = (0, 0, 0, 0, set(), {})
+                    continue  # no mismatches possible
+                # Different parent context — fall through to normal verify below.
             display = os.path.relpath(f, search_path)
             # Pass the direct parent's sha256 set as the "known" universe:
             # a mismatch records as clipped(dup) when the new sha256 already
