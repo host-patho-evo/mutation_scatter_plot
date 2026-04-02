@@ -142,6 +142,11 @@ import sys
 
 FASTA_SUFFIXES = ('.fasta.orig', '.fasta.ori', '.fasta.old', '.fasta')
 
+# Protein FASTA suffixes — these files have NNNNx.dna_sha256 IDs but their
+# sequences are amino acid, so sha256(sequence) ≠ sha256(DNA).  They are
+# included in the pipeline table with an extra 'Prot unique' column.
+PROT_SUFFIXES = ('.prot.fasta', '.prot', '.faa')
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DISCARD_SCRIPT = os.path.join(SCRIPT_DIR, 'create_list_of_discarded_sequences.py')
 
@@ -153,6 +158,11 @@ def _strip_fasta_suffix(path: str) -> str:
         if path.endswith(sfx):
             return path[:-len(sfx)]
     return path
+
+
+def _is_prot_file(path: str) -> bool:
+    """Return True when *path* is a protein-sequence FASTA (.prot.fasta/.prot/.faa)."""
+    return any(path.endswith(sfx) for sfx in PROT_SUFFIXES)
 
 
 def _mtime(path: str) -> float:
@@ -528,6 +538,62 @@ def _build_tsv(fasta_path: str, tsv_path: str,
 
     # Return inverted mapping: id -> sha256 (one entry per original record).
     return {orig_id: sha for sha, (_, ids) in id_map.items() for orig_id in ids}
+
+
+def _count_prot_unique(path: str) -> tuple[int, int] | None:
+    """Group protein sequences by sha256; count unique groups and sum NNNNx per group.
+
+    For each record in a protein FASTA (NNNNx.dna_sha256 IDs), computes
+    sha256(depadded_uppercase_protein_seq) and accumulates the NNNNx prefix
+    into a per-group running total.
+
+    Returns (n_unique_proteins, total_nnnx_sum) where:
+      n_unique_proteins – number of distinct protein sequences
+      total_nnnx_sum    – sum of all NNNNx counts (same as _sum_nnnx_counts,
+                          but cross-checks that translate.py dropped nothing)
+
+    Returns None on I/O error.
+    """
+    groups: dict[str, int] = {}  # protein_sha256 → cumulative NNNNx
+    name: str | None = None
+    parts: list[str] = []
+    cur_nnnx: int = 1
+
+    def _chk(chk_name: str, chk_parts: list[str]) -> None:
+        seq = (''.join(chk_parts)
+               .replace('\r', '').replace('\n', '').replace('-', '').upper())
+        if not seq:
+            return
+        psha = hashlib.sha256(seq.encode()).hexdigest()
+        groups[psha] = groups.get(psha, 0) + cur_nnnx
+
+    try:
+        with open(path, 'rb') as fh:
+            for raw in fh:
+                line = _decode_fasta_line(raw).rstrip('\r\n')
+                if not line:
+                    continue
+                if line[0] == '>':
+                    if name is not None:
+                        _chk(name, parts)
+                    tok = line[1:].split()[0] if line[1:].split() else ''
+                    name = tok
+                    # Extract NNNNx count from ID (format: NNNNx.sha256hex or NNNNx)
+                    xpos = tok.find('x.')
+                    if xpos < 0:
+                        xpos = tok.find('x')
+                    try:
+                        cur_nnnx = int(tok[:xpos]) if xpos > 0 else 1
+                    except ValueError:
+                        cur_nnnx = 1
+                    parts = []
+                else:
+                    parts.append(line)
+            if name is not None:
+                _chk(name, parts)
+    except OSError:
+        return None
+    return len(groups), sum(groups.values())
 
 
 def _verify_sha256(
@@ -1085,6 +1151,14 @@ def main() -> None:
             os.path.join(search_path, '**', prefix + '*' + suffix),
         ):
             found.update(glob.glob(pat, recursive=True))
+    # Also pick up protein FASTA files (.prot.fasta already matched above;
+    # .prot and .faa have no .fasta extension so need separate globs).
+    for suffix in ('.prot', '.faa'):
+        for pat in (
+            os.path.join(search_path, prefix + '*' + suffix),
+            os.path.join(search_path, '**', prefix + '*' + suffix),
+        ):
+            found.update(glob.glob(pat, recursive=True))
 
     if not found:
         print(f"No files found under '{search_path}' matching '{prefix}*.fasta{{,.old,.ori,.orig}}'",
@@ -1120,6 +1194,7 @@ def main() -> None:
     sha256_sets:   list[tuple[set[str], int]] = []  # (sha256_set, n_legacy) per file
     verify_data:   list[tuple | None] = []  # (n_ex,s_ex,n_nv,s_nv,altered_shas,mismatch_seqs)|None
     classify_data: list[dict[str, int] | None] = []  # right_clipped/left_clipped/both_ends/other
+    prot_unique:   list[int | None] = []             # distinct protein seq count (prot files only)
     for f in files:
         display = os.path.relpath(f, search_path)
         print(f"  scanning {display} \u2026", file=sys.stderr, flush=True)
@@ -1128,12 +1203,17 @@ def main() -> None:
         sha256_sets.append(_collect_sha256_set(f))
         verify_data.append(None)    # placeholder; filled in the verify pass below
         classify_data.append(None)  # placeholder; filled after verify if --classify-mismatches
+        prot_unique.append(_count_prot_unique(f) if _is_prot_file(f) else None)
 
     # sha256_sets is still needed in the table-printing loop for the
     # 'Novel sha256s' column.  It is freed after that loop completes.
 
     if verify_sha256:
         for idx, f in enumerate(files):
+            if _is_prot_file(f):
+                # The ID contains a DNA sha256 which will always differ from the
+                # protein sequence sha256 — skip verification for protein files.
+                continue
             display = os.path.relpath(f, search_path)
             # Pass the direct parent's sha256 set as the "known" universe:
             # a mismatch records as clipped(dup) when the new sha256 already
@@ -1189,6 +1269,8 @@ def main() -> None:
     w_chg4   = max(len("'NNNNx clipped(new)'"), w_num)
     w_clip   = max(len("'Altered due to end-clipping'"), w_num)
     w_itrn   = max(len("'Altered inside the sequence'"), w_num)
+    w_prot   = max(len("'Prot unique'"), w_num)
+    w_protn  = max(len("'Prot NNNNx sum'"), w_num)
 
     _hdr_disc1 = "'Discarded original FASTA IDs'"
     _hdr_disc2 = "'Sum of discarded sequences'"
@@ -1202,6 +1284,8 @@ def main() -> None:
     _hdr_chg4  = "'NNNNx clipped(new)'"
     _hdr_clip  = "'Altered due to end-clipping'"
     _hdr_itrn  = "'Altered inside the sequence'"
+    _hdr_prot  = "'Prot unique'"
+    _hdr_protn = "'Prot NNNNx sum'"
     verify_cols_hdr = (
         f"{sep}{_hdr_chg1:>{w_chg1}}{sep}{_hdr_chg2:>{w_chg2}}"
         f"{sep}{_hdr_chg3:>{w_chg3}}{sep}{_hdr_chg4:>{w_chg4}}"
@@ -1218,7 +1302,7 @@ def main() -> None:
         f"{'Modified':<{w_ts}}{sep}"
         f"{'Records':>{w_num}}{sep}{_hdr_drec:>{w_delta}}{sep}"
         f"{_hdr_nnnx:>{w_num}}{sep}{_hdr_dsum:>{w_delta}}{sep}"
-        f"{_hdr_novel:>{w_novel}}"
+        f"{_hdr_novel:>{w_novel}}{sep}{_hdr_prot:>{w_prot}}{sep}{_hdr_protn:>{w_protn}}"
         + verify_cols_hdr
         + disc_header
     )
@@ -1256,6 +1340,14 @@ def main() -> None:
                 novel_col = f"{sep}{novel_str:>{w_novel}}"
         else:
             novel_col = f"{sep}{_em:>{w_novel}}"
+
+        # ── protein-unique column ─────────────────────────────────────────────
+        pu_result = prot_unique[i]  # None | (n_unique, nnnx_sum)
+        if pu_result is None:
+            prot_col = f"{sep}{_em:>{w_prot}}{sep}{_em:>{w_protn}}"
+        else:
+            n_pu, nnnx_pu = pu_result
+            prot_col = f"{sep}{n_pu:>{w_prot},}{sep}{nnnx_pu:>{w_protn},}"
 
         # ── sha256 verification columns ───────────────────────────────────────
         if verify_sha256:
@@ -1304,6 +1396,7 @@ def main() -> None:
             f"{n_rec:>{w_num},}{sep}{d_rec:>{w_delta}}{sep}"
             f"{n_sum:>{w_num},}{sep}{d_sum:>{w_delta}}"
             + novel_col
+            + prot_col
             + verify_cols
             + disc_cols
             + (f"  ({parent_label})" if parent_label else '')
