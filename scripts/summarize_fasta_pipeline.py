@@ -426,10 +426,9 @@ def _build_tsv(fasta_path: str, tsv_path: str,
             if not seq:
                 # Empty sequence — sha256("") would be wrong and misleading.
                 # Warn and skip rather than polluting the TSV.
-                import sys as _sys
                 print(f"  Warning: empty sequence for record '{flush_name}' in"
                       f" {fasta_path} — skipped in TSV",
-                      file=_sys.stderr, flush=True)
+                      file=sys.stderr, flush=True)
                 return
             digest = hashlib.sha256(seq.encode()).hexdigest()
         if digest in id_map:
@@ -532,10 +531,9 @@ def _verify_sha256(
         if not seq:
             # Empty sequence — would hash to sha256("") and be falsely
             # flagged as →novel.  Warn and skip so it doesn't inflate counts.
-            import sys as _sys
             print(f"  Warning: empty sequence for record '{flush_name}' in"
                   f" {fasta_path} — skipped in sha256 verification",
-                  file=_sys.stderr, flush=True)
+                  file=sys.stderr, flush=True)
             return
         new_sha = hashlib.sha256(seq.encode()).hexdigest()
         if new_sha == id_sha:
