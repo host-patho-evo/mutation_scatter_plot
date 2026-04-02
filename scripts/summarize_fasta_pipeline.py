@@ -1090,7 +1090,6 @@ def main() -> None:
     w_chg2   = max(len("'NNNNx clipped(dup)'"), w_num)
     w_chg3   = max(len("'Seq clipped(new)'"), w_num)   # clipped; result = unseen sequence
     w_chg4   = max(len("'NNNNx clipped(new)'"), w_num)
-    w_surv   = max(len("'Total surv.'"), w_num)        # unaltered + altered = total in child
 
     _hdr_disc1  = "'Discarded original FASTA IDs'"
     _hdr_disc2  = "'Sum of discarded sequences'"
@@ -1102,11 +1101,9 @@ def main() -> None:
     _hdr_chg2   = "'NNNNx clipped(dup)'"
     _hdr_chg3   = "'Seq clipped(new)'"
     _hdr_chg4   = "'NNNNx clipped(new)'"
-    _hdr_surv   = "'Total surv.'"
     verify_cols_hdr = (
         f"{sep}{_hdr_chg1:>{w_chg1}}{sep}{_hdr_chg2:>{w_chg2}}"
         f"{sep}{_hdr_chg3:>{w_chg3}}{sep}{_hdr_chg4:>{w_chg4}}"
-        f"{sep}{_hdr_surv:>{w_surv}}"
         if verify_sha256 else ""
     )
     disc_header = (
@@ -1157,25 +1154,19 @@ def main() -> None:
         else:
             novel_col = f"{sep}{_em:>{w_novel}}"
 
-        # ── sha256 verification + total survivors columns ──────────────────────
+        # ── sha256 verification columns ───────────────────────────────────────
         if verify_sha256:
             vd = verify_data[i]
-            # Total survivors = unaltered + altered = len(child sha256 set).
-            # sha256_sets[i][0] is available for every file regardless of loop order.
-            n_total_surv: int | None = len(sha256_sets[i][0]) if p is not None else None
             if vd is None:
                 verify_cols = (
                     f"{sep}{_em:>{w_chg1}}{sep}{_em:>{w_chg2}}"
                     f"{sep}{_em:>{w_chg3}}{sep}{_em:>{w_chg4}}"
-                    f"{sep}{(f'{n_total_surv:,}' if n_total_surv is not None else _em):>{w_surv}}"
                 )
             else:
                 n_ex, s_ex, n_nv, s_nv, *_ = vd
-                surv_total_str = f"{n_total_surv:,}" if n_total_surv is not None else _em
                 verify_cols = (
                     f"{sep}{n_ex:>{w_chg1},}{sep}{s_ex:>{w_chg2},}"
                     f"{sep}{n_nv:>{w_chg3},}{sep}{s_nv:>{w_chg4},}"
-                    f"{sep}{surv_total_str:>{w_surv}}"
                 )
         else:
             verify_cols = ""
