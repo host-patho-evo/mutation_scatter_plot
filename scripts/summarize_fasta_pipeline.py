@@ -528,10 +528,11 @@ def _verify_sha256(
     after the deduplication step that created the ID.
 
     Mismatching records are split into two groups:
-      * "→existing": the new computed sha256 IS in *known_sha256s* (it maps
-        to another sequence already present somewhere in this pipeline run).
-      * "→novel":    the new computed sha256 is NOT in *known_sha256s* (a
-        genuinely new biological sequence was produced by the processing step).
+      * "clipped→dup": the new computed sha256 IS in *known_sha256s* (the
+        clipped sequence is already present elsewhere in this pipeline run —
+        e.g. a shorter isolate that exactly matches after the alignment clip).
+      * "clipped→new": the new computed sha256 is NOT in *known_sha256s* (the
+        clipped sequence is genuinely new — not seen anywhere in the pipeline).
 
     Args:
         fasta_path:    FASTA file to verify.
@@ -544,7 +545,8 @@ def _verify_sha256(
         the file has no ID-embedded sha256 (GISAID / legacy) or is empty.
 
     Returns:
-        (n_existing, sum_nnnx_existing, n_novel, sum_nnnx_novel, altered_id_sha256s)
+        (n_clipped_dup, sum_nnnx_clipped_dup, n_clipped_new, sum_nnnx_clipped_new,
+         altered_id_sha256s)
         where *altered_id_sha256s* is the set of id-embedded sha256 strings for every
         record whose current sequence sha256 differs from the one in its ID.
         Returns None when the file has no ID-embedded sha256 or is empty.
@@ -1082,10 +1084,10 @@ def main() -> None:
     w_disc1  = len("'Discarded original FASTA IDs'")   # 30
     w_disc2  = len("'Sum of discarded sequences'")       # 28
     w_novel  = len("'Novel sha256s'")                   # 15
-    w_chg1   = max(len("'Seq changed(dup)'"), w_num)   # sha256 changed, new = known duplicate
-    w_chg2   = max(len("'NNNNx changed(dup)'"), w_num)
-    w_chg3   = max(len("'Seq changed(new)'"), w_num)   # sha256 changed, new = genuinely new
-    w_chg4   = max(len("'NNNNx changed(new)'"), w_num)
+    w_chg1   = max(len("'Seq clipped(dup)'"), w_num)   # clipped during alignment; result = known dup
+    w_chg2   = max(len("'NNNNx clipped(dup)'"), w_num)
+    w_chg3   = max(len("'Seq clipped(new)'"), w_num)   # clipped during alignment; result = new seq
+    w_chg4   = max(len("'NNNNx clipped(new)'"), w_num)
     w_surv   = max(len("'Total surv.'"), w_num)        # unaltered + altered = total in child
 
     _hdr_disc1  = "'Discarded original FASTA IDs'"
@@ -1094,10 +1096,10 @@ def main() -> None:
     _hdr_drec   = '\u0394Records'
     _hdr_dsum   = '\u0394SumToParent'
     _hdr_novel  = "'Novel sha256s'"
-    _hdr_chg1   = "'Seq changed(dup)'"
-    _hdr_chg2   = "'NNNNx changed(dup)'"
-    _hdr_chg3   = "'Seq changed(new)'"
-    _hdr_chg4   = "'NNNNx changed(new)'"
+    _hdr_chg1   = "'Seq clipped(dup)'"
+    _hdr_chg2   = "'NNNNx clipped(dup)'"
+    _hdr_chg3   = "'Seq clipped(new)'"
+    _hdr_chg4   = "'NNNNx clipped(new)'"
     _hdr_surv   = "'Total surv.'"
     verify_cols_hdr = (
         f"{sep}{_hdr_chg1:>{w_chg1}}{sep}{_hdr_chg2:>{w_chg2}}"
