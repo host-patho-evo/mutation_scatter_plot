@@ -1082,14 +1082,10 @@ def main() -> None:
     w_disc1  = len("'Discarded original FASTA IDs'")   # 30
     w_disc2  = len("'Sum of discarded sequences'")       # 28
     w_novel  = len("'Novel sha256s'")                   # 15
-    w_chg1   = len("'Seq→exist'")                    # 11 — pad to w_num
-    w_chg1   = max(w_chg1, w_num)
-    w_chg2   = len("'NNNNx→exist'")                   # 13
-    w_chg2   = max(w_chg2, w_num)
-    w_chg3   = len("'Seq→novel'")                     # 11 — pad to w_num
-    w_chg3   = max(w_chg3, w_num)
-    w_chg4   = len("'NNNNx→novel'")                   # 13
-    w_chg4   = max(w_chg4, w_num)
+    w_chg1   = max(len("'Seq changed(dup)'"), w_num)   # sha256 changed, new = known duplicate
+    w_chg2   = max(len("'NNNNx changed(dup)'"), w_num)
+    w_chg3   = max(len("'Seq changed(new)'"), w_num)   # sha256 changed, new = genuinely new
+    w_chg4   = max(len("'NNNNx changed(new)'"), w_num)
     w_surv   = max(len("'Total surv.'"), w_num)        # unaltered + altered = total in child
 
     _hdr_disc1  = "'Discarded original FASTA IDs'"
@@ -1098,10 +1094,10 @@ def main() -> None:
     _hdr_drec   = '\u0394Records'
     _hdr_dsum   = '\u0394SumToParent'
     _hdr_novel  = "'Novel sha256s'"
-    _hdr_chg1   = "'Seq\u2192exist'"
-    _hdr_chg2   = "'NNNNx\u2192exist'"
-    _hdr_chg3   = "'Seq\u2192novel'"
-    _hdr_chg4   = "'NNNNx\u2192novel'"
+    _hdr_chg1   = "'Seq changed(dup)'"
+    _hdr_chg2   = "'NNNNx changed(dup)'"
+    _hdr_chg3   = "'Seq changed(new)'"
+    _hdr_chg4   = "'NNNNx changed(new)'"
     _hdr_surv   = "'Total surv.'"
     verify_cols_hdr = (
         f"{sep}{_hdr_chg1:>{w_chg1}}{sep}{_hdr_chg2:>{w_chg2}}"
