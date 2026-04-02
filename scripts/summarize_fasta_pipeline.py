@@ -1258,6 +1258,20 @@ def main() -> None:
             rows.append((display, mtime_s, _count_records(f), _sum_nnnx_counts(f)))
             sha256_sets.append(_collect_sha256_set(f))
             prot_unique.append(_count_prot_unique(f) if _is_prot_file(f) else None)
+            # ── internal consistency: sha256 set size == record count ──────────
+            # For NNNNx files every record has a unique sha256 ID, so the set
+            # cardinality must equal the record count.  A mismatch signals
+            # duplicate sha256 IDs or a stale / mismatched TSV.
+            # Skip twins (check was already done for their primary).
+            sha_set, n_legacy = sha256_sets[-1]
+            _, _, n_rec, _ = rows[-1]
+            if n_legacy == 0 and len(sha_set) != n_rec:
+                print(
+                    f"  Internal check FAILED: {display}: "
+                    f"sha256 set size {len(sha_set):,} \u2260 record count {n_rec:,} "
+                    f"(duplicate sha256 IDs or stale TSV?)",
+                    file=sys.stderr, flush=True,
+                )
         verify_data.append(None)    # placeholder; filled in the verify pass below
         classify_data.append(None)  # placeholder; filled after verify if --classify-mismatches
 
