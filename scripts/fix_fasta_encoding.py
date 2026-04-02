@@ -384,6 +384,7 @@ Notes on the warning categories
 """
 
 import argparse
+import hashlib
 import os
 import re
 import shutil
@@ -460,6 +461,61 @@ def _fmt_size(n: int) -> str:
 def _fmt_speed(bps: float) -> str:
     """Return *bps* bytes/second as a human-readable speed string."""
     return _fmt_size(int(bps)) + "/s"
+
+
+def _file_sha256_stream(path: str) -> str:
+    """Return sha256 hex digest of *path* by reading in 4 MB chunks (streaming)."""
+    h = hashlib.sha256()
+    with open(path, 'rb') as fh:
+        while chunk := fh.read(4 << 20):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _copy_primary_clean(
+        dup_path: str,
+        primary_path: str,
+        dry_run: bool,
+        overwrite: bool,
+        log_fh,
+) -> int:
+    """Copy the already-clean output of *primary_path* to *dup_path*.
+
+    Both files have identical original content (confirmed by size + sha256)
+    so the cleaned output is identical.  This avoids re-running the full
+    Python per-line encoding pass on the duplicate.
+
+    Returns 1 if the copy was performed (or would be in dry-run), 0 if skipped.
+    """
+    def _emit(msg: str = '') -> None:
+        print(msg, file=sys.stderr)
+        if log_fh is not None:
+            print(msg, file=log_fh)
+
+    dup_orig = dup_path + '.orig'
+    if os.path.exists(dup_orig) and not overwrite:
+        _emit(
+            f"  Skipping {dup_path}: backup {os.path.basename(dup_orig)} already "
+            "exists (use --overwrite to force)."
+        )
+        return 0
+    if not os.path.exists(primary_path):
+        _emit(f"  Error: primary clean file {primary_path!r} not found — "
+              f"cannot copy to {dup_path!r}.")
+        return 0
+    size_str = _fmt_size(os.path.getsize(primary_path))
+    action = 'Would copy' if dry_run else 'Copying'
+    _emit(
+        f"  {action} clean output: "
+        f"{os.path.basename(primary_path)} \u2192 {os.path.basename(dup_path)} ({size_str})"
+    )
+    if dry_run:
+        return 1
+    os.rename(dup_path, dup_orig)
+    _emit(f"  Renamed {os.path.basename(dup_path)} \u2192 {os.path.basename(dup_orig)}")
+    shutil.copyfile(primary_path, dup_path)
+    _emit(f"  Copied clean output \u2192 {os.path.basename(dup_path)}")
+    return 1
 
 
 def _fmt_eta(seconds: float) -> str:
@@ -782,33 +838,87 @@ def main() -> None:
     opts = _parser.parse_args()
     dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    total_files = 0
-    total_changed = 0
-    for path in opts.infiles:
-        if not os.path.isfile(path):
-            print(f"Warning: not a file, skipping: {path}", file=sys.stderr)
+    # ── detect identical inputs (size + sha256) ────────────────────────────
+    # Identical files produce identical clean output.  We process the first
+    # occurrence (primary) normally; for identical duplicates (twins) we just
+    # rename the original to .orig and copy the primary's clean output.
+    # This avoids re-running the full Python per-line pass on every twin.
+    valid_paths   = [p for p in opts.infiles if os.path.isfile(p)]
+    invalid_paths = [p for p in opts.infiles if not os.path.isfile(p)]
+
+    # Only consider files that will actually be processed (no .orig yet, or --overwrite).
+    to_check = [p for p in valid_paths
+                if not os.path.exists(p + '.orig') or opts.overwrite]
+
+    by_size: dict[int, list[str]] = {}
+    for p in to_check:
+        by_size.setdefault(os.path.getsize(p), []).append(p)
+
+    copy_from: dict[str, str] = {}   # twin_path → primary_path
+    for sz, size_group in by_size.items():
+        if len(size_group) < 2 or sz == 0:
             continue
+        print(
+            f"Info: {len(size_group)} file(s) share size {_fmt_size(sz)} — "
+            "computing sha256 to detect identical inputs…",
+            file=sys.stderr,
+        )
+        sha_to_primary: dict[str, str] = {}
+        for p in size_group:
+            sha = _file_sha256_stream(p)
+            if sha in sha_to_primary:
+                twin_of = sha_to_primary[sha]
+                copy_from[p] = twin_of
+                print(
+                    f"  {os.path.basename(p)} ≡ {os.path.basename(twin_of)} "
+                    f"(sha256={sha[:16]}…) — will copy clean output instead of reprocessing.",
+                    file=sys.stderr,
+                )
+            else:
+                sha_to_primary[sha] = p
+
+    # Primaries first (ensures clean output exists before twins are processed).
+    primaries = [p for p in valid_paths if p not in copy_from]
+    twins     = [p for p in valid_paths if p in copy_from]
+    ordered   = primaries + twins
+
+    total_files   = 0
+    total_changed = 0
+
+    for path in invalid_paths:
+        print(f"Warning: not a file, skipping: {path}", file=sys.stderr)
+
+    for path in ordered:
         log_path = _make_log_path(path, dt_str)
         print(f"{path}:  (log -> {log_path})", file=sys.stderr)
         with open(log_path, "a", encoding="utf-8") as log_fh:
             log_fh.write(f"\n=== {datetime.now().isoformat()}  {path} ===\n")
-            n = _process_file(
-                path,
-                dry_run=opts.dry_run,
-                overwrite=opts.overwrite,
-                stats_only=opts.stats_only,
-                verbose=opts.verbose,
-                progress=opts.progress,
-                log_fh=log_fh,
-            )
-        total_files += 1
+            if path in copy_from:
+                n = _copy_primary_clean(
+                    path,
+                    primary_path=copy_from[path],
+                    dry_run=opts.dry_run,
+                    overwrite=opts.overwrite,
+                    log_fh=log_fh,
+                )
+            else:
+                n = _process_file(
+                    path,
+                    dry_run=opts.dry_run,
+                    overwrite=opts.overwrite,
+                    stats_only=opts.stats_only,
+                    verbose=opts.verbose,
+                    progress=opts.progress,
+                    log_fh=log_fh,
+                )
+        total_files   += 1
         total_changed += n
 
-    summary = (
+    print(
         f"\nDone: {total_files} file(s) processed, "
-        f"{total_changed:,} total line(s) changed."
+        f"{total_changed:,} total line(s) changed.",
+        file=sys.stderr,
     )
-    print(summary, file=sys.stderr)
 
 
 if __name__ == "__main__":
