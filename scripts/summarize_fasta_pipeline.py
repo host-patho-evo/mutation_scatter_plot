@@ -529,24 +529,25 @@ def _verify_sha256(
 
     Mismatching records are split into two groups:
       * "clipped→dup": the new computed sha256 IS in *known_sha256s* (the
-        sequence was end-clipped by the alignment to match a shorter isolate
-        already present in the pipeline).
-      * "padded→new": the new computed sha256 is NOT in *known_sha256s* (the
-        alignment inserted internal gap-dashes; after stripping them the
-        resulting sequence is genuinely new to the pipeline).
+        sequence was end-clipped/modified to become identical to a sequence
+        that already existed in the immediate parent file).
+      * "padded→new": the new computed sha256 is NOT in *known_sha256s*
+        (modified sequence is novel relative to its direct parent).
 
     Args:
         fasta_path:    FASTA file to verify.
-        known_sha256s: Universe of all sha256 values seen elsewhere in the
-                       pipeline run (union of all _collect_sha256_set results).
-                       Pass None to treat every mismatch as "novel".
+        known_sha256s: sha256 set of the direct parent file in the pipeline
+                       (from _collect_sha256_set).  A mismatch is clipped(dup)
+                       when the new sha256 was already present in the parent;
+                       padded(new) when it was not.  Pass None to treat every
+                       mismatch as padded(new).
 
     Returns:
         (n_existing, sum_nnnx_existing, n_novel, sum_nnnx_novel) or None when
         the file has no ID-embedded sha256 (GISAID / legacy) or is empty.
 
     Returns:
-        (n_clipped_dup, sum_nnnx_clipped_dup, n_padded_new, sum_nnnx_padded_new,
+        (n_clipped_dup, sum_nnnx_clipped_dup, n_clipped_new, sum_nnnx_clipped_new,
          altered_id_sha256s)
         where *altered_id_sha256s* is the set of id-embedded sha256 strings for every
         record whose current sequence sha256 differs from the one in its ID.
@@ -1035,20 +1036,22 @@ def main() -> None:
         mtime_s = datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M')
         rows.append((display, mtime_s, _count_records(f), _sum_nnnx_counts(f)))
         sha256_sets.append(_collect_sha256_set(f))
-        verify_data.append(None)  # placeholder; filled after all_sha256s is built
+        verify_data.append(None)  # placeholder; filled in the verify pass below
 
-    # Build the universe of all known sha256 values (union across all files)
-    # so _verify_sha256 can classify mismatches as →existing or →novel.
-    all_sha256s: set[str] = set()
-    for sha_set, _ in sha256_sets:
-        all_sha256s |= sha_set
-    # Note: sha256_sets is still needed in the table-printing loop for the
+    # sha256_sets is still needed in the table-printing loop for the
     # 'Novel sha256s' column.  It is freed after that loop completes.
 
     if verify_sha256:
         for idx, f in enumerate(files):
             display = os.path.relpath(f, search_path)
-            vd = _verify_sha256(f, all_sha256s)
+            # Pass the direct parent's sha256 set as the "known" universe:
+            # a mismatch records as clipped(dup) when the new sha256 already
+            # existed in the immediate parent, padded(new) when it did not.
+            # Using the parent (not a global union) avoids false positives from
+            # descendant files whose sha256s were not present when this step ran.
+            p = parent_map.get(idx)
+            parent_sha256s = sha256_sets[p][0] if p is not None else None
+            vd = _verify_sha256(f, parent_sha256s)
             verify_data[idx] = vd
             if vd is not None and (vd[0] > 0 or vd[2] > 0):
                 print(
@@ -1058,8 +1061,6 @@ def main() -> None:
                     + f" (NNNNx: {vd[1]+vd[3]:,} total)",
                     file=sys.stderr,
                 )
-
-    del all_sha256s  # no longer needed after verify pass (or if skipped); free RAM
 
     # ── phase 2: compute discard stats for all pairs ─────────────────────────
     # Runs before table printing so the numbers can appear as proper columns.
@@ -1085,10 +1086,10 @@ def main() -> None:
     w_disc1  = len("'Discarded original FASTA IDs'")   # 30
     w_disc2  = len("'Sum of discarded sequences'")       # 28
     w_novel  = len("'Novel sha256s'")                   # 15
-    w_chg1   = max(len("'Seq clipped(dup)'"), w_num)   # end-clipped; result = known duplicate
+    w_chg1   = max(len("'Seq clipped(dup)'"), w_num)   # clipped; result = known duplicate
     w_chg2   = max(len("'NNNNx clipped(dup)'"), w_num)
-    w_chg3   = max(len("'Seq padded(new)'"), w_num)    # internal gaps; result = novel sequence
-    w_chg4   = max(len("'NNNNx padded(new)'"), w_num)
+    w_chg3   = max(len("'Seq clipped(new)'"), w_num)   # clipped; result = unseen sequence
+    w_chg4   = max(len("'NNNNx clipped(new)'"), w_num)
     w_surv   = max(len("'Total surv.'"), w_num)        # unaltered + altered = total in child
 
     _hdr_disc1  = "'Discarded original FASTA IDs'"
@@ -1099,8 +1100,8 @@ def main() -> None:
     _hdr_novel  = "'Novel sha256s'"
     _hdr_chg1   = "'Seq clipped(dup)'"
     _hdr_chg2   = "'NNNNx clipped(dup)'"
-    _hdr_chg3   = "'Seq padded(new)'"
-    _hdr_chg4   = "'NNNNx padded(new)'"
+    _hdr_chg3   = "'Seq clipped(new)'"
+    _hdr_chg4   = "'NNNNx clipped(new)'"
     _hdr_surv   = "'Total surv.'"
     verify_cols_hdr = (
         f"{sep}{_hdr_chg1:>{w_chg1}}{sep}{_hdr_chg2:>{w_chg2}}"
