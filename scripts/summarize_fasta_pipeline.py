@@ -874,6 +874,8 @@ def main() -> None:
     all_sha256s: set[str] = set()
     for sha_set, _ in sha256_sets:
         all_sha256s |= sha_set
+    # Note: sha256_sets is still needed in the table-printing loop for the
+    # 'Novel sha256s' column.  It is freed after that loop completes.
 
     if verify_sha256:
         for idx, f in enumerate(files):
@@ -888,6 +890,8 @@ def main() -> None:
                     + f" (NNNNx: {vd[1]+vd[3]:,} total)",
                     file=sys.stderr,
                 )
+
+    del all_sha256s  # no longer needed after verify pass (or if skipped); free RAM
 
     # ── phase 2: compute discard stats for all pairs ─────────────────────────
     # Runs before table printing so the numbers can appear as proper columns.
@@ -1025,6 +1029,7 @@ def main() -> None:
 
 
     print(rule)
+    del sha256_sets  # no longer needed after table; free RAM
 
     # ── overall summary ───────────────────────────────────────────────────────
     if len(rows) >= 2:
