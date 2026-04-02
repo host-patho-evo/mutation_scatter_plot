@@ -182,6 +182,16 @@ records) through a multi-stage deduplication and traceability pipeline.
 | `summarize_fasta_pipeline.py` | Audit the entire pipeline: count records, compute NNNNx sums, show per-step deltas |
 | `check_alignment_trimming.py` | Diagnostic: count sequences shortened during alignment (causing sha256 mismatch) |
 
+Several pipeline steps use tools from the **[BBMap / BBTools](https://sourceforge.net/projects/bbmap/)** suite
+(also mirrored at [github.com/BioInfoTools/BBMap](https://github.com/BioInfoTools/BBMap)),
+notably `filterbyname.sh` (record filtering by name list) and `reformat.sh`
+(format conversion, uppercasing with `tuc=t`, single-line wrapping with `fastawrap=0`).
+Note: `reformat.sh` with `tuc=t` does **not** cause sha256 mismatches — `count_same_sequences.py`
+already calls `.upper()` before hashing (as does `_verify_sha256`), so case changes are invisible
+to the sha256 comparison. IUPAC ambiguity codes (W, R, Y, …) are preserved unchanged by both
+`tuc=t` and `SeqIO.write`; they would only be converted if `iupacToN=t` were explicitly supplied
+to `reformat.sh`.
+
 ### File naming convention
 
 Each pipeline stage appends a dot-separated suffix to the output name,
