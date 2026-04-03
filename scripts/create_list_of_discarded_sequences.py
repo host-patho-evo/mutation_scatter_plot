@@ -94,6 +94,27 @@ import sys
 
 VERSION = "202603311815"
 
+
+def _get_git_version() -> str:
+    """Return ``git describe --always --dirty --tags`` output, or ``'unknown'``."""
+    _here = os.path.dirname(os.path.abspath(__file__))
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--always", "--dirty", "--tags"],
+            capture_output=True, text=True, check=True,
+            cwd=_here,
+        )
+        ver = result.stdout.strip()
+        if ver:
+            return ver
+    except Exception:  # pylint: disable=broad-except
+        pass
+    env_ver = os.environ.get("GIT_COMMIT", "").strip()
+    return env_ver[:12] if env_ver else "unknown"
+
+
+_GIT_VERSION: str = _get_git_version()
+
 _parser = argparse.ArgumentParser(description=__doc__,
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
 _parser.add_argument(
@@ -305,8 +326,10 @@ def _line_count(line):
 
 def main():
     """Parse arguments and emit original FASTA IDs matching a deduplicated FASTA."""
+    _start_ts = datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
     print(
-        f"create_list_of_discarded_sequences.py  version {VERSION}"
+        f"{_start_ts} create_list_of_discarded_sequences.py"
+        f"  version {VERSION}  git:{_GIT_VERSION}"
         f"  invoked: {' '.join(sys.argv)}",
         file=sys.stderr,
     )
