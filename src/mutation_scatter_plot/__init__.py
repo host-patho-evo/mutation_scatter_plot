@@ -43,7 +43,10 @@ def alt_translate(seq, table=1):
     result = []
     for i in range(0, len(seq), 3):
         codon = seq[i:i + 3]
-        if not codon:
+        if not codon or len(codon) < 3:
+            # Silently drop incomplete trailing codons — calling Biopython on
+            # a 1- or 2-nt fragment causes a BiopythonWarning and may raise in
+            # future versions.  This matches _translate_seq behaviour.
             continue
         if '-' in codon and codon != '---':
             # Partial-gap codon: treat each '-' as 'N' (unknown nucleotide).
