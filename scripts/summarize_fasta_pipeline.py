@@ -679,7 +679,7 @@ def _count_prot_unique(path: str) -> tuple[int, int] | None:
     parts: list[str] = []
     cur_nnnx: int = 1
 
-    def _chk(chk_name: str, chk_parts: list[str]) -> None:
+    def _chk(_chk_name: str, chk_parts: list[str]) -> None:
         seq = (''.join(chk_parts)
                .replace('\r', '').replace('\n', '').replace('-', '').upper())
         if not seq:
@@ -1594,7 +1594,7 @@ def main() -> None:
     # Pre-size all accumulator lists so index-based (thread-safe) writes are
     # possible in the parallel path (no .append() ordering constraints).
     rows:          list = [None] * len(files)   # (display, mtime_s, n_rec, n_sum)
-    sha256_sets:   list = [None] * len(files)   # (set[str], int) sha256 set + n_legacy
+    sha256_sets = [None] * len(files)           # (set[str], int) sha256 set + n_legacy
     verify_data:   list = [None] * len(files)   # filled in Phase 2
     classify_data: list = [None] * len(files)   # filled after Phase 2
     prot_unique:   list = [None] * len(files)   # distinct protein seq count (prot files only)
@@ -1690,7 +1690,7 @@ def main() -> None:
         else:
             max_w2 = min(jobs, len(files))
             print(
-                f"  Parallel Phase 2: verifying {len(files)} file(s) "
+                f"  Parallel Phase 2: verifying {n_verify} file(s) "
                 f"with {max_w2} worker(s).",
                 file=sys.stderr,
             )
@@ -1709,8 +1709,8 @@ def main() -> None:
     discard_data: dict[int, tuple[int, int]] = {}  # child_idx -> (n_ids, nnnx_sum)
     if do_discard:
         print(
-            f"\n── Phase 3: Discard statistics (parent→child pairs) "
-            f"─────────────────────────────────────────────────────",
+            "\n── Phase 3: Discard statistics (parent→child pairs) "
+            "─────────────────────────────────────────────────────",
             file=sys.stderr,
         )
         print(
@@ -1751,7 +1751,7 @@ def main() -> None:
                 file=sys.stderr,
             )
             with ThreadPoolExecutor(max_workers=max_w3) as exc:
-                futs = {exc.submit(_run_discard, i, files[i], parent_map[i]): i 
+                futs = {exc.submit(_run_discard, i, files[i], parent_map[i]): i
                         for i in child_indices}
                 for fut in as_completed(futs):
                     result = fut.result()

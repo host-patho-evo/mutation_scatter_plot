@@ -308,7 +308,7 @@ def _iter_fasta(path):
                 name = toks[0] if toks else ""
                 full_header = header
                 parts = []
-                skip_seq = (_extract_sha256(name) is not None)
+                skip_seq = _extract_sha256(name) is not None
             else:
                 if not skip_seq:
                     line = _decode_fasta_line(raw).rstrip("\r\n")
