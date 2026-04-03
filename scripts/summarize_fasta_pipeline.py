@@ -1790,7 +1790,6 @@ def main() -> None:
                                           os.path.basename(p)))
     n_files = len(files)
     # ── resolve auto-jobs using the storage type of search_path ──────────────
-    _max_auto_jobs = 8   # fallback cap when storage type is unknown
     if jobs == 0:
         fs_desc, fs_cap = _detect_storage_type(search_path)
         cap = n_files if fs_cap == 0 else min(n_files, fs_cap)
@@ -1990,10 +1989,10 @@ def main() -> None:
             file=sys.stderr,
         )
 
-        def _run_verify(idx: int) -> dict:
+        def _run_verify(idx: int, _sha256_sets: list = sha256_sets) -> dict:
             return _verify_one_file(
                 idx, files[idx], len(files), search_path,
-                parent_map, sha256_sets, content_twin, files, classify_mismatches,
+                parent_map, _sha256_sets, content_twin, files, classify_mismatches,
             )
 
         if jobs <= 1 or len(files) <= 1:

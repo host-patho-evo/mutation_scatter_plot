@@ -32,9 +32,9 @@ import os
 import io
 from optparse import OptionParser
 
-version = "202504031900"
+VERSION = "202504031900"
 
-myparser = OptionParser(version="%s version %s" % ('%prog', version))
+myparser = OptionParser(version=f"%prog version {VERSION}")
 myparser.add_option("--infile", action="store", type="string", dest="infile", default='',
     help="Input FASTA file with word plus or minus as the second word of the header, use minus (dash) for stdin")
 myparser.add_option("--outfile", action="store", type="string", dest="outfile", default='',
@@ -52,7 +52,7 @@ myparser.add_option("--respect-alignment", action="store_true", dest="respect_al
 
 # ── codon lookup table ────────────────────────────────────────────────────────
 
-def _build_codon_table(ignore_gaps: bool, respect_alignment: bool) -> dict:
+def _build_codon_table() -> dict:
     """Build a flat codon→amino-acid dict from the NCBI standard genetic code.
 
     Special cases handled up front so the hot translation loop needs only a
@@ -67,7 +67,7 @@ def _build_codon_table(ignore_gaps: bool, respect_alignment: bool) -> dict:
       3. Codon with 'N' → 'X'  (ambiguous nucleotide)
       4. Standard 64 codons    → looked up from Biopython CodonTable once
     """
-    from Bio.Data import CodonTable
+    from Bio.Data import CodonTable  # pylint: disable=import-outside-toplevel
     std = CodonTable.unambiguous_dna_by_id[1]
 
     table: dict[str, str] = {}
@@ -145,7 +145,7 @@ def parse_input(
         respect_alignment: bool,
 ) -> None:
     """Stream *infile* (binary), translate each record, write to *outfileh* (binary)."""
-    table = _build_codon_table(ignore_gaps, respect_alignment)
+    table = _build_codon_table()
     for header, seq in _iter_fasta_raw(infile):
         try:
             aa_seq = _translate_seq(seq, table, ignore_gaps)
@@ -164,18 +164,19 @@ if __name__ == "__main__":
     # ── open input ────────────────────────────────────────────────────────────
     if not myoptions.infile or myoptions.infile == '-':
         _infileh = sys.stdin.buffer
-        _infilename = 'STDIN'
+        infilename = 'STDIN'
     elif os.path.exists(myoptions.infile):
         _infileh = open(myoptions.infile, 'rb')  # pylint: disable=consider-using-with
-        _infilename = myoptions.infile
+        infilename = myoptions.infile
     else:
-        raise RuntimeError(f"File {myoptions.infile} does not exist")
+        infilename = myoptions.infile
+        raise RuntimeError(f"File {infilename} does not exist")
 
     # ── open output ───────────────────────────────────────────────────────────
     if not myoptions.outfile or myoptions.outfile == '-':
         _outfileh: io.RawIOBase = sys.stdout.buffer
     elif os.path.exists(myoptions.outfile):
-        raise RuntimeError("Error: File %s already exists" % myoptions.outfile)
+        raise RuntimeError(f"Error: File {myoptions.outfile} already exists")
     else:
         _outfileh = open(myoptions.outfile, 'xb')  # pylint: disable=consider-using-with
 
@@ -185,7 +186,7 @@ if __name__ == "__main__":
     try:
         parse_input(
             _infileh,
-            _infilename,
+            infilename,
             _buf_out,
             ignore_gaps=myoptions.ignore_gaps,
             respect_alignment=myoptions.respect_alignment,
