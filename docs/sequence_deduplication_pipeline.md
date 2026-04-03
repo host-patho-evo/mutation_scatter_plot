@@ -21,7 +21,7 @@ filename_prefix.sha256_to_ids.tsv            (sha256 → original FASTA ID mappi
         ▼
 filename_prefix.counts.clean.fasta           (alignment-filtered subset)
         │
-        │  kick.py --full-length=N
+        │  split_fasta_entries_by_lengths --full-length=N
         ▼
 filename_prefix.counts.clean.exactly_N.fasta  (exactly N nt, after padding removal)
 filename_prefix.counts.clean.shorter_N.fasta  (shorter than N nt)
@@ -48,9 +48,9 @@ All scripts follow a consistent naming rule:
 | `filename_prefix.counts.fasta` | `count_same_sequences.py` | deduplicated; `NNNNx.sha256hex` IDs |
 | `filename_prefix.sha256_to_ids.tsv` | `count_same_sequences.py` | sha256 → original FASTA ID map |
 | `filename_prefix.counts.clean.fasta` | alignment filter | sequences that aligned successfully |
-| `filename_prefix.counts.clean.exactly_N.fasta` | `kick.py` | sequences of exactly N nt |
-| `filename_prefix.counts.clean.shorter_N.fasta` | `kick.py` | sequences shorter than N nt |
-| `filename_prefix.counts.clean.longer_N.fasta` | `kick.py` | sequences longer than N nt |
+| `filename_prefix.counts.clean.exactly_N.fasta` | `split_fasta_entries_by_lengths` | sequences of exactly N nt |
+| `filename_prefix.counts.clean.shorter_N.fasta` | `split_fasta_entries_by_lengths` | sequences shorter than N nt |
+| `filename_prefix.counts.clean.longer_N.fasta` | `split_fasta_entries_by_lengths` | sequences longer than N nt |
 | `filename_prefix.counts.clean.exactly_N.discarded_original_ids.txt` | `create_list_of_discarded_sequences.py` | original IDs of discarded sequences |
 
 > **Note:** Replace `filename_prefix` with your actual file base name. These
@@ -163,7 +163,7 @@ step, run `create_list_of_discarded_sequences.py` directly for that pair).
 
 ---
 
-### `kick.py`
+### `split_fasta_entries_by_lengths`
 
 **Purpose:** Split a deduplicated counts FASTA by sequence length into three
 output files: `exactly_N`, `shorter_N`, and `longer_N`.
@@ -300,7 +300,7 @@ count_same_sequences.py \
 # produces: filename_prefix.counts.clean.fasta
 
 # Step 3 – split by length
-kick.py \
+split_fasta_entries_by_lengths \
     --infile=filename_prefix.counts.clean.fasta \
     --outfile-prefix=filename_prefix.counts.clean \
     --full-length=3822
