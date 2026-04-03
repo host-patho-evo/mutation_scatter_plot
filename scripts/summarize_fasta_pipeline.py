@@ -1777,8 +1777,8 @@ def main() -> None:
     _hdr_disc1 = "'Discarded original FASTA IDs'"
     _hdr_disc2 = "'Sum of discarded sequences'"
     _hdr_nnnx  = "'Sum of NNNNx'"
-    _hdr_drec  = '\u0394Records'
-    _hdr_dsum  = '\u0394SumToParent'
+    _hdr_drec  = 'ΔFastaEntries'
+    _hdr_dsum  = 'ΔSumToParent'
     _hdr_novel = "'Novel sha256s'"
     _hdr_chg1  = "'Seq clipped(dup)'"
     _hdr_chg2  = "'NNNNx clipped(dup)'"
@@ -1802,7 +1802,7 @@ def main() -> None:
     header = (
         f"{'File':<{col_file}}{sep}"
         f"{'Modified':<{w_ts}}{sep}"
-        f"{'Records':>{w_num}}{sep}{_hdr_drec:>{w_delta}}{sep}"
+        f"{'FastaEntries':>{w_num}}{sep}{_hdr_drec:>{w_delta}}{sep}"
         f"{_hdr_nnnx:>{w_num}}{sep}{_hdr_dsum:>{w_delta}}{sep}"
         f"{_hdr_novel:>{w_novel}}{sep}{_hdr_prot:>{w_prot}}{sep}{_hdr_protn:>{w_protn}}"
         + verify_cols_hdr
@@ -1931,7 +1931,7 @@ def main() -> None:
         last_rec,  last_sum  = rows[-1][2], rows[-1][3]
         print()
         print("Overall change  (last vs first):")
-        print(f"  Records : {_delta_str(last_rec, first_rec):>16}  ({_pct_str(last_rec, first_rec)} of first)")
+        print(f"  FastaEntries : {_delta_str(last_rec, first_rec):>16}  ({_pct_str(last_rec, first_rec)} of first)")
         print(f"  Sum     : {_delta_str(last_sum, first_sum):>16}  ({_pct_str(last_sum, first_sum)} of first)")
 
 
