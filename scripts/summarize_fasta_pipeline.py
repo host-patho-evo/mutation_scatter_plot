@@ -1502,7 +1502,7 @@ def _extract_discarded_to_fasta(
         cmd = [
             'filterbyname.sh',
             f'in={root_path}', f'names={names_file}',
-            f'out={out_fasta}', 'ignorejunk=t',
+            f'out={out_fasta}', 'include=t', 'ignorejunk=t', 'fastawrap=0',
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', check=False)
         if result.returncode == 0:
