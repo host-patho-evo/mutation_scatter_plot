@@ -1259,27 +1259,45 @@ def _compute_discard_stats(parent_path: str, child_path: str,
     return None, None
 
 
+def _is_counts_file(path: str) -> bool:
+    """True if the FASTA stem contains a bare '.counts' segment (NNNNx IDs).
+
+    count_same_sequences.py names its output with '.counts' as a dot-delimited
+    segment, e.g. spikenuc1207.no_junk.counts.fasta.  Downstream derivatives
+    (*.counts.3822.clean.fasta, etc.) also contain 'counts' in their stems.
+    """
+    basename = _strip_fasta_suffix(os.path.basename(path))
+    return 'counts' in basename.split('.')
+
+
 def _extract_discarded_to_fasta(
         child_path: str,
         root_path: str,
+        mapping_path: str,
         search_path: str,
 ) -> None:
     """Phase 4: extract discarded sequences from the root ancestor FASTA.
 
     Reads {child_stem}.discarded_sha256_hashes.txt, maps the sha256 hexes to
-    original FASTA IDs via {root_stem}.sha256_to_ids.tsv, writes a temporary
-    names file, then runs filterbyname.sh (or a streaming Python fallback) to
-    produce:
+    original FASTA IDs via {mapping_stem}.sha256_to_ids.tsv (the first
+    GISAID-level ancestor in the parent chain), writes a temporary names file,
+    then runs filterbyname.sh (or a streaming Python fallback) to produce:
         {child_stem}.discarded_original_entries.fasta
-    """
-    child_stem = _strip_fasta_suffix(child_path)
-    root_stem  = _strip_fasta_suffix(root_path)
-    sha_file   = child_stem + '.discarded_sha256_hashes.txt'
-    out_fasta  = child_stem + '.discarded_original_entries.fasta'
-    child_disp = os.path.relpath(child_path, search_path)
-    root_disp  = os.path.relpath(root_path,  search_path)
 
-    print(f"  {child_disp}: extracting discarded records from {root_disp} …",
+    root_path    – the root ancestor FASTA to extract records FROM.
+    mapping_path – the GISAID-level ancestor whose sha256_to_ids.tsv maps
+                   sha256 → original GISAID accession IDs.
+    """
+    child_stem   = _strip_fasta_suffix(child_path)
+    mapping_stem = _strip_fasta_suffix(mapping_path)
+    sha_file     = child_stem + '.discarded_sha256_hashes.txt'
+    out_fasta    = child_stem + '.discarded_original_entries.fasta'
+    child_disp   = os.path.relpath(child_path,   search_path)
+    root_disp    = os.path.relpath(root_path,    search_path)
+    mapping_disp = os.path.relpath(mapping_path, search_path)
+
+    print(f"  {child_disp}: extracting discarded records from {root_disp} "
+          f"(sha256 map: {mapping_disp}) …",
           file=sys.stderr, flush=True)
 
     # ── Step 1: read sha256 hashes ─────────────────────────────────────────
@@ -1306,19 +1324,19 @@ def _extract_discarded_to_fasta(
               file=sys.stderr)
         return
 
-    # ── Step 2: map sha256s → GISAID IDs via root ancestor TSV ──────────────
+    # ── Step 2: map sha256s → GISAID IDs via GISAID-level ancestor TSV ──────
     # sha256_to_ids.tsv is built by count_same_sequences.py.
     # sha256_to_descr_lines.tsv is built when --write-original-descr-lines is
     # used; taking the first whitespace-separated token gives the accession ID.
-    root_tsv_candidates = [
-        root_stem + '.sha256_to_ids.tsv',
-        root_stem + '.sha256_to_descr_lines.tsv',
+    tsv_candidates = [
+        mapping_stem + '.sha256_to_ids.tsv',
+        mapping_stem + '.sha256_to_descr_lines.tsv',
     ]
-    root_tsv = next((t for t in root_tsv_candidates if os.path.exists(t)), None)
+    root_tsv = next((t for t in tsv_candidates if os.path.exists(t)), None)
     if root_tsv is None:
         print(
-            f"    Skipped: no usable ancestor TSV found at root "
-            f"({os.path.basename(root_stem)}.sha256_to_{{ids,descr_lines}}.tsv).",
+            f"    Skipped: no usable ancestor TSV found "
+            f"({os.path.basename(mapping_stem)}.sha256_to_{{ids,descr_lines}}.tsv).",
             file=sys.stderr,
         )
         return
@@ -1913,8 +1931,19 @@ def main() -> None:
             root_idx = child_idx
             while root_idx in parent_map:
                 root_idx = parent_map[root_idx]
+            # Find the first GISAID-level ancestor (non-counts file) whose
+            # sha256_to_ids TSV maps sha256 → plain accession IDs (not NNNNx).
+            # That is the parent immediately above the first counts file.
+            mapping_idx = root_idx  # safe fallback
+            idx = child_idx
+            while idx in parent_map:
+                par_idx = parent_map[idx]
+                if not _is_counts_file(files[par_idx]):
+                    mapping_idx = par_idx
+                    break
+                idx = par_idx
             _extract_discarded_to_fasta(files[child_idx], files[root_idx],
-                                        search_path)
+                                        files[mapping_idx], search_path)
 
     # ── print table ──────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))
