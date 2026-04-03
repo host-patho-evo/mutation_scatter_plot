@@ -55,16 +55,27 @@ Options:
     --jobs N             Number of parallel workers for Phase 0 (sha256
                          identity check), Phase 1 (per-file gather), and Phase
                          2 & 3 (verification & stats). Default is 1 (sequential,
-                         unchanged behaviour).
-                         Parallelization is strictly across files, not within.
-                         This is the optimal strategy for fast local SSDs and
-                         especially for NFSv4/network storage: it allows the OS
-                         to stream entirely different files concurrently, which
-                         saturates bandwidth perfectly. Attempting to scan the
-                         same file concurrently (within-file parallelism) would
-                         cause severe read-ahead thrashing and ruin NFS caching.
-                         Since operations are I/O-bound, ThreadPoolExecutor is
-                         used, rendering ProcessPoolExecutor unnecessary.
+                         unchanged behaviour).  No auto-detection from environment
+                         variables: must be set explicitly.  Recommended: 4-8
+                         for a pipeline with 5-20 FASTA files over NFS.
+
+                         Why '--jobs' and not '--threads'?
+                         Each job is one complete file audit (reading one FASTA
+                         and all its ancillary files).  Operations are I/O-bound
+                         and release Python's GIL, so OS threads via
+                         ThreadPoolExecutor are the right primitive -- no
+                         process-fork overhead is needed.  The name follows the
+                         GNU 'make -j N' / 'parallel -j N' convention.
+
+                         Contrast with calculate_codon_frequencies --threads N,
+                         which forks CPU-bound worker *processes* via
+                         multiprocessing.Pool to distribute 1,274 codon-site
+                         computations.  Because that work is CPU-intensive (not
+                         I/O-bound), processes avoid the GIL and are needed.
+
+                         Parallelization here is strictly across files, not
+                         within.  Scanning the same file concurrently would
+                         cause read-ahead thrashing on NFSv4 and ruin caching.
     --disable-discarded-original-ids-file
                          Do not write per-step .discarded_sha256_hashes.txt
                          files (or the companion .discarded_original_ids.txt).
@@ -143,6 +154,14 @@ Examples:
     #   wc -l *exactly_3822.discarded_original_ids.txt
     #   awk '{print $1}' *exactly_3822.discarded_sha256_hashes.txt \
     #       | sed 's/x.*//' | awk '{s+=$1} END {print s}'
+
+    # Parallel audit of 8 FASTA files at once (I/O-bound across files):
+    #   --jobs 5 sets 5 concurrent OS threads, each auditing a different file.
+    #   Named '--jobs' (not '--threads') because each unit of work is an entire
+    #   file audit, following GNU make -j / parallel -j naming convention.
+    #   Contrast with calculate_codon_frequencies --threads 8 which forks
+    #   CPU-bound worker processes for codon-site computations.
+    summarize_fasta_pipeline.py . spikenuc1207.native2ascii.no_junk --jobs 5
 """
 
 import datetime
