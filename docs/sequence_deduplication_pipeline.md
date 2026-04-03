@@ -252,6 +252,17 @@ used.
 | `--cpu-bind {local,spread,none}` | NUMA CPU binding policy (default: `local`). `local` binds all threads to the NUMA node with the most free RAM before any I/O begins. `spread` leaves OS placement unchanged. `none` disables autobind. Silently skipped on single-node hosts and when a job scheduler has already set placement via `GOMP_CPU_AFFINITY`, `KMP_AFFINITY`, `SLURM_CPU_BIND`, `SGE_BINDING`, or `OMP_PROC_BIND`. |
 | `--jobs N` | Number of parallel workers for Phase 0 (sha256 verification) and Phase 1 (FASTA scanning). **Default: 1 (sequential).** No auto-detection from environment variables: must be set explicitly. Recommended value: 4–8 for a pipeline with 5–20 FASTA files over NFS. |
 
+> **Why `--jobs` and not `--threads`?**  
+> `summarize_fasta_pipeline.py` parallelises *across files* using
+> `concurrent.futures.ThreadPoolExecutor` (one thread per FASTA file).
+> Because FASTA reads are I/O-bound and release Python’s GIL, OS threads are
+> the right primitive — no process fork overhead needed.  The flag name follows
+> the GNU `make -j N` / `parallel -j N` convention where a **job** is an
+> independent unit of work (here: one file audit).  
+> `calculate_codon_frequencies` uses **`--threads`** because it forks real
+> CPU-bound **worker processes** via `multiprocessing.Pool` to parallelise
+> computation across 1,274 codon sites.
+
 ---
 
 ### `check_alignment_trimming.py`
