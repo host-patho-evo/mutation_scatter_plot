@@ -49,47 +49,39 @@ myparser.add_option("--ignore-gaps", action="store_true", dest="ignore_gaps", de
     help="Ignore eventual gaps in sequences and drop them before translation. If you padded the sequence alignment to keep it in-frame do not enable this.")
 myparser.add_option("--respect-alignment", action="store_true", dest="respect_alignment", default=False,
     help="Respect padded alignment as input and do not die with an incomplete codon 'AA-' but return 'X'")
+myparser.add_option("--translation-table", action="store", type="int", dest="translation_table", default=1,
+    help="NCBI genetic code table number (default: 1 = standard). "
+         "See https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi for all tables.")
 (myoptions, myargs) = myparser.parse_args()
 
 
 # ── codon lookup table ────────────────────────────────────────────────────────
 
-def _build_codon_table() -> dict:
-    """Build a flat codon→amino-acid dict from the NCBI standard genetic code.
+def _build_codon_table(table_id: int = 1) -> dict:
+    """Build a flat codon→amino-acid dict for the given NCBI genetic code *table_id*.
 
-    Special cases handled up front so the hot translation loop needs only a
-    single dict.get(codon, 'X') call per codon — no branching, no Biopython
-    function-call overhead, no generator chaining.
-
-    Codon resolution priority (applied once at build time):
-      1. '---' → '-'           (alignment gap codon)
-      2. codon with '-' but not '---':
-           respect_alignment → 'X'  (partial gap in aligned input)
-           ignore_gaps       → handled by stripping '-' before slicing
-      3. Codon with 'N' → 'X'  (ambiguous nucleotide)
-      4. Standard 64 codons    → looked up from Biopython CodonTable once
+    Covers all 64 standard codons (upper and lower case) plus '---' → '-'.
+    IUPAC ambiguity codons and partial-gap codons are handled at translation
+    time via the Biopython fallback in _translate_seq.
     """
     from Bio.Data import CodonTable  # pylint: disable=import-outside-toplevel
-    std = CodonTable.unambiguous_dna_by_id[1]
+    std = CodonTable.unambiguous_dna_by_id[table_id]
 
-    table: dict[str, str] = {}
+    result: dict[str, str] = {}
 
-    # Standard 64 sense codons (upper-case ACGTacgt)
+    # Standard sense codons (upper-case and lower-case variants)
     for codon, aa in std.forward_table.items():
-        table[codon] = aa
-        table[codon.lower()] = aa
+        result[codon] = aa
+        result[codon.lower()] = aa
     # Stop codons → '*'
     for codon in std.stop_codons:
-        table[codon] = '*'
-        table[codon.lower()] = '*'
+        result[codon] = '*'
+        result[codon.lower()] = '*'
 
-    # Gap codon
-    table['---'] = '-'
+    # Full-gap codon → gap amino acid
+    result['---'] = '-'
 
-    # Any codon containing '-' (but not '---') → 'X' when respecting alignment
-    # (These are built lazily in _translate_seq via the dict.get default.)
-
-    return table
+    return result
 
 
 # ── raw-bytes streaming FASTA parser ─────────────────────────────────────────
@@ -117,8 +109,9 @@ def _iter_fasta_raw(fh):
 
 # ── translation ───────────────────────────────────────────────────────────────
 
-def _translate_seq(seq: str, table: dict, ignore_gaps: bool) -> str:
-    """Translate *seq* to amino acids using the pre-built *table*.
+def _translate_seq(seq: str, codon_table: dict, ignore_gaps: bool,
+                   table_id: int = 1) -> str:
+    """Translate *seq* to amino acids using the pre-built *codon_table*.
 
     Three codon resolution paths, fastest first:
 
@@ -128,8 +121,8 @@ def _translate_seq(seq: str, table: dict, ignore_gaps: bool) -> str:
 
     2. Partial-gap codon ('TC-', 'AT-', 'A-C', …) or pure IUPAC ('TCN'):
        Each '-' is treated as 'N' (unknown nucleotide — same semantics as
-       an alignment gap), then Bio.Seq.translate() resolves per-codon.
-       This correctly gives TC- → TCN → S and AT- → ATN → X (ambiguous).
+       an alignment gap), then Bio.Seq.translate() resolves per-codon using
+       *table_id*.  This correctly gives TC- → TCN → S and AT- → ATN → X.
 
     When *ignore_gaps* is True, all '-' are stripped before slicing so the
     reading frame is preserved across gapped regions.
@@ -142,7 +135,7 @@ def _translate_seq(seq: str, table: dict, ignore_gaps: bool) -> str:
     result: list[str] = []
     for i in range(0, length - length % 3, 3):
         codon = seq[i:i + 3]
-        aa = table.get(codon)
+        aa = codon_table.get(codon)
         if aa is None:
             # Not in the fast dict: partial-gap (TC-) or IUPAC (TCN).
             # Treat '-' as 'N' — a gap in an alignment column means
@@ -152,7 +145,7 @@ def _translate_seq(seq: str, table: dict, ignore_gaps: bool) -> str:
             #   AT- → ATN → X  (ATN can be Ile or Met → ambiguous)
             codon_n = codon.replace('-', 'N')
             try:
-                aa = _bio_translate(codon_n, gap='-')
+                aa = _bio_translate(codon_n, table=table_id, gap='-')
             except Exception:  # pylint: disable=broad-except
                 aa = 'X'
         result.append(aa)
@@ -167,18 +160,19 @@ def parse_input(
         outfileh,
         ignore_gaps: bool,
         respect_alignment: bool,  # pylint: disable=unused-argument
+        translation_table: int = 1,
 ) -> None:
     """Stream *infile* (binary), translate each record, write to *outfileh* (binary).
 
-    *respect_alignment* is accepted for API compatibility.  The lookup-table
-    implementation already handles partial-gap codons (any codon containing
-    '-' that is not '---') by returning 'X' via the dict default, so the
-    flag has no effect on the output.
+    *respect_alignment* is accepted for API compatibility; gap handling is
+    implemented unconditionally via the '-' → 'N' substitution in _translate_seq.
+    *translation_table* selects the NCBI genetic code (default: 1 = standard).
     """
-    table = _build_codon_table()
+    codon_table = _build_codon_table(table_id=translation_table)
     for header, seq in _iter_fasta_raw(infile):
         try:
-            aa_seq = _translate_seq(seq, table, ignore_gaps)
+            aa_seq = _translate_seq(seq, codon_table, ignore_gaps,
+                                    table_id=translation_table)
         except Exception as exc:
             raise ValueError(
                 f"Cannot translate record '{header.split()[0]}' in {source_name}"
@@ -222,6 +216,7 @@ def _main() -> None:
             buf_out,
             ignore_gaps=myoptions.ignore_gaps,
             respect_alignment=myoptions.respect_alignment,
+            translation_table=myoptions.translation_table,
         )
     finally:
         buf_out.flush()

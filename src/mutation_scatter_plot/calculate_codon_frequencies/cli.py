@@ -127,6 +127,11 @@ def build_option_parser():
              "silently skipped on single-node hosts and when a job scheduler "
              "has already set the CPU affinity (GOMP_CPU_AFFINITY, "
              "KMP_AFFINITY, SLURM_CPU_BIND, SGE_BINDING, OMP_PROC_BIND).")
+    myparser.add_argument("--translation-table", action="store", type=int,
+        dest="translation_table", default=1, metavar="N",
+        help="NCBI genetic code table number to use for translation "
+             "(default: 1 = standard genetic code). "
+             "See https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi for all tables.")
     return myparser
 
 
@@ -146,7 +151,8 @@ def main():
     for _record in SeqIO.parse(myoptions.reference_infilename, "fasta"):
         _padded_reference_dna_seq = str(_record.seq)
         break  # parse only the first and supposedly the only entry
-    _reference_protein_seq = alt_translate(_padded_reference_dna_seq)
+    _reference_protein_seq = alt_translate(_padded_reference_dna_seq,
+                                           table=myoptions.translation_table)
     _reference_as_codons = get_codons(_padded_reference_dna_seq,
                                       debug=myoptions.debug)
 
@@ -214,6 +220,7 @@ def main():
                 _max_stop,
                 threads=_threads,
                 chunksize=_chunksize,
+                translation_table=myoptions.translation_table,
             )
         else:
             raise RuntimeError(

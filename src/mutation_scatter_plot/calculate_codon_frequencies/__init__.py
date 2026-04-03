@@ -71,7 +71,8 @@ def get_codons(seq, debug=False):
 
 def write_tsv_line(outfilename, codons, natural_codon_position_padded,
                    natural_codon_position_depadded, reference_aa,
-                   total_codons_per_site_sum, reference_codon, debug=False):
+                   total_codons_per_site_sum, reference_codon, debug=False,
+                   translation_table=1):
     """Write one or more TSV lines for all codons observed at a site."""
     if not outfilename:
         return
@@ -83,7 +84,7 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded,
         if len(_some_codon) < 3:
             _some_aa = 'X'
         else:
-            _some_aa = alt_translate(_some_codon)
+            _some_aa = alt_translate(_some_codon, table=translation_table)
         _observed_codon_count = Decimal(codons[_some_codon])
         if not _observed_codon_count:
             _observed_codon_count2 = 0
@@ -276,7 +277,8 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                     alnfilename_count: typing.Any, aa_start: int, min_start: int, max_stop: int,
                     threads: int = None,
                     pool: typing.Optional["multiprocessing.pool.Pool"] = None,
-                    chunksize: typing.Optional[int] = None):
+                    chunksize: typing.Optional[int] = None,
+                    translation_table: int = 1):
     """
     Parse a padded multi-FASTA alignment and write codon frequency TSV files.
 
@@ -598,11 +600,11 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         _last_flush_t = time.monotonic()
         for _res in _all_results:
             # Write results
-            write_tsv_line(outfilename_unchanged_codons, _res['unchanged'], _res['nat_padded'], _res['nat_depadded'], _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug)
+            write_tsv_line(outfilename_unchanged_codons, _res['unchanged'], _res['nat_padded'], _res['nat_depadded'], _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)
             if _res['changed']:
-                write_tsv_line(outfilename, _res['changed'], _res['nat_padded'], _res['nat_depadded'], _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug)
+                write_tsv_line(outfilename, _res['changed'], _res['nat_padded'], _res['nat_depadded'], _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)
             if _res['inserted']:
-                write_tsv_line(outfilename, _res['inserted'], _res['nat_padded'], _res['nat_depadded'], 'INS', _res['total_sum'], _res['ref_codon'], debug=myoptions.debug)
+                write_tsv_line(outfilename, _res['inserted'], _res['nat_padded'], _res['nat_depadded'], 'INS', _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)
 
             if _res['is_deletion']:
                 for _some_deleted_codon in _res['deleted']:
