@@ -209,7 +209,7 @@ def build_sha256_id_mapping(infilename, mapping_outfile, debug=0):
         if digest is None:
             seq = "".join(flush_parts).replace("\r", "").replace("\n", "").replace("-", "").upper()
             digest = hashlib.sha256(seq.encode()).hexdigest()
-            
+
         if digest in mapping:
             mapping[digest][0] += 1
             mapping[digest][1].append(flush_name)
@@ -227,7 +227,7 @@ def build_sha256_id_mapping(infilename, mapping_outfile, debug=0):
                     if debug and n_in % 500_000 == 0:
                         print(f"Info: mapping pass: processed {n_in} records,"
                               f" {len(mapping)} unique", file=sys.stderr)
-                
+
                 line = _decode_fasta_line(raw).rstrip("\r\n")
                 parts = line[1:].split()
                 name = parts[0] if parts else ""
