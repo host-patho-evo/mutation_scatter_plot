@@ -178,7 +178,7 @@ records) through a multi-stage deduplication and traceability pipeline.
 |---|---|
 | `count_same_sequences.py` | Deduplicate FASTA; write `NNNNx.sha256` IDs + sha256→ID mapping TSV |
 | `create_list_of_discarded_sequences.py` | Expand a counts FASTA back to original FASTA IDs; identify discarded records |
-| `kick.py` | Split a counts FASTA into three files by sequence length (exactly / shorter / longer than N nt) |
+| `split_fasta_entries_by_lengths` | Split a counts FASTA into three files by sequence length (exactly / shorter / longer than N nt) |
 | `summarize_fasta_pipeline.py` | Audit the entire pipeline: count records, compute NNNNx sums, show per-step deltas |
 | `check_alignment_trimming.py` | Diagnostic: count sequences shortened during alignment (causing sha256 mismatch) |
 
@@ -201,7 +201,7 @@ making the parent→child relationship machine-readable:
 filename_prefix.fasta                          ← raw input
 filename_prefix.counts.fasta                   ← after count_same_sequences.py
 filename_prefix.counts.clean.fasta             ← after alignment filter
-filename_prefix.counts.clean.exactly_N.fasta   ← after kick.py
+filename_prefix.counts.clean.exactly_N.fasta   ← after split_fasta_entries_by_lengths
 filename_prefix.counts.clean.exactly_N.discarded_original_ids.txt
 ```
 
@@ -216,7 +216,7 @@ count_same_sequences.py \
 # (align externally, producing filename_prefix.counts.clean.fasta)
 
 # Split by target length
-kick.py \
+split_fasta_entries_by_lengths \
     --infile=filename_prefix.counts.clean.fasta \
     --outfile-prefix=filename_prefix.counts.clean \
     --full-length=3822

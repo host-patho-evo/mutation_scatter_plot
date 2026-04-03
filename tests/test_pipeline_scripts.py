@@ -20,10 +20,19 @@ import time
 import unittest
 
 SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'scripts')
+SRC_SCRIPTS_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    'src', 'mutation_scatter_plot', 'scripts',
+)
 
 
 def _script(name: str) -> str:
     return os.path.join(SCRIPTS_DIR, name)
+
+
+def _src_script(name: str) -> str:
+    """Return absolute path to a script inside src/mutation_scatter_plot/scripts/."""
+    return os.path.join(SRC_SCRIPTS_DIR, name)
 
 
 def _load_module(script_name: str):
@@ -422,13 +431,13 @@ class TestCreateListCLI(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 5. kick.py CLI
+# 5. split_fasta_entries_by_lengths CLI
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestKickCLI(unittest.TestCase):
-    """CLI smoke tests for kick.py."""
+class TestSplitFastaByLengthsCLI(unittest.TestCase):
+    """CLI smoke tests for split_fasta_entries_by_lengths (formerly kick.py)."""
 
-    SCRIPT = _script("kick.py")
+    SCRIPT = _src_script("split_fasta_entries_by_lengths.py")
 
     def _run(self, *args):
         return subprocess.run(
