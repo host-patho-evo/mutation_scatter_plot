@@ -32,16 +32,22 @@ Test scenarios (per the discussion in Biopython PR #4992 and issue #5036):
   9. Alternative genetic code tables
  10. Case insensitivity of standard codons
 """
+# pylint: disable=missing-function-docstring  # pytest: test names are self-documenting
+# pylint: disable=invalid-name                # biological codon names use uppercase (TC-, AT-)
 
+from decimal import Decimal
 import io
-import sys
+import itertools
 import os
+import sys
+
 import pytest
 
 # ── helpers / imports ─────────────────────────────────────────────────────────
 
 # Import from the package
 from mutation_scatter_plot import alt_translate
+from mutation_scatter_plot.calculate_codon_frequencies import write_tsv_line
 
 # Import internal functions from the scripts/ translate tool.
 # Since scripts/ is not installed as a package, add it to sys.path.
@@ -394,8 +400,7 @@ class TestParseInput:
              respect_alignment=True, translation_table=1) -> str:
         in_buf = io.BytesIO(fasta_bytes)
         out_buf = io.BytesIO()
-        import io as _io
-        buffered_out = _io.BufferedWriter(out_buf)
+        buffered_out = io.BufferedWriter(out_buf)
         parse_input(in_buf, "test", buffered_out,
                     ignore_gaps=ignore_gaps,
                     respect_alignment=respect_alignment,
@@ -519,8 +524,6 @@ class TestIncompleteCodonFragments:
 #     current alt_translate() vs current _translate_seq()
 # ─────────────────────────────────────────────────────────────────────────────
 
-import itertools
-
 # IUPAC nucleotide codes used in DNA FASTA files, plus alignment gap '-'.
 # 16 characters → 16^3 = 4096 complete codons to test.
 _IUPAC_GAP_CHARS = list("ACGTRYSWKMBDHVN-")
@@ -622,9 +625,6 @@ class TestExhaustiveIUPACGapCodons:
 # 12. calculate_codon_frequencies translation path (write_tsv_line)
 # ─────────────────────────────────────────────────────────────────────────────
 
-from mutation_scatter_plot.calculate_codon_frequencies import write_tsv_line
-from decimal import Decimal
-
 
 def _write_tsv_translate(codon, translation_table=1):
     """Extract just the amino acid that write_tsv_line assigns to *codon*.
@@ -633,7 +633,6 @@ def _write_tsv_translate(codon, translation_table=1):
     computes.  We drive it with a single-codon dict (count=1, total=1) and
     capture the output to extract the 4th column (mutant_aa).
     """
-    import io
     buf = io.StringIO()
     codons = {codon: Decimal(1)}
     write_tsv_line(
