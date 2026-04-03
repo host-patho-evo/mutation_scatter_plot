@@ -20,11 +20,33 @@ VERSION = "0.3"
 
 @functools.lru_cache(maxsize=128)
 def alt_translate(seq):
-    """Biopython cannot sometimes translate a sequence but one can get around by
-    splitting it into codons and merging later back.
+    """Translate a nucleotide sequence (possibly alignment-padded) to protein.
+
+    Biopython's translate() cannot handle sequences with gap characters
+    without crashing.  This wrapper splits the input into per-codon chunks
+    and calls Bio.Seq.translate() on each, applying the semantics of the
+    proposed --respect-alignment flag from Biopython PR #4992:
+
+      '---' → '-'   (full gap codon → gap amino acid)
+      'TC-' → 'X'   (partial-gap codon → ambiguous; NOT mapped via NNN)
+      'TCN' → 'S'   (IUPAC ambiguity → resolved by Biopython per-codon)
+      'TCA' → 'S'   (standard codon → fast Biopython lookup, lru_cache hit)
+
+    The lru_cache is effective when called with single 3-nt codons
+    (the common case in mutation_scatter_plot/__init__.py).
+
     https://github.com/biopython/biopython/pull/4992
-    https://github.com/biopython/biopython/pull/4992#issuecomment-2865429105
     """
-    codons = (seq[i:i+3] for i in range(0, len(seq), 3))
-    codons = ("NNN" if "-" in codon and codon != "---" else codon for codon in codons)
-    return "".join(translate(codon, gap='-') for codon in codons)
+    result = []
+    for i in range(0, len(seq), 3):
+        codon = seq[i:i + 3]
+        if not codon:
+            continue
+        if '-' in codon and codon != '---':
+            # Partial-gap codon: treat each '-' as 'N' (unknown nucleotide).
+            # This lets Biopython resolve correctly per-codon:
+            #   TC- → TCN → S  (four-fold degenerate → Serine)
+            #   AT- → ATN → X  (ATN can be Ile or Met → ambiguous)
+            codon = codon.replace('-', 'N')
+        result.append(translate(codon, gap='-'))
+    return ''.join(result)

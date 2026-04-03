@@ -126,14 +126,10 @@ def _translate_seq(seq: str, table: dict, ignore_gaps: bool) -> str:
        Standard ATGC codons and the full-gap codon are resolved via a
        single dict.get() with no Biopython overhead.
 
-    2. Partial-gap codon (contains '-' but is not '---', e.g. 'TC-'):
-       Returns 'X' immediately — this is the --respect-alignment semantics
-       from Biopython PR #4992.  The gap occupies an alignment column that
-       cannot be unambiguously resolved, so 'X' is correct.
-
-    3. Pure IUPAC ambiguity codon (no gap, e.g. 'TCN', 'CGN'):
-       Falls back to Bio.Seq.translate() per-codon, which can resolve
-       four-fold degenerate positions (e.g. TCN → S).
+    2. Partial-gap codon ('TC-', 'AT-', 'A-C', …) or pure IUPAC ('TCN'):
+       Each '-' is treated as 'N' (unknown nucleotide — same semantics as
+       an alignment gap), then Bio.Seq.translate() resolves per-codon.
+       This correctly gives TC- → TCN → S and AT- → ATN → X (ambiguous).
 
     When *ignore_gaps* is True, all '-' are stripped before slicing so the
     reading frame is preserved across gapped regions.
@@ -148,18 +144,17 @@ def _translate_seq(seq: str, table: dict, ignore_gaps: bool) -> str:
         codon = seq[i:i + 3]
         aa = table.get(codon)
         if aa is None:
-            if '-' in codon:
-                # Partial-gap codon (e.g. TC-, A-C): respect_alignment semantics
-                # → treat as ambiguous ('X').  Do NOT replace '-' with 'N' because
-                # that would incorrectly give TC- → TCN → S instead of X.
+            # Not in the fast dict: partial-gap (TC-) or IUPAC (TCN).
+            # Treat '-' as 'N' — a gap in an alignment column means
+            # "unknown nucleotide", the same semantics as N.  This lets
+            # Biopython resolve the codon correctly per-codon:
+            #   TC- → TCN → S  (all four nucleotides give Serine)
+            #   AT- → ATN → X  (ATN can be Ile or Met → ambiguous)
+            codon_n = codon.replace('-', 'N')
+            try:
+                aa = _bio_translate(codon_n, gap='-')
+            except Exception:  # pylint: disable=broad-except
                 aa = 'X'
-            else:
-                # Pure IUPAC ambiguity codon (e.g. TCN, CGN): Biopython can
-                # sometimes resolve these to a unique amino acid (TCN → S).
-                try:
-                    aa = _bio_translate(codon, gap='-')
-                except Exception:  # pylint: disable=broad-except
-                    aa = 'X'
         result.append(aa)
     return ''.join(result)
 
