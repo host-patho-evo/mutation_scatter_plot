@@ -321,7 +321,7 @@ def _get_git_version() -> str:
     try:
         result = subprocess.run(
             ["git", "describe", "--always", "--dirty", "--tags"],
-            capture_output=True, text=True, check=True,
+            capture_output=True, text=True, encoding='utf-8', check=True,
             cwd=_here,
         )
         ver = result.stdout.strip()
@@ -387,7 +387,7 @@ def _mtime(path: str) -> float:
 
 def _count_records(path: str) -> int:
     """Number of '>' header lines in a FASTA file."""
-    result = subprocess.run(['grep', '-c', '^>', path], capture_output=True, text=True, check=False)
+    result = subprocess.run(['grep', '-c', '^>', path], capture_output=True, text=True, encoding='utf-8', check=False)
     text = result.stdout.strip()
     return int(text) if text else 0
 
@@ -1264,13 +1264,13 @@ def _read_discarded_txt_stats(txt_path: str) -> tuple[int, int]:
     """
     n_ids = int(subprocess.run(
         f"wc -l < {_shell_quote(txt_path)}",
-        shell=True, capture_output=True, text=True, check=False,
+        shell=True, capture_output=True, text=True, encoding='utf-8', check=False,
     ).stdout.strip() or 0)
     nnnx_sum = int(subprocess.run(
         f"awk '{{print $1}}' {_shell_quote(txt_path)}"
         r" | sed -e 's/x.*//'"
         r" | awk '{SUM += $1} END {print SUM+0}'",
-        shell=True, capture_output=True, text=True, check=False,
+        shell=True, capture_output=True, text=True, encoding='utf-8', check=False,
     ).stdout.strip() or 0)
     return n_ids, nnnx_sum
 
@@ -1369,7 +1369,7 @@ def _compute_discard_stats(parent_path: str, child_path: str,
     ]
     if verbose:
         _print(f"  \u21b3 [{source_label}] -> {child_base}", flush=True)
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', check=False)
     # Suppress Info: lines — the key numbers will appear in the table instead.
     for line in result.stderr.splitlines():
         if line.startswith(('Warning:', 'Error:')):
@@ -1504,7 +1504,7 @@ def _extract_discarded_to_fasta(
             f'in={root_path}', f'names={names_file}',
             f'out={out_fasta}', 'ignorejunk=t',
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', check=False)
         if result.returncode == 0:
             print(f"    Wrote: {os.path.relpath(out_fasta, search_path)}",
                   file=sys.stderr)
