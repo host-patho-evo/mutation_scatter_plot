@@ -7,12 +7,15 @@ output.
 
 Binding mechanism tried in priority order
 -----------------------------------------
-1. ``numa`` Python library (``pip install numa``, wraps ``libnuma``) — sets
-   both CPU affinity **and** memory allocation policy in-process.
-2. ``numactl --cpunodebind=N --localalloc`` — re-exec via ``os.execvpe``
+1. ``ctypes`` → ``libnuma.so.1`` — calls ``numa_run_on_node()`` and
+   ``numa_set_preferred()`` directly.  No compilation required; works on
+   Python 3.12 + where the ``numa`` PyPI package no longer builds.  Requires
+   the system package ``libnuma1`` (Debian/Ubuntu) or ``numactl-libs`` (RHEL).
+2. ``numa`` Python library (``pip install numa``) — older Python (≤ 3.11) only.
+3. ``numactl --cpunodebind=N --localalloc`` — re-exec via ``os.execvpe``
    (replaces the process image; covers child subprocesses too; sets memory
    policy correctly).  Only attempted when ``numactl`` is found in PATH.
-3. ``os.sched_setaffinity()`` — Python stdlib, zero external deps.  Sets CPU
+4. ``os.sched_setaffinity()`` — Python stdlib, zero external deps.  Sets CPU
    affinity only; memory policy is left to the OS first-touch heuristic.
    CPU affinity *is* inherited by ``fork()``-ed child processes.
 
@@ -37,6 +40,8 @@ placement):
 
 from __future__ import annotations
 
+import ctypes
+import ctypes.util
 import glob
 import os
 import shutil
@@ -147,8 +152,30 @@ def _omp_proc_bind_override() -> str | None:
 # Binding back-ends
 # ---------------------------------------------------------------------------
 
-def _bind_via_numa_lib(node: _NUMANode) -> bool:
-    """Try in-process bind via the ``numa`` PyPI package (``libnuma`` wrapper).
+def _bind_via_libnuma_ctypes(node: _NUMANode) -> bool:
+    """In-process bind via ``ctypes`` → ``libnuma.so.1`` (no compilation needed).
+
+    Works on Python 3.12 + where the ``numa`` PyPI extension module no longer
+    builds.  Requires the system package ``libnuma1`` (Debian/Ubuntu) or
+    ``numactl-libs`` (RHEL/Fedora).
+    """
+    libname = ctypes.util.find_library('numa') or 'libnuma.so.1'
+    try:
+        lib = ctypes.CDLL(libname, use_errno=True)
+    except OSError:
+        return False
+    try:
+        if lib.numa_available() < 0:
+            return False          # kernel has no NUMA support (CONFIG_NUMA not set)
+        lib.numa_run_on_node(ctypes.c_int(node.index))
+        lib.numa_set_preferred(ctypes.c_int(node.index))
+        return True
+    except (AttributeError, OSError):
+        return False
+
+
+def _bind_via_numa_pylib(node: _NUMANode) -> bool:
+    """Try in-process bind via the ``numa`` PyPI package (Python ≤ 3.11 only).
 
     Sets both CPU affinity and memory allocation policy.
     """
@@ -269,10 +296,12 @@ def autobind(mode: str = 'local', verbose: bool = True) -> int | None:
     # ── local / compact ── pick node with most free memory ──────────────
     best = max(nodes, key=lambda nd: nd.free_bytes)
 
-    # Back-end 1: numa Python library (CPU + memory policy, in-process).
+    # Back-end 1: ctypes → libnuma.so.1 (in-process, CPU + memory policy).
     bound_method: str | None = None
-    if _bind_via_numa_lib(best):
-        bound_method = 'numa-lib'
+    if _bind_via_libnuma_ctypes(best):
+        bound_method = 'ctypes/libnuma'
+    elif _bind_via_numa_pylib(best):
+        bound_method = 'numa-pylib'
     else:
         # Back-end 2: numactl re-exec (CPU + memory policy, replaces image).
         # Does NOT return on success (os.execvpe).
@@ -289,7 +318,7 @@ def autobind(mode: str = 'local', verbose: bool = True) -> int | None:
     if verbose:
         print(
             f"[numa_bind] {len(nodes)} NUMA nodes detected but no binding method "
-            f"is available (install the `numa` pip package or `numactl`). "
+            f"is available (install `libnuma1` + `numactl`). "
             f"Using OS default placement.",
             file=sys.stderr,
         )
