@@ -618,10 +618,10 @@ def _build_tsv(fasta_path: str, tsv_path: str,
     n_in = 0
     with open(fasta_path, "rb") as fh:
         for raw in fh:
-            line = _decode_fasta_line(raw).rstrip("\r\n")
-            if not line:
+            if not raw.rstrip(b"\r\n"):
                 continue
-            if line[0] == ">":
+            if raw.startswith(b">"):
+                line = _decode_fasta_line(raw).rstrip("\r\n")
                 if name is not None:
                     _flush(name, full_header, seq_parts)
                     n_in += 1
@@ -637,7 +637,7 @@ def _build_tsv(fasta_path: str, tsv_path: str,
                 full_header = hdr.replace("\t", "\\t")
                 seq_parts = []
             else:
-                seq_parts.append(line)
+                seq_parts.append(raw.decode("ascii", errors="ignore").rstrip("\r\n"))
         if name is not None:
             _flush(name, full_header, seq_parts)
             n_in += 1
@@ -690,10 +690,10 @@ def _count_prot_unique(path: str) -> tuple[int, int] | None:
     try:
         with open(path, 'rb') as fh:
             for raw in fh:
-                line = _decode_fasta_line(raw).rstrip('\r\n')
-                if not line:
+                if not raw.rstrip(b'\r\n'):
                     continue
-                if line[0] == '>':
+                if raw.startswith(b'>'):
+                    line = _decode_fasta_line(raw).rstrip('\r\n')
                     if name is not None:
                         _chk(name, parts)
                     tok = line[1:].split()[0] if line[1:].split() else ''
@@ -708,7 +708,7 @@ def _count_prot_unique(path: str) -> tuple[int, int] | None:
                         cur_nnnx = 1
                     parts = []
                 else:
-                    parts.append(line)
+                    parts.append(raw.decode('ascii', errors='ignore').rstrip('\r\n'))
             if name is not None:
                 _chk(name, parts)
     except OSError:
@@ -796,10 +796,10 @@ def _verify_sha256(
     try:
         with open(fasta_path, "rb") as fh:
             for raw in fh:
-                line = _decode_fasta_line(raw).rstrip("\r\n")
-                if not line:
+                if not raw.rstrip(b"\r\n"):
                     continue
-                if line[0] == ">":
+                if raw.startswith(b">"):
+                    line = _decode_fasta_line(raw).rstrip("\r\n")
                     if name is not None and is_nnnx_file:
                         _chk(name, seq_parts)
                     hdr  = line[1:]
@@ -811,7 +811,7 @@ def _verify_sha256(
                             return None  # GISAID / legacy file — skip
                         is_nnnx_file = True
                 else:
-                    seq_parts.append(line)
+                    seq_parts.append(raw.decode('ascii', errors='ignore').rstrip('\r\n'))
             if name is not None and is_nnnx_file:
                 _chk(name, seq_parts)
     except OSError:
@@ -872,10 +872,10 @@ def _classify_mismatches(
     try:
         with open(parent_path, 'rb') as fh:
             for raw in fh:
-                line = _decode_fasta_line(raw).rstrip('\r\n')
-                if not line:
+                if not raw.rstrip(b'\r\n'):
                     continue
-                if line[0] == '>':
+                if raw.startswith(b'>'):
+                    line = _decode_fasta_line(raw).rstrip('\r\n')
                     if name is not None:
                         _resolve(name, parts)
                     name = line[1:].split()[0] if line[1:].split() else ''
@@ -883,7 +883,7 @@ def _classify_mismatches(
                     if not remaining:
                         break  # all resolved — stop early
                 else:
-                    parts.append(line)
+                    parts.append(raw.decode('ascii', errors='ignore').rstrip('\r\n'))
             if name is not None and remaining:
                 _resolve(name, parts)
     except OSError as exc:
@@ -1027,11 +1027,11 @@ def _enrich_fasta(fasta_path: str, id_to_sha: dict, out_lines: list[str] | None 
     with (open(orig_path, "rb") as src,
           open(fasta_path, "w", encoding="utf-8") as dst):
         for raw in src:
-            line = _decode_fasta_line(raw).rstrip("\r\n")
-            if not line:
+            if not raw.rstrip(b"\r\n"):
                 dst.write("\n")
                 continue
-            if line[0] == ">":
+            if raw.startswith(b">"):
+                line = _decode_fasta_line(raw).rstrip("\r\n")
                 toks = line[1:].split()
                 rec_id = toks[0] if toks else ""
                 if _extract_sha256_from_id(rec_id) is None and rec_id in id_to_sha:
@@ -1042,7 +1042,7 @@ def _enrich_fasta(fasta_path: str, id_to_sha: dict, out_lines: list[str] | None 
                 else:
                     dst.write(line + "\n")
             else:
-                dst.write(line + "\n")
+                dst.write(raw.decode('ascii', errors='ignore').rstrip('\r\n') + "\n")
 
     _print(f"  [add-missing-checksums] wrote {enriched:,} enriched IDs"
            f" -> {os.path.basename(fasta_path)}", flush=True)
