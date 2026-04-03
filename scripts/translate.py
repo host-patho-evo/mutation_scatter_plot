@@ -139,18 +139,26 @@ def _translate_seq(seq: str, table: dict, ignore_gaps: bool) -> str:
 
 def parse_input(
         infile,
-        infilename: str,
+        source_name: str,
         outfileh,
         ignore_gaps: bool,
-        respect_alignment: bool,
+        respect_alignment: bool,  # pylint: disable=unused-argument
 ) -> None:
-    """Stream *infile* (binary), translate each record, write to *outfileh* (binary)."""
+    """Stream *infile* (binary), translate each record, write to *outfileh* (binary).
+
+    *respect_alignment* is accepted for API compatibility.  The lookup-table
+    implementation already handles partial-gap codons (any codon containing
+    '-' that is not '---') by returning 'X' via the dict default, so the
+    flag has no effect on the output.
+    """
     table = _build_codon_table()
     for header, seq in _iter_fasta_raw(infile):
         try:
             aa_seq = _translate_seq(seq, table, ignore_gaps)
         except Exception as exc:
-            raise ValueError(f"Cannot translate record '{header.split()[0]}' in {infilename}") from exc
+            raise ValueError(
+                f"Cannot translate record '{header.split()[0]}' in {source_name}"
+            ) from exc
         outfileh.write(b'>')
         outfileh.write(header.encode('utf-8', errors='replace'))
         outfileh.write(b'\n')
@@ -160,40 +168,45 @@ def parse_input(
 
 # ── entry point ───────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
+def _main() -> None:
+    """Parse CLI options and run the translation pipeline."""
     # ── open input ────────────────────────────────────────────────────────────
     if not myoptions.infile or myoptions.infile == '-':
-        _infileh = sys.stdin.buffer
-        infilename = 'STDIN'
+        infileh = sys.stdin.buffer
+        source_name = 'STDIN'
     elif os.path.exists(myoptions.infile):
-        _infileh = open(myoptions.infile, 'rb')  # pylint: disable=consider-using-with
-        infilename = myoptions.infile
+        infileh = open(myoptions.infile, 'rb')  # pylint: disable=consider-using-with
+        source_name = myoptions.infile
     else:
-        infilename = myoptions.infile
-        raise RuntimeError(f"File {infilename} does not exist")
+        raise RuntimeError(f"File {myoptions.infile} does not exist")
 
     # ── open output ───────────────────────────────────────────────────────────
     if not myoptions.outfile or myoptions.outfile == '-':
-        _outfileh: io.RawIOBase = sys.stdout.buffer
+        outfileh: io.RawIOBase = sys.stdout.buffer
     elif os.path.exists(myoptions.outfile):
         raise RuntimeError(f"Error: File {myoptions.outfile} already exists")
     else:
-        _outfileh = open(myoptions.outfile, 'xb')  # pylint: disable=consider-using-with
+        outfileh = open(myoptions.outfile, 'xb')  # pylint: disable=consider-using-with
 
     # Wrap in a large BufferedWriter to amortise write() syscall overhead.
-    _buf_out = io.BufferedWriter(_outfileh, buffer_size=4 << 20)  # 4 MB
+    buf_out = io.BufferedWriter(outfileh, buffer_size=4 << 20)  # 4 MB
 
     try:
         parse_input(
-            _infileh,
-            infilename,
-            _buf_out,
+            infileh,
+            source_name,
+            buf_out,
             ignore_gaps=myoptions.ignore_gaps,
             respect_alignment=myoptions.respect_alignment,
         )
     finally:
-        _buf_out.flush()
-        if _infileh is not sys.stdin.buffer:
-            _infileh.close()
-        if _outfileh is not sys.stdout.buffer:
-            _outfileh.close()
+        buf_out.flush()
+        if infileh is not sys.stdin.buffer:
+            infileh.close()
+        if outfileh is not sys.stdout.buffer:
+            outfileh.close()
+
+
+if __name__ == "__main__":
+    _main()
+
