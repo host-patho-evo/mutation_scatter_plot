@@ -1,0 +1,12 @@
+[flake8]
+# Match the pylint max-line-length.
+max-line-length = 120
+
+# E501 – already handled via max-line-length above
+# W503 – line break before binary operator (PEP 8 reversed this recommendation)
+extend-ignore = W503
+
+# Per-file suppressions
+per-file-ignores =
+    # E402: sys.argv patch requires imports inside try/finally block
+    tests/test_translation.py: E402
