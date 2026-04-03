@@ -321,6 +321,110 @@ flag in `summarize_fasta_pipeline.py`.
 
 ---
 
+## Encoding Pre-processing: `fix_fasta_encoding.py`
+
+GISAID FASTA exports aggregate submissions from thousands of labs with
+different software, operating systems, and locale settings.  Raw files can
+contain a mixture of encoding artefacts that break downstream tools.  Run
+`fix_fasta_encoding.py` on the raw FASTA **before** any other pipeline step:
+
+```bash
+fix_fasta_encoding.py spikenuc1207.fasta
+# writes clean UTF-8 to spikenuc1207.fasta
+# renames original to spikenuc1207.fasta.orig
+```
+
+It normalises three encoding forms in a single streaming pass:
+
+| Artefact | Example bytes | Example glyph | Fix |
+|---|---|---|---|
+| Literal `\uXXXX` escapes | `\u00e9` (6 ASCII chars) | `é` | `_unescape_unicode()` |
+| Raw Latin-1 bytes | `0xe9` (1 byte) | `é` | surrogate-escape decode |
+| C0 control characters | `\u0003` (6 ASCII chars) | *ETX* | unescape → strip |
+
+### The `\u0003` issue and `filterbyname.sh` v39.62
+
+GISAID record **EPI_ISL_2016759** (Belgium, 2021-04-12) has a literal
+`\u0003` (backslash-u-0-0-0-3 as six ASCII bytes) embedded in its header:
+
+```
+>Spike|...|EPI_ISL_2016759|...|'[Run20210508\u0003template bulk upload 20210508.xlsx]...|Belgium
+ATGTTTGTTTTTCTT...
+```
+
+Verified with `od -c` on the raw file:
+
+```
+0000160   2   1   0   5   0   8   \   u   0   0   0   3   t   e   m   p
+```
+
+The display shows `\ u 0 0 0 3` — **six separate ASCII characters** — not
+`\003` (the single ETX byte). The header and the sequence are on separate
+lines; the FASTA format is well-formed.
+
+**Why `filterbyname.sh` (BBTools ≥ v39.06) mishandles this:**
+
+`filterbyname.sh` is a Java/Kotlin tool.  Java resolves `\uXXXX` escape
+sequences **natively during string parsing**: when Java reads the six
+characters `\u0003` from the file, its internal string layer silently
+converts them to the actual Unicode codepoint U+0003 (ETX = End of Text).
+filterbyname.sh then uses ETX as a field or record delimiter, producing
+three failure modes:
+
+1. **Header truncation** — filterbyname.sh registers a truncated record
+   name (everything before the ETX: `>...|'[Run20210508`).  Depending on
+   how filterbyname.sh matches names, the accession `EPI_ISL_2016759` may
+   never be found in the names list.
+
+2. **`ignorejunk=t` bypass** — if filterbyname.sh classifies the record
+   as "junk" due to the ETX codepoint, `ignorejunk=t` forwards it to the
+   output stream **without consulting the names list** — meaning the record
+   passes through a junk-removal step it was supposed to be filtered by.
+
+3. **Malformed output FASTA** — when filterbyname.sh writes the extracted
+   record, it emits a real LF (`\n`) where the ETX was, splitting the
+   header.  The tail of the original header (`template bulk upload...|Belgium`)
+   is concatenated directly onto the nucleotide sequence with no newline
+   separator.  The SHA-256 of this mangled "sequence" does not match the
+   expected sha256.  The `summarize_fasta_pipeline.py` audit then reports:
+   - **1 spurious *Novel sha256*** (the mangled sequence is a "new" hash)
+   - **63 discarded entries instead of 64** (the real entry is miscounted)
+
+**The fix applied by `fix_fasta_encoding.py`:**
+
+```
+Step 3 (_unescape_unicode):  \u0003  →  \x03   (real ETX byte, 1 byte)
+Step 4 (_strip_c0_controls): \x03   →  ""      (stripped)
+Result:  >...|'[Run20210508template bulk upload 20210508.xlsx]...|Belgium
+```
+
+The clean header has no control characters, filterbyname.sh reads it as a
+plain ASCII string, and all three failure modes are eliminated.
+
+### Backup file exclusion in `summarize_fasta_pipeline.py`
+
+`fix_fasta_encoding.py` renames the original to `.fasta.orig` before writing
+the cleaned file.  `summarize_fasta_pipeline.py` scans for all FASTA variants
+including `.fasta.orig`.  Without a guard, **both** the clean `spikenuc1207.fasta`
+and the original `spikenuc1207.fasta.orig` would appear in the file list with
+the same stem, causing:
+
+- Spurious duplicate entries in the pipeline table
+- Ambiguous parent→child resolution (two roots with identical stems)
+- Potential use of the *unfixed* `.fasta.orig` as the `root_path` for
+  `_extract_discarded_to_fasta`, re-triggering the filterbyname.sh
+  `\u0003` failure
+
+Since commit `29c48fb`, the scanner silently skips any `.fasta.orig` /
+`.fasta.ori` / `.fasta.old` file when a corresponding `.fasta` is present,
+printing a diagnostic to stderr:
+
+```
+  Skipping backup 'spikenuc1207.fasta.orig' (clean 'spikenuc1207.fasta' present).
+```
+
+---
+
 ## Mixed-Encoding Handling
 
 GISAID FASTA files contain non-ASCII characters in sample descriptions (country
