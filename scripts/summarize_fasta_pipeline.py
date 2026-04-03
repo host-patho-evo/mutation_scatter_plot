@@ -1957,13 +1957,13 @@ def main() -> None:
     w_chg4   = max(len("'NNNNx clipped(new)'"), w_num)
     w_clip   = max(len("'Altered due to end-clipping'"), w_num)
     w_itrn   = max(len("'Altered inside the sequence'"), w_num)
-    w_prot   = max(len("'Prot unique'"), w_num)
-    w_protn  = max(len("'Prot NNNNx sum'"), w_num)
+    w_prot   = max(len("'Unique protein entries'"), w_num)
+    w_protn  = max(len("'Sum of protein NNNNx'"), w_num)
 
     _hdr_disc1 = "'Discarded original unique Entries'"
     _hdr_disc2 = "'Sum of discarded NNNNx'"
     _hdr_nnnx  = "'Sum of NNNNx'"
-    _hdr_drec  = 'ΔFastaEntries'
+    _hdr_drec  = 'ΔDNA entries'
     _hdr_dsum  = 'ΔSumToParent'
     _hdr_novel = "'Novel sha256s'"
     _hdr_chg1  = "'Seq clipped(dup)'"
@@ -1972,8 +1972,8 @@ def main() -> None:
     _hdr_chg4  = "'NNNNx clipped(new)'"
     _hdr_clip  = "'Altered due to end-clipping'"
     _hdr_itrn  = "'Altered inside the sequence'"
-    _hdr_prot  = "'Prot unique'"
-    _hdr_protn = "'Prot NNNNx sum'"
+    _hdr_prot  = "'Unique protein entries'"
+    _hdr_protn = "'Sum of protein NNNNx'"
     verify_cols_hdr = (
         f"{sep}{_hdr_chg1:>{w_chg1}}{sep}{_hdr_chg2:>{w_chg2}}"
         f"{sep}{_hdr_chg3:>{w_chg3}}{sep}{_hdr_chg4:>{w_chg4}}"
@@ -1988,7 +1988,7 @@ def main() -> None:
     header = (
         f"{'File':<{col_file}}{sep}"
         f"{'Modified':<{w_ts}}{sep}"
-        f"{'FastaEntries':>{w_num}}{sep}{_hdr_drec:>{w_delta}}{sep}"
+        f"{'Unique DNA entries':>{w_num}}{sep}{_hdr_drec:>{w_delta}}{sep}"
         f"{_hdr_nnnx:>{w_num}}{sep}{_hdr_dsum:>{w_delta}}{sep}"
         f"{_hdr_novel:>{w_novel}}{sep}{_hdr_prot:>{w_prot}}{sep}{_hdr_protn:>{w_protn}}"
         + verify_cols_hdr
@@ -2117,7 +2117,7 @@ def main() -> None:
         last_rec,  last_sum  = rows[-1][2], rows[-1][3]
         print()
         print("Overall change  (last vs first):")
-        print(f"  FastaEntries : {_delta_str(last_rec, first_rec):>16}  ({_pct_str(last_rec, first_rec)} of first)")
+        print(f"  Unique DNA entries : {_delta_str(last_rec, first_rec):>16}  ({_pct_str(last_rec, first_rec)} of first)")
         print(f"  Sum     : {_delta_str(last_sum, first_sum):>16}  ({_pct_str(last_sum, first_sum)} of first)")
 
 
