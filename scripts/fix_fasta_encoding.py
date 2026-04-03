@@ -57,25 +57,61 @@ This script uses Python's ``surrogateescape`` error handler instead:
 
   Step 4 — C0 control character stripping:
       ASCII control characters 0x01–0x1F (excluding ``\\t`` 0x09, ``\\n``
-      0x0A, ``\\r`` 0x0D) are stripped from every line.  A real-world
-      example is the ETX byte ``\\x03`` in GISAID record EPI_ISL_2016759::
+      0x0A, ``\\r`` 0x0D) are stripped from every line.
 
-          >...Run20210508\x03template bulk upload 20210508.xlsx...
+      **Real-world example — GISAID record EPI_ISL_2016759:**
 
-      Two failure modes interact here:
+      The raw GISAID FASTA file contains the *literal six-character ASCII
+      text* ``\\u0003`` (bytes 0x5C 0x75 0x30 0x30 0x30 0x33: backslash,
+      u, 0, 0, 0, 3) embedded mid-header::
 
-      1. **Header truncation**: BBTools ``filterbyname.sh`` may treat ``\\x03``
-         as a record delimiter, so the header appears to end at
-         ``'[Run20210508`` and the accession ``EPI_ISL_2016759`` is never
-         extracted — the name-list match therefore fails silently.
+          >...Run20210508\u0003template bulk upload 20210508.xlsx...
 
-      2. **ignorejunk=t interaction**: if BBTools considers the malformed
-         record "junk" (due to the control byte), the ``ignorejunk=t`` option
-         causes it to be forwarded to the output **without** testing against
-         the filter list at all.
+      Confirmed by ``od -c`` on the raw file which shows ``\ u 0 0 0 3``
+      (six separate characters), **not** ``\\003`` (the ETX byte).
 
-      In either case the sequence escapes the junk-removal step.  Stripping
-      the byte here resolves both failure modes at the source.
+      The encoding chain in this script:
+
+      * Step 3 (``_unescape_unicode``) converts the literal ``\\u0003`` →
+        the real ETX codepoint U+0003 (``\\x03``, one byte).
+      * Step 4 (``_strip_c0_controls``) then strips U+0003.
+      * Result: ``>...Run20210508template bulk upload 20210508.xlsx...``
+        — the header is clean and complete on a single line.
+
+      **Why this matters for downstream tools:**
+
+      ``filterbyname.sh`` v39.06+ is a Java/Kotlin tool in BBTools.
+      Java resolves ``\\uXXXX`` escape sequences *natively during string
+      parsing*: when it reads the six ASCII characters ``\\u0003`` from the
+      file, Java's string layer silently converts them to the real U+0003
+      (ETX) codepoint.  ETX is then used by filterbyname.sh as a field or
+      line delimiter, producing three failure modes:
+
+      1. **Header truncation**: filterbyname.sh sees the ETX as the end of
+         the record name, so the name it registers is truncated at
+         ``'[Run20210508``.  The names-file search for ``EPI_ISL_2016759``
+         (which appears before the ``\\u0003``) may still succeed OR fail
+         depending on whether filterbyname.sh uses exact-name or
+         pipe-field matching.
+
+      2. **ignorejunk=t bypass**: if filterbyname.sh classifies the
+         record as "junk" because of the ETX codepoint, the
+         ``ignorejunk=t`` flag causes it to be forwarded to the output
+         stream **without** consulting the names list.  The record
+         therefore passes through even when it should have been filtered.
+
+      3. **Malformed output FASTA**: when filterbyname.sh writes the
+         extracted record, it emits a real ``\\n`` (LF) where the ETX was,
+         splitting the header into two lines.  The tail of the original
+         header (``template bulk upload...|Belgium``) is concatenated
+         directly onto the nucleotide sequence without a line separator,
+         producing a "sequence" that starts with non-nucleotide text.
+         The SHA-256 of that mangled string does not match the expected
+         sha256, so the downstream audit reports one spurious *Novel
+         sha256* and the discarded-entry count is off by one.
+
+      Stripping the ``\\u0003`` literal (via Steps 3 + 4) before any
+      BBTools invocation resolves all three failure modes at the source.
 
 Why ``unidecode`` failed
 ------------------------
@@ -238,19 +274,15 @@ runtime (``native2ascii``) and may fail on mixed-encoding files::
     unidecode output.fasta > output.fasta.tmp && mv output.fasta.tmp output.fasta
 
    Step 4 — C0 control character stripping:
-       ASCII control characters in the range ``\x01``–``\x1F`` that are not
-       ``\t`` (tab, \x09), ``\n`` (newline, \x0A), or ``\r`` (carriage
-       return, \x0D) have no valid role in a FASTA file.  They are silently
-       stripped from every line.  A prominent real-world example is the ETX
-       byte ``\x03`` seen in GISAID record EPI_ISL_2016759::
-
-           >...Run20210508\x03template bulk upload 20210508.xlsx...
-
-       ``filterbyname.sh`` from BBTools treats ``\x03`` as a record
-       delimiter, splitting the header at that point.  As a result, the
-       downstream accession ``EPI_ISL_2016759`` is never seen by the name
-       matcher, so the entry is silently omitted from the junk-filtering step.
-       Stripping the byte here prevents that failure.
+       The raw GISAID FASTA file for EPI_ISL_2016759 contains the *literal
+       six-character text* ``\u0003`` (as verified by ``od -c``: ``\ u 0 0 0 3``,
+       not the one-byte ETX ``\003``).  ``filterbyname.sh`` v39.06+ (Java)
+       resolves ``\uXXXX`` escapes natively, converting ``\u0003`` to real
+       ETX, then uses ETX as a field delimiter.  This truncates the header,
+       bypasses name-list filtering via ``ignorejunk=t``, and produces a
+       malformed output FASTA where the header tail is concatenated onto the
+       sequence, causing an erroneous *Novel sha256* in the audit report.
+       Stripping the ``\u0003`` literal here prevents all three failure modes.
 
 
 Usage examples
