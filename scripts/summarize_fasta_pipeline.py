@@ -407,14 +407,16 @@ def _count_records_and_nnnx(path: str) -> tuple[int, int]:
     
     Returns (n_rec, n_sum). Every FASTA record not containing a valid NNNNx prefix
     is counted as 1, ensuring universal accuracy on homogeneously OR heterogeneously
-    prefixed FASTA files.
+    prefixed FASTA files. If the file has zero NNNNx prefixes (like raw GISAID
+    fasta files), returns n_sum = 0 to denote it is pre-deduplication.
     
     Implementation: High-performance native Python byte-scanning logic.
     Bypasses subprocess overhead, avoiding the slow grep/awk pipelines
     while extracting the prefix using C-optimized split operations.
     """
     n_rec = 0
-    n_sum = 0
+    n_nnnx_sum = 0
+    n_unprefixed = 0
     try:
         with open(path, 'rb') as fh:
             for raw in fh:
@@ -422,7 +424,7 @@ def _count_records_and_nnnx(path: str) -> tuple[int, int]:
                     n_rec += 1
                     parts = raw[1:].split(None, 1)
                     if not parts:
-                        n_sum += 1
+                        n_unprefixed += 1
                         continue
                     tok = parts[0]
                     xpos = tok.find(b'x.')
@@ -430,14 +432,18 @@ def _count_records_and_nnnx(path: str) -> tuple[int, int]:
                         xpos = tok.find(b'x')
                     if xpos > 0:
                         try:
-                            n_sum += int(tok[:xpos])
+                            n_nnnx_sum += int(tok[:xpos])
                         except ValueError:
-                            n_sum += 1
+                            n_unprefixed += 1
                     else:
-                        n_sum += 1
+                        n_unprefixed += 1
     except OSError:
         pass
-    return n_rec, n_sum
+        
+    if n_nnnx_sum > 0:
+        return n_rec, n_nnnx_sum + n_unprefixed
+    else:
+        return n_rec, 0
 
 
 
