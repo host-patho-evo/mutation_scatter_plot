@@ -53,11 +53,18 @@ Options:
                          TSV], and Info: lines).  By default only the table
                          itself is shown.
     --jobs N             Number of parallel workers for Phase 0 (sha256
-                         identity check) and Phase 1 (per-file gather).
-                         Default is 1 (sequential, unchanged behaviour).
-                         On HPC / parallel-filesystem nodes higher values
-                         (e.g. --jobs 4) typically halve wall time because
-                         file scans are I/O-bound and release the GIL.
+                         identity check), Phase 1 (per-file gather), and Phase
+                         2 & 3 (verification & stats). Default is 1 (sequential,
+                         unchanged behaviour).
+                         Parallelization is strictly across files, not within.
+                         This is the optimal strategy for fast local SSDs and
+                         especially for NFSv4/network storage: it allows the OS
+                         to stream entirely different files concurrently, which
+                         saturates bandwidth perfectly. Attempting to scan the
+                         same file concurrently (within-file parallelism) would
+                         cause severe read-ahead thrashing and ruin NFS caching.
+                         Since operations are I/O-bound, ThreadPoolExecutor is
+                         used, rendering ProcessPoolExecutor unnecessary.
     --disable-discarded-original-ids-file
                          Do not write per-step .discarded_sha256_hashes.txt
                          files (or the companion .discarded_original_ids.txt).
