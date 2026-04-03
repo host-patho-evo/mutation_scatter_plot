@@ -544,7 +544,8 @@ def _collect_sha256_set(fasta_path: str) -> tuple[set[str], int]:
 
 def _build_tsv(fasta_path: str, tsv_path: str,
                descr_tsv_path: str = "",
-               verbose: bool = True) -> dict:
+               verbose: bool = True,
+               out_lines: list[str] | None = None) -> dict:
     """Single-pass scan of *fasta_path* to build a sha256->IDs mapping TSV.
 
     For each record the sha256 is computed over the uppercase, dash-stripped
@@ -564,6 +565,12 @@ def _build_tsv(fasta_path: str, tsv_path: str,
     name = None
     full_header = None
     seq_parts: list = []
+
+    def _print(*args, **kwargs):
+        if out_lines is not None:
+            out_lines.append(" ".join(str(a) for a in args))
+        else:
+            print(*args, **kwargs)
 
     def _flush(flush_name: str, flush_full: str, flush_parts: list) -> None:
         # Prefer the sha256 already embedded in the ID (NNNNx.sha256hex format).
@@ -585,9 +592,9 @@ def _build_tsv(fasta_path: str, tsv_path: str,
             if not seq:
                 # Empty sequence — sha256("") would be wrong and misleading.
                 # Warn and skip rather than polluting the TSV.
-                print(f"  Warning: empty sequence for record '{flush_name}' in"
-                      f" {fasta_path} — skipped in TSV",
-                      file=sys.stderr, flush=True)
+                _print(f"  Warning: empty sequence for record '{flush_name}' in"
+                       f" {fasta_path} — skipped in TSV",
+                       file=sys.stderr, flush=True)
                 return
             digest = hashlib.sha256(seq.encode()).hexdigest()
         if digest in id_map:
@@ -639,8 +646,8 @@ def _build_tsv(fasta_path: str, tsv_path: str,
 
     if verbose:
         extra = f" + {os.path.basename(descr_tsv_path)}" if descr_tsv_path else ""
-        print(f"    Info: built TSV with {len(id_map):,} unique sequences"
-              f" from {n_in:,} records -> {tsv_path}{extra}", flush=True)
+        _print(f"    Info: built TSV with {len(id_map):,} unique sequences"
+               f" from {n_in:,} records -> {tsv_path}{extra}", flush=True)
 
     # Return inverted mapping: id -> sha256 (one entry per original record).
     return {orig_id: sha for sha, (_, ids) in id_map.items() for orig_id in ids}
@@ -982,7 +989,7 @@ def _has_legacy_ids(id_to_sha: dict) -> bool:
     return any(_extract_sha256_from_id(rec_id) is None for rec_id in id_to_sha)
 
 
-def _enrich_fasta(fasta_path: str, id_to_sha: dict) -> str | None:
+def _enrich_fasta(fasta_path: str, id_to_sha: dict, out_lines: list[str] | None = None) -> str | None:
     """Rewrite *fasta_path* with sha256hex appended to each NNNNx ID.
 
     The original file is renamed to ``{fasta_path}.orig`` before the new
@@ -994,14 +1001,20 @@ def _enrich_fasta(fasta_path: str, id_to_sha: dict) -> str | None:
 
     Returns the path of the renamed original on success, or None if skipped.
     """
+    def _print(*args, **kwargs):
+        if out_lines is not None:
+            out_lines.append(" ".join(str(a) for a in args))
+        else:
+            print(*args, **kwargs)
+
     orig_path = fasta_path + '.orig'
     if os.path.exists(orig_path):
-        print(f"  [add-missing-checksums] skipping {os.path.basename(fasta_path)}"
-              f" — backup {os.path.basename(orig_path)} already exists", flush=True)
+        _print(f"  [add-missing-checksums] skipping {os.path.basename(fasta_path)}"
+               f" — backup {os.path.basename(orig_path)} already exists", flush=True)
         return None
     os.rename(fasta_path, orig_path)
-    print(f"  [add-missing-checksums] renamed {os.path.basename(fasta_path)}"
-          f" -> {os.path.basename(orig_path)}", flush=True)
+    _print(f"  [add-missing-checksums] renamed {os.path.basename(fasta_path)}"
+           f" -> {os.path.basename(orig_path)}", flush=True)
 
     enriched = 0
     with (open(orig_path, "rb") as src,
@@ -1024,14 +1037,15 @@ def _enrich_fasta(fasta_path: str, id_to_sha: dict) -> str | None:
             else:
                 dst.write(line + "\n")
 
-    print(f"  [add-missing-checksums] wrote {enriched:,} enriched IDs"
-          f" -> {os.path.basename(fasta_path)}", flush=True)
+    _print(f"  [add-missing-checksums] wrote {enriched:,} enriched IDs"
+           f" -> {os.path.basename(fasta_path)}", flush=True)
     return orig_path
 
 
 def _ensure_tsv(parent_path: str, add_checksums: bool = False,
                 full_fasta_header: bool = False,
-                verbose: bool = True) -> tuple[str | None, str | None]:
+                verbose: bool = True,
+                out_lines: list[str] | None = None) -> tuple[str | None, str | None]:
     """Return (ids_tsv_path, descr_tsv_path) for *parent_path*.
 
     ids_tsv_path  : path to *.sha256_to_ids.tsv (first-word IDs), or None.
@@ -1045,6 +1059,12 @@ def _ensure_tsv(parent_path: str, add_checksums: bool = False,
     embedded), the FASTA is rewritten in-place with NNNNx.sha256hex IDs and
     the original is renamed to .fasta.orig.
     """
+    def _print(*args, **kwargs):
+        if out_lines is not None:
+            out_lines.append(" ".join(str(a) for a in args))
+        else:
+            print(*args, **kwargs)
+
     stem = _strip_fasta_suffix(parent_path)
     candidate     = stem + '.sha256_to_ids.tsv'
     descr_candidate = stem + '.sha256_to_descr_lines.tsv' if full_fasta_header else ""
@@ -1074,27 +1094,27 @@ def _ensure_tsv(parent_path: str, add_checksums: bool = False,
             return ids_tsv, descr_tsv
 
     if verbose:
-        print(f"  [auto-generating TSV] scanning {os.path.basename(parent_path)} \u2026",
-              flush=True)
+        _print(f"  [auto-generating TSV] scanning {os.path.basename(parent_path)} \u2026",
+               flush=True)
     try:
         id_to_sha = _build_tsv(parent_path, candidate,
                                descr_tsv_path=descr_candidate,
-                               verbose=verbose)
+                               verbose=verbose, out_lines=out_lines)
     except OSError as exc:
-        print(f"    [TSV generation failed: {exc}]", flush=True)
+        _print(f"    [TSV generation failed: {exc}]", flush=True)
         return None, None
 
     if add_checksums and _has_legacy_ids(id_to_sha):
-        _enrich_fasta(parent_path, id_to_sha)
+        _enrich_fasta(parent_path, id_to_sha, out_lines=out_lines)
         if verbose:
-            print("  [auto-generating TSV] rebuilding TSV from enriched FASTA \u2026",
-                  flush=True)
+            _print("  [auto-generating TSV] rebuilding TSV from enriched FASTA \u2026",
+                   flush=True)
         try:
             _build_tsv(parent_path, candidate,
                        descr_tsv_path=descr_candidate,
-                       verbose=verbose)
+                       verbose=verbose, out_lines=out_lines)
         except OSError as exc:
-            print(f"    [TSV rebuild failed: {exc}]", flush=True)
+            _print(f"    [TSV rebuild failed: {exc}]", flush=True)
 
     return (candidate,
             descr_candidate if full_fasta_header else None)
@@ -1126,7 +1146,8 @@ def _compute_discard_stats(parent_path: str, child_path: str,
                            add_checksums: bool = False,
                            full_fasta_header: bool = False,
                            save_discard_list: bool = True,
-                           verbose: bool = True
+                           verbose: bool = True,
+                           out_lines: list[str] | None = None
                            ) -> tuple[int, int] | tuple[None, None]:
     """Compute discarded-ID stats for a parent->child pipeline pair.
 
@@ -1144,6 +1165,12 @@ def _compute_discard_stats(parent_path: str, child_path: str,
       {child_stem}.discarded_sha256_hashes.txt  (NNNNx.sha256hex entries; fast cache)
       {child_stem}.discarded_original_ids.txt   (expanded original FASTA headers)
     """
+    def _print(*args, **kwargs):
+        if out_lines is not None:
+            out_lines.append(" ".join(str(a) for a in args))
+        else:
+            print(*args, **kwargs)
+
     parent_base = os.path.basename(parent_path)
     child_base  = os.path.basename(child_path)
     child_stem  = _strip_fasta_suffix(child_path)
@@ -1155,12 +1182,12 @@ def _compute_discard_stats(parent_path: str, child_path: str,
         companion_missing = save_discard_list and not os.path.exists(original_ids_path)
         if not companion_missing:
             if verbose:
-                print(f"  \u21b3 [cached TXT] {os.path.basename(txt)}", flush=True)
+                _print(f"  \u21b3 [cached TXT] {os.path.basename(txt)}", flush=True)
             return _read_discarded_txt_stats(txt)
         # Companion .discarded_original_ids.txt is missing: fall through to
         # regenerate both files.  No FASTA timestamp change needed.
         if verbose:
-            print(
+            _print(
                 f"  \u21b3 [cached TXT] {os.path.basename(txt)}"
                 f" but companion {os.path.basename(original_ids_path)} missing"
                 " \u2014 regenerating both",
@@ -1169,12 +1196,12 @@ def _compute_discard_stats(parent_path: str, child_path: str,
 
     # ── tiers 2–4: invoke create_list_of_discarded_sequences.py ────────
     if not os.path.exists(DISCARD_SCRIPT):
-        print(f"  [discard stats] script not found: {DISCARD_SCRIPT}", flush=True)
+        _print(f"  [discard stats] script not found: {DISCARD_SCRIPT}", flush=True)
         return None, None
 
     tsv, descr_tsv = _ensure_tsv(parent_path, add_checksums=add_checksums,
                                   full_fasta_header=full_fasta_header,
-                                  verbose=verbose)
+                                  verbose=verbose, out_lines=out_lines)
     # Prefer the descr TSV (full headers) when the caller requested it
     # and it was successfully built; fall back to ID-only TSV otherwise.
     mapping_tsv = descr_tsv if (full_fasta_header and descr_tsv) else tsv
@@ -1206,14 +1233,14 @@ def _compute_discard_stats(parent_path: str, child_path: str,
         *outfile_args,
     ]
     if verbose:
-        print(f"  \u21b3 [{source_label}] -> {child_base}", flush=True)
+        _print(f"  \u21b3 [{source_label}] -> {child_base}", flush=True)
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     # Suppress Info: lines — the key numbers will appear in the table instead.
     for line in result.stderr.splitlines():
         if line.startswith(('Warning:', 'Error:')):
-            print(f"    {line}", flush=True)
+            _print(f"    {line}", flush=True)
     if result.returncode != 0:
-        print(f"    [exit code {result.returncode}]", flush=True)
+        _print(f"    [exit code {result.returncode}]", flush=True)
         return None, None
 
     if outfile and os.path.exists(outfile):
@@ -1670,7 +1697,7 @@ def main() -> None:
                         verify_data[result['idx']]  = result['verify_data']
                     classify_data[result['idx']] = result['classify_data']
 
-    # ── phase 2: compute discard stats for all pairs ─────────────────────────
+    # ── phase 3: compute discard stats for all pairs ─────────────────────────
     # Runs before table printing so the numbers can appear as proper columns.
     discard_data: dict[int, tuple[int, int]] = {}  # child_idx -> (n_ids, nnnx_sum)
     if do_discard:
@@ -1683,28 +1710,47 @@ def main() -> None:
             f"  Computing discarded-sequence stats for {len(parent_map)} parent→child pair(s).",
             file=sys.stderr,
         )
-        for i, f_child in enumerate(files):
-            p = parent_map.get(i)
-            if p is not None:
-                p_display = os.path.relpath(files[p], search_path)
-                c_display = os.path.relpath(f_child, search_path)
-                print(
-                    f"  [{i+1}/{len(files)}] {p_display} → {c_display} …",
-                    file=sys.stderr, flush=True,
-                )
-                n_d, s_d = _compute_discard_stats(
-                    files[p], f_child,
-                    add_checksums=add_checksums,
-                    full_fasta_header=full_fasta_header,
-                    save_discard_list=save_discard_list,
-                    verbose=verbose,
-                )
-                if n_d is not None:
-                    discard_data[i] = (n_d, s_d)
-                    print(
-                        f"    {n_d:,} discarded original ID(s), NNNNx sum={s_d:,}.",
-                        file=sys.stderr, flush=True,
-                    )
+
+        def _run_discard(i: int, f_child: str, p: int) -> dict:
+            lines: list[str] = []
+            p_display = os.path.relpath(files[p], search_path)
+            c_display = os.path.relpath(f_child, search_path)
+            lines.append(f"  [{i+1}/{len(files)}] {p_display} → {c_display} …")
+            n_d, s_d = _compute_discard_stats(
+                files[p], f_child,
+                add_checksums=add_checksums,
+                full_fasta_header=full_fasta_header,
+                save_discard_list=save_discard_list,
+                verbose=verbose,
+                out_lines=lines,
+            )
+            if n_d is not None:
+                lines.append(f"    {n_d:,} discarded original ID(s), NNNNx sum={s_d:,}.")
+            return {'idx': i, 'stats': (n_d, s_d) if n_d is not None else None, 'lines': lines}
+
+        child_indices = [i for i in range(len(files)) if parent_map.get(i) is not None]
+
+        if jobs <= 1 or len(child_indices) <= 1:
+            for i in child_indices:
+                result = _run_discard(i, files[i], parent_map[i])
+                _emit_lines(result['lines'])
+                if result['stats'] is not None:
+                    discard_data[result['idx']] = result['stats']
+        else:
+            max_w3 = min(jobs, len(child_indices))
+            print(
+                f"  Parallel Phase 3: computing discard stats for {len(child_indices)} "
+                f"pair(s) with {max_w3} worker(s).",
+                file=sys.stderr,
+            )
+            with ThreadPoolExecutor(max_workers=max_w3) as exc:
+                futs = {exc.submit(_run_discard, i, files[i], parent_map[i]): i 
+                        for i in child_indices}
+                for fut in as_completed(futs):
+                    result = fut.result()
+                    _emit_lines(result['lines'])
+                    if result['stats'] is not None:
+                        discard_data[result['idx']] = result['stats']
 
     # ── print table ──────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))
