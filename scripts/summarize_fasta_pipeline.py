@@ -1614,6 +1614,24 @@ def main() -> None:
         jobs = max(1, int(_jobs_str)) if _jobs_str else 1
     except ValueError:
         jobs = 1
+    # --cpu-bind {local,spread,none}: NUMA CPU binding policy.
+    _cpu_bind_str = (
+        next((a.split('=', 1)[1] for a in args if a.startswith('--cpu-bind=')), None)
+        or next((args[i + 1] for i, a in enumerate(args)
+                 if a == '--cpu-bind' and i + 1 < len(args)
+                 and args[i + 1] in ('local', 'spread', 'none')), None)
+        or 'local'
+    )
+
+    # ── NUMA auto-bind (before any I/O or thread-pool creation) ──────────────
+    # Silently skipped on single-node / non-NUMA hosts.
+    # Respects GOMP_CPU_AFFINITY, KMP_AFFINITY, SLURM_CPU_BIND, SGE_BINDING,
+    # OMP_PROC_BIND, and the _NUMA_AUTOBIND_DONE re-exec guard.
+    try:
+        from mutation_scatter_plot.numa_bind import autobind as _numa_autobind  # type: ignore[import-untyped]
+        _numa_autobind(mode=_cpu_bind_str)
+    except ImportError:
+        pass   # package not installed; NUMA binding skipped silently
 
     # ── collect matching files ────────────────────────────────────────────────
     found: set[str] = set()
