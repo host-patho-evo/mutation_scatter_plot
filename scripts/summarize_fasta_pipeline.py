@@ -150,7 +150,18 @@ PROT_SUFFIXES = ('.prot.fasta', '.prot', '.faa')
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DISCARD_SCRIPT = os.path.join(SCRIPT_DIR, 'create_list_of_discarded_sequences.py')
 
+VERSION = "202604030200"
+
 # ── helpers ───────────────────────────────────────────────────────────────────
+
+def _fmt_size(n: int) -> str:
+    """Format *n* bytes as a human-readable string (e.g. '31.8 GB')."""
+    for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
+        if n < 1024:
+            return f"{n:.1f} {unit}"
+        n //= 1024
+    return f"{n:.1f} PB"
+
 
 def _strip_fasta_suffix(path: str) -> str:
     """Return path with the trailing FASTA suffix removed (longest match first)."""
@@ -1137,6 +1148,11 @@ def _compute_discard_stats(parent_path: str, child_path: str,
 
 def main() -> None:
     """Entry point: parse args, scan files, print table, optionally show discard stats."""
+    print(
+        f"summarize_fasta_pipeline.py  version {VERSION}"
+        f"  invoked: {' '.join(sys.argv)}",
+        file=sys.stderr,
+    )
     args = sys.argv[1:]
     if len(args) < 2 or '--help' in args or '-h' in args:
         print(__doc__, file=sys.stderr)
@@ -1216,26 +1232,54 @@ def main() -> None:
         except OSError:
             continue
         _size_groups.setdefault(sz, []).append(idx)
-    for sz, idxs in _size_groups.items():
-        if len(idxs) < 2 or sz == 0:
-            continue
-        # Compute sha256 in original file-list order; first per sha256 = primary.
+    _size_tied = {sz: idxs for sz, idxs in _size_groups.items()
+                  if len(idxs) >= 2 and sz > 0}
+    if _size_tied:
+        print(
+            f"\n── Phase 0: Identity check (size + sha256) "
+            f"─────────────────────────────────────────────────────────",
+            file=sys.stderr,
+        )
+        print(
+            f"  {len(_size_tied)} size group(s) with ≥2 files will be sha256-checked;"
+            f" identical files share scan results.",
+            file=sys.stderr,
+        )
+    for sz, idxs in _size_tied.items():
+        print(
+            f"\n  Size group {_fmt_size(sz)} — {len(idxs)} file(s):",
+            file=sys.stderr,
+        )
         sha_to_primary: dict[str, int] = {}
         for idx in idxs:
+            name = os.path.basename(files[idx])
+            print(f"    computing sha256: {name} …", file=sys.stderr, flush=True)
             sha = _fasta_sha256(files[idx])
             if sha in sha_to_primary:
+                pri_name = os.path.basename(files[sha_to_primary[sha]])
                 content_twin[idx] = sha_to_primary[sha]
                 print(
-                    f"  Info: identical content detected — "
-                    f"{os.path.basename(files[idx])} ≡ "
-                    f"{os.path.basename(files[sha_to_primary[sha]])} "
-                    f"(sha256={sha[:16]}…) — reusing scan results.",
+                    f"    → {name} ≡ {pri_name}"
+                    f" (sha256={sha[:16]}…) — scan results will be reused.",
                     file=sys.stderr, flush=True,
                 )
             else:
                 sha_to_primary[sha] = idx
+                print(f"    → {name}: sha256={sha[:16]}… (primary)", file=sys.stderr, flush=True)
 
     # ── gather per-file data ─────────────────────────────────────────────────
+    print(
+        f"\n── Phase 1: Gather per-file statistics "
+        f"──────────────────────────────────────────────────────────────",
+        file=sys.stderr,
+    )
+    n_twins = len(content_twin)
+    n_primaries = len(files) - n_twins
+    print(
+        f"  {len(files)} file(s) total: {n_primaries} to scan, "
+        f"{n_twins} to reuse from content-identical primary.",
+        file=sys.stderr,
+    )
     rows: list[tuple[str, str, int, int]] = []
     sha256_sets:   list[tuple[set[str], int]] = []  # (sha256_set, n_legacy) per file
     verify_data:   list[tuple | None] = []  # (n_ex,s_ex,n_nv,s_nv,altered_shas,mismatch_seqs)|None
@@ -1245,31 +1289,51 @@ def main() -> None:
         display = os.path.relpath(f, search_path)
         mtime_s = datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M')
         pri = content_twin.get(idx)          # None if primary; primary index if twin
+        tag = f"  [{idx+1}/{len(files)}]"
         if pri is not None:
             # Twin: reuse record count, NNNNx sum, sha256 set, prot_unique from primary.
             # display and mtime_s are always file-specific.
+            pri_display = os.path.relpath(files[pri], search_path)
             _, _, n_rec, n_sum = rows[pri]
             rows.append((display, mtime_s, n_rec, n_sum))
             sha256_sets.append(sha256_sets[pri])
             prot_unique.append(prot_unique[pri])
-            print(f"  (reused)  {display}", file=sys.stderr, flush=True)
+            print(
+                f"{tag} {display}\n"
+                f"        ↳ reusing results from [{pri+1}] {pri_display}"
+                f" ({n_rec:,} records, NNNNx sum={n_sum:,}).",
+                file=sys.stderr, flush=True,
+            )
         else:
-            print(f"  scanning  {display} \u2026", file=sys.stderr, flush=True)
-            rows.append((display, mtime_s, _count_records(f), _sum_nnnx_counts(f)))
+            sz_str = _fmt_size(os.path.getsize(f))
+            is_prot = _is_prot_file(f)
+            kind = 'protein FASTA' if is_prot else 'FASTA'
+            print(f"{tag} {display}  ({sz_str}, {kind})", file=sys.stderr, flush=True)
+            print(f"        counting records …", file=sys.stderr, flush=True)
+            n_rec = _count_records(f)
+            print(f"        summing NNNNx counts …", file=sys.stderr, flush=True)
+            n_sum = _sum_nnnx_counts(f)
+            print(f"        collecting sha256 IDs …", file=sys.stderr, flush=True)
+            rows.append((display, mtime_s, n_rec, n_sum))
             sha256_sets.append(_collect_sha256_set(f))
-            prot_unique.append(_count_prot_unique(f) if _is_prot_file(f) else None)
+            if is_prot:
+                print(f"        counting unique protein sequences …", file=sys.stderr, flush=True)
+            prot_unique.append(_count_prot_unique(f) if is_prot else None)
+            sha_set, n_legacy = sha256_sets[-1]
+            print(
+                f"        done: {n_rec:,} records, NNNNx sum={n_sum:,}, "
+                f"{len(sha_set):,} unique sha256s"
+                + (f", {n_legacy:,} legacy IDs" if n_legacy else "") + ".",
+                file=sys.stderr, flush=True,
+            )
             # ── internal consistency: sha256 set size == record count ──────────
             # For NNNNx files every record has a unique sha256 ID, so the set
             # cardinality must equal the record count.  A mismatch signals
             # duplicate sha256 IDs or a stale / mismatched TSV.
-            # Skip twins (check was already done for their primary).
-            sha_set, n_legacy = sha256_sets[-1]
-            _, _, n_rec, _ = rows[-1]
             if n_legacy == 0 and len(sha_set) != n_rec:
                 print(
-                    f"  Internal check FAILED: {display}: "
-                    f"sha256 set size {len(sha_set):,} \u2260 record count {n_rec:,} "
-                    f"(duplicate sha256 IDs or stale TSV?)",
+                    f"        INTERNAL CHECK FAILED: sha256 set size {len(sha_set):,} "
+                    f"≠ record count {n_rec:,} (duplicate sha256 IDs or stale TSV?)",
                     file=sys.stderr, flush=True,
                 )
         verify_data.append(None)    # placeholder; filled in the verify pass below
@@ -1279,34 +1343,58 @@ def main() -> None:
     # 'Novel sha256s' column.  It is freed after that loop completes.
 
     if verify_sha256:
+        print(
+            f"\n── Phase 2: sha256 integrity verification "
+            f"────────────────────────────────────────────────────────",
+            file=sys.stderr,
+        )
+        n_verify = sum(1 for i, f in enumerate(files)
+                       if not _is_prot_file(f)
+                       and not (content_twin.get(i) is not None
+                                and (parent_map.get(i) == content_twin[i]
+                                     or content_twin.get(parent_map.get(i)) == parent_map.get(content_twin[i])
+                                     or parent_map.get(i) == parent_map.get(content_twin[i]))))
+        print(
+            f"  Verifying sha256 integrity for {n_verify} file(s) "
+            f"(protein files and content twins with equivalent parent skipped).",
+            file=sys.stderr,
+        )
         for idx, f in enumerate(files):
             if _is_prot_file(f):
-                # The ID contains a DNA sha256 which will always differ from the
-                # protein sequence sha256 — skip verification for protein files.
+                display = os.path.relpath(f, search_path)
+                print(
+                    f"  [{idx+1}/{len(files)}] {display}: skipped — protein file "
+                    f"(ID contains DNA sha256, not protein sha256).",
+                    file=sys.stderr, flush=True,
+                )
                 continue
             pri = content_twin.get(idx)
             if pri is not None:
-                # This file is content-identical to its primary (pri).
-                # If its parent is also content-identical to the primary's parent
-                # (or IS the primary itself), the sha256 comparison is guaranteed
-                # to yield all-zeros: every record matches its own sha256 set.
-                # We can skip the expensive scan and synthesise the result.
                 p = parent_map.get(idx)
                 p_pri = parent_map.get(pri)
-                if (p == pri                              # parent of twin IS the primary
-                        or content_twin.get(p) == p_pri  # parent of twin is twin of primary's parent
-                        or p == p_pri):                   # same parent (e.g. both root files)
+                if (p == pri
+                        or content_twin.get(p) == p_pri
+                        or p == p_pri):
+                    display = os.path.relpath(f, search_path)
+                    pri_display = os.path.relpath(files[pri], search_path)
+                    print(
+                        f"  [{idx+1}/{len(files)}] {display}: skipped — content-identical "
+                        f"to [{pri+1}] {pri_display} and parent is also equivalent; "
+                        f"no mismatches possible.",
+                        file=sys.stderr, flush=True,
+                    )
                     verify_data[idx] = (0, 0, 0, 0, set(), {})
-                    continue  # no mismatches possible
+                    continue
                 # Different parent context — fall through to normal verify below.
             display = os.path.relpath(f, search_path)
-            # Pass the direct parent's sha256 set as the "known" universe:
-            # a mismatch records as clipped(dup) when the new sha256 already
-            # existed in the immediate parent, padded(new) when it did not.
-            # Using the parent (not a global union) avoids false positives from
-            # descendant files whose sha256s were not present when this step ran.
             p = parent_map.get(idx)
             parent_sha256s = sha256_sets[p][0] if p is not None else None
+            parent_display = os.path.relpath(files[p], search_path) if p is not None else '(no parent)'
+            print(
+                f"  [{idx+1}/{len(files)}] {display}: verifying sha256 IDs "
+                f"against parent [{p+1 if p is not None else '?'}] {parent_display} …",
+                file=sys.stderr, flush=True,
+            )
             vd = _verify_sha256(f, parent_sha256s)
             verify_data[idx] = vd
             if vd is not None and (vd[0] > 0 or vd[2] > 0):
@@ -1317,9 +1405,19 @@ def main() -> None:
                     + f" (NNNNx: {vd[1]+vd[3]:,} total)",
                     file=sys.stderr,
                 )
+            else:
+                print(
+                    f"    OK: all sha256 IDs match their sequences and parent set.",
+                    file=sys.stderr, flush=True,
+                )
             if classify_mismatches and vd is not None and p is not None:
                 mismatch_seqs_vd: dict[str, str] = vd[5] if len(vd) > 5 else {}
                 if mismatch_seqs_vd:
+                    print(
+                        f"    classifying {len(mismatch_seqs_vd):,} mismatch(es) "
+                        f"(end-clipping vs internal change) …",
+                        file=sys.stderr, flush=True,
+                    )
                     classify_data[idx] = _classify_mismatches(
                         mismatch_seqs_vd, files[p]
                     )
@@ -1328,10 +1426,24 @@ def main() -> None:
     # Runs before table printing so the numbers can appear as proper columns.
     discard_data: dict[int, tuple[int, int]] = {}  # child_idx -> (n_ids, nnnx_sum)
     if do_discard:
-        print(file=sys.stderr)
+        print(
+            f"\n── Phase 3: Discard statistics (parent→child pairs) "
+            f"─────────────────────────────────────────────────────",
+            file=sys.stderr,
+        )
+        print(
+            f"  Computing discarded-sequence stats for {len(parent_map)} parent→child pair(s).",
+            file=sys.stderr,
+        )
         for i, f_child in enumerate(files):
             p = parent_map.get(i)
             if p is not None:
+                p_display = os.path.relpath(files[p], search_path)
+                c_display = os.path.relpath(f_child, search_path)
+                print(
+                    f"  [{i+1}/{len(files)}] {p_display} → {c_display} …",
+                    file=sys.stderr, flush=True,
+                )
                 n_d, s_d = _compute_discard_stats(
                     files[p], f_child,
                     add_checksums=add_checksums,
@@ -1341,6 +1453,10 @@ def main() -> None:
                 )
                 if n_d is not None:
                     discard_data[i] = (n_d, s_d)
+                    print(
+                        f"    {n_d:,} discarded original ID(s), NNNNx sum={s_d:,}.",
+                        file=sys.stderr, flush=True,
+                    )
 
     # ── print table ──────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))
