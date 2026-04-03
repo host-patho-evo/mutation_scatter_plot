@@ -517,6 +517,7 @@ def main():
         if myoptions.mapping_outfile:
             n_sha = 0
             _is_descr_tsv = myoptions.mapping_outfile.endswith('.sha256_to_descr_lines.tsv')
+            _id_groups: list[tuple[int, list[str]]] = []  # (nnnx_count, orig_ids) — sorted later
             with open(myoptions.mapping_outfile, "r", encoding="utf-8") as fh:
                 for tsv_line in fh:
                     fields = tsv_line.rstrip("\n").split("\t")
@@ -541,7 +542,7 @@ def main():
                         # returns 1 per ID, so the sum equals len(orig_ids) = tsv_count.
                         nnnx_count = sum(_line_count(oid) for oid in orig_ids)
                         sha256_lines.append(f"{nnnx_count}x.{digest}")
-                        original_id_lines.extend(orig_ids)
+                        _id_groups.append((nnnx_count, orig_ids))
                         actual_original_count += nnnx_count
                         if len(orig_ids) != tsv_count:
                             _dir = "fewer" if len(orig_ids) < tsv_count else "more"
@@ -556,6 +557,10 @@ def main():
                                 file=sys.stderr,
                             )
                         n_sha += 1
+            # Sort groups by NNNNx count descending (mirrors sort -rn on the sha256_hashes
+            # file), then flatten into original_id_lines.
+            _id_groups.sort(key=lambda g: g[0], reverse=True)
+            original_id_lines.extend(oid for _, ids in _id_groups for oid in ids)
             # expected_original_count is unknwon for inverted mode without pre-scan;
             # set it to actual so the final check is meaningful only if a FASTA
             # scan path was used.
@@ -595,6 +600,7 @@ def main():
 
         if myoptions.mapping_outfile and not ids_computed:
             # Fast path: expand via pre-built mapping TSV.
+            _id_groups2: list[tuple[int, list[str]]] = []  # (nnnx_count, orig_ids) — sorted later
             with open(myoptions.mapping_outfile, "r", encoding="utf-8") as fh:
                 for tsv_line in fh:
                     fields = tsv_line.rstrip("\n").split("\t")
@@ -607,7 +613,10 @@ def main():
                         except (ValueError, IndexError):
                             count = len(fields) - 2
                         orig_ids = fields[2:]
-                        original_id_lines.extend(orig_ids)
+                        # Use the NNNNx count from the dedup ID in infile_sha256s as the
+                        # group sort key (same integer used in sha256_hashes sort -rn).
+                        nnnx = _line_count(infile_sha256s.get(digest, ''))
+                        _id_groups2.append((nnnx, orig_ids))
                         actual_original_count += len(orig_ids)
                         if len(orig_ids) != count:
                             _dir = "fewer" if len(orig_ids) < count else "more"
@@ -621,6 +630,9 @@ def main():
                                 f" ({_dir} than expected by {abs(count - len(orig_ids)):,})",
                                 file=sys.stderr,
                             )
+            # Sort groups by NNNNx count descending then flatten.
+            _id_groups2.sort(key=lambda g: g[0], reverse=True)
+            original_id_lines.extend(oid for _, ids in _id_groups2 for oid in ids)
             print(
                 f"Info: found {actual_original_count:,} original IDs"
                 f" (expected {expected_original_count:,}) via mapping TSV",
@@ -727,8 +739,9 @@ def main():
         with open(_original_ids_outfile, "w", encoding="utf-8") as out:
             for line in original_id_lines:
                 out.write(line + "\n")
-        # Natural/version sort: numeric substrings compared by value.
-        _sort_inplace(_original_ids_outfile, ['-V'])
+        # Data is already ordered by NNNNx group descending (mirrors sort -rn
+        # on the sha256_hashes file); no external sort needed for TSV paths.
+        # FASTA-scan paths (rare fallback) retain encounter order.
         print(
             f"Info: wrote {len(original_id_lines):,} original FASTA IDs"
             f" to {_original_ids_outfile}",
