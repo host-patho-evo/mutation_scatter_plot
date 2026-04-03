@@ -105,6 +105,15 @@ def build_option_parser():
              "Larger values reduce socket overhead; smaller values improve load-balance. "
              "Default 256 was empirically optimal on a 192-core Xeon (4 workers, 100k rows). "
              "Use 0 to let Python choose automatically.")
+    myparser.add_argument("--cpu-bind", choices=['local', 'spread', 'none'],
+        dest="cpu_bind", default="local", metavar="POLICY",
+        help="NUMA CPU binding policy.  'local' (default) binds all worker "
+             "processes to the single NUMA node with the most free RAM — best "
+             "for CPU-bound multiprocessing workloads.  'spread' leaves the OS "
+             "to use all nodes.  'none' disables autobind.  Autobind is "
+             "silently skipped on single-node hosts and when a job scheduler "
+             "has already set the CPU affinity (GOMP_CPU_AFFINITY, "
+             "KMP_AFFINITY, SLURM_CPU_BIND, SGE_BINDING, OMP_PROC_BIND).")
     return myparser
 
 
@@ -164,6 +173,12 @@ def main():
         _max_stop  = (myoptions.max_stop  + 1) if myoptions.max_stop  else 0
         _threads   = myoptions.threads if myoptions.threads > 0 else None
         _chunksize = myoptions.chunksize if myoptions.chunksize > 0 else None
+
+        # ── NUMA auto-bind (before multiprocessing Pool creation) ────────────
+        # Silently skipped on single-node / non-NUMA hosts and when a
+        # job scheduler has already configured CPU placement.
+        from .. import numa_bind  # noqa: PLC0415  (import inside function is intentional)
+        numa_bind.autobind(mode=myoptions.cpu_bind)
 
         # parse_alignment manages its own Pool internally so that _WORKER_SHARED
         # (the COW-fork global) is populated *before* the Pool is created.
