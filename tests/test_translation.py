@@ -304,8 +304,8 @@ class TestIncompleteTrailingCodon:
         assert _translate_seq("AT", table1, ignore_gaps=False) == ""
 
     def test_alt_translate_trailing(self):
-        assert alt_translate("TCAA") == "S"
-        assert alt_translate("TCAAC") == "S"
+        assert alt_translate("TCAA") == "SX"    # TCA=S, A(incomplete)=X
+        assert alt_translate("TCAAC") == "SX"   # TCA=S, AC(incomplete)=X
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -472,30 +472,31 @@ class TestIncompleteCodonFragments:
     # ── alt_translate (no Biopython warning) ─────────────────────────────────
 
     def test_alt_translate_1nt(self, recwarn):
-        """Single nucleotide: no translation, no warning."""
-        assert alt_translate("T") == ""
+        """Single nucleotide: returns 'X' (unknown AA), no Biopython warning."""
+        assert alt_translate("T") == "X"
         bio_warns = [w for w in recwarn.list if "Partial codon" in str(w.message)]
         assert not bio_warns, "Unexpected BiopythonWarning for 1-nt input"
 
     def test_alt_translate_2nt(self, recwarn):
-        """Two nucleotides: no translation, no warning."""
-        assert alt_translate("TC") == ""
+        """Two nucleotides: returns 'X' (unknown AA), no Biopython warning."""
+        assert alt_translate("TC") == "X"
         bio_warns = [w for w in recwarn.list if "Partial codon" in str(w.message)]
         assert not bio_warns, "Unexpected BiopythonWarning for 2-nt input"
 
     def test_alt_translate_2nt_with_gap(self, recwarn):
-        """Two nucleotides including gap: no translation, no warning."""
-        assert alt_translate("T-") == ""
+        """Two nucleotides including gap: returns 'X', no Biopython warning."""
+        assert alt_translate("T-") == "X"
         bio_warns = [w for w in recwarn.list if "Partial codon" in str(w.message)]
         assert not bio_warns
 
     def test_alt_translate_trailing_after_complete(self, recwarn):
-        """Complete codon + 2 trailing nt: translate only the complete part."""
-        assert alt_translate("TCATC") == "S"
+        """Complete codon + 2 trailing nt: translate complete ('S') + trailing ('X')."""
+        assert alt_translate("TCATC") == "SX"
         bio_warns = [w for w in recwarn.list if "Partial codon" in str(w.message)]
         assert not bio_warns
 
     def test_alt_translate_empty(self):
+        """Empty input → empty output (no codon positions to consider)."""
         assert alt_translate("") == ""
 
     # ── _translate_seq (never calls Biopython for partial codons) ─────────────
@@ -616,3 +617,83 @@ class TestExhaustiveIUPACGapCodons:
             f"Expected {len(_KNOWN_OLD_VS_NEW_DIFFS)} old→new diffs, got {diffs}"
         )
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 12. calculate_codon_frequencies translation path (write_tsv_line)
+# ─────────────────────────────────────────────────────────────────────────────
+
+from mutation_scatter_plot.calculate_codon_frequencies import write_tsv_line
+from decimal import Decimal
+
+
+def _write_tsv_translate(codon, translation_table=1):
+    """Extract just the amino acid that write_tsv_line assigns to *codon*.
+
+    write_tsv_line() writes TSV rows but we only care about the _some_aa it
+    computes.  We drive it with a single-codon dict (count=1, total=1) and
+    capture the output to extract the 4th column (mutant_aa).
+    """
+    import io
+    buf = io.StringIO()
+    codons = {codon: Decimal(1)}
+    write_tsv_line(
+        buf,
+        codons,
+        natural_codon_position_padded=1,
+        natural_codon_position_depadded=1,
+        reference_aa='A',
+        total_codons_per_site_sum=1,
+        reference_codon='GCT',
+        debug=False,
+        translation_table=translation_table,
+    )
+    line = buf.getvalue().strip()
+    if not line:
+        return None
+    # TSV columns: padded_pos, pos, ref_aa, mutant_aa, freq, ref_codon, codon, count, total
+    return line.split('\t')[3]   # mutant_aa
+
+
+class TestCalculateCodonFrequenciesTranslation:
+    """Verify the write_tsv_line() translation path for all IUPAC+gap codons.
+
+    write_tsv_line() is the function called by calculate_codon_frequencies to
+    assign amino acids to each observed codon in the alignment.  It uses
+    alt_translate() for 3-char codons and 'X' for codons shorter than 3 chars.
+
+    Exhaustive test (4096 codons + incomplete codon cases):
+      - For every 3-char IUPAC+gap codon, write_tsv_line must agree with
+        alt_translate() — same function, different entry point.
+      - For 1- and 2-char codons, write_tsv_line returns 'X' regardless.
+    """
+
+    @pytest.mark.parametrize("codon", _ALL_IUPAC_CODONS)
+    def test_write_tsv_line_agrees_with_alt_translate(self, codon):
+        """write_tsv_line and alt_translate must agree for every 3-char codon."""
+        expected = alt_translate(codon)
+        actual = _write_tsv_translate(codon)
+        assert actual == expected, (
+            f"write_tsv_line gave {actual!r} but alt_translate gave {expected!r} "
+            f"for codon {codon!r}"
+        )
+
+    @pytest.mark.parametrize("short_codon", ["T", "TC", "A", "AT", "G", "GC"])
+    def test_write_tsv_line_short_codon_returns_X(self, short_codon):
+        """Codons shorter than 3 nt must be mapped to 'X' by write_tsv_line."""
+        result = _write_tsv_translate(short_codon)
+        assert result == "X", (
+            f"Expected 'X' for short codon {short_codon!r}, got {result!r}"
+        )
+
+    def test_table2_TGA_is_Trp_via_write_tsv_line(self):
+        """Alternative genetic code propagates through write_tsv_line."""
+        assert _write_tsv_translate("TGA", translation_table=1) == "*"
+        assert _write_tsv_translate("TGA", translation_table=2) == "W"
+
+    def test_partial_gap_TC_dash_via_write_tsv_line(self):
+        """TC- → S through the calculate_codon_frequencies path."""
+        assert _write_tsv_translate("TC-") == "S"
+
+    def test_full_gap_via_write_tsv_line(self):
+        """'---' → '-' through the calculate_codon_frequencies path."""
+        assert _write_tsv_translate("---") == "-"
