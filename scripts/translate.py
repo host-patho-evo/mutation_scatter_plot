@@ -32,6 +32,8 @@ import os
 import io
 from optparse import OptionParser
 
+from Bio.Seq import translate as _bio_translate
+
 VERSION = "202504031900"
 
 myparser = OptionParser(version=f"%prog version {VERSION}")
@@ -118,21 +120,48 @@ def _iter_fasta_raw(fh):
 def _translate_seq(seq: str, table: dict, ignore_gaps: bool) -> str:
     """Translate *seq* to amino acids using the pre-built *table*.
 
-    When *ignore_gaps* is True, gap characters are stripped before the codon
-    window is applied (keeps the reading frame intact within non-gap regions).
+    Three codon resolution paths, fastest first:
 
-    Otherwise (respect_alignment mode), gaps are kept; '---' → '-',
-    mixed codons (partial gaps) → 'X' via the dict default.
+    1. Fast dict lookup (64 standard codons + '---'):
+       Standard ATGC codons and the full-gap codon are resolved via a
+       single dict.get() with no Biopython overhead.
 
-    Any codon shorter than 3 nt (trailing incomplete codon) is silently
-    dropped — this matches the original behaviour.
+    2. Partial-gap codon (contains '-' but is not '---', e.g. 'TC-'):
+       Returns 'X' immediately — this is the --respect-alignment semantics
+       from Biopython PR #4992.  The gap occupies an alignment column that
+       cannot be unambiguously resolved, so 'X' is correct.
+
+    3. Pure IUPAC ambiguity codon (no gap, e.g. 'TCN', 'CGN'):
+       Falls back to Bio.Seq.translate() per-codon, which can resolve
+       four-fold degenerate positions (e.g. TCN → S).
+
+    When *ignore_gaps* is True, all '-' are stripped before slicing so the
+    reading frame is preserved across gapped regions.
+
+    Any trailing incomplete codon is silently dropped.
     """
     if ignore_gaps:
         seq = seq.replace('-', '')
-    get = table.get
     length = len(seq)
-    # Only process complete codons (drop trailing incomplete codon silently).
-    return ''.join(get(seq[i:i + 3], 'X') for i in range(0, length - length % 3, 3))
+    result: list[str] = []
+    for i in range(0, length - length % 3, 3):
+        codon = seq[i:i + 3]
+        aa = table.get(codon)
+        if aa is None:
+            if '-' in codon:
+                # Partial-gap codon (e.g. TC-, A-C): respect_alignment semantics
+                # → treat as ambiguous ('X').  Do NOT replace '-' with 'N' because
+                # that would incorrectly give TC- → TCN → S instead of X.
+                aa = 'X'
+            else:
+                # Pure IUPAC ambiguity codon (e.g. TCN, CGN): Biopython can
+                # sometimes resolve these to a unique amino acid (TCN → S).
+                try:
+                    aa = _bio_translate(codon, gap='-')
+                except Exception:  # pylint: disable=broad-except
+                    aa = 'X'
+        result.append(aa)
+    return ''.join(result)
 
 
 # ── main I/O loop ─────────────────────────────────────────────────────────────
