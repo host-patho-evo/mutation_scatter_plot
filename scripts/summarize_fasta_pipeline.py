@@ -1259,6 +1259,140 @@ def _compute_discard_stats(parent_path: str, child_path: str,
     return None, None
 
 
+def _extract_discarded_to_fasta(
+        child_path: str,
+        root_path: str,
+        search_path: str,
+) -> None:
+    """Phase 4: extract discarded sequences from the root ancestor FASTA.
+
+    Reads {child_stem}.discarded_sha256_hashes.txt, maps the sha256 hexes to
+    original FASTA IDs via {root_stem}.sha256_to_ids.tsv, writes a temporary
+    names file, then runs filterbyname.sh (or a streaming Python fallback) to
+    produce:
+        {child_stem}.discarded_original_entries.fasta
+    """
+    child_stem = _strip_fasta_suffix(child_path)
+    root_stem  = _strip_fasta_suffix(root_path)
+    sha_file   = child_stem + '.discarded_sha256_hashes.txt'
+    out_fasta  = child_stem + '.discarded_original_entries.fasta'
+    child_disp = os.path.relpath(child_path, search_path)
+    root_disp  = os.path.relpath(root_path,  search_path)
+
+    print(f"  {child_disp}: extracting discarded records from {root_disp} …",
+          file=sys.stderr, flush=True)
+
+    # ── Step 1: read sha256 hashes ─────────────────────────────────────────
+    if not os.path.exists(sha_file):
+        print(f"    Skipped: {os.path.basename(sha_file)} not found.",
+              file=sys.stderr)
+        return
+
+    target_sha256s: set[str] = set()
+    with open(sha_file, 'r', encoding='ascii') as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            # Format: NNNNx.sha256hex or bare sha256hex
+            xpos = line.find('x.')
+            if xpos > 0 and line[:xpos].isdigit():
+                target_sha256s.add(line[xpos + 2:])
+            elif len(line) == 64:
+                target_sha256s.add(line)
+
+    if not target_sha256s:
+        print(f"    Skipped: no sha256 entries in {os.path.basename(sha_file)}.",
+              file=sys.stderr)
+        return
+
+    # ── Step 2: map sha256s → GISAID IDs via root ancestor TSV ──────────────
+    # sha256_to_ids.tsv is built by count_same_sequences.py.
+    # sha256_to_descr_lines.tsv is built when --write-original-descr-lines is
+    # used; taking the first whitespace-separated token gives the accession ID.
+    root_tsv_candidates = [
+        root_stem + '.sha256_to_ids.tsv',
+        root_stem + '.sha256_to_descr_lines.tsv',
+    ]
+    root_tsv = next((t for t in root_tsv_candidates if os.path.exists(t)), None)
+    if root_tsv is None:
+        print(
+            f"    Skipped: no usable ancestor TSV found at root "
+            f"({os.path.basename(root_stem)}.sha256_to_{{ids,descr_lines}}.tsv).",
+            file=sys.stderr,
+        )
+        return
+
+    fasta_ids: list[str] = []
+    with open(root_tsv, 'r', encoding='ascii', errors='replace') as fh:
+        for line in fh:
+            fields = line.rstrip('\n').split('\t')
+            if not fields or fields[0] not in target_sha256s:
+                continue
+            # TSV format: sha256 \t count \t id1 \t id2 …
+            for raw_id in fields[2:]:
+                tok = raw_id.split()[0] if raw_id.strip() else ''
+                if tok:
+                    fasta_ids.append(tok)
+
+    if not fasta_ids:
+        print(f"    Warning: no FASTA IDs found for the "
+              f"{len(target_sha256s):,} discarded sha256(s) in {os.path.basename(root_tsv)}.",
+              file=sys.stderr)
+        return
+
+    print(f"    {len(fasta_ids):,} GISAID ID(s) for {len(target_sha256s):,} sha256(s).",
+          file=sys.stderr)
+
+    # ── Step 3: write temporary names file ──────────────────────────────
+    names_file = child_stem + '.discarded_fasta_ids.tmp'
+    with open(names_file, 'w', encoding='ascii') as fh:
+        fh.write('\n'.join(fasta_ids))
+        fh.write('\n')
+
+    # ── Step 4: extract records (filterbyname.sh or Python fallback) ─────────
+    extracted = False
+    try:
+        cmd = [
+            'filterbyname.sh',
+            f'in={root_path}', f'names={names_file}',
+            f'out={out_fasta}', 'ignorejunk=t',
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            print(f"    Wrote: {os.path.relpath(out_fasta, search_path)}",
+                  file=sys.stderr)
+            extracted = True
+        else:
+            print(f"    filterbyname.sh failed (exit {result.returncode}); "
+                  "falling back to Python …", file=sys.stderr)
+    except FileNotFoundError:
+        print("    filterbyname.sh not found; using Python streaming fallback …",
+              file=sys.stderr)
+
+    if not extracted:
+        target_ids_set = set(fasta_ids)
+        n_written = 0
+        with open(root_path, 'rb') as in_fh, open(out_fasta, 'wb') as out_fh:
+            in_target = False
+            for raw in in_fh:
+                if raw.startswith(b'>'):
+                    rec_id = raw[1:].split()[0].decode('utf-8', errors='replace')
+                    in_target = rec_id in target_ids_set
+                    if in_target:
+                        n_written += 1
+                if in_target:
+                    out_fh.write(raw)
+        print(f"    Wrote {n_written:,} record(s) to "
+              f"{os.path.relpath(out_fasta, search_path)}.", file=sys.stderr)
+
+    # ── Step 5: cleanup ────────────────────────────────────────────────────────
+    try:
+        os.unlink(names_file)
+    except OSError:
+        pass
+
+
 # ── Phase 1 helper ────────────────────────────────────────────────────────────
 
 def _scan_primary_file(
@@ -1451,6 +1585,7 @@ def main() -> None:
     # Classify mismatches as clip-only (right/left/both-ends) vs internal change.
     # Requires an extra scan of each parent FASTA; opt-in only.
     classify_mismatches  = '--classify-mismatches'          in args
+    extract_discarded_fasta = '--extract-discarded-fasta'   in args
     # --jobs N: parallel workers for Phase 0 (sha256) and Phase 1 (scan).
     _jobs_str = (
         next((a.split('=', 1)[1] for a in args if a.startswith('--jobs=')), None)
@@ -1758,6 +1893,28 @@ def main() -> None:
                     _emit_lines(result['lines'])
                     if result['stats'] is not None:
                         discard_data[result['idx']] = result['stats']
+
+    # ── Phase 4: extract discarded FASTA records from root ancestor ──────────
+    if do_discard and extract_discarded_fasta:
+        print(
+            f"\n{_ts()}── Phase 4: Extract discarded records from root ancestor "
+            f"─────────────────────────────────",
+            file=sys.stderr,
+        )
+        p4_children = [
+            i for i in range(len(files))
+            if i in parent_map and not _is_prot_file(files[i])
+            and os.path.exists(
+                _strip_fasta_suffix(files[i]) + '.discarded_sha256_hashes.txt'
+            )
+        ]
+        for child_idx in p4_children:
+            # Walk parent_map up to the root ancestor (no parent).
+            root_idx = child_idx
+            while root_idx in parent_map:
+                root_idx = parent_map[root_idx]
+            _extract_discarded_to_fasta(files[child_idx], files[root_idx],
+                                        search_path)
 
     # ── print table ──────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))
