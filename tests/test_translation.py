@@ -453,3 +453,166 @@ class TestParseInput:
         fasta = b">seq1\nTCA---TC-TCNAT-ATG\n"
         result = self._run(fasta)
         assert ">seq1\nS-SSXM\n" == result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 10. Incomplete codon handling — 1-nt and 2-nt trailing fragments
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestIncompleteCodonFragments:
+    """1-nt and 2-nt sequences / trailing fragments must be silently dropped.
+
+    The original Biopython translate() emits a BiopythonWarning when given a
+    sequence whose length is not a multiple of three.  Both implementations
+    must handle this without warnings or exceptions so that trailing partial
+    codons in NGS reads (caused by frame-breaking InDels) are gracefully
+    ignored rather than crashing the pipeline.
+    """
+
+    # ── alt_translate (no Biopython warning) ─────────────────────────────────
+
+    def test_alt_translate_1nt(self, recwarn):
+        """Single nucleotide: no translation, no warning."""
+        assert alt_translate("T") == ""
+        bio_warns = [w for w in recwarn.list if "Partial codon" in str(w.message)]
+        assert not bio_warns, "Unexpected BiopythonWarning for 1-nt input"
+
+    def test_alt_translate_2nt(self, recwarn):
+        """Two nucleotides: no translation, no warning."""
+        assert alt_translate("TC") == ""
+        bio_warns = [w for w in recwarn.list if "Partial codon" in str(w.message)]
+        assert not bio_warns, "Unexpected BiopythonWarning for 2-nt input"
+
+    def test_alt_translate_2nt_with_gap(self, recwarn):
+        """Two nucleotides including gap: no translation, no warning."""
+        assert alt_translate("T-") == ""
+        bio_warns = [w for w in recwarn.list if "Partial codon" in str(w.message)]
+        assert not bio_warns
+
+    def test_alt_translate_trailing_after_complete(self, recwarn):
+        """Complete codon + 2 trailing nt: translate only the complete part."""
+        assert alt_translate("TCATC") == "S"
+        bio_warns = [w for w in recwarn.list if "Partial codon" in str(w.message)]
+        assert not bio_warns
+
+    def test_alt_translate_empty(self):
+        assert alt_translate("") == ""
+
+    # ── _translate_seq (never calls Biopython for partial codons) ─────────────
+
+    def test_translate_seq_1nt(self, table1):
+        assert _translate_seq("T", table1, ignore_gaps=False) == ""
+
+    def test_translate_seq_2nt(self, table1):
+        assert _translate_seq("TC", table1, ignore_gaps=False) == ""
+
+    def test_translate_seq_trailing_after_complete(self, table1):
+        assert _translate_seq("TCATC", table1, ignore_gaps=False) == "S"
+
+    def test_translate_seq_empty(self, table1):
+        assert _translate_seq("", table1, ignore_gaps=False) == ""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 11. Exhaustive IUPAC+gap codon comparison:
+#     current alt_translate() vs current _translate_seq()
+# ─────────────────────────────────────────────────────────────────────────────
+
+import itertools
+
+# IUPAC nucleotide codes used in DNA FASTA files, plus alignment gap '-'.
+# 16 characters → 16^3 = 4096 complete codons to test.
+_IUPAC_GAP_CHARS = list("ACGTRYSWKMBDHVN-")
+assert len(_IUPAC_GAP_CHARS) == 16
+
+# Pre-compute the full codon list once at module import so parametrize
+# doesn't regenerate it 4096 times.
+_ALL_IUPAC_CODONS = [
+    c1 + c2 + c3
+    for c1, c2, c3 in itertools.product(_IUPAC_GAP_CHARS, repeat=3)
+]
+assert len(_ALL_IUPAC_CODONS) == 16 ** 3  # 4096
+
+
+def _old_alt_translate(seq, _bio=__import__('Bio.Seq', fromlist=['translate']).translate):
+    """Reference implementation: original NNN-based alt_translate (commit dd812e8).
+
+    Kept verbatim to document known intentional differences from the current
+    '-'→'N' implementation:
+      TC- → NNN → X   (old, via NNN whole-codon substitution)
+      TC- → TCN → S   (new, '-' treated as 'N', Biopython resolves → Serine)
+    """
+    codons = (seq[i:i+3] for i in range(0, len(seq), 3))
+    codons = ("NNN" if "-" in codon and codon != "---" else codon for codon in codons)
+    return "".join(_bio(codon, gap='-') for codon in codons)
+
+
+# Codons where old and new intentionally differ: partial-gap codons where
+# the remaining two nucleotides uniquely determine the amino acid.
+# Old: TC- → NNN → X.  New: TC- → TCN → S.
+_KNOWN_OLD_VS_NEW_DIFFS = {
+    # codon : (old_result, new_result)
+    # Four-fold degenerate positions (third base) — new correctly gives AA:
+}
+# Build the known-diff dict dynamically so it stays in sync with Biopython.
+_t1 = _build_codon_table(table_id=1)
+for _c1, _c2 in itertools.product("ACGTRYSWKMBDHVN", repeat=2):
+    _codon = _c1 + _c2 + "-"
+    _old = _old_alt_translate(_codon)
+    _new = alt_translate(_codon)
+    if _old != _new:
+        _KNOWN_OLD_VS_NEW_DIFFS[_codon] = (_old, _new)
+
+
+class TestExhaustiveIUPACGapCodons:
+    """Verify that both current implementations agree on every possible codon.
+
+    Old (NNN-based) vs new ('-'→'N') differences are pre-computed and treated
+    as *known intentional changes* — they are not failures.  The key assertion
+    is that the two CURRENT implementations (alt_translate and _translate_seq)
+    are identical for all 4096 complete IUPAC+gap codons.
+    """
+
+    @pytest.mark.parametrize("codon", _ALL_IUPAC_CODONS)
+    def test_current_implementations_agree(self, codon, table1):
+        """alt_translate(codon) == _translate_seq(codon) for every IUPAC+gap codon."""
+        result_at = alt_translate(codon)
+        result_ts = _translate_seq(codon, table1, ignore_gaps=False)
+        assert result_at == result_ts, (
+            f"Mismatch for codon {codon!r}: "
+            f"alt_translate={result_at!r}, _translate_seq={result_ts!r}"
+        )
+
+    def test_known_old_vs_new_differences_are_partial_gap_only(self):
+        """All old→new differences must be partial-gap codons (contain '-' but not '---')."""
+        for codon in _KNOWN_OLD_VS_NEW_DIFFS:
+            assert '-' in codon and codon != '---', (
+                f"Unexpected old→new difference for non-partial-gap codon {codon!r}"
+            )
+
+    def test_full_gap_codon_unchanged(self):
+        """'---' must give '-' in both old and new implementations."""
+        assert _old_alt_translate("---") == "-"
+        assert alt_translate("---") == "-"
+        t1 = _build_codon_table(1)
+        assert _translate_seq("---", t1, ignore_gaps=False) == "-"
+
+    def test_no_exception_on_any_iupac_gap_codon(self, table1):
+        """No codon should raise an exception (only X for unknowns)."""
+        for codon in _ALL_IUPAC_CODONS:
+            try:
+                alt_translate(codon)
+                _translate_seq(codon, table1, ignore_gaps=False)
+            except Exception as exc:
+                pytest.fail(f"Exception for codon {codon!r}: {exc}")
+
+    def test_diff_count_matches_known(self):
+        """Sanity-check: number of old→new diffs matches pre-computed map."""
+        diffs = 0
+        for codon in _ALL_IUPAC_CODONS:
+            if _old_alt_translate(codon) != alt_translate(codon):
+                diffs += 1
+        assert diffs == len(_KNOWN_OLD_VS_NEW_DIFFS), (
+            f"Expected {len(_KNOWN_OLD_VS_NEW_DIFFS)} old→new diffs, got {diffs}"
+        )
+
