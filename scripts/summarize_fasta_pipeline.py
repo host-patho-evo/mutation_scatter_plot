@@ -150,9 +150,49 @@ PROT_SUFFIXES = ('.prot.fasta', '.prot', '.faa')
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DISCARD_SCRIPT = os.path.join(SCRIPT_DIR, 'create_list_of_discarded_sequences.py')
 
-VERSION = "202604030200"
+VERSION = "202604030900"
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
+def _ts() -> str:
+    """Return a wall-clock timestamp prefix for stderr progress lines.
+
+    Example output: ``'[09:34:51] '``
+    """
+    return datetime.datetime.now().strftime('[%H:%M:%S] ')
+
+
+def _get_git_version() -> str:
+    """Return a live git version string (``git describe --always --dirty --tags``).
+
+    Mirrors the three-tier logic in ``mutation_scatter_plot/__init__.py``:
+
+    * **Tier 1** — ``git describe`` in the script's own directory (works in any
+      live checkout, including editable installs).
+    * **Tier 2** — ``GIT_COMMIT`` environment variable (CI/CD fallback).
+    * **Tier 3** — ``"unknown"`` if neither is available.
+
+    Falls back gracefully so the script always starts even without git.
+    """
+    _here = os.path.dirname(os.path.abspath(__file__))
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--always", "--dirty", "--tags"],
+            capture_output=True, text=True, check=True,
+            cwd=_here,
+        )
+        ver = result.stdout.strip()
+        if ver:
+            return ver
+    except Exception:  # pylint: disable=broad-except
+        pass
+    env_ver = os.environ.get("GIT_COMMIT", "").strip()
+    if env_ver:
+        return env_ver[:12]
+    return "unknown"
+
+
+_GIT_VERSION: str = _get_git_version()
 
 def _fmt_size(n: int) -> str:
     """Format *n* bytes as a human-readable string (e.g. '31.8 GB')."""
@@ -1148,8 +1188,10 @@ def _compute_discard_stats(parent_path: str, child_path: str,
 
 def main() -> None:
     """Entry point: parse args, scan files, print table, optionally show discard stats."""
+    _start_ts = datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
     print(
-        f"summarize_fasta_pipeline.py  version {VERSION}"
+        f"{_start_ts} summarize_fasta_pipeline.py"
+        f"  version {VERSION}  git:{_GIT_VERSION}"
         f"  invoked: {' '.join(sys.argv)}",
         file=sys.stderr,
     )
@@ -1198,7 +1240,7 @@ def main() -> None:
     # Sort by stem length (shorter = earlier in pipeline), then alphabetically.
     files = sorted(found, key=lambda p: (len(_strip_fasta_suffix(os.path.basename(p))),
                                           os.path.basename(p)))
-    print(f"Found {len(files):,} file(s).\n", file=sys.stderr)
+    print(f"{_ts()}Found {len(files):,} file(s).\n", file=sys.stderr)
 
     # ── infer parent->child pairs from naming convention ──────────────────────
     # base_B.startswith(base_A + ".") defines the relationship.
@@ -1236,40 +1278,40 @@ def main() -> None:
                   if len(idxs) >= 2 and sz > 0}
     if _size_tied:
         print(
-            f"\n── Phase 0: Identity check (size + sha256) "
+            f"\n{_ts()}── Phase 0: Identity check (size + sha256) "
             f"─────────────────────────────────────────────────────────",
             file=sys.stderr,
         )
         print(
-            f"  {len(_size_tied)} size group(s) with ≥2 files will be sha256-checked;"
+            f"  {len(_size_tied)} size group(s) with \u22652 files will be sha256-checked;"
             f" identical files share scan results.",
             file=sys.stderr,
         )
     for sz, idxs in _size_tied.items():
         print(
-            f"\n  Size group {_fmt_size(sz)} — {len(idxs)} file(s):",
+            f"\n{_ts()}  Size group {_fmt_size(sz)} — {len(idxs)} file(s):",
             file=sys.stderr,
         )
         sha_to_primary: dict[str, int] = {}
         for idx in idxs:
             name = os.path.basename(files[idx])
-            print(f"    computing sha256: {name} …", file=sys.stderr, flush=True)
+            print(f"{_ts()}    computing sha256: {name} …", file=sys.stderr, flush=True)
             sha = _fasta_sha256(files[idx])
             if sha in sha_to_primary:
                 pri_name = os.path.basename(files[sha_to_primary[sha]])
                 content_twin[idx] = sha_to_primary[sha]
                 print(
-                    f"    → {name} ≡ {pri_name}"
+                    f"{_ts()}    → {name} ≡ {pri_name}"
                     f" (sha256={sha[:16]}…) — scan results will be reused.",
                     file=sys.stderr, flush=True,
                 )
             else:
                 sha_to_primary[sha] = idx
-                print(f"    → {name}: sha256={sha[:16]}… (primary)", file=sys.stderr, flush=True)
+                print(f"{_ts()}    → {name}: sha256={sha[:16]}… (primary)", file=sys.stderr, flush=True)
 
     # ── gather per-file data ─────────────────────────────────────────────────
     print(
-        f"\n── Phase 1: Gather per-file statistics "
+        f"\n{_ts()}── Phase 1: Gather per-file statistics "
         f"──────────────────────────────────────────────────────────────",
         file=sys.stderr,
     )
@@ -1299,7 +1341,7 @@ def main() -> None:
             sha256_sets.append(sha256_sets[pri])
             prot_unique.append(prot_unique[pri])
             print(
-                f"{tag} {display}\n"
+                f"{_ts()}{tag} {display}\n"
                 f"        ↳ reusing results from [{pri+1}] {pri_display}"
                 f" ({n_rec:,} records, NNNNx sum={n_sum:,}).",
                 file=sys.stderr, flush=True,
@@ -1308,7 +1350,7 @@ def main() -> None:
             sz_str = _fmt_size(os.path.getsize(f))
             is_prot = _is_prot_file(f)
             kind = 'protein FASTA' if is_prot else 'FASTA'
-            print(f"{tag} {display}  ({sz_str}, {kind})", file=sys.stderr, flush=True)
+            print(f"{_ts()}{tag} {display}  ({sz_str}, {kind})", file=sys.stderr, flush=True)
             print(f"        counting records …", file=sys.stderr, flush=True)
             n_rec = _count_records(f)
             print(f"        summing NNNNx counts …", file=sys.stderr, flush=True)
@@ -1321,7 +1363,7 @@ def main() -> None:
             prot_unique.append(_count_prot_unique(f) if is_prot else None)
             sha_set, n_legacy = sha256_sets[-1]
             print(
-                f"        done: {n_rec:,} records, NNNNx sum={n_sum:,}, "
+                f"{_ts()}        done: {n_rec:,} records, NNNNx sum={n_sum:,}, "
                 f"{len(sha_set):,} unique sha256s"
                 + (f", {n_legacy:,} legacy IDs" if n_legacy else "") + ".",
                 file=sys.stderr, flush=True,
@@ -1344,7 +1386,7 @@ def main() -> None:
 
     if verify_sha256:
         print(
-            f"\n── Phase 2: sha256 integrity verification "
+            f"\n{_ts()}── Phase 2: sha256 integrity verification "
             f"────────────────────────────────────────────────────────",
             file=sys.stderr,
         )
@@ -1391,7 +1433,7 @@ def main() -> None:
             parent_sha256s = sha256_sets[p][0] if p is not None else None
             parent_display = os.path.relpath(files[p], search_path) if p is not None else '(no parent)'
             print(
-                f"  [{idx+1}/{len(files)}] {display}: verifying sha256 IDs "
+                f"{_ts()}  [{idx+1}/{len(files)}] {display}: verifying sha256 IDs "
                 f"against parent [{p+1 if p is not None else '?'}] {parent_display} …",
                 file=sys.stderr, flush=True,
             )
@@ -1399,7 +1441,7 @@ def main() -> None:
             verify_data[idx] = vd
             if vd is not None and (vd[0] > 0 or vd[2] > 0):
                 print(
-                    f"    Warning: {display}:"
+                    f"{_ts()}    Warning: {display}:"
                     + (f" {vd[0]:,} record(s) sha256→existing" if vd[0] else "")
                     + (f" {vd[2]:,} record(s) sha256→novel" if vd[2] else "")
                     + f" (NNNNx: {vd[1]+vd[3]:,} total)",
@@ -1407,7 +1449,7 @@ def main() -> None:
                 )
             else:
                 print(
-                    f"    OK: all sha256 IDs match their sequences and parent set.",
+                    f"{_ts()}    OK: all sha256 IDs match their sequences and parent set.",
                     file=sys.stderr, flush=True,
                 )
             if classify_mismatches and vd is not None and p is not None:

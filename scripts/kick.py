@@ -19,7 +19,29 @@ import sys
 
 from Bio import SeqIO
 
-VERSION = 202603292130
+VERSION = "202603292130"
+
+
+def _get_git_version() -> str:
+    """Return ``git describe --always --dirty --tags`` output, or ``'unknown'``."""
+    import subprocess as _sp
+    _here = os.path.dirname(os.path.abspath(__file__))
+    try:
+        result = _sp.run(
+            ["git", "describe", "--always", "--dirty", "--tags"],
+            capture_output=True, text=True, check=True,
+            cwd=_here,
+        )
+        ver = result.stdout.strip()
+        if ver:
+            return ver
+    except Exception:  # pylint: disable=broad-except
+        pass
+    env_ver = os.environ.get("GIT_COMMIT", "").strip()
+    return env_ver[:12] if env_ver else "unknown"
+
+
+_GIT_VERSION: str = _get_git_version()
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--infile", required=True, help="Input FASTA/Q file path.")
@@ -37,8 +59,11 @@ parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}"
 
 def main():
     """Parse arguments and split FASTA into exact/shorter/longer output files."""
+    import datetime as _dt
+    _start_ts = _dt.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
     print(
-        f"kick.py  version {VERSION}"
+        f"{_start_ts} kick.py"
+        f"  version {VERSION}  git:{_GIT_VERSION}"
         f"  invoked: {' '.join(sys.argv)}",
         file=sys.stderr,
     )

@@ -36,10 +36,33 @@ Usage::
         --original-fasta=spikenuc1207.no_junk.counts.fasta
 """
 import hashlib
+import os
 import sys
 import argparse
 
 VERSION = "202604022300"
+
+
+def _get_git_version() -> str:
+    """Return ``git describe --always --dirty --tags`` output, or ``'unknown'``."""
+    import subprocess as _sp
+    _here = os.path.dirname(os.path.abspath(__file__))
+    try:
+        result = _sp.run(
+            ["git", "describe", "--always", "--dirty", "--tags"],
+            capture_output=True, text=True, check=True,
+            cwd=_here,
+        )
+        ver = result.stdout.strip()
+        if ver:
+            return ver
+    except Exception:  # pylint: disable=broad-except
+        pass
+    env_ver = os.environ.get("GIT_COMMIT", "").strip()
+    return env_ver[:12] if env_ver else "unknown"
+
+
+_GIT_VERSION: str = _get_git_version()
 
 parser = argparse.ArgumentParser(
     description=__doc__,
@@ -123,8 +146,11 @@ def _classify(current: str, original: str) -> str:
 
 def main() -> None:
     """Scan aligned FASTA and report (and optionally classify) sha256 mismatches."""
+    import datetime as _dt
+    _start_ts = _dt.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
     print(
-        f"check_alignment_trimming.py  version {VERSION}"
+        f"{_start_ts} check_alignment_trimming.py"
+        f"  version {VERSION}  git:{_GIT_VERSION}"
         f"  invoked: {' '.join(sys.argv)}",
         file=sys.stderr,
     )
