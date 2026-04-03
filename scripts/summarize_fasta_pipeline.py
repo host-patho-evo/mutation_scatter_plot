@@ -263,34 +263,63 @@ def _sum_nnnx_counts(path: str) -> int:
     Peeks at the first FASTA header only.  If it has no NNNNx prefix (e.g.
     a GISAID accession like 'Spike|hCoV-19/…'), the sum must be 0 for every
     record — no further file reading is needed.
+
+    Implementation: reads in Python rather than a shell pipeline so that only
+    the first token of each header line is examined.  On files with very long
+    FASTA headers (many accession IDs concatenated), the old
+    "grep | awk '{print $1}'" pipeline had to scan every byte of every header
+    line to find field boundaries — O(total_header_bytes).  Using
+    bytes.find(b' ') stops as soon as the first space is found (typically
+    after ~80 chars for NNNNxCOUNT.sha256hex IDs) and is implemented in C.
     """
-    # ── fast path: check first header ────────────────────────────────────────
+
+    def _first_token(raw: bytes) -> bytes:
+        """Return bytes between the leading '>' and the first space or tab."""
+        sp = raw.find(b' ', 1)
+        tb = raw.find(b'\t', 1)
+        if sp > 1 and (tb < 1 or sp <= tb):
+            return raw[1:sp]
+        if tb > 1:
+            return raw[1:tb]
+        return raw[1:].rstrip()
+
+    # ── fast path: check first header ───────────────────────────────────────────────────────────────
     try:
-        with open(path, "rb") as fh:
+        with open(path, 'rb') as fh:
             for raw in fh:
                 if raw[:1] != b'>':
                     continue
-                first_id = _decode_fasta_line(raw)[1:].split()[0] if raw else ""
+                tok = _first_token(raw)
+                first_id = tok.decode('ascii', errors='replace')
                 xpos = first_id.find('x.')
                 if xpos > 0:
                     try:
-                        int(first_id[:xpos])  # valid NNNNx prefix
+                        int(first_id[:xpos])   # valid NNNNx prefix
                     except ValueError:
-                        return 0  # not a number before x.
-                    break  # NNNNx file — fall through to full scan
-                return 0  # no 'x.' at all — plain GISAID/legacy ID
+                        return 0
+                    break   # NNNNx file — fall through to full scan
+                return 0    # no 'x.' at all — plain GISAID/legacy ID
     except OSError:
         return 0
-    # ── full scan: file has NNNNx IDs ────────────────────────────────────────
-    cmd = (
-        "grep '^>' " + _shell_quote(path) + r" | cut -c 2-"
-        r" | awk '{print $1}'"
-        r" | sed -e 's/x.*//'"
-        r" | awk '{SUM += $1} END {print SUM+0}'"
-    )
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=False)
-    text = result.stdout.strip()
-    return int(text) if text else 0
+
+    # ── full scan: file has NNNNx IDs ───────────────────────────────────────────────────────────────
+    total = 0
+    try:
+        with open(path, 'rb') as fh:
+            for raw in fh:
+                if raw[:1] != b'>':
+                    continue
+                tok  = _first_token(raw)
+                xpos = tok.find(b'x.')
+                if xpos > 0:
+                    try:
+                        total += int(tok[:xpos])
+                    except ValueError:
+                        pass
+    except OSError:
+        pass
+    return total
+
 
 
 def _shell_quote(s: str) -> str:
