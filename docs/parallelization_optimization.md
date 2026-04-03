@@ -364,11 +364,14 @@ parallel fraction therefore stays constant at ~57–60% regardless of dataset si
 git pull
 
 # Run on the full dataset using local SSD for output (avoids NFS write latency)
+# --threads 8 is the recommended explicit value (default 0 = all cores, which
+# may monopolise a shared server; env vars PBS_NUM_PPN/PBS_NCPUS/OMP_NUM_THREADS
+# are checked first if --threads is not given).
 REFERENCE=/auto/vestec1-elixir/projects/biocev/mmokrejs/proj/zahradnik/GISAID/hCoV-19_spikenuc1207/MN908947.3_S.fasta
 ALIGNMENT=/auto/vestec1-elixir/projects/biocev/mmokrejs/proj/zahradnik/GISAID/hCoV-19_spikenuc1207/padded_length_3822/spikenuc1207.native2ascii.no_junk.counts.clean.exactly_3822.fasta
 OUTDIR=/scratch.ssd/mmokrejs/results
 
-python -m mutation_scatter_plot.calculate_codon_frequencies.cli \
+calculate_codon_frequencies \
     --reference-infile "$REFERENCE" \
     --alignment-file  "$ALIGNMENT" \
     --outfile-prefix  "$OUTDIR/spikenuc1207" \
@@ -377,7 +380,26 @@ python -m mutation_scatter_plot.calculate_codon_frequencies.cli \
     --overwrite \
     --threads 8 \
     --chunksize 256
+    # --cpu-bind local   # (default) autobind to the NUMA node with most free RAM
 ```
+
+On a **multi-socket NUMA host** (e.g. the Xeon Platinum 8260, 4 sockets) the
+`--cpu-bind local` default (or explicit `numactl --cpunodebind=N --localalloc`)
+pins all worker processes to a single NUMA node before the `multiprocessing.Pool`
+is forked.  This ensures both the COW-fork arrays and all IPC buffers are
+allocated from NUMA-local RAM, eliminating remote memory accesses that would
+otherwise add 40-80 ns/access latency on a 4-socket system:
+
+```bash
+# Explicit NUMA pinning on a 4-socket system (alternative to --cpu-bind local)
+numactl --cpunodebind=3 --localalloc \
+    calculate_codon_frequencies \
+        --threads 8 --chunksize 256 ...
+```
+
+> **Note:** `--cpu-bind local` silently skips autobind on single-node systems
+> and when a job scheduler has already configured placement
+> (`GOMP_CPU_AFFINITY`, `KMP_AFFINITY`, `SLURM_CPU_BIND`, `SGE_BINDING`).
 
 ---
 
