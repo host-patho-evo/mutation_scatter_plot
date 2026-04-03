@@ -264,6 +264,15 @@ check_alignment_trimming.py --infilename=filename_prefix.counts.clean.fasta
 
 ---
 
+## Parallelization & NFS Strategy
+
+The pipeline is heavily optimized for multi-threaded setups via the `--jobs N` flag in `summarize_fasta_pipeline.py`. 
+
+1. **Across-File Parallelism (ThreadPoolExecutor)**: Because operations heavily rely on standard I/O (often fetching files that take gigabytes of disk space), all heavy work releases the Global Interpreter Lock (GIL). By running threads *across* files, we saturate total RAID or network bandwidth without experiencing CPU bottlenecks. Using `ProcessPoolExecutor` would just add memory-transfer overhead by pickling and exchanging data across separate processes, without improving task speed.
+2. **Within-File Design Avoided for NFS Performance**: The code is explicitly designed to **avoid** reading the *same* file via concurrent threads. While SSDs have excellent paging capable of catching concurrent reads cleanly, performing concurrent distinct read-passes (for example, `grep` followed closely by string analysis in a parallel thread) on network storage (NFSv4) wreaks havoc on the kernel's read-ahead cache. The varying speeds of the readers cause severe network thrashing and cache evictions. By completing one file entirely in one thread pass or sequentially within that single thread, the pipeline allows NFS to stream giant files sequentially, retaining maximal throughput.
+
+---
+
 ## Mixed-Encoding Handling
 
 GISAID FASTA files contain non-ASCII characters in sample descriptions (country
