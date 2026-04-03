@@ -294,21 +294,30 @@ def _iter_fasta(path):
     """
     name = full_header = None
     parts = []
+    skip_seq = False
     with open(path, "rb") as fh:
         for raw in fh:
-            line = _decode_fasta_line(raw).rstrip("\r\n")
-            if not line:
+            if not raw.rstrip(b"\r\n"):
                 continue
-            if line.startswith(">"):
+            if raw.startswith(b">"):
                 if name is not None:
                     yield name, full_header, "".join(parts)
+                line = _decode_fasta_line(raw).rstrip("\r\n")
                 header = line[1:]
                 toks = header.split()
                 name = toks[0] if toks else ""
                 full_header = header
                 parts = []
+                skip_seq = (_extract_sha256(name) is not None)
             else:
-                parts.append(line)
+                if not skip_seq:
+                    line = _decode_fasta_line(raw).rstrip("\r\n")
+                    if line:
+                        parts.append(line)
+                elif not parts:
+                    line = raw.decode("ascii", errors="ignore").strip()
+                    if line:
+                        parts.append(line[0])
         if name is not None:
             yield name, full_header, "".join(parts)
 
@@ -623,7 +632,9 @@ def main():
             n_scanned = 0
             sha256_hit_counts: dict = {}  # sha256 → how many times seen in original
             for _rec_name, rec_header, rec_seq in _iter_fasta(myoptions.original_infilename):
-                sha = hashlib.sha256(rec_seq.replace('\r', '').replace('\n', '').upper().encode()).hexdigest()
+                sha = _extract_sha256(_rec_name)
+                if not sha:
+                    sha = hashlib.sha256(rec_seq.replace('\r', '').replace('\n', '').upper().encode()).hexdigest()
                 n_scanned += 1
                 if sha in target_sha256s:
                     original_id_lines.append(rec_header)

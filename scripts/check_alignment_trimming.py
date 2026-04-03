@@ -6,6 +6,9 @@ For each record in an aligned FASTA with NNNNx.sha256hex IDs, compare:
 
 A mismatch means the alignment trimmed or modified the sequence so that
 its depadded form no longer matches the original pre-alignment sequence.
+Note that sequences may have also been reverse-complemented during alignment;
+since this changes the orientation, it inherently breaks the original hash
+and is classified as a modification ("other").
 
 When ``--original-fasta`` is provided (the *.counts.fasta that was fed into
 the alignment step), mismatching records are further classified by comparing
@@ -17,7 +20,8 @@ the post-alignment depadded sequence against the pre-alignment original
   both_ends_clipped : current seq is an INTERIOR substring of the original
                       (both ends trimmed, internal content intact)
   other             : current is not a substring of original at all
-                      — internal bases were modified, not just ends clipped
+                      — internal bases were modified, or the sequence was
+                      reverse-complemented, not just ends clipped
 
 Two-pass strategy to stay memory-efficient on large files:
   Pass 1: scan aligned FASTA → collect {sha256_in_id: depadded_current_seq}
@@ -102,10 +106,14 @@ def _depad(seq: str) -> str:
     return seq.replace('-', '').upper()
 
 
-def _iter_fasta(path: str):
-    """Yield (name, depadded_seq) for each record."""
+def _iter_fasta(path: str, target_shas: set[str] | None = None):
+    """Yield (name, depadded_seq) for each record.
+    If target_shas is provided, sequence bodies for IDs possessing a known sha256
+    that is NOT in target_shas are skipped entirely (yielding an empty string).
+    """
     name = None
     parts: list[str] = []
+    skip_seq = False
     with open(path, 'r', encoding='utf-8', errors='replace') as fh:
         for line in fh:
             line = line.rstrip('\r\n')
@@ -113,13 +121,20 @@ def _iter_fasta(path: str):
                 continue
             if line.startswith('>'):
                 if name is not None:
-                    yield name, _depad(''.join(parts))
+                    yield name, ("" if skip_seq else _depad(''.join(parts)))
                 name = line[1:].split()[0]
                 parts = []
+                if target_shas is not None:
+                    sha = _extract_sha256(name)
+                    # If ID has a sha, and it's not what we're looking for, skip reading its sequence!
+                    skip_seq = (sha is not None and sha not in target_shas)
+                else:
+                    skip_seq = False
             else:
-                parts.append(line)
+                if not skip_seq:
+                    parts.append(line)
     if name is not None:
-        yield name, _depad(''.join(parts))
+        yield name, ("" if skip_seq else _depad(''.join(parts)))
 
 
 def _classify(current: str, original: str) -> str:
@@ -193,7 +208,7 @@ def main() -> None:
         print(f"\nInfo: classifying {len(mismatch_seqs):,} mismatches against "
               f"{args.original_fasta} …", file=sys.stderr)
         remaining = dict(mismatch_seqs)  # copy; remove as we find matches
-        for orig_id, orig_seq in _iter_fasta(args.original_fasta):
+        for orig_id, orig_seq in _iter_fasta(args.original_fasta, target_shas=set(remaining)):
             sha_orig = _extract_sha256(orig_id)
             if sha_orig is None:
                 # Legacy NNNNx ID — compute sha256 from sequence content.
