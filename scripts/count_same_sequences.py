@@ -216,6 +216,11 @@ def build_sha256_id_mapping(infilename, mapping_outfile, debug=0):
 
 def main():
     """Parse CLI arguments and run the deduplication pipeline."""
+    print(
+        f"count_same_sequences.py  version {VERSION}"
+        f"  invoked: {' '.join(sys.argv)}",
+        file=sys.stderr,
+    )
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--infilename", required=True,

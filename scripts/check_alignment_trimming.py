@@ -123,6 +123,11 @@ def _classify(current: str, original: str) -> str:
 
 def main() -> None:
     """Scan aligned FASTA and report (and optionally classify) sha256 mismatches."""
+    print(
+        f"check_alignment_trimming.py  version {VERSION}"
+        f"  invoked: {' '.join(sys.argv)}",
+        file=sys.stderr,
+    )
 
     # ── Pass 1: detect mismatches ───────────────────────────────────────────
     # mismatch_seqs: sha256_in_id → depadded post-alignment sequence

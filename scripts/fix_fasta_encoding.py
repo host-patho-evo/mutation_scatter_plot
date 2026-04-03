@@ -835,6 +835,11 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
 
 def main() -> None:
     """Normalise FASTA header encoding for each input file."""
+    print(
+        f"fix_fasta_encoding.py  version {VERSION}"
+        f"  invoked: {' '.join(sys.argv)}",
+        file=sys.stderr,
+    )
     opts = _parser.parse_args()
     dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 

@@ -37,6 +37,11 @@ parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}"
 
 def main():
     """Parse arguments and split FASTA into exact/shorter/longer output files."""
+    print(
+        f"kick.py  version {VERSION}"
+        f"  invoked: {' '.join(sys.argv)}",
+        file=sys.stderr,
+    )
     myoptions = parser.parse_args()
 
     if not os.path.exists(myoptions.infile):

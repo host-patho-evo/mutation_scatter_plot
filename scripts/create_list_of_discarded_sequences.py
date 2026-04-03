@@ -305,6 +305,11 @@ def _line_count(line):
 
 def main():
     """Parse arguments and emit original FASTA IDs matching a deduplicated FASTA."""
+    print(
+        f"create_list_of_discarded_sequences.py  version {VERSION}"
+        f"  invoked: {' '.join(sys.argv)}",
+        file=sys.stderr,
+    )
     myoptions = _parser.parse_args()
 
     if not os.path.exists(myoptions.infilename):
