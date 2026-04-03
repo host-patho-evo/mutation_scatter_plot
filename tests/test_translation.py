@@ -34,6 +34,7 @@ Test scenarios (per the discussion in Biopython PR #4992 and issue #5036):
 """
 # pylint: disable=missing-function-docstring  # pytest: test names are self-documenting
 # pylint: disable=invalid-name                # biological codon names use uppercase (TC-, AT-)
+# pylint: disable=wrong-import-order,C0413    # translate import must follow sys.path.insert()
 
 from decimal import Decimal
 import io
@@ -51,18 +52,10 @@ from mutation_scatter_plot.calculate_codon_frequencies import write_tsv_line
 
 # Import internal functions from the scripts/ translate tool.
 # Since scripts/ is not installed as a package, add it to sys.path.
-# We also temporarily patch sys.argv to an empty list so that translate.py's
-# module-level  (myoptions, myargs) = myparser.parse_args()  call does not
-# see pytest's own arguments and raise an OptionParser error.
 _SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), '..', 'scripts')
 sys.path.insert(0, os.path.abspath(_SCRIPTS_DIR))
 
-_saved_argv = sys.argv
-sys.argv = ['translate']
-try:
-    from translate import _build_codon_table, _translate_seq, parse_input  # noqa: E402
-finally:
-    sys.argv = _saved_argv
+from translate import _build_codon_table, _translate_seq, parse_input  # noqa: E402
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -27,32 +27,57 @@
 gzip -dc /auto/vestec1-elixir/projects/biocev/mmokrejs/proj/zahradnik/sekvenace_wastewater_202403/demultiplex/processing_in_4_steps_by_barcode_and_primer/merged_resulting_files/split_by_flowcell_and_lane/WW_waste-water_samples__WW-P1.parental@JZ244_54_F.CATGCTCAATAGC.HWL7GDRX3.2.fastp.fastq.gz | fastq_to_fasta | blastn -task blastn -reward 2 -max_hsps 1 -num_alignments 1 -word_size 4 -num_threads 64 -dust no -evalue 1e-5 -outfmt "6 qacc sstart send sstrand qseq sseq" -db MN908947.3_S.fasta -query - 2>/dev/null | awk '{print $1,$2,$3,$4,$5,$6}' | python /auto/vestec1-elixir/projects/biocev/mmokrejs/proj/zahradnik/Izrael/bin/drop_erroneous_insertions.py --infile=- outfile=- | python /auto/vestec1-elixir/projects/biocev/mmokrejs/proj/zahradnik/Izrael/bin/reversecomplement_reads_on_minus.py --infile=- | /auto/vestec1-elixir/projects/biocev/mmokrejs/proj/zahradnik/Izrael/bin/fix_SARS-CoV2_S-protein_indel_misalignments.sh | python  /auto/vestec1-elixir/projects/biocev/mmokrejs/proj/zahradnik/Izrael/bin/translate.py --infile=- --respect-alignment | grep -v '^>' | sort | uniq -c | sort -nr
 """
 
-import sys
-import os
+import argparse
 import io
-from optparse import OptionParser
+import os
+import sys
 
 from Bio.Seq import translate as _bio_translate
 
 VERSION = "202504031900"
 
-myparser = OptionParser(version=f"%prog version {VERSION}")
-myparser.add_option("--infile", action="store", type="string", dest="infile", default='',
-    help="Input FASTA file with word plus or minus as the second word of the header, use minus (dash) for stdin")
-myparser.add_option("--outfile", action="store", type="string", dest="outfile", default='',
-    help="Output filename with words plus and minus removed from FASTA header lines, use minus (dash) for stdout")
-myparser.add_option("--infileformat", action="store", type="string", dest="infileformat", default='fasta',
-    help="Input file format (Default: fasta)")
-myparser.add_option("--outfileformat", action="store", type="string", dest="outfileformat", default='fasta-2line',
-    help="Output file format (Default: fasta-2line)")
-myparser.add_option("--ignore-gaps", action="store_true", dest="ignore_gaps", default=False,
-    help="Ignore eventual gaps in sequences and drop them before translation. If you padded the sequence alignment to keep it in-frame do not enable this.")
-myparser.add_option("--respect-alignment", action="store_true", dest="respect_alignment", default=False,
-    help="Respect padded alignment as input and do not die with an incomplete codon 'AA-' but return 'X'")
-myparser.add_option("--translation-table", action="store", type="int", dest="translation_table", default=1,
-    help="NCBI genetic code table number (default: 1 = standard). "
-         "See https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi for all tables.")
-(myoptions, myargs) = myparser.parse_args()
+
+def _build_parser() -> argparse.ArgumentParser:
+    """Return a configured argument parser for translate.py."""
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {VERSION}",
+    )
+    parser.add_argument(
+        "--infile", default='',
+        help="Input FASTA file; use - for stdin.",
+    )
+    parser.add_argument(
+        "--outfile", default='',
+        help="Output FASTA file; use - for stdout.",
+    )
+    parser.add_argument(
+        "--infileformat", default='fasta',
+        help="Input file format (default: fasta).",
+    )
+    parser.add_argument(
+        "--outfileformat", default='fasta-2line',
+        help="Output file format (default: fasta-2line).",
+    )
+    parser.add_argument(
+        "--ignore-gaps", action="store_true", dest="ignore_gaps",
+        help="Strip all '-' before translation (re-frames across gaps)."
+             " Do not use when the alignment is padded to preserve the reading frame.",
+    )
+    parser.add_argument(
+        "--respect-alignment", action="store_true", dest="respect_alignment",
+        help="Treat '-' as 'N' per-codon instead of raising an error on"
+             " incomplete codons like 'AA-'.",
+    )
+    parser.add_argument(
+        "--translation-table", type=int, default=1, dest="translation_table",
+        help="NCBI genetic code table number (default: 1 = standard)."
+             " See https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi",
+    )
+    return parser
 
 
 # ── codon lookup table ────────────────────────────────────────────────────────
@@ -188,6 +213,7 @@ def parse_input(
 
 def _main() -> None:
     """Parse CLI options and run the translation pipeline."""
+    myoptions = _build_parser().parse_args()
     # ── open input ────────────────────────────────────────────────────────────
     if not myoptions.infile or myoptions.infile == '-':
         infileh = sys.stdin.buffer
