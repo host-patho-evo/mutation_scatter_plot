@@ -1948,8 +1948,8 @@ def main() -> None:
     # ── print table ──────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))
     sep, w_num, w_delta, w_ts = "  ", 14, 16, 16
-    w_disc1  = len("'Discarded original FASTA IDs'")   # 30
-    w_disc2  = len("'Sum of discarded sequences'")       # 28
+    w_disc1  = len("'Discarded original unique Entries'")   # 34
+    w_disc2  = len("'Sum of discarded NNNNx'")               # 23
     w_novel  = len("'Novel sha256s'")                   # 15
     w_chg1   = max(len("'Seq clipped(dup)'"), w_num)
     w_chg2   = max(len("'NNNNx clipped(dup)'"), w_num)
@@ -1960,8 +1960,8 @@ def main() -> None:
     w_prot   = max(len("'Prot unique'"), w_num)
     w_protn  = max(len("'Prot NNNNx sum'"), w_num)
 
-    _hdr_disc1 = "'Discarded original FASTA IDs'"
-    _hdr_disc2 = "'Sum of discarded sequences'"
+    _hdr_disc1 = "'Discarded original unique Entries'"
+    _hdr_disc2 = "'Sum of discarded NNNNx'"
     _hdr_nnnx  = "'Sum of NNNNx'"
     _hdr_drec  = 'ΔFastaEntries'
     _hdr_dsum  = 'ΔSumToParent'
