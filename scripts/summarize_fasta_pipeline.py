@@ -1243,10 +1243,13 @@ def _scan_primary_file(
         + (f", {n_legacy:,} legacy IDs" if n_legacy else "") + "."
     )
     # ── internal consistency: sha256 set size == record count ─────────────────
-    # For NNNNx files every record has a unique sha256 ID, so the set
-    # cardinality must equal the record count.  A mismatch signals
-    # duplicate sha256 IDs or a stale / mismatched TSV.
-    if n_legacy == 0 and len(sha_set) != n_rec:
+    # Only meaningful for NNNNx deduplicated files (n_sum > 0).
+    # GISAID raw FASTAs always have n_sum == 0 (no NNNNx prefix); their TSV
+    # has fewer rows (unique seqs) than FASTA records (many duplicates), so
+    # sha256 set size < record count is expected and must NOT be flagged.
+    # The n_legacy == 0 guard is still needed: when the TSV fast-path is used,
+    # _collect_sha256_set() returns n_legacy=0 regardless of file type.
+    if n_sum > 0 and n_legacy == 0 and len(sha_set) != n_rec:
         lines.append(
             f"        INTERNAL CHECK FAILED: sha256 set size {len(sha_set):,} "
             f"\u2260 record count {n_rec:,} (duplicate sha256 IDs or stale TSV?)"
@@ -1265,6 +1268,94 @@ def _emit_lines(lines: list[str]) -> None:
     with _stderr_lock:
         for ln in lines:
             print(ln, file=sys.stderr, flush=True)
+
+
+# Sentinel returned by _verify_one_file for protein files (verify_data left None).
+_SKIP = object()
+
+
+def _verify_one_file(
+        idx: int,
+        f: str,
+        n_total: int,
+        search_path: str,
+        parent_map: dict,
+        sha256_sets: list,
+        content_twin: dict,
+        files: list,
+        do_classify: bool,
+) -> dict:
+    """Run sha256 integrity verification (and optional mismatch classification)
+    for one file.  Designed to run either sequentially or inside a
+    ThreadPoolExecutor — all reads are I/O-bound so the GIL is released.
+
+    Returns a dict with:
+        'idx'          – original file index
+        'verify_data'  – value to store in verify_data[idx], or _SKIP (protein)
+        'classify_data'– value to store in classify_data[idx] (None if not run)
+        'lines'        – list[str] stderr lines (print atomically via _emit_lines)
+    """
+    lines: list[str] = []
+    display = os.path.relpath(f, search_path)
+
+    # ── protein files: skip (IDs have DNA sha256, not protein sha256) ──────────
+    if _is_prot_file(f):
+        lines.append(
+            f"  [{idx+1}/{n_total}] {display}: skipped \u2014 protein file "
+            f"(ID contains DNA sha256, not protein sha256)."
+        )
+        return {'idx': idx, 'verify_data': _SKIP, 'classify_data': None,
+                'lines': lines}
+
+    # ── content twins with equivalent parent: no mismatches possible ───────────
+    pri = content_twin.get(idx)
+    if pri is not None:
+        p     = parent_map.get(idx)
+        p_pri = parent_map.get(pri)
+        if p == pri or content_twin.get(p) == p_pri or p == p_pri:
+            pri_display = os.path.relpath(files[pri], search_path)
+            lines.append(
+                f"  [{idx+1}/{n_total}] {display}: skipped \u2014 content-identical "
+                f"to [{pri+1}] {pri_display} and parent is also equivalent; "
+                f"no mismatches possible."
+            )
+            return {'idx': idx, 'verify_data': (0, 0, 0, 0, set(), {}),
+                    'classify_data': None, 'lines': lines}
+        # Different parent context \u2014 fall through to normal verify.
+
+    # ── normal verify ───────────────────────────────────────────────────────────
+    p              = parent_map.get(idx)
+    parent_sha256s = sha256_sets[p][0] if p is not None else None
+    parent_display = (os.path.relpath(files[p], search_path)
+                      if p is not None else '(no parent)')
+    lines.append(
+        f"{_ts()}  [{idx+1}/{n_total}] {display}: verifying sha256 IDs "
+        f"against parent [{p+1 if p is not None else '?'}] {parent_display} \u2026"
+    )
+    vd = _verify_sha256(f, parent_sha256s)
+    if vd is not None and (vd[0] > 0 or vd[2] > 0):
+        lines.append(
+            f"{_ts()}    Warning: {display}:"
+            + (f" {vd[0]:,} record(s) sha256\u2192existing" if vd[0] else "")
+            + (f" {vd[2]:,} record(s) sha256\u2192novel"    if vd[2] else "")
+            + f" (NNNNx: {vd[1]+vd[3]:,} total)"
+        )
+    else:
+        lines.append(
+            f"{_ts()}    OK: all sha256 IDs match their sequences and parent set."
+        )
+
+    cd = None
+    if do_classify and vd is not None and p is not None:
+        mismatch_seqs_vd: dict[str, str] = vd[5] if len(vd) > 5 else {}
+        if mismatch_seqs_vd:
+            lines.append(
+                f"    classifying {len(mismatch_seqs_vd):,} mismatch(es) "
+                f"(end-clipping vs internal change) \u2026"
+            )
+            cd = _classify_mismatches(mismatch_seqs_vd, files[p])
+
+    return {'idx': idx, 'verify_data': vd, 'classify_data': cd, 'lines': lines}
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
@@ -1519,68 +1610,36 @@ def main() -> None:
             f"(protein files and content twins with equivalent parent skipped).",
             file=sys.stderr,
         )
-        for idx, f in enumerate(files):
-            if _is_prot_file(f):
-                display = os.path.relpath(f, search_path)
-                print(
-                    f"  [{idx+1}/{len(files)}] {display}: skipped — protein file "
-                    f"(ID contains DNA sha256, not protein sha256).",
-                    file=sys.stderr, flush=True,
-                )
-                continue
-            pri = content_twin.get(idx)
-            if pri is not None:
-                p = parent_map.get(idx)
-                p_pri = parent_map.get(pri)
-                if (p == pri
-                        or content_twin.get(p) == p_pri
-                        or p == p_pri):
-                    display = os.path.relpath(f, search_path)
-                    pri_display = os.path.relpath(files[pri], search_path)
-                    print(
-                        f"  [{idx+1}/{len(files)}] {display}: skipped — content-identical "
-                        f"to [{pri+1}] {pri_display} and parent is also equivalent; "
-                        f"no mismatches possible.",
-                        file=sys.stderr, flush=True,
-                    )
-                    verify_data[idx] = (0, 0, 0, 0, set(), {})
-                    continue
-                # Different parent context — fall through to normal verify below.
-            display = os.path.relpath(f, search_path)
-            p = parent_map.get(idx)
-            parent_sha256s = sha256_sets[p][0] if p is not None else None
-            parent_display = os.path.relpath(files[p], search_path) if p is not None else '(no parent)'
-            print(
-                f"{_ts()}  [{idx+1}/{len(files)}] {display}: verifying sha256 IDs "
-                f"against parent [{p+1 if p is not None else '?'}] {parent_display} …",
-                file=sys.stderr, flush=True,
+
+        def _run_verify(idx: int) -> dict:
+            return _verify_one_file(
+                idx, files[idx], len(files), search_path,
+                parent_map, sha256_sets, content_twin, files, classify_mismatches,
             )
-            vd = _verify_sha256(f, parent_sha256s)
-            verify_data[idx] = vd
-            if vd is not None and (vd[0] > 0 or vd[2] > 0):
-                print(
-                    f"{_ts()}    Warning: {display}:"
-                    + (f" {vd[0]:,} record(s) sha256→existing" if vd[0] else "")
-                    + (f" {vd[2]:,} record(s) sha256→novel" if vd[2] else "")
-                    + f" (NNNNx: {vd[1]+vd[3]:,} total)",
-                    file=sys.stderr,
-                )
-            else:
-                print(
-                    f"{_ts()}    OK: all sha256 IDs match their sequences and parent set.",
-                    file=sys.stderr, flush=True,
-                )
-            if classify_mismatches and vd is not None and p is not None:
-                mismatch_seqs_vd: dict[str, str] = vd[5] if len(vd) > 5 else {}
-                if mismatch_seqs_vd:
-                    print(
-                        f"    classifying {len(mismatch_seqs_vd):,} mismatch(es) "
-                        f"(end-clipping vs internal change) …",
-                        file=sys.stderr, flush=True,
-                    )
-                    classify_data[idx] = _classify_mismatches(
-                        mismatch_seqs_vd, files[p]
-                    )
+
+        if jobs <= 1 or len(files) <= 1:
+            for idx in range(len(files)):
+                result = _run_verify(idx)
+                _emit_lines(result['lines'])
+                if result['verify_data'] is not _SKIP:
+                    verify_data[idx]   = result['verify_data']
+                classify_data[idx] = result['classify_data']
+        else:
+            max_w2 = min(jobs, len(files))
+            print(
+                f"  Parallel Phase 2: verifying {len(files)} file(s) "
+                f"with {max_w2} worker(s).",
+                file=sys.stderr,
+            )
+            with ThreadPoolExecutor(max_workers=max_w2) as exc:
+                futs = {exc.submit(_run_verify, idx): idx
+                        for idx in range(len(files))}
+                for fut in as_completed(futs):
+                    result = fut.result()
+                    _emit_lines(result['lines'])
+                    if result['verify_data'] is not _SKIP:
+                        verify_data[result['idx']]  = result['verify_data']
+                    classify_data[result['idx']] = result['classify_data']
 
     # ── phase 2: compute discard stats for all pairs ─────────────────────────
     # Runs before table printing so the numbers can appear as proper columns.
