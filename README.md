@@ -324,6 +324,16 @@ There is **no** environment-variable auto-detection for `--jobs`; it must be
 set explicitly. A value of 4–8 is recommended for auditing a typical GISAID
 pipeline with 5–20 FASTA files over NFS.
 
+> **Why `--jobs` and not `--threads`?** `summarize_fasta_pipeline.py`
+> parallelises *across files* using `ThreadPoolExecutor` (one thread per FASTA
+> file).  FASTA reads are I/O-bound and release the GIL, so OS threads are the
+> right primitive — no process-fork overhead needed.  The flag name follows the
+> GNU `make -j N` / `parallel -j N` convention where a **job** is an
+> independent unit of work (here: one file audit).  
+> `calculate_codon_frequencies` uses **`--threads`** because it forks CPU-bound
+> worker **processes** via `multiprocessing.Pool` for the 1,274 codon-site
+> calculations.
+
 ```bash
 summarize_fasta_pipeline.py . filename_prefix --jobs 5
 ```
