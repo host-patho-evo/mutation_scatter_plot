@@ -207,10 +207,15 @@ summarize_fasta_pipeline.py <search_path> <filename_prefix> [options]
 |---|---|
 | `File` | Relative path from `<search_path>` |
 | `Modified` | File modification time (`YYYY-MM-DD HH:MM`) |
-| `Records` | Number of `>` header lines |
-| `ΔRecords` | Record-count change vs. direct parent stage |
+| `Unique DNA entries` | Number of `>` header lines |
+| `ΔDNA entries` | Record-count change vs. direct parent stage |
 | `Sum of NNNNx` | Sum of the integer count prefixes across all IDs |
-| `ΔSum` | NNNNx-sum change vs. direct parent stage |
+| `ΔSumToParent` | NNNNx-sum change vs. direct parent stage |
+| `Discarded original unique Entries` | Unique sha256 groups discarded at this step |
+| `Sum of discarded NNNNx` | Total individual sequences discarded (NNNNx expansion) |
+| `Novel sha256s` | sha256 hashes in child but absent from parent's TSV |
+| `Unique protein entries` | Unique sequences in companion `.prot.fasta` (if present) |
+| `Sum of protein NNNNx` | NNNNx sum of the companion protein file |
 
 **Parent→child inference:**
 
@@ -242,7 +247,10 @@ used.
 | Option | Description |
 |---|---|
 | `--no-discard-stats` | Print only the table; skip the discard-script calls |
+| `--extract-discarded-fasta` | For each child file with a `.discarded_sha256_hashes.txt`, extract the corresponding original FASTA records from the root ancestor FASTA. The lookup uses the first GISAID-level ancestor's `sha256_to_ids.tsv` (mapping sha256 → original accession IDs). Output: `{child_stem}.discarded_original_entries.fasta`. Uses `filterbyname.sh` (BBTools) when available, otherwise falls back to a native Python byte-streaming extractor. |
 | `--add-missing-checksums-to-fasta-files` | When a pipeline FASTA has legacy `NNNNx` IDs (no sha256 embedded), rewrite it in-place with `NNNNx.sha256hex` IDs and rename the original to `.fasta.orig`. Skipped silently if a `.fasta.orig` already exists. Makes all future analyses faster: sha256 can be read from the ID directly instead of being recomputed from the sequence. |
+| `--cpu-bind {local,spread,none}` | NUMA CPU binding policy (default: `local`). `local` binds all threads to the NUMA node with the most free RAM before any I/O begins. `spread` leaves OS placement unchanged. `none` disables autobind. Silently skipped on single-node hosts and when a job scheduler has already set placement via `GOMP_CPU_AFFINITY`, `KMP_AFFINITY`, `SLURM_CPU_BIND`, `SGE_BINDING`, or `OMP_PROC_BIND`. |
+| `--jobs N` | Number of parallel workers for Phase 0 (sha256 verification) and Phase 1 (FASTA scanning). **Default: 1 (sequential).** No auto-detection from environment variables: must be set explicitly. Recommended value: 4–8 for a pipeline with 5–20 FASTA files over NFS. |
 
 ---
 
@@ -264,12 +272,41 @@ check_alignment_trimming.py --infilename=filename_prefix.counts.clean.fasta
 
 ---
 
-## Parallelization & NFS Strategy
+## Parallelization, NUMA & NFS Strategy
 
-The pipeline is heavily optimized for multi-threaded setups via the `--jobs N` flag in `summarize_fasta_pipeline.py`. 
+The pipeline is heavily optimized for multi-threaded setups via the `--jobs N`
+flag in `summarize_fasta_pipeline.py`.
 
-1. **Across-File Parallelism (ThreadPoolExecutor)**: Because operations heavily rely on standard I/O (often fetching files that take gigabytes of disk space), all heavy work releases the Global Interpreter Lock (GIL). By running threads *across* files, we saturate total RAID or network bandwidth without experiencing CPU bottlenecks. Using `ProcessPoolExecutor` would just add memory-transfer overhead by pickling and exchanging data across separate processes, without improving task speed.
-2. **Within-File Design Avoided for NFS Performance**: The code is explicitly designed to **avoid** reading the *same* file via concurrent threads. While SSDs have excellent paging capable of catching concurrent reads cleanly, performing concurrent distinct read-passes (for example, `grep` followed closely by string analysis in a parallel thread) on network storage (NFSv4) wreaks havoc on the kernel's read-ahead cache. The varying speeds of the readers cause severe network thrashing and cache evictions. By completing one file entirely in one thread pass or sequentially within that single thread, the pipeline allows NFS to stream giant files sequentially, retaining maximal throughput.
+1. **Across-File Parallelism (ThreadPoolExecutor)**: Because operations heavily
+   rely on standard I/O (often fetching files that take gigabytes of disk
+   space), all heavy work releases the Global Interpreter Lock (GIL).  By
+   running threads *across* files, we saturate total RAID or network bandwidth
+   without experiencing CPU bottlenecks.
+
+2. **Within-File Design Avoided for NFS Performance**: The code explicitly
+   **avoids** reading the *same* file via concurrent threads.  Performing
+   concurrent distinct read-passes on NFSv4 wreaks havoc on the kernel’s
+   read-ahead cache and causes severe network thrashing.  By completing one
+   file entirely in a single thread pass, the pipeline allows NFS to stream
+   giant files sequentially at maximum throughput.
+
+3. **NUMA Auto-Bind** (`--cpu-bind local` default): On multi-socket NUMA
+   hosts, the library automatically detects the NUMA topology via
+   `/sys/devices/system/node/` and binds all threads + child processes to the
+   NUMA node with the most free RAM before any phase begins.  On single-socket
+   machines this is a silent no-op with zero overhead.  Binding stack (tried
+   in priority order):
+
+   | Back-end | Requires | Covers |
+   |---|---|---|
+   | `ctypes → libnuma.so.1` | `libnuma1` (Debian) / `numactl-libs` (RHEL) | CPU set + memory policy, in-process |
+   | `numactl --cpunodebind=N --localalloc` | `numactl` in PATH | CPU set + memory policy, re-exec |
+   | `os.sched_setaffinity()` | Python stdlib | CPU set only, fork-inherited |
+
+   HPC job schedulers that already set placement (`GOMP_CPU_AFFINITY`,
+   `KMP_AFFINITY`, `SLURM_CPU_BIND`, `SGE_BINDING`, `OMP_PROC_BIND`) cause
+   autobind to be skipped silently.
+
 
 ---
 

@@ -228,7 +228,9 @@ create_list_of_discarded_sequences.py \
     --inverted
 
 # Audit the whole pipeline at once (uses cached TSV/TXT files when available)
-summarize_fasta_pipeline.py . filename_prefix
+summarize_fasta_pipeline.py . filename_prefix \
+    --extract-discarded-fasta     # extract original FASTA records for discarded sequences
+    # --cpu-bind local            # (default) auto-binds to best NUMA node on multi-socket hosts
 ```
 
 All scripts implement a **make-style timestamp guard**: if all output files
@@ -293,21 +295,69 @@ For in-depth analysis of specific modules and subsystems, refer to the following
 
 The git commit history has been enriched with the full technical context for major milestones, ensuring that the rationale and implementation details of every optimization (including the 3.87x pipeline speedup and area-proportional scaling laws) are preserved alongside the codebase.
 
-
 ### Parallelization & Environment Variables
 
-The `calculate_codon_frequencies` tool is designed for high-performance multi-core execution. By default, it automatically detects the available CPU allocation from common HPC environment variables, falling back to all available cores if none are set.
+#### `calculate_codon_frequencies` — `--threads N`
 
-**Supported Environment Variables (checked in order):**
-1. `PBS_NUM_PPN`
-2. `PBS_NCPUS`
-3. `OMP_NUM_THREADS`
+| `--threads` value | Behaviour |
+|---|---|
+| `0` (default) | Auto-detect: check `PBS_NUM_PPN`, `PBS_NCPUS`, `OMP_NUM_THREADS` in order; if none set, use **all** `multiprocessing.cpu_count()` cores |
+| `N > 0` | Use exactly N worker processes |
 
-You can explicitly control the thread count using the `--threads` option:
+> **Recommendation:** Always specify `--threads 8` explicitly. Benchmarks show 8
+> threads is the sweet spot (2× speedup); beyond 16 there are diminishing returns
+> due to Amdahl's serial fraction. Using all cores on a shared server without
+> setting `OMP_NUM_THREADS` will monopolise the machine.
+
 ```bash
-# Force use of 8 threads
 calculate_codon_frequencies --threads 8 [other options]
 ```
+
+#### `summarize_fasta_pipeline.py` — `--jobs N`
+
+| `--jobs` value | Behaviour |
+|---|---|
+| `1` (default) | Sequential — processes one FASTA file at a time |
+| `N > 1` | Parallel — up to N files processed concurrently via `ThreadPoolExecutor` |
+
+There is **no** environment-variable auto-detection for `--jobs`; it must be
+set explicitly. A value of 4–8 is recommended for auditing a typical GISAID
+pipeline with 5–20 FASTA files over NFS.
+
+```bash
+summarize_fasta_pipeline.py . filename_prefix --jobs 5
+```
+
+### NUMA Auto-Bind (`--cpu-bind`)
+
+Both `calculate_codon_frequencies` and `summarize_fasta_pipeline.py` include
+automatic NUMA topology detection.  On **multi-socket hosts** the process is
+bound to the NUMA node with the most free RAM before any I/O or worker
+processes are created.  **On single-socket machines this is a silent no-op.**
+
+```bash
+# Default: autobind to best NUMA node (multi-socket host only)
+calculate_codon_frequencies --cpu-bind local --threads 8 ...
+
+# Spread policy — leave OS placement unchanged
+calculate_codon_frequencies --cpu-bind spread --threads 8 ...
+
+# Disable autobind
+calculate_codon_frequencies --cpu-bind none --threads 8 ...
+```
+
+Binding stack (tried in priority order):
+
+| Back-end | Requires | Covers |
+|---|---|---|
+| `ctypes → libnuma.so.1` | `libnuma1` (Debian) / `numactl-libs` (RHEL) | CPU set + memory policy, in-process |
+| `numactl --cpunodebind=N --localalloc` | `numactl` in PATH | CPU set + memory policy, re-exec |
+| `os.sched_setaffinity()` | Python stdlib | CPU affinity only, fork-inherited |
+
+Autobind is silently skipped when a job scheduler has already configured
+placement:
+`GOMP_CPU_AFFINITY`, `KMP_AFFINITY`, `SLURM_CPU_BIND`, `SGE_BINDING`,
+`OMP_PROC_BIND`.
 
 **Benchmarking Results (4-core system):**
 With a high-diversity synthetic dataset (50,000 unique sequences), we measured the following efficiency:| Threads | Time (s) | Speedup | Efficiency |
