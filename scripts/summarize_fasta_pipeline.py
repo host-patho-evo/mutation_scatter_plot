@@ -1435,7 +1435,7 @@ def _extract_discarded_to_fasta(
         return
 
     target_sha256s: set[str] = set()
-    with open(sha_file, 'r', encoding='ascii') as fh:
+    with open(sha_file, 'r', encoding='utf-8') as fh:
         for line in fh:
             line = line.strip()
             if not line:
@@ -1470,7 +1470,7 @@ def _extract_discarded_to_fasta(
         return
 
     fasta_ids: list[str] = []
-    with open(root_tsv, 'r', encoding='ascii', errors='replace') as fh:
+    with open(root_tsv, 'r', encoding='utf-8', errors='replace') as fh:
         for line in fh:
             fields = line.rstrip('\n').split('\t')
             if not fields or fields[0] not in target_sha256s:
@@ -1492,7 +1492,7 @@ def _extract_discarded_to_fasta(
 
     # ── Step 3: write temporary names file ──────────────────────────────
     names_file = child_stem + '.discarded_fasta_ids.tmp'
-    with open(names_file, 'w', encoding='ascii') as fh:
+    with open(names_file, 'w', encoding='utf-8') as fh:
         fh.write('\n'.join(fasta_ids))
         fh.write('\n')
 
