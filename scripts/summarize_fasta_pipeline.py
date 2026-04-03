@@ -1319,7 +1319,7 @@ def _scan_primary_file(
         )
     return {
         'idx':         idx,
-        'row':         (display, mtime_s, n_rec, n_sum),
+        'row':         (display, mtime_s, n_rec, n_sum if n_sum > 0 else n_rec),
         'sha256_set':  sha256_set_result,
         'prot_unique': prot_u,
         'lines':       lines,
