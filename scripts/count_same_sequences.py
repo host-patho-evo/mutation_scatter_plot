@@ -71,6 +71,16 @@ def _get_git_version() -> str:
 _GIT_VERSION: str = _get_git_version()
 
 
+def _extract_sha256(record_id: str) -> str | None:
+    """Return 64-char hex sha256 from a NNNNx.sha256hex ID, or None."""
+    xdot = record_id.find('x.')
+    if xdot >= 0:
+        candidate = record_id[xdot + 2:].split()[0]
+        if len(candidate) == 64 and all(c in '0123456789abcdefABCDEF' for c in candidate):
+            return candidate.lower()
+    return None
+
+
 def _decode_fasta_line(raw: bytes) -> str:
     r"""Decode one raw FASTA byte line to a clean Unicode str.
 
@@ -186,8 +196,9 @@ def build_sha256_id_mapping(infilename, mapping_outfile, debug=0):
 
     name = None
     seq_parts = []
+    pre_digest = None
 
-    def _flush(flush_name, flush_parts):
+    def _flush(flush_name, flush_parts, digest=None):
         # Normalise to match what reformat.sh + sort|uniq does in
         # read_and_count_sequences(): uppercase only.  Dashes are intentionally
         # KEPT here, because read_and_count_sequences() also keeps them
@@ -195,8 +206,10 @@ def build_sha256_id_mapping(infilename, mapping_outfile, debug=0):
         # per the docstring of that function).  Stripping dashes would produce
         # a different sha256 than the one embedded in the counts FASTA ID,
         # making TSV lookups fail for any alignment-padded input file.
-        seq = "".join(flush_parts).replace("\r", "").replace("\n", "").replace("-", "").upper()
-        digest = hashlib.sha256(seq.encode()).hexdigest()
+        if digest is None:
+            seq = "".join(flush_parts).replace("\r", "").replace("\n", "").replace("-", "").upper()
+            digest = hashlib.sha256(seq.encode()).hexdigest()
+            
         if digest in mapping:
             mapping[digest][0] += 1
             mapping[digest][1].append(flush_name)
@@ -205,23 +218,28 @@ def build_sha256_id_mapping(infilename, mapping_outfile, debug=0):
 
     with open(infilename, "rb") as fh:
         for raw in fh:
-            line = _decode_fasta_line(raw).rstrip("\r\n")
-            if not line:
+            if not raw.rstrip(b"\r\n"):
                 continue
-            if line[0] == ">":
+            if raw.startswith(b">"):
                 if name is not None:
-                    _flush(name, seq_parts)
+                    _flush(name, seq_parts, pre_digest)
                     n_in += 1
                     if debug and n_in % 500_000 == 0:
                         print(f"Info: mapping pass: processed {n_in} records,"
                               f" {len(mapping)} unique", file=sys.stderr)
+                
+                line = _decode_fasta_line(raw).rstrip("\r\n")
                 parts = line[1:].split()
                 name = parts[0] if parts else ""
+                pre_digest = _extract_sha256(name)
                 seq_parts = []
             else:
-                seq_parts.append(line)
+                if not pre_digest:
+                    line = _decode_fasta_line(raw).rstrip("\r\n")
+                    if line:
+                        seq_parts.append(line)
         if name is not None:
-            _flush(name, seq_parts)
+            _flush(name, seq_parts, pre_digest)
             n_in += 1
 
     print(f"Info: mapping pass: {n_in} total records -> {len(mapping)} unique sequences",
