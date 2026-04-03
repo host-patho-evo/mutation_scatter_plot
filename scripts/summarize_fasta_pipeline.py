@@ -1780,6 +1780,30 @@ def main() -> None:
         ):
             found.update(glob.glob(pat, recursive=True))
 
+    # Drop .fasta.orig / .fasta.ori / .fasta.old backup files when the
+    # corresponding .fasta already exists.  These backups are created by
+    # fix_fasta_encoding.py when it normalises GISAID headers; keeping them
+    # in the list produces two entries with the same stem, which confuses
+    # parent inference and may feed the *unfixed* file to filterbyname.sh
+    # (which interprets literal \uXXXX escapes as real Unicode control chars,
+    # causing header truncation and SHA256 mismatches in the discarded FASTA).
+    _backup_suffixes = ('.fasta.orig', '.fasta.ori', '.fasta.old')
+    _clean_found = {p for p in found if not any(p.endswith(sfx) for sfx in _backup_suffixes)}
+    _backed_up = found - _clean_found
+    for bp in _backed_up:
+        # Keep the backup only when no clean .fasta counterpart is present.
+        stem = _strip_fasta_suffix(bp)          # strips .fasta.orig etc.
+        clean = stem + '.fasta'
+        if clean not in found:
+            _clean_found.add(bp)
+        else:
+            print(
+                f"  Skipping backup {os.path.basename(bp)!r} "
+                f"(clean {os.path.basename(clean)!r} present).",
+                file=sys.stderr,
+            )
+    found = _clean_found
+
     if not found:
         print(f"No files found under '{search_path}' matching '{prefix}*.fasta{{,.old,.ori,.orig}}'",
               file=sys.stderr)
