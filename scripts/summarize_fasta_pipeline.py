@@ -54,10 +54,11 @@ Options:
                          itself is shown.
     --jobs N             Number of parallel workers for Phase 0 (sha256
                          identity check), Phase 1 (per-file gather), and Phase
-                         2 & 3 (verification & stats). Default is 1 (sequential,
-                         unchanged behaviour).  No auto-detection from environment
-                         variables: must be set explicitly.  Recommended: 4-8
-                         for a pipeline with 5-20 FASTA files over NFS.
+                         2 & 3 (verification & stats).
+                         Default is 0 (auto): after file discovery, set to
+                         min(n_files, 8).  Set --jobs 1 to force sequential
+                         mode.  The effective value is always printed after
+                         the 'Found N file(s)' line so you can verify it.
 
                          Why '--jobs' and not '--threads'?
                          Each job is one complete file audit (reading one FASTA
@@ -156,12 +157,15 @@ Examples:
     #       | sed 's/x.*//' | awk '{s+=$1} END {print s}'
 
     # Parallel audit of 8 FASTA files at once (I/O-bound across files):
-    #   --jobs 5 sets 5 concurrent OS threads, each auditing a different file.
+    #   Default --jobs 0 auto-sets to min(n_files, 8) after file discovery.
+    #   Override with --jobs 5 to use exactly 5 workers regardless of file count.
     #   Named '--jobs' (not '--threads') because each unit of work is an entire
     #   file audit, following GNU make -j / parallel -j naming convention.
     #   Contrast with calculate_codon_frequencies --threads 8 which forks
     #   CPU-bound worker processes for codon-site computations.
-    summarize_fasta_pipeline.py . spikenuc1207.native2ascii.no_junk --jobs 5
+    summarize_fasta_pipeline.py . spikenuc1207.native2ascii.no_junk          # uses --jobs auto
+    summarize_fasta_pipeline.py . spikenuc1207.native2ascii.no_junk --jobs 1 # force sequential
+    summarize_fasta_pipeline.py . spikenuc1207.native2ascii.no_junk --jobs 5 # exactly 5 workers
 """
 
 import datetime
@@ -185,6 +189,111 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DISCARD_SCRIPT = os.path.join(SCRIPT_DIR, 'create_list_of_discarded_sequences.py')
 
 VERSION = "202604030900"
+
+# ── storage-type detection (for --jobs auto-tuning) ─────────────────────────
+
+#: Network-backed filesystems — moderate concurrency is fine (different files
+#: stream from different NAS/cluster paths), but too many readers on the same
+#: mount causes read-ahead cache thrashing.
+_NETWORK_FS: frozenset[str] = frozenset({
+    'nfs', 'nfs4', 'cifs', 'smbfs', '9p',
+    'ceph', 'ceph2', 'glusterfs', 'lustre', 'beegfs', 'pvfs2', 'orangefs',
+    'gpfs', 'davfs', 'fuse.sshfs', 'fuse.s3fs',
+})
+
+#: Memory-backed filesystems — no I/O bottleneck; cap = n_files.
+_MEM_FS: frozenset[str] = frozenset({'tmpfs', 'ramfs', 'devtmpfs'})
+
+
+def _sysfs_rotational(dev: str) -> int | None:
+    """Return sysfs ``rotational`` flag (0 = SSD/NVMe, 1 = HDD), or ``None``.
+
+    Works for plain block devices (``/dev/sda1``, ``/dev/nvme0n1p3``),
+    device-mapper (``dm-*``) and MD RAID (``md*``) by following
+    ``/sys/block/<dev>/slaves/`` and taking worst-case (any HDD → HDD).
+    """
+    if not dev or not dev.startswith('/dev/'):
+        return None
+    base = re.sub(r'p?\d+$', '', os.path.basename(dev))   # strip partition suffix
+
+    def _read(name: str) -> int | None:
+        try:
+            with open(f'/sys/block/{name}/queue/rotational', encoding='ascii') as fh:
+                return int(fh.read().strip())
+        except (OSError, ValueError):
+            return None
+
+    rot = _read(base)
+    if rot is not None:
+        return rot
+    # DM / MD RAID: check every slave; any spinning disk → treat whole set as HDD
+    try:
+        slaves = os.listdir(f'/sys/block/{base}/slaves')
+    except OSError:
+        return None
+    vals = [v for v in (_read(s) for s in slaves) if v is not None]
+    return (1 if any(v == 1 for v in vals) else 0) if vals else None
+
+
+def _detect_storage_type(path: str) -> tuple[str, int]:
+    """Detect the storage tier for *path* and return ``(description, jobs_cap)``.
+
+    ``jobs_cap`` of ``0`` means *no cap* (use ``n_files`` directly).
+
+    Detection order
+    ---------------
+    1. ``/proc/mounts`` — filesystem type. Network FSes (NFS/CIFS/Ceph/…) and
+       memory FSes (tmpfs) are identified here without descending further.
+    2. ``/sys/block/<dev>/queue/rotational`` — ``0`` = NVMe/SSD (high IOPS, no
+       cap needed); ``1`` = spinning HDD (seek-limited, cap at 4).
+
+    Typical caps
+    ------------
+    * NVMe / SSD  → cap 0 (= n_files)  — high IOPS, fully parallel
+    * HDD          → cap 4              — seek-limited
+    * Network FS   → cap 6              — concurrent *different* files are fine
+    * Memory FS    → cap 0 (= n_files)  — no I/O bottleneck
+    * Unknown      → cap 8              — conservative default
+    """
+    _fallback_cap = 8
+    real = os.path.realpath(os.path.abspath(path))
+    fs_type: str | None = None
+    mnt_dev: str | None = None
+    best_len = -1
+
+    try:
+        with open('/proc/mounts', encoding='utf-8', errors='replace') as fh:
+            for line in fh:
+                parts = line.split()
+                if len(parts) < 3:
+                    continue
+                dev, mpt, fstype = parts[0], parts[1], parts[2]
+                mpt = mpt.replace('\\040', ' ')        # /proc/mounts encodes spaces as \040
+                mpt_norm = mpt.rstrip('/') + '/'
+                if (real + '/').startswith(mpt_norm) and len(mpt_norm) > best_len:
+                    best_len = len(mpt_norm)
+                    fs_type  = fstype
+                    mnt_dev  = dev
+    except OSError:
+        return ('unknown (cannot read /proc/mounts)', _fallback_cap)
+
+    # ── network / fuse-network filesystems ────────────────────────────────────
+    if fs_type in _NETWORK_FS or (fs_type or '').startswith('fuse.'):
+        return (f'{fs_type} (network)', 6)
+
+    # ── memory-backed filesystems ──────────────────────────────────────────────
+    if fs_type in _MEM_FS:
+        return (f'{fs_type} (memory)', 0)
+
+    # ── local filesystem: check rotational flag via sysfs ─────────────────────
+    rot = _sysfs_rotational(mnt_dev or '')
+    label = fs_type or 'local'
+    if rot == 0:
+        return (f'{label} (NVMe/SSD)', 0)
+    if rot == 1:
+        return (f'{label} (HDD)', 4)
+    return (f'{label} (storage type unknown)', _fallback_cap)
+
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -1630,9 +1739,11 @@ def main() -> None:
                  if a == '--jobs' and i + 1 < len(args)), None)
     )
     try:
-        jobs = max(1, int(_jobs_str)) if _jobs_str else 1
+        jobs = max(0, int(_jobs_str)) if _jobs_str is not None else 0
     except ValueError:
-        jobs = 1
+        jobs = 0
+    # jobs == 0 means auto; resolved to min(n_files, _MAX_AUTO_JOBS) after
+    # file discovery below.  Any explicit positive value is honoured as-is.
     # --cpu-bind {local,spread,none}: NUMA CPU binding policy.
     _cpu_bind_str = (
         next((a.split('=', 1)[1] for a in args if a.startswith('--cpu-bind=')), None)
@@ -1677,7 +1788,22 @@ def main() -> None:
     # Sort by stem length (shorter = earlier in pipeline), then alphabetically.
     files = sorted(found, key=lambda p: (len(_strip_fasta_suffix(os.path.basename(p))),
                                           os.path.basename(p)))
-    print(f"{_ts()}Found {len(files):,} file(s).\n", file=sys.stderr)
+    n_files = len(files)
+    # ── resolve auto-jobs using the storage type of search_path ──────────────
+    _max_auto_jobs = 8   # fallback cap when storage type is unknown
+    if jobs == 0:
+        fs_desc, fs_cap = _detect_storage_type(search_path)
+        cap = n_files if fs_cap == 0 else min(n_files, fs_cap)
+        jobs = cap
+        _cap_str = '∞' if fs_cap == 0 else str(fs_cap)
+        _jobs_note = f" (auto: {fs_desc}, cap={_cap_str} → {jobs})"
+    else:
+        fs_desc, _ = _detect_storage_type(search_path)
+        _jobs_note = f" (explicit; storage: {fs_desc})"
+    print(
+        f"{_ts()}Found {n_files:,} file(s); using --jobs {jobs}{_jobs_note}\n",
+        file=sys.stderr,
+    )
 
     # ── infer parent->child pairs from naming convention ──────────────────────
     # base_B.startswith(base_A + ".") defines the relationship.
