@@ -52,6 +52,12 @@ Options:
                          discard-stats computation (the ↳, [auto-generating
                          TSV], and Info: lines).  By default only the table
                          itself is shown.
+    --jobs N             Number of parallel workers for Phase 0 (sha256
+                         identity check) and Phase 1 (per-file gather).
+                         Default is 1 (sequential, unchanged behaviour).
+                         On HPC / parallel-filesystem nodes higher values
+                         (e.g. --jobs 4) typically halve wall time because
+                         file scans are I/O-bound and release the GIL.
     --disable-discarded-original-ids-file
                          Do not write per-step .discarded_sha256_hashes.txt
                          files (or the companion .discarded_original_ids.txt).
@@ -139,6 +145,8 @@ import os
 import re
 import subprocess
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 FASTA_SUFFIXES = ('.fasta.orig', '.fasta.ori', '.fasta.old', '.fasta')
 
@@ -193,6 +201,10 @@ def _get_git_version() -> str:
 
 
 _GIT_VERSION: str = _get_git_version()
+
+# Protects all stderr writes in parallel Phase 0 / Phase 1 worker threads.
+_stderr_lock = threading.Lock()
+
 
 def _fmt_size(n: int) -> str:
     """Format *n* bytes as a human-readable string (e.g. '31.8 GB')."""
@@ -1184,6 +1196,77 @@ def _compute_discard_stats(parent_path: str, child_path: str,
     return None, None
 
 
+# ── Phase 1 helper ────────────────────────────────────────────────────────────
+
+def _scan_primary_file(
+        f: str,
+        idx: int,
+        n_total: int,
+        search_path: str,
+) -> dict:
+    """Scan one primary FASTA and return all stats as a plain dict.
+
+    Designed to run either sequentially or concurrently (ThreadPoolExecutor).
+    All stderr output is collected in ``result['lines']`` and must be printed
+    by the caller via ``_emit_lines()`` so that concurrent scans each print
+    their block atomically without interleaving.
+
+    Returned keys:
+        'idx'        – original file index (int)
+        'row'        – (display, mtime_s, n_rec, n_sum)
+        'sha256_set' – (set[str], int)  sha256 set + n_legacy_ids count
+        'prot_unique'– None | (int, int)  distinct proteins + NNNNx sum
+        'lines'      – list[str]  stderr progress lines (print atomically)
+    """
+    lines: list[str] = []
+    display  = os.path.relpath(f, search_path)
+    mtime_s  = datetime.datetime.fromtimestamp(
+        os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M')
+    tag      = f"  [{idx + 1}/{n_total}]"
+    sz_str   = _fmt_size(os.path.getsize(f))
+    is_prot  = _is_prot_file(f)
+    kind     = 'protein FASTA' if is_prot else 'FASTA'
+    lines.append(f"{_ts()}{tag} {display}  ({sz_str}, {kind})")
+    lines.append("        counting records \u2026")
+    n_rec = _count_records(f)
+    lines.append("        summing NNNNx counts \u2026")
+    n_sum = _sum_nnnx_counts(f)
+    lines.append("        collecting sha256 IDs \u2026")
+    sha256_set_result = _collect_sha256_set(f)
+    sha_set, n_legacy = sha256_set_result
+    if is_prot:
+        lines.append("        counting unique protein sequences \u2026")
+    prot_u = _count_prot_unique(f) if is_prot else None
+    lines.append(
+        f"{_ts()}        done: {n_rec:,} records, NNNNx sum={n_sum:,}, "
+        f"{len(sha_set):,} unique sha256s"
+        + (f", {n_legacy:,} legacy IDs" if n_legacy else "") + "."
+    )
+    # ── internal consistency: sha256 set size == record count ─────────────────
+    # For NNNNx files every record has a unique sha256 ID, so the set
+    # cardinality must equal the record count.  A mismatch signals
+    # duplicate sha256 IDs or a stale / mismatched TSV.
+    if n_legacy == 0 and len(sha_set) != n_rec:
+        lines.append(
+            f"        INTERNAL CHECK FAILED: sha256 set size {len(sha_set):,} "
+            f"\u2260 record count {n_rec:,} (duplicate sha256 IDs or stale TSV?)"
+        )
+    return {
+        'idx':         idx,
+        'row':         (display, mtime_s, n_rec, n_sum),
+        'sha256_set':  sha256_set_result,
+        'prot_unique': prot_u,
+        'lines':       lines,
+    }
+
+
+def _emit_lines(lines: list[str]) -> None:
+    """Print a block of stderr lines atomically (thread-safe via _stderr_lock)."""
+    with _stderr_lock:
+        for ln in lines:
+            print(ln, file=sys.stderr, flush=True)
+
+
 # ── main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -1214,6 +1297,16 @@ def main() -> None:
     # Classify mismatches as clip-only (right/left/both-ends) vs internal change.
     # Requires an extra scan of each parent FASTA; opt-in only.
     classify_mismatches  = '--classify-mismatches'          in args
+    # --jobs N: parallel workers for Phase 0 (sha256) and Phase 1 (scan).
+    _jobs_str = (
+        next((a.split('=', 1)[1] for a in args if a.startswith('--jobs=')), None)
+        or next((args[i + 1] for i, a in enumerate(args)
+                 if a == '--jobs' and i + 1 < len(args)), None)
+    )
+    try:
+        jobs = max(1, int(_jobs_str)) if _jobs_str else 1
+    except ValueError:
+        jobs = 1
 
     # ── collect matching files ────────────────────────────────────────────────
     found: set[str] = set()
@@ -1287,27 +1380,49 @@ def main() -> None:
             f" identical files share scan results.",
             file=sys.stderr,
         )
+    def _sha256_worker(i: int) -> tuple[int, str]:
+        """Compute sha256 for files[i]; print start message thread-safely."""
+        _name = os.path.basename(files[i])
+        with _stderr_lock:
+            print(f"{_ts()}    computing sha256: {_name} \u2026",
+                  file=sys.stderr, flush=True)
+        return i, _fasta_sha256(files[i])
+
     for sz, idxs in _size_tied.items():
         print(
-            f"\n{_ts()}  Size group {_fmt_size(sz)} — {len(idxs)} file(s):",
+            f"\n{_ts()}  Size group {_fmt_size(sz)} \u2014 {len(idxs)} file(s):",
             file=sys.stderr,
         )
+        # Compute sha256 for every file in this size group.
+        # Runs in parallel when --jobs > 1 (I/O-bound; GIL released during read).
+        max_w0 = min(jobs, len(idxs))
+        idx_to_sha: dict[int, str] = {}
+        if max_w0 == 1:
+            for _i in idxs:
+                _ii, _sha = _sha256_worker(_i)
+                idx_to_sha[_ii] = _sha
+        else:
+            with ThreadPoolExecutor(max_workers=max_w0) as _exc:
+                for _ii, _sha in _exc.map(_sha256_worker, idxs):
+                    idx_to_sha[_ii] = _sha
+
+        # Determine primary vs twin in sorted index order (reproducible).
         sha_to_primary: dict[str, int] = {}
-        for idx in idxs:
+        for idx in sorted(idxs):
             name = os.path.basename(files[idx])
-            print(f"{_ts()}    computing sha256: {name} …", file=sys.stderr, flush=True)
-            sha = _fasta_sha256(files[idx])
+            sha  = idx_to_sha[idx]
             if sha in sha_to_primary:
                 pri_name = os.path.basename(files[sha_to_primary[sha]])
                 content_twin[idx] = sha_to_primary[sha]
                 print(
-                    f"{_ts()}    → {name} ≡ {pri_name}"
-                    f" (sha256={sha[:16]}…) — scan results will be reused.",
+                    f"{_ts()}    \u2192 {name} \u2261 {pri_name}"
+                    f" (sha256={sha[:16]}\u2026) \u2014 scan results will be reused.",
                     file=sys.stderr, flush=True,
                 )
             else:
                 sha_to_primary[sha] = idx
-                print(f"{_ts()}    → {name}: sha256={sha[:16]}… (primary)", file=sys.stderr, flush=True)
+                print(f"{_ts()}    \u2192 {name}: sha256={sha[:16]}\u2026 (primary)",
+                      file=sys.stderr, flush=True)
 
     # ── gather per-file data ─────────────────────────────────────────────────
     print(
@@ -1322,64 +1437,67 @@ def main() -> None:
         f"{n_twins} to reuse from content-identical primary.",
         file=sys.stderr,
     )
-    rows: list[tuple[str, str, int, int]] = []
-    sha256_sets:   list[tuple[set[str], int]] = []  # (sha256_set, n_legacy) per file
-    verify_data:   list[tuple | None] = []  # (n_ex,s_ex,n_nv,s_nv,altered_shas,mismatch_seqs)|None
-    classify_data: list[dict[str, int] | None] = []  # right_clipped/left_clipped/both_ends/other
-    prot_unique:   list[int | None] = []             # distinct protein seq count (prot files only)
+    # Pre-size all accumulator lists so index-based (thread-safe) writes are
+    # possible in the parallel path (no .append() ordering constraints).
+    rows:          list = [None] * len(files)   # (display, mtime_s, n_rec, n_sum)
+    sha256_sets:   list = [None] * len(files)   # (set[str], int) sha256 set + n_legacy
+    verify_data:   list = [None] * len(files)   # filled in Phase 2
+    classify_data: list = [None] * len(files)   # filled after Phase 2
+    prot_unique:   list = [None] * len(files)   # distinct protein seq count (prot files only)
+
+    primary_indices = [i for i in range(len(files)) if i not in content_twin]
+
+    if jobs <= 1 or len(primary_indices) <= 1:
+        # Sequential (original behaviour — predictable ordered output).
+        for idx in primary_indices:
+            result = _scan_primary_file(files[idx], idx, len(files), search_path)
+            _emit_lines(result['lines'])
+            rows[idx]        = result['row']
+            sha256_sets[idx] = result['sha256_set']
+            prot_unique[idx] = result['prot_unique']
+    else:
+        # Parallel: all primaries submitted together to the thread pool.
+        # Each file’s progress block is printed atomically as it completes
+        # (order non-deterministic, but per-file output never interleaves).
+        max_w = min(jobs, len(primary_indices))
+        print(
+            f"  Parallel Phase 1: scanning {len(primary_indices)} primary file(s) "
+            f"with {max_w} worker(s).",
+            file=sys.stderr,
+        )
+        with ThreadPoolExecutor(max_workers=max_w) as exc:
+            futs = {
+                exc.submit(
+                    _scan_primary_file, files[idx], idx, len(files), search_path
+                ): idx
+                for idx in primary_indices
+            }
+            for fut in as_completed(futs):
+                result = fut.result()
+                _emit_lines(result['lines'])
+                rows[result['idx']]        = result['row']
+                sha256_sets[result['idx']] = result['sha256_set']
+                prot_unique[result['idx']] = result['prot_unique']
+
+    # Resolve twins (instant — copy results from already-scanned primary).
     for idx, f in enumerate(files):
+        pri = content_twin.get(idx)
+        if pri is None:
+            continue
         display = os.path.relpath(f, search_path)
-        mtime_s = datetime.datetime.fromtimestamp(os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M')
-        pri = content_twin.get(idx)          # None if primary; primary index if twin
-        tag = f"  [{idx+1}/{len(files)}]"
-        if pri is not None:
-            # Twin: reuse record count, NNNNx sum, sha256 set, prot_unique from primary.
-            # display and mtime_s are always file-specific.
-            pri_display = os.path.relpath(files[pri], search_path)
-            _, _, n_rec, n_sum = rows[pri]
-            rows.append((display, mtime_s, n_rec, n_sum))
-            sha256_sets.append(sha256_sets[pri])
-            prot_unique.append(prot_unique[pri])
-            print(
-                f"{_ts()}{tag} {display}\n"
-                f"        ↳ reusing results from [{pri+1}] {pri_display}"
-                f" ({n_rec:,} records, NNNNx sum={n_sum:,}).",
-                file=sys.stderr, flush=True,
-            )
-        else:
-            sz_str = _fmt_size(os.path.getsize(f))
-            is_prot = _is_prot_file(f)
-            kind = 'protein FASTA' if is_prot else 'FASTA'
-            print(f"{_ts()}{tag} {display}  ({sz_str}, {kind})", file=sys.stderr, flush=True)
-            print(f"        counting records …", file=sys.stderr, flush=True)
-            n_rec = _count_records(f)
-            print(f"        summing NNNNx counts …", file=sys.stderr, flush=True)
-            n_sum = _sum_nnnx_counts(f)
-            print(f"        collecting sha256 IDs …", file=sys.stderr, flush=True)
-            rows.append((display, mtime_s, n_rec, n_sum))
-            sha256_sets.append(_collect_sha256_set(f))
-            if is_prot:
-                print(f"        counting unique protein sequences …", file=sys.stderr, flush=True)
-            prot_unique.append(_count_prot_unique(f) if is_prot else None)
-            sha_set, n_legacy = sha256_sets[-1]
-            print(
-                f"{_ts()}        done: {n_rec:,} records, NNNNx sum={n_sum:,}, "
-                f"{len(sha_set):,} unique sha256s"
-                + (f", {n_legacy:,} legacy IDs" if n_legacy else "") + ".",
-                file=sys.stderr, flush=True,
-            )
-            # ── internal consistency: sha256 set size == record count ──────────
-            # For NNNNx files every record has a unique sha256 ID, so the set
-            # cardinality must equal the record count.  A mismatch signals
-            # duplicate sha256 IDs or a stale / mismatched TSV.
-            if n_legacy == 0 and len(sha_set) != n_rec:
-                print(
-                    f"        INTERNAL CHECK FAILED: sha256 set size {len(sha_set):,} "
-                    f"≠ record count {n_rec:,} (duplicate sha256 IDs or stale TSV?)",
-                    file=sys.stderr, flush=True,
-                )
-        verify_data.append(None)    # placeholder; filled in the verify pass below
-        classify_data.append(None)  # placeholder; filled after verify if --classify-mismatches
+        mtime_s = datetime.datetime.fromtimestamp(
+            os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M')
+        _, _, n_rec, n_sum = rows[pri]
+        pri_display = os.path.relpath(files[pri], search_path)
+        rows[idx]        = (display, mtime_s, n_rec, n_sum)
+        sha256_sets[idx] = sha256_sets[pri]
+        prot_unique[idx] = prot_unique[pri]
+        print(
+            f"{_ts()}  [{idx+1}/{len(files)}] {display}\n"
+            f"        ↳ reusing results from [{pri+1}] {pri_display}"
+            f" ({n_rec:,} records, NNNNx sum={n_sum:,}).",
+            file=sys.stderr, flush=True,
+        )
 
     # sha256_sets is still needed in the table-printing loop for the
     # 'Novel sha256s' column.  It is freed after that loop completes.
