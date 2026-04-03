@@ -106,6 +106,10 @@ Options:
                          source for *.discarded_original_ids.txt, giving
                          the full description in those files.
 
+    --use-nnnx-counts    Report the 'Unique DNA entries' column based on the 
+                         sum of NNNNx prefixes, bypassing the slow 'grep -c'
+                         record-counting. If the file lacks NNNNx prefixes,
+                         it gracefully falls back to counting headers.
     --verify-sha256
                          For each NNNNx.sha256hex file, recompute sha256 from
                          the unpadded sequence (dashes stripped, uppercased) and
@@ -387,73 +391,53 @@ def _mtime(path: str) -> float:
 
 def _count_records(path: str) -> int:
     """Number of '>' header lines in a FASTA file."""
-    result = subprocess.run(['grep', '-c', '^>', path], capture_output=True, text=True, encoding='utf-8', check=False)
-    text = result.stdout.strip()
-    return int(text) if text else 0
-
-
-def _sum_nnnx_counts(path: str) -> int:
-    """Sum of the leading NNNNx integer prefixes across all FASTA header IDs.
-
-    Peeks at the first FASTA header only.  If it has no NNNNx prefix (e.g.
-    a GISAID accession like 'Spike|hCoV-19/…'), the sum must be 0 for every
-    record — no further file reading is needed.
-
-    Implementation: reads in Python rather than a shell pipeline so that only
-    the first token of each header line is examined.  On files with very long
-    FASTA headers (many accession IDs concatenated), the old
-    "grep | awk '{print $1}'" pipeline had to scan every byte of every header
-    line to find field boundaries — O(total_header_bytes).  Using
-    bytes.find(b' ') stops as soon as the first space is found (typically
-    after ~80 chars for NNNNxCOUNT.sha256hex IDs) and is implemented in C.
-    """
-
-    def _first_token(raw: bytes) -> bytes:
-        """Return bytes between the leading '>' and the first space or tab."""
-        sp = raw.find(b' ', 1)
-        tb = raw.find(b'\t', 1)
-        if sp > 1 and (tb < 1 or sp <= tb):
-            return raw[1:sp]
-        if tb > 1:
-            return raw[1:tb]
-        return raw[1:].rstrip()
-
-    # ── fast path: check first header ───────────────────────────────────────────────────────────────
+    n_rec = 0
     try:
         with open(path, 'rb') as fh:
             for raw in fh:
-                if raw[:1] != b'>':
-                    continue
-                tok = _first_token(raw)
-                first_id = tok.decode('ascii', errors='replace')
-                xpos = first_id.find('x.')
-                if xpos > 0:
-                    try:
-                        int(first_id[:xpos])   # valid NNNNx prefix
-                    except ValueError:
-                        return 0
-                    break   # NNNNx file — fall through to full scan
-                return 0    # no 'x.' at all — plain GISAID/legacy ID
-    except OSError:
-        return 0
-
-    # ── full scan: file has NNNNx IDs ───────────────────────────────────────────────────────────────
-    total = 0
-    try:
-        with open(path, 'rb') as fh:
-            for raw in fh:
-                if raw[:1] != b'>':
-                    continue
-                tok  = _first_token(raw)
-                xpos = tok.find(b'x.')
-                if xpos > 0:
-                    try:
-                        total += int(tok[:xpos])
-                    except ValueError:
-                        pass
+                if raw.startswith(b'>'):
+                    n_rec += 1
     except OSError:
         pass
-    return total
+    return n_rec
+
+
+def _count_records_and_nnnx(path: str) -> tuple[int, int]:
+    """Sum of NNNNx prefixes and total records, evaluated in a single pass.
+    
+    Returns (n_rec, n_sum). Every FASTA record not containing a valid NNNNx prefix
+    is counted as 1, ensuring universal accuracy on homogeneously OR heterogeneously
+    prefixed FASTA files.
+    
+    Implementation: High-performance native Python byte-scanning logic.
+    Bypasses subprocess overhead, avoiding the slow grep/awk pipelines
+    while extracting the prefix using C-optimized split operations.
+    """
+    n_rec = 0
+    n_sum = 0
+    try:
+        with open(path, 'rb') as fh:
+            for raw in fh:
+                if raw.startswith(b'>'):
+                    n_rec += 1
+                    parts = raw[1:].split(None, 1)
+                    if not parts:
+                        n_sum += 1
+                        continue
+                    tok = parts[0]
+                    xpos = tok.find(b'x.')
+                    if xpos < 0:
+                        xpos = tok.find(b'x')
+                    if xpos > 0:
+                        try:
+                            n_sum += int(tok[:xpos])
+                        except ValueError:
+                            n_sum += 1
+                    else:
+                        n_sum += 1
+    except OSError:
+        pass
+    return n_rec, n_sum
 
 
 
@@ -699,7 +683,7 @@ def _build_tsv(fasta_path: str, tsv_path: str,
     descr_map: dict = {} # sha256 -> [count, [full-header, ...]]
     name = None
     full_header = None
-    seq_parts: list = []
+    seq_parts: list[bytes] = []
 
     def _print(*args, **kwargs):
         if out_lines is not None:
@@ -707,7 +691,7 @@ def _build_tsv(fasta_path: str, tsv_path: str,
         else:
             print(*args, **kwargs)
 
-    def _flush(flush_name: str, flush_full: str, flush_parts: list) -> None:
+    def _flush(flush_name: str, flush_full: str) -> None:
         # Prefer the sha256 already embedded in the ID (NNNNx.sha256hex format).
         # Recomputing from the current sequence is WRONG for FASTAs whose sequences
         # were transformed after deduplication (e.g. blastn alignment, reverse-
@@ -723,7 +707,7 @@ def _build_tsv(fasta_path: str, tsv_path: str,
             # alignment-padding dashes, but sha256 is always of the unpadded
             # biological sequence (dashes stripped) to be consistent with what
             # count_same_sequences.py embeds in the NNNNx.sha256hex ID.
-            seq = "".join(flush_parts).replace("\r", "").replace("\n", "").replace("-", "").upper()
+            seq = b"".join(seq_parts).replace(b"\r", b"").replace(b"\n", b"").replace(b"-", b"").upper()
             if not seq:
                 # Empty sequence — sha256("") would be wrong and misleading.
                 # Warn and skip rather than polluting the TSV.
@@ -731,7 +715,7 @@ def _build_tsv(fasta_path: str, tsv_path: str,
                        f" {fasta_path} — skipped in TSV",
                        file=sys.stderr, flush=True)
                 return
-            digest = hashlib.sha256(seq.encode()).hexdigest()
+            digest = hashlib.sha256(seq).hexdigest()
         if digest in id_map:
             id_map[digest][0] += 1
             id_map[digest][1].append(flush_name)
@@ -751,7 +735,7 @@ def _build_tsv(fasta_path: str, tsv_path: str,
             if raw.startswith(b">"):
                 line = _decode_fasta_line(raw).rstrip("\r\n")
                 if name is not None:
-                    _flush(name, full_header, seq_parts)
+                    _flush(name, full_header)
                     n_in += 1
                 hdr = line[1:]
                 toks = hdr.split()
@@ -763,11 +747,11 @@ def _build_tsv(fasta_path: str, tsv_path: str,
                 # (Actual TABs in FASTA headers are extremely rare, but
                 # this encoding is lossless unlike replacing with a space.)
                 full_header = hdr.replace("\t", "\\t")
-                seq_parts = []
+                seq_parts.clear()
             else:
-                seq_parts.append(raw.decode("ascii", errors="ignore").rstrip("\r\n"))
+                seq_parts.append(raw)
         if name is not None:
-            _flush(name, full_header, seq_parts)
+            _flush(name, full_header)
             n_in += 1
 
     with open(tsv_path, "w", encoding="utf-8") as out:
@@ -803,16 +787,17 @@ def _count_prot_unique(path: str) -> tuple[int, int] | None:
     Returns None on I/O error.
     """
     groups: dict[str, int] = {}  # protein_sha256 → cumulative NNNNx
-    name: str | None = None
-    parts: list[str] = []
+    parts: list[bytes] = []
     cur_nnnx: int = 1
 
-    def _chk(_chk_name: str, chk_parts: list[str]) -> None:
-        seq = (''.join(chk_parts)
-               .replace('\r', '').replace('\n', '').replace('-', '').upper())
+    def _chk() -> None:
+        if not parts:
+            return
+        seq = (b''.join(parts)
+               .replace(b'\r', b'').replace(b'\n', b'').replace(b'-', b'').upper())
         if not seq:
             return
-        psha = hashlib.sha256(seq.encode()).hexdigest()
+        psha = hashlib.sha256(seq).hexdigest()
         groups[psha] = groups.get(psha, 0) + cur_nnnx
 
     try:
@@ -821,24 +806,26 @@ def _count_prot_unique(path: str) -> tuple[int, int] | None:
                 if not raw.rstrip(b'\r\n'):
                     continue
                 if raw.startswith(b'>'):
-                    line = _decode_fasta_line(raw).rstrip('\r\n')
-                    if name is not None:
-                        _chk(name, parts)
-                    tok = line[1:].split()[0] if line[1:].split() else ''
-                    name = tok
-                    # Extract NNNNx count from ID (format: NNNNx.sha256hex or NNNNx)
-                    xpos = tok.find('x.')
-                    if xpos < 0:
-                        xpos = tok.find('x')
-                    try:
-                        cur_nnnx = int(tok[:xpos]) if xpos > 0 else 1
-                    except ValueError:
+                    _chk()
+                    id_part = raw[1:].split(None, 1)
+                    if not id_part:
                         cur_nnnx = 1
-                    parts = []
+                    else:
+                        tok = id_part[0]
+                        xpos = tok.find(b'x.')
+                        if xpos < 0:
+                            xpos = tok.find(b'x')
+                        if xpos > 0:
+                            try:
+                                cur_nnnx = int(tok[:xpos])
+                            except ValueError:
+                                cur_nnnx = 1
+                        else:
+                            cur_nnnx = 1
+                    parts.clear()
                 else:
-                    parts.append(raw.decode('ascii', errors='ignore').rstrip('\r\n'))
-            if name is not None:
-                _chk(name, parts)
+                    parts.append(raw)
+            _chk()
     except OSError:
         return None
     return len(groups), sum(groups.values())
@@ -889,14 +876,14 @@ def _verify_sha256(
     mismatch_seqs:   dict[str, str] = {}  # id-embedded sha256 → depadded current seq
     is_nnnx_file: bool | None = None
     name: str | None = None
-    seq_parts: list = []
+    seq_parts: list[bytes] = []
 
-    def _chk(flush_name: str, flush_parts: list) -> None:
+    def _chk(flush_name: str) -> None:
         nonlocal n_existing, sum_existing, n_novel, sum_novel
         id_sha = _extract_sha256_from_id(flush_name)
         if id_sha is None:
             return
-        seq = "".join(flush_parts).replace("\r", "").replace("\n", "").replace("-", "").upper()
+        seq = b"".join(seq_parts).replace(b"\r", b"").replace(b"\n", b"").replace(b"-", b"").upper()
         if not seq:
             # Empty sequence — would hash to sha256("") and be falsely
             # flagged as →novel.  Warn and skip so it doesn't inflate counts.
@@ -904,11 +891,11 @@ def _verify_sha256(
                   f" {fasta_path} — skipped in sha256 verification",
                   file=sys.stderr, flush=True)
             return
-        new_sha = hashlib.sha256(seq.encode()).hexdigest()
+        new_sha = hashlib.sha256(seq).hexdigest()
         if new_sha == id_sha:
             return  # unchanged
         altered_id_shas.add(id_sha)
-        mismatch_seqs[id_sha] = seq  # store depadded current seq for classification
+        mismatch_seqs[id_sha] = seq.decode('ascii')  # store depadded current seq for classification
         xpos = flush_name.find('x.')
         try:
             nnnx = int(flush_name[:xpos]) if xpos > 0 else 1
@@ -929,19 +916,19 @@ def _verify_sha256(
                 if raw.startswith(b">"):
                     line = _decode_fasta_line(raw).rstrip("\r\n")
                     if name is not None and is_nnnx_file:
-                        _chk(name, seq_parts)
+                        _chk(name)
                     hdr  = line[1:]
                     toks = hdr.split()
                     name = toks[0] if toks else ""
-                    seq_parts = []
+                    seq_parts.clear()
                     if is_nnnx_file is None:
                         if _extract_sha256_from_id(name) is None:
                             return None  # GISAID / legacy file — skip
                         is_nnnx_file = True
                 else:
-                    seq_parts.append(raw.decode('ascii', errors='ignore').rstrip('\r\n'))
+                    seq_parts.append(raw)
             if name is not None and is_nnnx_file:
-                _chk(name, seq_parts)
+                _chk(name)
     except OSError:
         return None
 
@@ -979,15 +966,15 @@ def _classify_mismatches(
 
     remaining = dict(mismatch_seqs)  # sha256 → current depadded seq; shrinks as resolved
     name: str | None = None
-    parts: list = []
+    parts: list[bytes] = []
 
-    def _resolve(orig_name: str, orig_parts: list) -> None:
+    def _resolve(orig_name: str) -> None:
         sha = _extract_sha256_from_id(orig_name)
         if sha not in remaining:
             return
-        orig_seq = (''.join(orig_parts)
-                    .replace('\r', '').replace('\n', '').replace('-', '').upper())
-        curr_seq = remaining.pop(sha)
+        orig_seq = b''.join(parts).replace(b'\r', b'').replace(b'\n', b'').replace(b'-', b'').upper()
+        curr_seq_str = remaining.pop(sha)
+        curr_seq = curr_seq_str.encode('ascii')
         if orig_seq.startswith(curr_seq):
             cats['right_clipped'] += 1
         elif orig_seq.endswith(curr_seq):
@@ -1003,17 +990,17 @@ def _classify_mismatches(
                 if not raw.rstrip(b'\r\n'):
                     continue
                 if raw.startswith(b'>'):
-                    line = _decode_fasta_line(raw).rstrip('\r\n')
                     if name is not None:
-                        _resolve(name, parts)
+                        _resolve(name)
+                    line = _decode_fasta_line(raw).rstrip('\r\n')
                     name = line[1:].split()[0] if line[1:].split() else ''
-                    parts = []
+                    parts.clear()
                     if not remaining:
                         break  # all resolved — stop early
                 else:
-                    parts.append(raw.decode('ascii', errors='ignore').rstrip('\r\n'))
+                    parts.append(raw)
             if name is not None and remaining:
-                _resolve(name, parts)
+                _resolve(name)
     except OSError as exc:
         print(f'  Warning: _classify_mismatches: cannot read {parent_path}: {exc}',
               file=sys.stderr)
@@ -1262,16 +1249,28 @@ def _read_discarded_txt_stats(txt_path: str) -> tuple[int, int]:
     - n_ids   = number of lines (unique sequences)
     - nnnx_sum = sum of the NNNNx count prefixes (original-sequence total)
     """
-    n_ids = int(subprocess.run(
-        f"wc -l < {_shell_quote(txt_path)}",
-        shell=True, capture_output=True, text=True, encoding='utf-8', check=False,
-    ).stdout.strip() or 0)
-    nnnx_sum = int(subprocess.run(
-        f"awk '{{print $1}}' {_shell_quote(txt_path)}"
-        r" | sed -e 's/x.*//'"
-        r" | awk '{SUM += $1} END {print SUM+0}'",
-        shell=True, capture_output=True, text=True, encoding='utf-8', check=False,
-    ).stdout.strip() or 0)
+    n_ids = 0
+    nnnx_sum = 0
+    try:
+        with open(txt_path, 'r', encoding='utf-8') as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                n_ids += 1
+                tok = line.split()[0]
+                xpos = tok.find('x.')
+                if xpos < 0:
+                    xpos = tok.find('x')
+                if xpos > 0:
+                    try:
+                        nnnx_sum += int(tok[:xpos])
+                    except ValueError:
+                        nnnx_sum += 1
+                else:
+                    nnnx_sum += 1
+    except OSError:
+        pass
     return n_ids, nnnx_sum
 
 
@@ -1496,34 +1495,16 @@ def _extract_discarded_to_fasta(
         fh.write('\n'.join(fasta_ids))
         fh.write('\n')
 
-    # ── Step 4: extract records (filterbyname.sh or Python fallback) ─────────
-    extracted = False
+    # ── Step 4: extract records (fast pure-Python byte streaming) ────────────
+    target_ids_set = {uid.encode('utf-8', errors='ignore') for uid in fasta_ids}
+    n_written = 0
     try:
-        cmd = [
-            'filterbyname.sh',
-            f'in={root_path}', f'names={names_file}',
-            f'out={out_fasta}', 'include=t', 'ignorejunk=t', 'fastawrap=0',
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', check=False)
-        if result.returncode == 0:
-            print(f"    Wrote: {os.path.relpath(out_fasta, search_path)}",
-                  file=sys.stderr)
-            extracted = True
-        else:
-            print(f"    filterbyname.sh failed (exit {result.returncode}); "
-                  "falling back to Python …", file=sys.stderr)
-    except FileNotFoundError:
-        print("    filterbyname.sh not found; using Python streaming fallback …",
-              file=sys.stderr)
-
-    if not extracted:
-        target_ids_set = set(fasta_ids)
-        n_written = 0
         with open(root_path, 'rb') as in_fh, open(out_fasta, 'wb') as out_fh:
             in_target = False
             for raw in in_fh:
                 if raw.startswith(b'>'):
-                    rec_id = raw[1:].split()[0].decode('utf-8', errors='replace')
+                    id_part = raw[1:].split(None, 1)
+                    rec_id = id_part[0] if id_part else b''
                     in_target = rec_id in target_ids_set
                     if in_target:
                         n_written += 1
@@ -1531,8 +1512,10 @@ def _extract_discarded_to_fasta(
                     out_fh.write(raw)
         print(f"    Wrote {n_written:,} record(s) to "
               f"{os.path.relpath(out_fasta, search_path)}.", file=sys.stderr)
+    except OSError as exc:
+        print(f"    Error extracting discarded sequences: {exc}", file=sys.stderr)
 
-    # ── Step 5: cleanup ────────────────────────────────────────────────────────
+    # ── Step 5: cleanup ──────────────────────────────────────────────────────
     try:
         os.unlink(names_file)
     except OSError:
@@ -1546,6 +1529,7 @@ def _scan_primary_file(
         idx: int,
         n_total: int,
         search_path: str,
+        use_nnnx_counts: bool = False,
 ) -> dict:
     """Scan one primary FASTA and return all stats as a plain dict.
 
@@ -1570,10 +1554,11 @@ def _scan_primary_file(
     is_prot  = _is_prot_file(f)
     kind     = 'protein FASTA' if is_prot else 'FASTA'
     lines.append(f"{_ts()}{tag} {display}  ({sz_str}, {kind})")
-    lines.append("        counting records \u2026")
-    n_rec = _count_records(f)
-    lines.append("        summing NNNNx counts \u2026")
-    n_sum = _sum_nnnx_counts(f)
+    lines.append("        counting records & summing NNNNx counts \u2026")
+    n_rec, n_sum = _count_records_and_nnnx(f)
+    if use_nnnx_counts and n_sum > 0:
+        lines.append(f"        using NNNNx sum ({n_sum:,}) as record count \u2026")
+        n_rec = n_sum
     lines.append("        collecting sha256 IDs \u2026")
     sha256_set_result = _collect_sha256_set(f)
     sha_set, n_legacy = sha256_set_result
@@ -1732,6 +1717,7 @@ def main() -> None:
     # Requires an extra scan of each parent FASTA; opt-in only.
     classify_mismatches  = '--classify-mismatches'          in args
     extract_discarded_fasta = '--extract-discarded-fasta'   in args
+    use_nnnx_counts      = '--use-nnnx-counts'              in args
     # --jobs N: parallel workers for Phase 0 (sha256) and Phase 1 (scan).
     _jobs_str = (
         next((a.split('=', 1)[1] for a in args if a.startswith('--jobs=')), None)
@@ -1943,7 +1929,7 @@ def main() -> None:
     if jobs <= 1 or len(primary_indices) <= 1:
         # Sequential (original behaviour — predictable ordered output).
         for idx in primary_indices:
-            result = _scan_primary_file(files[idx], idx, len(files), search_path)
+            result = _scan_primary_file(files[idx], idx, len(files), search_path, use_nnnx_counts)
             _emit_lines(result['lines'])
             rows[idx]        = result['row']
             sha256_sets[idx] = result['sha256_set']
@@ -1961,7 +1947,7 @@ def main() -> None:
         with ThreadPoolExecutor(max_workers=max_w) as exc:
             futs = {
                 exc.submit(
-                    _scan_primary_file, files[idx], idx, len(files), search_path
+                    _scan_primary_file, files[idx], idx, len(files), search_path, use_nnnx_counts
                 ): idx
                 for idx in primary_indices
             }
