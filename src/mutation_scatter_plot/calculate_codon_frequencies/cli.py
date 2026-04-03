@@ -98,7 +98,20 @@ def build_option_parser():
 
     myparser.add_argument("--threads", action="store", type=int,
         dest="threads", default=_default_threads,
-        help="Number of CPU threads/processes to use for parallelization. If 0 [default], the tool automatically detects the allocation from environment variables (tried in order: PBS_NUM_PPN, PBS_NCPUS, OMP_NUM_THREADS) or falls back to all available cores via multiprocessing.cpu_count().")
+        help="Number of CPU worker *processes* to use (via multiprocessing.Pool). "
+             "If 0 [default], the tool auto-detects the allocation from environment "
+             "variables (tried in order: PBS_NUM_PPN, PBS_NCPUS, OMP_NUM_THREADS) "
+             "or falls back to all available cores via multiprocessing.cpu_count(). "
+             "Recommended: always set --threads 8 explicitly; benchmarks show 8 "
+             "threads is the sweet spot (2x speedup); beyond 16 there are "
+             "diminishing returns due to Amdahl's serial fraction. "
+             "Note: named '--threads' (not '--jobs') because these are CPU-bound "
+             "worker *processes* forked by multiprocessing.Pool to parallelise "
+             "1,274 codon-site computations -- process isolation avoids GIL "
+             "contention on CPU-heavy workloads. "
+             "Contrast with summarize_fasta_pipeline.py --jobs N, which dispatches "
+             "I/O-bound file-level tasks via ThreadPoolExecutor (OS threads, not "
+             "processes, because FASTA reads release the GIL).")
     myparser.add_argument("--chunksize", action="store", type=int,
         dest="chunksize", default=256,
         help="Number of codon sites dispatched per IPC round-trip to worker processes. "
