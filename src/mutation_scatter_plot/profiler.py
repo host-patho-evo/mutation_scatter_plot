@@ -13,6 +13,7 @@ class ResourceProfiler(threading.Thread):
         self.interval = interval
         self.pid = os.getpid()
         self.lock = threading.Lock()
+        self._has_started = False
 
         # State
         self.active_phase = None
@@ -77,6 +78,13 @@ class ResourceProfiler(threading.Thread):
             return total_cpu, total_rss_kb / (1024**2)  # ps RSS is in KB
         except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
             return 0.0, 0.0
+
+    def start(self):
+        with self.lock:
+            if self._has_started:
+                return
+            self._has_started = True
+            super().start()
 
     def run(self):
         while True:
