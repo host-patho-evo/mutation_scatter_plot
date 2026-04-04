@@ -33,10 +33,10 @@ BoundaryNorm is involved.
 """
 
 
-import pytest
-import numpy as np
 import matplotlib
 import matplotlib.colors as mc
+import numpy as np
+import pytest
 
 # pytest injects fixtures by matching parameter names to fixture function names.
 # This looks like "redefining the outer-scope fixture function" to pylint, but

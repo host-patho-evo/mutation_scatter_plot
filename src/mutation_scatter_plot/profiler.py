@@ -1,8 +1,8 @@
-import os
-import time
 import datetime
-import threading
+import os
 import subprocess
+import threading
+import time
 
 
 class ResourceProfiler(threading.Thread):

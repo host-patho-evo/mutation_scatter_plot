@@ -1,12 +1,9 @@
-from scripts.reversecomplement_reads_on_minus import (
-    string_reverse_complement,
-    shorten_sequence,
-    parse_input,
-    myoptions
-)
+import io
 import sys
 import unittest
-import io
+
+from scripts.reversecomplement_reads_on_minus import (
+    myoptions, parse_input, shorten_sequence, string_reverse_complement)
 
 # Mock sys.argv before importing because the script invokes OptionParser.parse_args() at the module level
 sys.argv = ['reversecomplement_reads_on_minus.py']

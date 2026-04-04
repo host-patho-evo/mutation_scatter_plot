@@ -43,11 +43,11 @@ grep -v '^>' "$prefix".aln | awk '{ if ( length!=3822 ) print }' |  grep -v 3822
 
 """
 
-import sys
 import os
+import sys
+import textwrap
 from optparse import OptionParser
 
-import textwrap
 from Bio import SeqIO
 
 VERSION = "202604042205"
@@ -492,8 +492,6 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 _aln_start_qseq = int(_fasta_description_items[9])
                 _aln_stop_qseq = int(_fasta_description_items[10])
                 _qseq = record.seq  # original query sequence matching on minus
-                _sseq = _fasta_description_items[14]
-
                 # Perform blazing fast C-level native string reverse complement
                 _native_rc_seq = string_reverse_complement(_qseq)
 
@@ -524,7 +522,6 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 _fasta_description_items = _description.split()
                 _aln_start_qseq = int(_fasta_description_items[9])
                 _aln_stop_qseq = int(_fasta_description_items[10])
-                _sseq = _fasta_description_items[14]
                 _qseq = record.seq  # original query sequence matching on plus
                 if len(_fasta_description_items) < 15:
                     raise ValueError(

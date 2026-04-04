@@ -175,7 +175,6 @@ Examples:
     summarize_fasta_pipeline.py . spikenuc1207.native2ascii.no_junk --jobs 5 # exactly 5 workers
 """
 
-from mutation_scatter_plot.profiler import PROFILER
 import datetime
 import glob
 import hashlib
@@ -185,6 +184,8 @@ import subprocess
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from mutation_scatter_plot.profiler import PROFILER
 
 FASTA_SUFFIXES = ('.fasta.orig', '.fasta.ori', '.fasta.old', '.fasta')
 
@@ -1801,7 +1802,8 @@ def main() -> None:
     # Respects GOMP_CPU_AFFINITY, KMP_AFFINITY, SLURM_CPU_BIND, SGE_BINDING,
     # OMP_PROC_BIND, and the _NUMA_AUTOBIND_DONE re-exec guard.
     try:
-        from mutation_scatter_plot.numa_bind import autobind as _numa_autobind  # type: ignore[import-untyped]
+        from mutation_scatter_plot.numa_bind import \
+            autobind as _numa_autobind  # type: ignore[import-untyped]
         _numa_autobind(mode=_cpu_bind_str)
     except ImportError:
         pass   # package not installed; NUMA binding skipped silently

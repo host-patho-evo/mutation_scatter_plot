@@ -32,7 +32,6 @@ import sys
 import tempfile
 import time
 
-
 # ── File inspection ──────────────────────────────────────────────────────────
 
 def inspect_fasta(path):

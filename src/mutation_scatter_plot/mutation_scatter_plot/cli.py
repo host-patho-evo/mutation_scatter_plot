@@ -1,19 +1,13 @@
 """Command-line interface for mutation_scatter_plot."""
 
+import argparse
 import os
 import sys
-import argparse
-from . import (
-    VERSION,
-    load_matrix,
-    load_and_clean_dataframe,
-    build_frequency_tables,
-    setup_matplotlib_figure,
-    collect_scatter_data,
-    render_bokeh,
-    render_matplotlib,
-)
+
 from ..profiler import PROFILER
+from . import (VERSION, build_frequency_tables, collect_scatter_data,
+               load_and_clean_dataframe, load_matrix, render_bokeh,
+               render_matplotlib, setup_matplotlib_figure)
 
 
 class NoWrapFormatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):

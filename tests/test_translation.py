@@ -36,27 +36,28 @@ Test scenarios (per the discussion in Biopython PR #4992 and issue #5036):
 # pylint: disable=invalid-name                # biological codon names use uppercase (TC-, AT-)
 # pylint: disable=wrong-import-order,C0413    # translate import must follow sys.path.insert()
 
-from decimal import Decimal
 import io
 import itertools
 import os
 import sys
+from decimal import Decimal
 
 import pytest
-
-# ── helpers / imports ─────────────────────────────────────────────────────────
 
 # Import from the package
 from mutation_scatter_plot import alt_translate
 from mutation_scatter_plot.calculate_codon_frequencies import write_tsv_line
+
+# ── helpers / imports ─────────────────────────────────────────────────────────
+
 
 # Import internal functions from the scripts/ translate tool.
 # Since scripts/ is not installed as a package, add it to sys.path.
 _SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), '..', 'scripts')
 sys.path.insert(0, os.path.abspath(_SCRIPTS_DIR))
 
-from translate import _build_codon_table, _translate_seq, parse_input  # noqa: E402
-
+from translate import (_build_codon_table, _translate_seq,  # noqa: E402
+                       parse_input)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures

@@ -11,10 +11,11 @@ count_motifs_in_sequences --infile=$somefile --start-position=498 --end-position
 
 """
 
+import argparse
 import os
 import sys
-import argparse
 from collections import Counter, OrderedDict
+
 from Bio import SeqIO
 
 VERSION = "0.3"

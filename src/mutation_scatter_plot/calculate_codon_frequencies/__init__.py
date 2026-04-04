@@ -14,12 +14,11 @@ Evolution Convergence Reveal the Selective Pressures Driving Omicron
 Emergence. https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1
 """
 
+import multiprocessing
 import os
 import sys
 import time
 import typing
-
-import multiprocessing
 from collections import Counter
 from decimal import Decimal
 

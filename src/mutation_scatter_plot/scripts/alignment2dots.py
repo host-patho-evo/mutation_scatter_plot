@@ -27,10 +27,11 @@ Usage example::
     done
 """
 
+import argparse
 import os
 import sys
-import argparse
 from decimal import Decimal
+
 from Bio import SeqIO
 
 VERSION = "0.3"

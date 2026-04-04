@@ -3,15 +3,15 @@ Tests for verifying the mathematical area-to-frequency scaling logic.
 """
 import os
 import unittest
-import numpy as np
+
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 
 # Import core functions
 from mutation_scatter_plot.mutation_scatter_plot import (
-    load_matrix, load_and_clean_dataframe, build_frequency_tables, setup_matplotlib_figure,
-    collect_scatter_data, render_matplotlib
-)
+    build_frequency_tables, collect_scatter_data, load_and_clean_dataframe,
+    load_matrix, render_matplotlib, setup_matplotlib_figure)
 
 
 class TestScalingLogic(unittest.TestCase):

@@ -28,8 +28,6 @@ an improvement over the prior `diff -u -w`.  The ANSI corruption was first
 observed when the DEL score changed from -11 → -6 (matrix-dynamic lookup,
 2026-03-31), producing the spurious "-116" artefact documented above.
 """
-from mutation_scatter_plot.mutation_scatter_plot.cli import main as mutation_scatter_plot_main  # pylint: disable=wrong-import-position
-from bokeh.document import Document  # pylint: disable=wrong-import-position
 import contextlib
 import filecmp
 import io
@@ -45,6 +43,11 @@ import unittest
 from unittest.mock import patch
 
 import matplotlib
+from bokeh.document import Document  # pylint: disable=wrong-import-position
+
+from mutation_scatter_plot.mutation_scatter_plot.cli import \
+    main as mutation_scatter_plot_main  # pylint: disable=wrong-import-position
+
 matplotlib.use('Agg')
 
 

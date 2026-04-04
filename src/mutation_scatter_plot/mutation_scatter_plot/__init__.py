@@ -65,29 +65,27 @@ Please cite our article if you use our data or software in your work:
 Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxova K., Zoler E., Mokrejš M., Schreiber G., Zahradník J. (submitted) In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence. [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)
 """
 
-import os
-import sys
-import re
 import json
-import typing
+import os
+import re
 import subprocess
-
-from decimal import Decimal, ExtendedContext, setcontext, getcontext
-import pandas as pd
-
-import matplotlib
-import matplotlib.pyplot as plt
-from matplotlib import ticker
-
-import numpy as np
-import mplcursors
+import sys
+import typing
+from decimal import Decimal, ExtendedContext, getcontext, setcontext
 
 # https://pypi.org/project/blosum/
 import blosum
+import matplotlib
+import matplotlib.pyplot as plt
+import mplcursors
+import numpy as np
+import pandas as pd
+from matplotlib import ticker
+
+from .. import alt_translate
 
 # bokeh is imported lazily inside render_bokeh()
 
-from .. import alt_translate
 
 setcontext(ExtendedContext)
 c = getcontext()
@@ -149,7 +147,8 @@ def _get_git_version() -> str:
     # In a live checkout the placeholder is left unexpanded (starts with "$").
     # ------------------------------------------------------------------
     try:
-        from . import _version as _ver_mod  # pylint: disable=import-outside-toplevel
+        from . import \
+            _version as _ver_mod  # pylint: disable=import-outside-toplevel
         _hash = getattr(_ver_mod, '_GIT_ARCHIVE_HASH', '')
         if _hash and not _hash.startswith('$'):
             # Export-subst replacement happened: use the full commit hash.
@@ -1741,8 +1740,8 @@ def render_bokeh(
     """
     from ..profiler import PROFILER
     PROFILER.mark_phase_start("Phase 2: Bokeh Model construction")
-    import bokeh.plotting
     import bokeh.models
+    import bokeh.plotting
 
     if circles_bokeh:
         # Tuple layout: (padded_pos, y_label, bokeh_size, marker, color, alpha, score, aa_pos, padded_pos)

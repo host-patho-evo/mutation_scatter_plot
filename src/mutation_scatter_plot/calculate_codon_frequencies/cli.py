@@ -4,20 +4,15 @@
 # Creative Commons Attribution 4.0 International. To view a copy of this
 # license, visit https://creativecommons.org/licenses/by/4.0/
 
+import argparse
 import os
 from contextlib import ExitStack
-import argparse
 
 from Bio import SeqIO
 
-from . import (
-    VERSION,
-    get_codons,
-    parse_alignment,
-    open_file,
-)
 from .. import alt_translate
 from ..profiler import PROFILER
+from . import VERSION, get_codons, open_file, parse_alignment
 
 
 class NoWrapFormatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
@@ -197,7 +192,8 @@ def main():
         # ── NUMA auto-bind (before multiprocessing Pool creation) ────────────
         # Silently skipped on single-node / non-NUMA hosts and when a
         # job scheduler has already configured CPU placement.
-        from .. import numa_bind  # noqa: PLC0415  (import inside function is intentional)
+        from .. import \
+            numa_bind  # noqa: PLC0415  (import inside function is intentional)
         numa_bind.autobind(mode=myoptions.cpu_bind)
 
         # parse_alignment manages its own Pool internally so that _WORKER_SHARED

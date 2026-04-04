@@ -13,6 +13,7 @@ Shared utilities are in mutation_scatter_plot.utils.
 """
 
 import functools
+
 from Bio.Seq import translate
 
 VERSION = "0.3"
