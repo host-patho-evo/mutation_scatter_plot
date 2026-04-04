@@ -106,6 +106,15 @@ def _depad(seq: str) -> str:
     return seq.replace('-', '').upper()
 
 
+_COMPLEMENT_TAB = str.maketrans(
+    'ACGTRYSWKMBDHVNacgtryswkmbdhvn',
+    'TGCAYRSWMKVHDBNtgcayrswmkvhdbn'
+)
+
+def _reverse_complement(seq: str) -> str:
+    return seq.translate(_COMPLEMENT_TAB)[::-1]
+
+
 def _iter_fasta(path: str, target_shas: set[str] | None = None):
     """Yield (name, depadded_seq) for each record.
     If target_shas is provided, sequence bodies for IDs possessing a known sha256
@@ -145,17 +154,31 @@ def _classify(current: str, original: str) -> str:
       left_clipped      – current is a non-empty suffix of original
       both_ends_clipped – current is an interior substring of original
                           (neither a prefix nor a suffix)
-      other             – current is not a substring of original at all;
-                          internal bases were altered, not just ends clipped
+      right_clipped_rc  – current is right-clipped from the revcom
+      left_clipped_rc   – current is left-clipped from the revcom
+      both_ends_clipped_rc – current is an interior substring of the revcom
+      other             – current is not a substring of original or RC at all
     """
     if not current or not original:
         return 'other'
+    
+    # Forward strand checks
     if original.startswith(current):
         return 'right_clipped'
     if original.endswith(current):
         return 'left_clipped'
     if current in original:
         return 'both_ends_clipped'
+        
+    # Reverse-complement strand checks
+    rc_original = _reverse_complement(original)
+    if rc_original.startswith(current):
+        return 'right_clipped_rc'
+    if rc_original.endswith(current):
+        return 'left_clipped_rc'
+    if current in rc_original:
+        return 'both_ends_clipped_rc'
+        
     return 'other'
 
 
@@ -200,6 +223,9 @@ def main() -> None:
         'right_clipped': 0,
         'left_clipped': 0,
         'both_ends_clipped': 0,
+        'right_clipped_rc': 0,
+        'left_clipped_rc': 0,
+        'both_ends_clipped_rc': 0,
         'other': 0,
     }
     n_classified = 0
