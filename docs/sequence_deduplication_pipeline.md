@@ -516,7 +516,7 @@ Following native Python byte-parsing refactors (dropping external `grep` pipelin
 - Mathematical exact-match tracking confirmed lossless (63 explicitly junked sequences filtered).
 
 **Hardware Metrics (NVMe SSD with `--jobs 5`)**
-Based on profiling of the full pipeline execution natively avoiding legacy shell forks:
+Based on profiling of the full pipeline execution natively avoiding legacy shell forks (`nohup.err15`):
 * `Phase 0: Identity Check`: **2m 05s**, 0.1 GB Peak RAM (CPU Avg: 452%)
 * `Phase 1: Validation & Accounting`: **1h 10m 00s**, 4.4 GB Peak RAM (CPU Avg: 320%)
 * `Phase 2: SHA256 Verification`: **24m 33s**, 11.9 GB Peak RAM (CPU Avg: 304%)
@@ -525,5 +525,10 @@ Based on profiling of the full pipeline execution natively avoiding legacy shell
 
 **Total Time**: ~2 hours. 
 **(Note: Following the integration of `--use-nnnx-counts` in the upcoming `processing5.sh` runs, Phase 1 times are projected to further drop radically as `O(N)` heavy sequence regex counts are dynamically bypassed).**
+
+### Pending Alignment Pipeline Benchmarks
+The metrics above reflect the tracking and summary analytics. The huge core alignment computation:
+`blastn | parse | drop_erroneous_insertions.py | reversecomplement_reads_on_minus.py | fix_SARS-CoV2...`
+skipped execution during this measurement window due to existing `.clean.fasta` cache hits. However, since we recently updated that chain to use high-throughput array parsers and absolute `O(1)` zip comprehensions, metrics reflecting those massive architectural speedups will be injected here following the next raw `processing5.sh` deployment.
 
 The native integration of `concurrent.futures.ThreadPoolExecutor` directly passing I/O buffers natively into C-space allows spanning multiple cores effectively through Python's GIL. Peak RAM reached 18.4GB across Phase 4 mapping operations, while iterating dynamically over **210+ GB of raw sequence data** efficiently in streaming chunks.
