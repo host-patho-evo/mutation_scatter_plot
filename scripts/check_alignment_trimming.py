@@ -146,7 +146,7 @@ def _iter_fasta(path: str, target_shas: set[str] | None = None):
         yield name, ("" if skip_seq else _depad(''.join(parts)))
 
 
-def _classify(current: str, original: str) -> str:
+def _classify(current: str, original: str, current_id: str) -> str:
     """Classify how *current* (post-alignment, depadded) relates to *original*.
 
     Categories (mutually exclusive, checked in order):
@@ -157,18 +157,35 @@ def _classify(current: str, original: str) -> str:
       right_clipped_rc  – current is right-clipped from the revcom
       left_clipped_rc   – current is left-clipped from the revcom
       both_ends_clipped_rc – current is an interior substring of the revcom
+      other_rc_by_header – Not a clean substring, but header indicates minus strand
+      header_conflict_warning – Header indicates minus strand, but sequence matched forward!
       other             – current is not a substring of original or RC at all
     """
     if not current or not original:
         return 'other'
+        
+    parts = current_id.split()
+    is_minus_header = False
+    
+    # 1. Paranoid check: Look for "minus" or inverted start/stop coordinates
+    if "minus" in parts[1:5]:
+        is_minus_header = True
+    elif len(parts) >= 3:
+        try:
+            start = int(parts[1])
+            stop = int(parts[2])
+            if start > stop:
+                is_minus_header = True
+        except ValueError:
+            pass
     
     # Forward strand checks
     if original.startswith(current):
-        return 'right_clipped'
+        return 'header_conflict_warning' if is_minus_header else 'right_clipped'
     if original.endswith(current):
-        return 'left_clipped'
+        return 'header_conflict_warning' if is_minus_header else 'left_clipped'
     if current in original:
-        return 'both_ends_clipped'
+        return 'header_conflict_warning' if is_minus_header else 'both_ends_clipped'
         
     # Reverse-complement strand checks
     rc_original = _reverse_complement(original)
@@ -179,7 +196,7 @@ def _classify(current: str, original: str) -> str:
     if current in rc_original:
         return 'both_ends_clipped_rc'
         
-    return 'other'
+    return 'other_rc_by_header' if is_minus_header else 'other'
 
 
 def main() -> None:
@@ -194,8 +211,8 @@ def main() -> None:
     )
 
     # ── Pass 1: detect mismatches ───────────────────────────────────────────
-    # mismatch_seqs: sha256_in_id → depadded post-alignment sequence
-    mismatch_seqs: dict[str, str] = {}
+    # mismatch_seqs: sha256_in_id → (record_id, depadded post-alignment sequence)
+    mismatch_seqs: dict[str, tuple[str, str]] = {}
     n_total = n_with_sha = n_mismatch = 0
 
     for rec_id, dep_seq in _iter_fasta(args.infilename):
@@ -207,7 +224,7 @@ def main() -> None:
         sha_computed = hashlib.sha256(dep_seq.encode()).hexdigest()
         if sha_computed != sha_in_id:
             n_mismatch += 1
-            mismatch_seqs[sha_in_id] = dep_seq
+            mismatch_seqs[sha_in_id] = (rec_id, dep_seq)
             if args.debug:
                 print(
                     f"MISMATCH id={rec_id}  id_sha={sha_in_id}"
@@ -226,6 +243,8 @@ def main() -> None:
         'right_clipped_rc': 0,
         'left_clipped_rc': 0,
         'both_ends_clipped_rc': 0,
+        'other_rc_by_header': 0,
+        'header_conflict_warning': 0,
         'other': 0,
     }
     n_classified = 0
@@ -241,8 +260,8 @@ def main() -> None:
                 sha_orig = hashlib.sha256(orig_seq.encode()).hexdigest()
             if sha_orig not in remaining:
                 continue
-            curr_seq = remaining.pop(sha_orig)
-            cat = _classify(curr_seq, orig_seq)
+            curr_id, curr_seq = remaining.pop(sha_orig)
+            cat = _classify(curr_seq, orig_seq, curr_id)
             categories[cat] += 1
             n_classified += 1
             if args.debug:
