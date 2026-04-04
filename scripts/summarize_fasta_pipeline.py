@@ -183,6 +183,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 FASTA_SUFFIXES = ('.fasta.orig', '.fasta.ori', '.fasta.old', '.fasta')
@@ -196,6 +197,140 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DISCARD_SCRIPT = os.path.join(SCRIPT_DIR, 'create_list_of_discarded_sequences.py')
 
 VERSION = "202604030900"
+
+class ResourceProfiler(threading.Thread):
+    """Background thread to sample CPU and RAM (RSS) usage of this script and its children."""
+    def __init__(self, interval: float = 5.0):
+        super().__init__(daemon=True)
+        self.interval = interval
+        self.pid = os.getpid()
+        self.lock = threading.Lock()
+        
+        # State
+        self.active_phase = None
+        self.phase_start_time = None
+        
+        # Metrics for current phase
+        self.phase_cpu_samples = []
+        self.phase_ram_samples = []
+        
+        # Current instant load
+        self.current_cpu = 0.0
+        self.current_ram_gb = 0.0
+        
+        self.psutil = None
+        try:
+            import psutil
+            self.psutil = psutil
+        except ImportError:
+            pass
+
+    def _get_metrics_psutil(self) -> tuple[float, float]:
+        try:
+            main_proc = self.psutil.Process(self.pid)
+            procs = [main_proc]
+            procs.extend(main_proc.children(recursive=True))
+            
+            # Baseline trigger
+            for p in procs:
+                try: p.cpu_percent(interval=None)
+                except (self.psutil.NoSuchProcess, self.psutil.AccessDenied): pass
+                
+            time.sleep(0.5)  # half-second measurement window
+            
+            total_cpu = 0.0
+            total_rss = 0.0
+            for p in procs:
+                try:
+                    total_cpu += p.cpu_percent(interval=None)
+                    total_rss += p.memory_info().rss
+                except (self.psutil.NoSuchProcess, self.psutil.AccessDenied):
+                    pass
+            return total_cpu, total_rss / (1024**3)
+        except Exception:
+            # Fallback defensively if psutil tree topology evaporates mid-sweep
+            return 0.0, 0.0
+
+    def _get_metrics_ps(self) -> tuple[float, float]:
+        try:
+            # -p PID (parent) and --ppid PID (children)
+            cmd = ["ps", "--no-headers", "-o", "pcpu,rss", "-p", str(self.pid), "--ppid", str(self.pid)]
+            out = subprocess.check_output(cmd, encoding='ascii', stderr=subprocess.DEVNULL)
+            
+            total_cpu = 0.0
+            total_rss_kb = 0.0
+            for line in out.strip().split('\n'):
+                parts = line.strip().split()
+                if len(parts) == 2:
+                    total_cpu += float(parts[0])
+                    total_rss_kb += float(parts[1])
+            return total_cpu, total_rss_kb / (1024**2)  # ps RSS is in KB
+        except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
+            return 0.0, 0.0
+
+    def run(self):
+        while True:
+            t0 = time.time()
+            if self.psutil:
+                cpu, ram_gb = self._get_metrics_psutil()
+            else:
+                cpu, ram_gb = self._get_metrics_ps()
+                
+            with self.lock:
+                # Discard 0.0 readings if the OS jittered 
+                if cpu > 0 or ram_gb > 0:
+                    self.current_cpu = cpu
+                    self.current_ram_gb = ram_gb
+                if self.active_phase is not None:
+                    self.phase_cpu_samples.append(self.current_cpu)
+                    self.phase_ram_samples.append(self.current_ram_gb)
+            
+            # Sleep remaining interval (account for the 0.5s psutil measurement window)
+            elapsed = time.time() - t0
+            if elapsed < self.interval:
+                time.sleep(self.interval - elapsed)
+
+    def mark_phase_start(self, phase_name: str):
+        with self.lock:
+            self.active_phase = phase_name
+            self.phase_start_time = datetime.datetime.now()
+            self.phase_cpu_samples = []
+            self.phase_ram_samples = []
+            
+    def get_current_load_str(self) -> str:
+        with self.lock:
+            return f"  [Load: {self.current_ram_gb:.1f} GB RAM | {self.current_cpu:.0f}% CPU]"
+
+    def pop_phase_summary(self) -> str | None:
+        with self.lock:
+            if self.active_phase is None or not self.phase_start_time:
+                return None
+                
+            name = self.active_phase
+            duration = datetime.datetime.now() - self.phase_start_time
+            
+            secs = int(duration.total_seconds())
+            hours, remainder = divmod(secs, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            dur_str = f"{hours}h {minutes:02d}m" if hours > 0 else f"{minutes}m {seconds:02d}s" if minutes > 0 else f"{seconds}s"
+
+            if self.phase_cpu_samples:
+                peak_cpu = max(self.phase_cpu_samples)
+                avg_cpu = sum(self.phase_cpu_samples) / len(self.phase_cpu_samples)
+                peak_ram = max(self.phase_ram_samples)
+            else:
+                peak_cpu = avg_cpu = self.current_cpu
+                peak_ram = self.current_ram_gb
+                
+            summary = (f"         ↳ Profiler Summary ({name}): Peak RAM = {peak_ram:.1f} GB | "
+                       f"Peak CPU = {peak_cpu:.0f}% | Avg CPU = {avg_cpu:.0f}% | Duration = {dur_str}")
+                       
+            self.active_phase = None
+            return summary
+
+
+# Global instance
+PROFILER = ResourceProfiler(interval=5.0)
 
 # ── storage-type detection (for --jobs auto-tuning) ─────────────────────────
 
@@ -1600,7 +1735,7 @@ def _scan_primary_file(
     sz_str   = _fmt_size(os.path.getsize(f))
     is_prot  = _is_prot_file(f)
     kind     = 'protein FASTA' if is_prot else 'FASTA'
-    lines.append(f"{_ts()}{tag} {display}  ({sz_str}, {kind})")
+    lines.append(f"{_ts()}{tag} {display}  ({sz_str}, {kind}){PROFILER.get_current_load_str()}")
     lines.append("        counting records & summing NNNNx counts \u2026")
     n_rec, n_sum = _count_records_and_nnnx(f)
     if use_nnnx_counts and n_sum > 0:
@@ -1705,7 +1840,7 @@ def _verify_one_file(
                       if p is not None else '(no parent)')
     lines.append(
         f"{_ts()}  [{idx+1}/{n_total}] {display}: verifying sha256 IDs "
-        f"against parent [{p+1 if p is not None else '?'}] {parent_display} \u2026"
+        f"against parent [{p+1 if p is not None else '?'}] {parent_display} \u2026{PROFILER.get_current_load_str()}"
     )
     vd = _verify_sha256(f, parent_sha256s)
     if vd is not None and (vd[0] > 0 or vd[2] > 0):
@@ -1737,6 +1872,7 @@ def _verify_one_file(
 
 def main() -> None:
     """Entry point: parse args, scan files, print table, optionally show discard stats."""
+    PROFILER.start()
     _start_ts = datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
     print(
         f"{_start_ts} summarize_fasta_pipeline.py"
@@ -1900,6 +2036,9 @@ def main() -> None:
     _size_tied = {sz: idxs for sz, idxs in _size_groups.items()
                   if len(idxs) >= 2 and sz > 0}
     if _size_tied:
+        summary = PROFILER.pop_phase_summary()
+        if summary: print(summary, file=sys.stderr)
+        PROFILER.mark_phase_start("Phase 0")
         print(
             f"\n{_ts()}── Phase 0: Identity check (size + sha256) "
             f"─────────────────────────────────────────────────────────",
@@ -1955,6 +2094,9 @@ def main() -> None:
                       file=sys.stderr, flush=True)
 
     # ── gather per-file data ─────────────────────────────────────────────────
+    summary = PROFILER.pop_phase_summary()
+    if summary: print(summary, file=sys.stderr)
+    PROFILER.mark_phase_start("Phase 1")
     print(
         f"\n{_ts()}── Phase 1: Gather per-file statistics "
         f"──────────────────────────────────────────────────────────────",
@@ -2033,6 +2175,9 @@ def main() -> None:
     # 'Novel sha256s' column.  It is freed after that loop completes.
 
     if verify_sha256:
+        summary = PROFILER.pop_phase_summary()
+        if summary: print(summary, file=sys.stderr)
+        PROFILER.mark_phase_start("Phase 2")
         print(
             f"\n{_ts()}── Phase 2: sha256 integrity verification "
             f"────────────────────────────────────────────────────────",
@@ -2084,6 +2229,9 @@ def main() -> None:
     # Runs before table printing so the numbers can appear as proper columns.
     discard_data: dict[int, tuple[int, int]] = {}  # child_idx -> (n_ids, nnnx_sum)
     if do_discard:
+        summary = PROFILER.pop_phase_summary()
+        if summary: print(summary, file=sys.stderr)
+        PROFILER.mark_phase_start("Phase 3")
         print(
             "\n── Phase 3: Discard statistics (parent→child pairs) "
             "─────────────────────────────────────────────────────",
@@ -2098,7 +2246,7 @@ def main() -> None:
             lines: list[str] = []
             p_display = os.path.relpath(files[p], search_path)
             c_display = os.path.relpath(f_child, search_path)
-            lines.append(f"  [{i+1}/{len(files)}] {p_display} → {c_display} …")
+            lines.append(f"  [{i+1}/{len(files)}] {p_display} → {c_display} …{PROFILER.get_current_load_str()}")
             n_d, s_d = _compute_discard_stats(
                 files[p], f_child,
                 add_checksums=add_checksums,
@@ -2137,6 +2285,9 @@ def main() -> None:
 
     # ── Phase 4: extract discarded FASTA records from root ancestor ──────────
     if do_discard and extract_discarded_fasta:
+        summary = PROFILER.pop_phase_summary()
+        if summary: print(summary, file=sys.stderr)
+        PROFILER.mark_phase_start("Phase 4")
         print(
             f"\n{_ts()}── Phase 4: Extract discarded records from root ancestor "
             f"─────────────────────────────────",
@@ -2220,6 +2371,10 @@ def main() -> None:
         + disc_header
     )
     rule = '-' * len(header)
+    summary = PROFILER.pop_phase_summary()
+    if summary:
+        print()
+        print(summary, file=sys.stderr)
     print()
     print(header)
     print(rule)
