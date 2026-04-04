@@ -91,9 +91,9 @@ A-G--T-T-GTT...
 
 > [!WARNING]
 > **Important Sequence Distinction:** 
-> It took significant time to realize that the sequence appended to the end of the header is **NOT** the raw sequence from the root (e.g., `spikenuc1207.fasta`), nor is it the sequence from the initial deduplication step (`spikenuc1207.no_junk.counts.fasta`), nor is it the plain, unbroken reference sequence of the Spike protein. 
+> Beware that the sequence appended to the end of the FASTA header line is **NOT** the raw sequence from the root (e.g., `spikenuc1207.fasta`), nor is it the sequence from the initial deduplication step (`spikenuc1207.no_junk.counts.fasta`), nor is it the plain, non-padded reference sequence of the Spike protein. It was excised from the HSP pairwise-alignment block.
 > 
-> **It is a padded segment cut out specifically from the aligned region** with its own unique length and dash placement. Furthermore, the DNA sequence data directly below it (the `SEQUENCE` body) is *also* padded, as it is extracted from that identically matched HSP pairwise-alignment block.
+> **It is a padded segment cut out from the aligned region** with its own unique length and dash placement. Furthermore, the DNA sequence data directly below it (the `SEQUENCE` body) is *also* padded, as it is extracted from that same HSP pairwise-alignment block.
 
 **Simultaneously** it performs a second pass over the original FASTA to build
 a `sha256 → [original_ID_1, original_ID_2, …]` mapping TSV
