@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 # pylint: disable=too-many-lines
 """Summarize FASTA pipeline: record counts and NNNNx count sums across pipeline stages.
 
@@ -1505,19 +1507,20 @@ def _extract_discarded_to_fasta(
     # sha256_to_descr_lines.tsv is built when --write-original-descr-lines is
     # used; taking the first whitespace-separated token gives the accession ID.
     tsv_candidates = [
-        mapping_stem + '.sha256_to_ids.tsv',
         mapping_stem + '.sha256_to_descr_lines.tsv',
+        mapping_stem + '.sha256_to_ids.tsv',
     ]
     root_tsv = next((t for t in tsv_candidates if os.path.exists(t)), None)
     if root_tsv is None:
         print(
             f"    Skipped: no usable ancestor TSV found "
-            f"({os.path.basename(mapping_stem)}.sha256_to_{{ids,descr_lines}}.tsv).",
+            f"({os.path.basename(mapping_stem)}.sha256_to_{{descr_lines,ids}}.tsv).",
 
         )
         return
 
-    fasta_ids: list[str] = []
+    target_ids_set = set()
+    is_descr = root_tsv.endswith('.sha256_to_descr_lines.tsv')
     with open(root_tsv, 'r', encoding='utf-8', errors='replace') as fh:
         for line in fh:
             fields = line.rstrip('\n').split('\t')
@@ -1525,36 +1528,30 @@ def _extract_discarded_to_fasta(
                 continue
             # TSV format: sha256 \t count \t id1 \t id2 …
             for raw_id in fields[2:]:
-                tok = raw_id.split()[0] if raw_id.strip() else ''
-                if tok:
-                    fasta_ids.append(tok)
+                uid = raw_id.replace('\\t', '\t').strip() if is_descr else (raw_id.split()[0] if raw_id.strip() else '')
+                if uid:
+                    target_ids_set.add(uid)
 
-    if not fasta_ids:
+    if not target_ids_set:
         print(f"    Warning: no FASTA IDs found for the "
               f"{len(target_sha256s):,} discarded sha256(s) in {os.path.basename(root_tsv)}.",
               )
         return
 
-    print(f"    {len(fasta_ids):,} GISAID ID(s) for {len(target_sha256s):,} sha256(s).",
+    print(f"    {len(target_ids_set):,} GISAID ID(s) for {len(target_sha256s):,} sha256(s).",
           )
 
-    # ── Step 3: write temporary names file ──────────────────────────────
-    names_file = child_stem + '.discarded_fasta_ids.tmp'
-    with open(names_file, 'w', encoding='utf-8') as fh:
-        fh.write('\n'.join(fasta_ids))
-        fh.write('\n')
-
     # ── Step 4: extract records (fast pure-Python byte streaming) ────────────
-    target_ids_set = {uid.encode('utf-8', errors='ignore') for uid in fasta_ids}
     n_written = 0
     try:
         with open(root_path, 'rb') as in_fh, open(out_fasta, 'wb') as out_fh:
             in_target = False
             for raw in in_fh:
                 if raw.startswith(b'>'):
-                    id_part = raw[1:].split(None, 1)
-                    rec_id = id_part[0] if id_part else b''
-                    in_target = rec_id in target_ids_set
+                    line_str = _decode_fasta_line(raw).rstrip('\r\n')
+                    header = line_str[1:]
+                    match_id = header if is_descr else (header.split()[0] if header.split() else "")
+                    in_target = match_id in target_ids_set
                     if in_target:
                         n_written += 1
                 if in_target:
@@ -1563,12 +1560,6 @@ def _extract_discarded_to_fasta(
               f"{os.path.relpath(out_fasta, search_path)}.")
     except OSError as exc:
         print(f"    Error extracting discarded sequences: {exc}")
-
-    # ── Step 5: cleanup ──────────────────────────────────────────────────────
-    try:
-        os.unlink(names_file)
-    except OSError:
-        pass
 
 
 # ── Phase 1 helper ────────────────────────────────────────────────────────────
@@ -2127,6 +2118,12 @@ def main() -> None:
             lines: list[str] = []
             p_display = os.path.relpath(files[p], search_path)
             c_display = os.path.relpath(f_child, search_path)
+            if i in sum_data and sum_data[i][0] == 0:
+                lines.append(f"  [{i+1}/{len(files)}] {p_display} → {c_display} …")
+                n_p_rec, s_p_rec = sum_data[p]
+                lines.append(f"    Skipped computation: file is empty (implicit 100% discard of {n_p_rec:,} IDs).")
+                return {'idx': i, 'stats': (n_p_rec, s_p_rec), 'lines': lines}
+
             lines.append(f"  [{i+1}/{len(files)}] {p_display} → {c_display} …{PROFILER.get_current_load_str()}")
             n_d, s_d = _compute_discard_stats(
                 files[p], f_child,
@@ -2183,6 +2180,9 @@ def main() -> None:
             )
         ]
         for child_idx in p4_children:
+            if child_idx in sum_data and sum_data[child_idx][0] == 0:
+                print(f"  Skipped extracting discarded records for {os.path.basename(files[child_idx])} (empty subset, implicit 100% discard).")
+                continue
             # Walk parent_map up to the root ancestor (no parent).
             root_idx = child_idx
             while root_idx in parent_map:

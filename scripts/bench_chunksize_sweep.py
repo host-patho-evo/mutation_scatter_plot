@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 """Chunksize sweep for Pool.starmap/imap on calculate_codon_frequencies.
 
 Monkey-patches Pool.starmap to use imap with a given chunksize, then

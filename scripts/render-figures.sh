@@ -1,4 +1,5 @@
 #! /usr/bin/env sh
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 
 # This is a main wrapper used to re-generate figures for all samples.
 

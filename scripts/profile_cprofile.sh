@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 # cProfile run for calculate_codon_frequencies on the target machine.
 # Run from project root:  bash scripts/profile_cprofile.sh <alignment.fasta> [threads] [max_rows]
 #

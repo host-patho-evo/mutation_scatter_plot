@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 """Count identical sequences in a FASTA/Q file and write a deduplicated output.
 
 Each unique sequence gets a FASTA ID of the form::
@@ -122,11 +124,20 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
 
     Unix sort respects TMPDIR variable to place the temporary files i there, instead of cwd. To make counting faster
     we allow to specify percentage of total RAM to be used '50%' or specify size as '10G' from the [KMGTP].
+
+    Note on BBTools flags:
+    `simd=f` is explicitly required to work around a known bug in BBTools (encountered in v39.55, 
+    present in <= v39.61) where SIMD-accelerated uppercase conversion (`tuc=t` or implicit forced uppercase) 
+    fails to check for letter status and inadvertently converts alignment padding dashes (`-`) 
+    into carriage returns (`\r`). This is slated to be fixed in bbmap 39.62+.
+
+    `fastawrap=0` is critical because BBTools native output defaults to wrapping sequence lines to 70 characters. 
+    Without it, the downstream `awk 'NR % 2 == 0'` pipe would silently shred wrapped sequences into fragments.
     """
     if top_n:
         cmd = (
             f"cat {infilename} | reformat.sh fastawrap=0 in=stdin.{infile_format}"
-            f" out=stdout.fasta ignorejunk=t simd=f"
+            f" out=stdout.fasta simd=f"
             f" | awk 'NR %% 2 == 0'"
             f" | sort -S {sort_bucket_size}"
             f" | uniq -c | sort -S {sort_bucket_size} -nr | head -n {top_n}"
@@ -134,7 +145,7 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
     elif min_count:
         cmd = (
             f"cat {infilename} | reformat.sh fastawrap=0 in=stdin.{infile_format}"
-            f" out=stdout.fasta ignorejunk=t simd=f"
+            f" out=stdout.fasta simd=f"
             f" | awk 'NR %% 2 == 0'"
             f" | sort -S {sort_bucket_size}"
             f" | uniq -c | sort -S {sort_bucket_size} -nr"
@@ -143,7 +154,7 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
     else:
         cmd = (
             f"cat {infilename} | reformat.sh fastawrap=0 in=stdin.{infile_format}"
-            f" out=stdout.fasta ignorejunk=t simd=f"
+            f" out=stdout.fasta simd=f"
             f" | awk 'NR %% 2 == 0'"
             f" | sort -S {sort_bucket_size}"
             f" | uniq -c | sort -S {sort_bucket_size} -nr"

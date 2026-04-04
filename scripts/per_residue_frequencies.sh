@@ -1,4 +1,5 @@
 #! /usr/bin/env sh
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 
 # This script has been used to traverse per-sample TSV files and
 # to output observed frequencies for a single codon position.

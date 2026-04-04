@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 """Diagnostic: classify sequences changed by alignment.
 
 For each record in an aligned FASTA with NNNNx.sha256hex IDs, compare:

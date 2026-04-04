@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 """Unit tests for calculate_codon_frequencies.
 
 Known pitfall — `git diff --word-diff=color` in `self.fail()` messages

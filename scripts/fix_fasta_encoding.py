@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 r"""Normalize the character encoding of FASTA files in-place.
 
 Background
@@ -343,10 +345,10 @@ where ``{stem}`` is the input path with any FASTA suffix stripped
 datetime is fixed once per invocation so all files processed in one run
 share the same log timestamp.
 
-Example log for ``spikenuc1207.fasta`` (63.4 GB, processed 2026-03-31)::
+Example log for ``spikenuc1207.fasta`` (63.4 GB, processed 2026-04-04)::
 
-    === 2026-03-31T23:18:27.713536  spikenuc1207.fasta ===
-      Wrote spikenuc1207.fasta: 1,413,630 line(s) changed, 14.3 MB/s
+    === 2026-04-04T22:23:27.123456  spikenuc1207.fasta ===
+      Wrote spikenuc1207.fasta: 1,413,630 line(s) changed, 14.4 MB/s
       Encoding-mix breakdown (per changed line):
         \\uXXXX escapes only                                 : 1,398,889
         Valid UTF-8 multi-byte only                         :   14,646

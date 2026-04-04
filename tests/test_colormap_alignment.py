@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 """Tests for discrete colormap (ListedColormap + BoundaryNorm) alignment.
 
 Reference implementation / design spec:

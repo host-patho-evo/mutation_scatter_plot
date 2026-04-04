@@ -1,4 +1,5 @@
 #! /bin/sh
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 
 # Kick out sequences not being 3822 nt long after padding. In this way we move
 # sequences with INSertions occurring in the sample reads into a separate file.
