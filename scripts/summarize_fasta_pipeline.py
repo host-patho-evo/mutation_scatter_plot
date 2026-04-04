@@ -2179,11 +2179,12 @@ def main() -> None:
     w_itrn   = max(len("'Altered inside the sequence'"), w_num)
     w_prot   = max(len("'Unique protein entries'"), w_num)
     w_protn  = max(len("'Sum of protein NNNNx'"), w_num)
+    w_dprot  = max(len("Δprotein entries"), w_delta)
 
     _hdr_disc1 = "'Discarded original unique Entries'"
     _hdr_disc2 = "'Sum of discarded NNNNx'"
     _hdr_nnnx  = "'Sum of NNNNx'"
-    _hdr_drec  = 'ΔDNA entries'
+    _hdr_drec  = 'ΔFASTA entries'
     _hdr_dsum  = 'ΔSumToParent'
     _hdr_novel = "'Novel sha256s'"
     _hdr_chg1  = "'Seq clipped(dup)'"
@@ -2193,6 +2194,7 @@ def main() -> None:
     _hdr_clip  = "'Altered due to end-clipping'"
     _hdr_itrn  = "'Altered inside the sequence'"
     _hdr_prot  = "'Unique protein entries'"
+    _hdr_dprot = "Δprotein entries"
     _hdr_protn = "'Sum of protein NNNNx'"
     verify_cols_hdr = (
         f"{sep}{_hdr_chg1:>{w_chg1}}{sep}{_hdr_chg2:>{w_chg2}}"
@@ -2208,9 +2210,9 @@ def main() -> None:
     header = (
         f"{'File':<{col_file}}{sep}"
         f"{'Modified':<{w_ts}}{sep}"
-        f"{'Unique DNA entries':>{w_num}}{sep}{_hdr_drec:>{w_delta}}{sep}"
+        f"{'# FASTA entries':>{w_num}}{sep}{_hdr_drec:>{w_delta}}{sep}"
         f"{_hdr_nnnx:>{w_num}}{sep}{_hdr_dsum:>{w_delta}}{sep}"
-        f"{_hdr_novel:>{w_novel}}{sep}{_hdr_prot:>{w_prot}}{sep}{_hdr_protn:>{w_protn}}"
+        f"{_hdr_novel:>{w_novel}}{sep}{_hdr_prot:>{w_prot}}{sep}{_hdr_dprot:>{w_dprot}}{sep}{_hdr_protn:>{w_protn}}"
         + verify_cols_hdr
         + disc_header
     )
@@ -2252,10 +2254,13 @@ def main() -> None:
         # ── protein-unique column ─────────────────────────────────────────────
         pu_result = prot_unique[i]  # None | (n_unique, nnnx_sum)
         if pu_result is None:
-            prot_col = f"{sep}{_em:>{w_prot}}{sep}{_em:>{w_protn}}"
+            prot_col = f"{sep}{_em:>{w_prot}}{sep}{_em:>{w_dprot}}{sep}{_em:>{w_protn}}"
         else:
             n_pu, nnnx_pu = pu_result
-            prot_col = f"{sep}{n_pu:>{w_prot},}{sep}{nnnx_pu:>{w_protn},}"
+            d_pu = _em
+            if p is not None and prot_unique[p] is not None:
+                d_pu = _delta_str(n_pu, prot_unique[p][0])
+            prot_col = f"{sep}{n_pu:>{w_prot},}{sep}{d_pu:>{w_dprot}}{sep}{nnnx_pu:>{w_protn},}"
 
         # ── sha256 verification columns ───────────────────────────────────────
         if verify_sha256:
@@ -2337,7 +2342,7 @@ def main() -> None:
         last_rec,  last_sum  = rows[-1][2], rows[-1][3]
         print()
         print("Overall change  (last vs first):")
-        print(f"  Unique DNA entries : {_delta_str(last_rec, first_rec):>16}  ({_pct_str(last_rec, first_rec)} of first)")
+        print(f"  # FASTA entries : {_delta_str(last_rec, first_rec):>16}  ({_pct_str(last_rec, first_rec)} of first)")
         print(f"  Sum     : {_delta_str(last_sum, first_sum):>16}  ({_pct_str(last_sum, first_sum)} of first)")
 
 
