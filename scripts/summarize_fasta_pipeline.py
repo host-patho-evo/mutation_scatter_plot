@@ -183,7 +183,6 @@ import re
 import subprocess
 import sys
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 FASTA_SUFFIXES = ('.fasta.orig', '.fasta.ori', '.fasta.old', '.fasta')
