@@ -78,6 +78,23 @@ SEQUENCE
 where `NNNN` is the count and `sha256hex` is the 64-character hexadecimal
 SHA-256 of the uppercase, dash-stripped sequence.
 
+### Post-Alignment Header Structure (`.clean.fasta`)
+If the sequences are subsequently processed through external alignment pipelines like `blastn` (e.g., via `processing4.sh`), the FASTA header is expanded into multiple tab-delimited columns. 
+
+Crucially, the **very last item** appended to the end of the header line is the **padded reference sequence (`sseq`)** extracted directly from the true BLAST High-Scoring Segment Pair (HSP) alignment block.
+
+*Example:*
+```text
+>NNNNx.sha256hex	<other_blast_columns>...	ATG--TTT-GTT...
+A-G--T-T-GTT...
+```
+
+> [!WARNING]
+> **Important Sequence Distinction:** 
+> It took significant time to realize that the sequence appended to the end of the header is **NOT** the raw sequence from the root (e.g., `spikenuc1207.fasta`), nor is it the sequence from the initial deduplication step (`spikenuc1207.no_junk.counts.fasta`), nor is it the plain, unbroken reference sequence of the Spike protein. 
+> 
+> **It is a padded segment cut out specifically from the aligned region** with its own unique length and dash placement. Furthermore, the DNA sequence data directly below it (the `SEQUENCE` body) is *also* padded, as it is extracted from that identically matched HSP pairwise-alignment block.
+
 **Simultaneously** it performs a second pass over the original FASTA to build
 a `sha256 → [original_ID_1, original_ID_2, …]` mapping TSV
 (`filename_prefix.sha256_to_ids.tsv`). This TSV enables tracing any
