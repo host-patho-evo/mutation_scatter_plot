@@ -428,7 +428,7 @@ def _count_records_and_nnnx(path: str) -> tuple[int, int]:
     n_nnnx_sum = 0
     n_unprefixed = 0
     block_size = 1024 * 1024
-    
+
     def _process_header(hbytes: bytes):
         nonlocal n_rec, n_nnnx_sum, n_unprefixed
         n_rec += 1
@@ -459,30 +459,29 @@ def _count_records_and_nnnx(path: str) -> tuple[int, int]:
                 if char == b'>':
                     buffer = b'>'
                     break
-                    
+
             while True:
                 chunk = fh.read(block_size)
                 if not chunk:
                     break
                 buffer += chunk
-                
+
                 parts = buffer.split(b'\n>')
                 buffer = parts.pop()
-                
+
                 for part in parts:
                     header, _, _ = part.partition(b'\n')
                     _process_header(header)
-                    
+
             if buffer:
                 header, _, _ = buffer.partition(b'\n')
                 _process_header(header)
     except OSError:
         pass
-        
+
     if n_nnnx_sum > 0:
         return n_rec, n_nnnx_sum + n_unprefixed
-    else:
-        return n_rec, 0
+    return n_rec, 0
 
 
 
