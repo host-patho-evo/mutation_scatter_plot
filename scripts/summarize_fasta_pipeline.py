@@ -392,11 +392,21 @@ def _mtime(path: str) -> float:
 def _count_records(path: str) -> int:
     """Number of '>' header lines in a FASTA file."""
     n_rec = 0
+    block_size = 1024 * 1024
     try:
         with open(path, 'rb') as fh:
-            for raw in fh:
-                if raw.startswith(b'>'):
+            while True:
+                char = fh.read(1)
+                if not char:
+                    return 0
+                if char == b'>':
                     n_rec += 1
+                    break
+            while True:
+                chunk = fh.read(block_size)
+                if not chunk:
+                    break
+                n_rec += chunk.count(b'\n>')
     except OSError:
         pass
     return n_rec
@@ -412,31 +422,60 @@ def _count_records_and_nnnx(path: str) -> tuple[int, int]:
     
     Implementation: High-performance native Python byte-scanning logic.
     Bypasses subprocess overhead, avoiding the slow grep/awk pipelines
-    while extracting the prefix using C-optimized split operations.
+    while extracting the prefix using block-read chunk operations.
     """
     n_rec = 0
     n_nnnx_sum = 0
     n_unprefixed = 0
+    block_size = 1024 * 1024
+    
+    def _process_header(hbytes: bytes):
+        nonlocal n_rec, n_nnnx_sum, n_unprefixed
+        n_rec += 1
+        if hbytes.startswith(b'>'):
+            hbytes = hbytes[1:]
+        toks = hbytes.split(None, 1)
+        if not toks:
+            n_unprefixed += 1
+            return
+        tok = toks[0]
+        xpos = tok.find(b'x.')
+        if xpos < 0:
+            xpos = tok.find(b'x')
+        if xpos > 0:
+            try:
+                n_nnnx_sum += int(tok[:xpos])
+            except ValueError:
+                n_unprefixed += 1
+        else:
+            n_unprefixed += 1
+
     try:
         with open(path, 'rb') as fh:
-            for raw in fh:
-                if raw.startswith(b'>'):
-                    n_rec += 1
-                    parts = raw[1:].split(None, 1)
-                    if not parts:
-                        n_unprefixed += 1
-                        continue
-                    tok = parts[0]
-                    xpos = tok.find(b'x.')
-                    if xpos < 0:
-                        xpos = tok.find(b'x')
-                    if xpos > 0:
-                        try:
-                            n_nnnx_sum += int(tok[:xpos])
-                        except ValueError:
-                            n_unprefixed += 1
-                    else:
-                        n_unprefixed += 1
+            while True:
+                char = fh.read(1)
+                if not char:
+                    return 0, 0
+                if char == b'>':
+                    buffer = b'>'
+                    break
+                    
+            while True:
+                chunk = fh.read(block_size)
+                if not chunk:
+                    break
+                buffer += chunk
+                
+                parts = buffer.split(b'\n>')
+                buffer = parts.pop()
+                
+                for part in parts:
+                    header, _, _ = part.partition(b'\n')
+                    _process_header(header)
+                    
+            if buffer:
+                header, _, _ = buffer.partition(b'\n')
+                _process_header(header)
     except OSError:
         pass
         
