@@ -255,13 +255,17 @@ used.
 > **Why `--jobs` and not `--threads`?**  
 > `summarize_fasta_pipeline.py` parallelises *across files* using
 > `concurrent.futures.ThreadPoolExecutor` (one thread per FASTA file).
-> Because FASTA reads are I/O-bound and release Python’s GIL, OS threads are
-> the right primitive — no process fork overhead needed.  The flag name follows
-> the GNU `make -j N` / `parallel -j N` convention where a **job** is an
-> independent unit of work (here: one file audit).  
-> `calculate_codon_frequencies` uses **`--threads`** because it forks real
-> CPU-bound **worker processes** via `multiprocessing.Pool` to parallelise
-> computation across 1,274 codon sites.
+> In Phase 0 and Phase 1, FASTA reads utilize C-level operations (e.g., `bytes.split()`)
+> which natively release Python’s GIL, allowing true multi-core speedup for I/O bounds.
+> The flag name follows the GNU `make -j N` / `parallel -j N` convention.
+>
+> In Phase 2 (`_verify_integrity_of_pairs_and_classify`), alignment verification relies
+> heavily on Python string manipulation bytecode. The GIL forces sequential bytecode
+> execution, causing concurrent Phase 2 validations to context-switch and effectively
+> behave as if single-threaded (maxing out at 100% CPU). However, deploying
+> `ThreadPoolExecutor` instead of `ProcessPoolExecutor` guarantees the 11.8+ GB 
+> `sha256_sets` dictionary is safely shared among all parallel verifications.
+> If processes were used, RAM cloning would trigger Out of Memory (OOM) kernel kills.
 
 ---
 
@@ -288,11 +292,13 @@ check_alignment_trimming.py --infilename=filename_prefix.counts.clean.fasta
 The pipeline is heavily optimized for multi-threaded setups via the `--jobs N`
 flag in `summarize_fasta_pipeline.py`.
 
-1. **Across-File Parallelism (ThreadPoolExecutor)**: Because operations heavily
-   rely on standard I/O (often fetching files that take gigabytes of disk
-   space), all heavy work releases the Global Interpreter Lock (GIL).  By
-   running threads *across* files, we saturate total RAID or network bandwidth
-   without experiencing CPU bottlenecks.
+1. **Across-File Parallelism (ThreadPoolExecutor)**: Operations heavily
+   rely on standard I/O (often fetching files that take gigabytes of disk space).
+   Phase 1 drops to C-level byte processing which safely releases the Global Interpreter Lock (GIL),
+   allowing threads to saturate total RAID or network bandwidth parallelly across multiple cores.
+   Phase 2 runs sequential Python bytecode, forcing the GIL to fall back to effectively
+   single-threaded throughput per Node. However, Threads strictly bypass memory duplication
+   and securely share the global 12GB+ tracking RAM map.
 
 2. **Within-File Design Avoided for NFS Performance**: The code explicitly
    **avoids** reading the *same* file via concurrent threads.  Performing
