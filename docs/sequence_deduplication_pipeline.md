@@ -516,8 +516,14 @@ Following native Python byte-parsing refactors (dropping external `grep` pipelin
 - Mathematical exact-match tracking confirmed lossless (63 explicitly junked sequences filtered).
 
 **Hardware Metrics (NVMe SSD with `--jobs 5`)**
-* `Phase 0: Identity Check`: 2 minutes, 0.1 GB Peak RAM
-* `Phase 1: Deep Sequence Validation & Accounting`: 1 hour 10 minutes, **4.4 GB Peak RAM**
-* `Phase 2: SHA256 Collision Verifications`: Instant (0 mismatches detected)
+Based on profiling of the full pipeline execution natively avoiding legacy shell forks:
+* `Phase 0: Identity Check`: **2m 05s**, 0.1 GB Peak RAM (CPU Avg: 452%)
+* `Phase 1: Validation & Accounting`: **1h 10m 00s**, 4.4 GB Peak RAM (CPU Avg: 320%)
+* `Phase 2: SHA256 Verification`: **24m 33s**, 11.9 GB Peak RAM (CPU Avg: 304%)
+* `Phase 3: Discard Statistics`: **17m 08s**, 16.8 GB Peak RAM (CPU Avg: 687%)
+* `Phase 4: Extract Discarded Records`: **8m 30s**, 18.4 GB Peak RAM (CPU Avg: 324%)
 
-The native integration of `concurrent.futures.ThreadPoolExecutor` directly passing I/O buffers natively into C-space allows spanning multiple cores perfectly through Python's GIL. Peak RAM is efficiently capped at ~4.4GB despite iterating dynamically over **210+ GB of raw sequence data** per run.
+**Total Time**: ~2 hours. 
+**(Note: Following the integration of `--use-nnnx-counts` in the upcoming `processing5.sh` runs, Phase 1 times are projected to further drop radically as `O(N)` heavy sequence regex counts are dynamically bypassed).**
+
+The native integration of `concurrent.futures.ThreadPoolExecutor` directly passing I/O buffers natively into C-space allows spanning multiple cores effectively through Python's GIL. Peak RAM reached 18.4GB across Phase 4 mapping operations, while iterating dynamically over **210+ GB of raw sequence data** efficiently in streaming chunks.
