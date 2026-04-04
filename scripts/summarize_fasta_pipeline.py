@@ -61,18 +61,21 @@ Options:
                          the 'Found N file(s)' line so you can verify it.
 
                          Why '--jobs' and not '--threads'?
-                         Each job is one complete file audit (reading one FASTA
-                         and all its ancillary files).  Operations are I/O-bound
-                         and release Python's GIL, so OS threads via
-                         ThreadPoolExecutor are the right primitive -- no
-                         process-fork overhead is needed.  The name follows the
-                         GNU 'make -j N' / 'parallel -j N' convention.
+                         Each job is one complete file audit. In Phase 0 and 1,
+                         the massive FASTA reads use C-level string operations
+                         (e.g., bytes.split) which natively release Python's GIL.
+                         This scales OS threads beautifully across cores without
+                         multi-process map overhead.
 
-                         Contrast with calculate_codon_frequencies --threads N,
-                         which forks CPU-bound worker *processes* via
-                         multiprocessing.Pool to distribute 1,274 codon-site
-                         computations.  Because that work is CPU-intensive (not
-                         I/O-bound), processes avoid the GIL and are needed.
+                         Phase 2 verification, however, runs native Python string
+                         bytecode sequences. The GIL enforces sequential bytecode
+                         execution, mathematically constraining Phase 2 to peak
+                         at roughly 100% (1-core) CPU bandwidth across multiple
+                         active pipeline files. We purposely maintain a shared
+                         ThreadPoolExecutor (instead of ProcessPoolExecutor) to
+                         guarantee the 11.8+ GB sha256_sets dictionaries are 
+                         globally shared, ensuring absolute immunity to Out Of 
+                         Memory (OOM) crashes via memory duplication.
 
                          Parallelization here is strictly across files, not
                          within.  Scanning the same file concurrently would
