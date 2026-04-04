@@ -273,7 +273,7 @@ class TestRenderMatplotlibColorbar(unittest.TestCase):
         """First tick label must be norm_low (-19 for amino_acid_changes)."""
         _, cb, _, _ = self._build_mpl_colorbar(AMINO_ACID_CHANGES_COLORS)
         labels = [t.get_text() for t in cb.ax.get_yticklabels()]
-        labels = [l for l in labels if l]   # remove empty strings
+        labels = [lbl for lbl in labels if lbl]   # remove empty strings
         if labels:
             self.assertEqual(labels[0], "-19")
 
