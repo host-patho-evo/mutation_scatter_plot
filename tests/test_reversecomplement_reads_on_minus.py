@@ -6,8 +6,8 @@ import io
 sys.argv = ['reversecomplement_reads_on_minus.py']
 
 from scripts.reversecomplement_reads_on_minus import (
-    string_reverse_complement, 
-    shorten_sequence, 
+    string_reverse_complement,
+    shorten_sequence,
     parse_input,
     myoptions
 )
@@ -19,7 +19,7 @@ class TestReverseComplementReads(unittest.TestCase):
         # Simple
         self.assertEqual(string_reverse_complement("ATGC"), "GCAT")
         self.assertEqual(string_reverse_complement("AAAA"), "TTTT")
-        
+
     def test_string_reverse_complement_ambiguous(self):
         """Test ambiguous IUPAC nucleotide calls natively reversing."""
         # N -> N, Purines(R) <-> Pyrimidines(Y), Strong(S) <-> Strong(S), Weak(W) <-> Weak(W)
@@ -30,12 +30,12 @@ class TestReverseComplementReads(unittest.TestCase):
         self.assertEqual(string_reverse_complement("W"), "W")
         self.assertEqual(string_reverse_complement("M"), "K")
         self.assertEqual(string_reverse_complement("K"), "M")
-        
+
         # Test full IUPAC geometry string
         orig = "ATCGNRY"
         # Translated: TAGCNYR
         # RC        : RYNCGAT
-        expected_rc = "RYNCGAT" 
+        expected_rc = "RYNCGAT"
         self.assertEqual(string_reverse_complement(orig), expected_rc)
 
     def test_shorten_sequence_padding_no_slice(self):
@@ -52,7 +52,7 @@ class TestReverseComplementReads(unittest.TestCase):
             aln_stop_qseq=4
         )
         self.assertEqual(seq, "--ATGC---")
-        
+
     def test_shorten_sequence_padding_with_slice(self):
         """Test sequence padding perfectly slicing to alignment widths."""
         seq, start, stop = shorten_sequence(
@@ -72,28 +72,28 @@ class TestReverseComplementReads(unittest.TestCase):
 
     def test_parse_input_minus_strand_flip(self):
         """Test the integration pipeline switching minus orientation and rewriting IDs."""
-        # Input simulating a minus strand 
+        # Input simulating a minus strand
         # >ID ALN_START ALN_STOP MINUS ... QSEQ_START QSEQ_STOP ... SSEQ
         fasta_mock = io.StringIO(
             ">Test1 2000 1000 minus 0 0 0 0 0 0 1 100 0 0 0 0\n"
             "ATGC\n"
         )
-        
+
         # Mock reference sequence
         ref_seq = "A" * 3000
-        
+
         # Generator
         myoptions.x_after_count = False
         myoptions.min_count = 0
-        
+
         sequences = list(parse_input(fasta_mock, ref_seq, "fasta"))
         self.assertEqual(len(sequences), 1)
-        
+
         header, seq = sequences[0]
         # Verify orientation word was successfully overridden from minus natively to plus!
         self.assertIn("plus", header.split())
         self.assertNotIn("minus", header.split())
-        
+
         # Verify sequence was actively reverse complemented
         self.assertIn("GCAT", seq)
 
@@ -103,16 +103,16 @@ class TestReverseComplementReads(unittest.TestCase):
             ">Test1 1000 2000 plus 0 0 0 0 0 0 1 100 0 0 0 0\n"
             "ATGC\n"
         )
-        
+
         ref_seq = "A" * 3000
-        
+
         sequences = list(parse_input(fasta_mock, ref_seq, "fasta"))
         self.assertEqual(len(sequences), 1)
-        
+
         header, seq = sequences[0]
         # Should stay plus
         self.assertIn("plus", header.split())
-        
+
         # Forward sequence geometry maintained
         self.assertIn("ATGC", seq)
 
@@ -123,7 +123,7 @@ class TestReverseComplementReads(unittest.TestCase):
         # Ends with GGAGTGTCTCCTACTAA...
         self.assertTrue(rc_seq.startswith("GGAGTGTCTCCTACTAAAAT"))
         self.assertEqual(len(rc_seq), 402)
-    
+
     def test_docstring_development_sequence_minus_2(self):
         """Test the second real minus strand read documented: A00808:1538:HWL7GDRX3:2:2101:24831:1219"""
         seq = "AGAAAGTACTACTACTCTGTATGGTTGGTGACCAACACCATAAGTGGGTCGGAAACCATATGATTGTAAAGGAAAGTAACAATTAGGACCTTTA---CCTTTACAAGGTTTGTTACCGGCCTGATAGATTTCAGTTGAAATATCTCTCTCAAAAGGTTTGAGTTTAGACTTCCTAAACAATCTATACCAGTAATCATAATTACCACTATGCTTAGAATCAAGCTTGTTAGAATTCCAAGCTATAACGCAGCCTGTAAAATCATCTGGTAATTTATAATTATAATCAGCAATATTTCCAGTTTGCCCTGGAGCGATTTGGCTGACTTCATTACCTTTAATTACAAATGAATCTGCATAGACATTAGTAAAGCAGAGATCATTTAATTTAGTAGGAGACACTCC"

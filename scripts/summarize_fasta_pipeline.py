@@ -73,8 +73,8 @@ Options:
                          at roughly 100% (1-core) CPU bandwidth across multiple
                          active pipeline files. We purposely maintain a shared
                          ThreadPoolExecutor (instead of ProcessPoolExecutor) to
-                         guarantee the 11.8+ GB sha256_sets dictionaries are 
-                         globally shared, ensuring absolute immunity to Out Of 
+                         guarantee the 11.8+ GB sha256_sets dictionaries are
+                         globally shared, ensuring absolute immunity to Out Of
                          Memory (OOM) crashes via memory duplication.
 
                          Parallelization here is strictly across files, not
@@ -109,7 +109,7 @@ Options:
                          source for *.discarded_original_ids.txt, giving
                          the full description in those files.
 
-    --use-nnnx-counts    Report the 'Unique DNA entries' column based on the 
+    --use-nnnx-counts    Report the 'Unique DNA entries' column based on the
                          sum of NNNNx prefixes, bypassing the slow 'grep -c'
                          record-counting. If the file lacks NNNNx prefixes,
                          it gracefully falls back to counting headers.
@@ -419,12 +419,12 @@ def _count_records(path: str) -> int:
 
 def _count_records_and_nnnx(path: str) -> tuple[int, int]:
     """Sum of NNNNx prefixes and total records, evaluated in a single pass.
-    
+
     Returns (n_rec, n_sum). Every FASTA record not containing a valid NNNNx prefix
     is counted as 1, ensuring universal accuracy on homogeneously OR heterogeneously
     prefixed FASTA files. If the file has zero NNNNx prefixes (like raw GISAID
     fasta files), returns n_sum = 0 to denote it is pre-deduplication.
-    
+
     Implementation: High-performance native Python byte-scanning logic.
     Bypasses subprocess overhead, avoiding the slow grep/awk pipelines
     while extracting the prefix using block-read chunk operations.
@@ -1513,7 +1513,7 @@ def _extract_discarded_to_fasta(
         print(
             f"    Skipped: no usable ancestor TSV found "
             f"({os.path.basename(mapping_stem)}.sha256_to_{{ids,descr_lines}}.tsv).",
-           
+
         )
         return
 
@@ -1745,7 +1745,7 @@ def main() -> None:
         f"{_start_ts} summarize_fasta_pipeline.py"
         f"  version {VERSION}  git:{_GIT_VERSION}"
         f"  invoked: {' '.join(sys.argv)}",
-       
+
     )
     args = sys.argv[1:]
     if len(args) < 2 or '--help' in args or '-h' in args:
@@ -1848,7 +1848,7 @@ def main() -> None:
             print(
                 f"  Skipping backup {os.path.basename(bp)!r} "
                 f"(clean {os.path.basename(clean)!r} present).",
-               
+
             )
     found = _clean_found
 
@@ -1873,7 +1873,7 @@ def main() -> None:
         _jobs_note = f" (explicit; storage: {fs_desc})"
     print(
         f"{_ts()}Found {n_files:,} file(s); using --jobs {jobs}{_jobs_note}\n",
-       
+
     )
 
     # ── infer parent->child pairs from naming convention ──────────────────────
@@ -1917,12 +1917,12 @@ def main() -> None:
         print(
             f"\n{_ts()}── Phase 0: Identity check (size + sha256) "
             f"─────────────────────────────────────────────────────────",
-           
+
         )
         print(
             f"  {len(_size_tied)} size group(s) with \u22652 files will be sha256-checked;"
             f" identical files share scan results.",
-           
+
         )
     def _sha256_worker(i: int) -> tuple[int, str]:
         """Compute sha256 for files[i]; print start message thread-safely."""
@@ -1935,7 +1935,7 @@ def main() -> None:
     for sz, idxs in _size_tied.items():
         print(
             f"\n{_ts()}  Size group {_fmt_size(sz)} \u2014 {len(idxs)} file(s):",
-           
+
         )
         # Compute sha256 for every file in this size group.
         # Runs in parallel when --jobs > 1 (I/O-bound; GIL released during read).
@@ -1975,14 +1975,14 @@ def main() -> None:
     print(
         f"\n{_ts()}── Phase 1: Gather per-file statistics "
         f"──────────────────────────────────────────────────────────────",
-       
+
     )
     n_twins = len(content_twin)
     n_primaries = len(files) - n_twins
     print(
         f"  {len(files)} file(s) total: {n_primaries} to scan, "
         f"{n_twins} to reuse from content-identical primary.",
-       
+
     )
     # Pre-size all accumulator lists so index-based (thread-safe) writes are
     # possible in the parallel path (no .append() ordering constraints).
@@ -2010,7 +2010,7 @@ def main() -> None:
         print(
             f"  Parallel Phase 1: scanning {len(primary_indices)} primary file(s) "
             f"with {max_w} worker(s).",
-           
+
         )
         with ThreadPoolExecutor(max_workers=max_w) as exc:
             futs = {
@@ -2056,7 +2056,7 @@ def main() -> None:
         print(
             f"\n{_ts()}── Phase 2: sha256 integrity verification "
             f"────────────────────────────────────────────────────────",
-           
+
         )
         n_verify = sum(1 for i, f in enumerate(files)
                        if not _is_prot_file(f)
@@ -2067,7 +2067,7 @@ def main() -> None:
         print(
             f"  Verifying sha256 integrity for {n_verify} file(s) "
             f"(protein files and content twins with equivalent parent skipped).",
-           
+
         )
 
         def _run_verify(idx: int, _sha256_sets: list = sha256_sets) -> dict:
@@ -2088,7 +2088,7 @@ def main() -> None:
             print(
                 f"  Parallel Phase 2: verifying {n_verify} file(s) "
                 f"with {max_w2} worker(s).",
-               
+
             )
             with ThreadPoolExecutor(max_workers=max_w2) as exc:
                 futs = {exc.submit(_run_verify, idx): idx
@@ -2110,11 +2110,11 @@ def main() -> None:
         print(
             "\n── Phase 3: Discard statistics (parent→child pairs) "
             "─────────────────────────────────────────────────────",
-           
+
         )
         print(
             f"  Computing discarded-sequence stats for {len(parent_map)} parent→child pair(s).",
-           
+
         )
 
         def _run_discard(i: int, f_child: str, p: int) -> dict:
@@ -2147,7 +2147,7 @@ def main() -> None:
             print(
                 f"  Parallel Phase 3: computing discard stats for {len(child_indices)} "
                 f"pair(s) with {max_w3} worker(s).",
-               
+
             )
             with ThreadPoolExecutor(max_workers=max_w3) as exc:
                 futs = {exc.submit(_run_discard, i, files[i], parent_map[i]): i
@@ -2166,7 +2166,7 @@ def main() -> None:
         print(
             f"\n{_ts()}── Phase 4: Extract discarded records from root ancestor "
             f"─────────────────────────────────",
-           
+
         )
         p4_children = [
             i for i in range(len(files))

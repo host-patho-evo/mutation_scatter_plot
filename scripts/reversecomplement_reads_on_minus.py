@@ -100,23 +100,23 @@ def shorten_sequence(sequence, min_start, number_of_leading_dashes, number_of_tr
 
     >MN908947.3_S_protein  3822nt 1274codons
     Length=3822
-    
+
      Score = 343 bits (379),  Expect = 9e-98
      Identities = 217/235 (92%), Gaps = 4/235 (2%)
      Strand=Plus/Plus
-    
+
     Query  1     AACAATCTTGATTCTAAGGTTGGTGGTAATTACAATTACCTGTTTAGATTGTTTAGGAAG  60
                  |||||||||||||||||||||||||||||||| |||||||||| ||||||||||||||||
     Sbjct  1315  AACAATCTTGATTCTAAGGTTGGTGGTAATTATAATTACCTGTATAGATTGTTTAGGAAG  1374
-    
+
     Query  61    TCTAATCTCAAACCTTTTGAGAAAGATATTTCAACTGAAATCTATCAGGCCGGCAGCACA  120
                  |||||||||||||||||||||| |||||||||||||||||||||||||||||| ||||||
     Sbjct  1375  TCTAATCTCAAACCTTTTGAGAGAGATATTTCAACTGAAATCTATCAGGCCGGTAGCACA  1434
-    
+
     Query  121   CCTTGTAATGATGTTGAAGGTTTTAATTGTTATTTTCCTCTACAATCATATGGTTTCCAT  180
                  |||||||||| ||||||||||||||||||||| |||||| |||||||||||||||||||
     Sbjct  1435  CCTTGTAATGGTGTTGAAGGTTTTAATTGTTACTTTCCTTTACAATCATATGGTTTCCAA  1494
-    
+
     Query  181   CGTACCAATGGTGTTGGTACGATGGAAACCATACAGAGTAGTAGTACTTTCTTTT  235
                  |  || ||||||||||||    |   |||||||||||||||||||||||||||||
     Sbjct  1495  CCCACTAATGGTGTTGGT----TACCAACCATACAGAGTAGTAGTACTTTCTTTT  1545
@@ -124,23 +124,23 @@ def shorten_sequence(sequence, min_start, number_of_leading_dashes, number_of_tr
 
     >MN908947.3_S_protein  3822nt 1274codons
     Length=3822
-    
+
      Score = 376 bits (416),  Expect = 4e-108
      Identities = 220/228 (96%), Gaps = 0/228 (0%)
      Strand=Plus/Plus
-    
+
     Query  1     AATCTTGATTCTAAGGTTGGTGGTAATTACAATTACCTGTTTAGATTGTTTAGGAAGTCT  60
                  ||||||||||||||||||||||||||||| |||||||||| |||||||||||||||||||
     Sbjct  1318  AATCTTGATTCTAAGGTTGGTGGTAATTATAATTACCTGTATAGATTGTTTAGGAAGTCT  1377
-    
+
     Query  61    AATCTCAAACCTTTTGAGAGAGATATTTCAACTGAAATCTTTCAGGCCGGCAGCACACCT  120
                  |||||||||||||||||||||||||||||||||||||||| ||||||||| |||||||||
     Sbjct  1378  AATCTCAAACCTTTTGAGAGAGATATTTCAACTGAAATCTATCAGGCCGGTAGCACACCT  1437
-    
+
     Query  121   TGTAATGGTGTTGAAGGTTTTAATTGTTATTTTCCTGTACAATCATATGGTTTCCAACCT  180
-                 ||||||||||||||||||||||||||||| |||||| |||||||||||||||||||||| 
+                 ||||||||||||||||||||||||||||| |||||| ||||||||||||||||||||||
     Sbjct  1438  TGTAATGGTGTTGAAGGTTTTAATTGTTACTTTCCTTTACAATCATATGGTTTCCAACCC  1497
-    
+
     Query  181   ACCAATGGTGTTGGTTACCAACCATACAGAGTAGTAGTACTTTCTTTT  228
                  || |||||||||||||||||||||||||||||||||||||||||||||
     Sbjct  1498  ACTAATGGTGTTGGTTACCAACCATACAGAGTAGTAGTACTTTCTTTT  1545
@@ -148,23 +148,23 @@ def shorten_sequence(sequence, min_start, number_of_leading_dashes, number_of_tr
 
     >MN908947.3_S_protein  3822nt 1274codons
     Length=3822
-    
+
      Score = 366 bits (405),  Expect = 7e-105
      Identities = 218/228 (96%), Gaps = 4/228 (2%)
      Strand=Plus/Plus
-    
+
     Query  1     AATCTTGATTCTAAGGTTGGTGGTAATTACAATTACCTGTTTAGATTGTTTAGGAAGTCT  60
                  ||||||||||||||||||||||||||||| |||||||||| |||||||||||||||||||
     Sbjct  1318  AATCTTGATTCTAAGGTTGGTGGTAATTATAATTACCTGTATAGATTGTTTAGGAAGTCT  1377
-    
+
     Query  61    AATCTCAAACCTTTTGAGAAAGATATTTCAACTGAAATCTTTCAGGCCGGCAGCACACCT  120
                  ||||||||||||||||||| |||||||||||||||||||| ||||||||| |||||||||
     Sbjct  1378  AATCTCAAACCTTTTGAGAGAGATATTTCAACTGAAATCTATCAGGCCGGTAGCACACCT  1437
-    
+
     Query  121   TGTAATGGTGTTGAAGGTTTTAATTGTTACTTTCCTTTACAATCATATGGTTTCCAACCC  180
                  ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
     Sbjct  1438  TGTAATGGTGTTGAAGGTTTTAATTGTTACTTTCCTTTACAATCATATGGTTTCCAACCC  1497
-    
+
     Query  181   ACTAATGGTGTTGG----AAACCATACAGAGTAGTAGTACTTTCTTTT  224
                  ||||||||||||||     |||||||||||||||||||||||||||||
     Sbjct  1498  ACTAATGGTGTTGGTTACCAACCATACAGAGTAGTAGTACTTTCTTTT  1545
@@ -180,7 +180,7 @@ Length=3756
                                                                       Score     E
 Sequences producing significant alignments:                          (Bits)  Value
 
-MN908947.3_S_protein 3822nt 1274codons                                3664    0.0  
+MN908947.3_S_protein 3822nt 1274codons                                3664    0.0
 
 
 >MN908947.3_S_protein  3822nt 1274codons
@@ -191,11 +191,11 @@ Length=3822
  Strand=Plus/Plus
 
 Query  889   AAAGGCATTTACCAAACTTCTAATTTTAGGACTTCTCCTACTACACAAG---TTGTTAGG  945
-             ||||| || || ||||||||||| ||||| | | |  | |  ||| ||    ||||||| 
+             ||||| || || ||||||||||| ||||| | | |  | |  ||| ||    |||||||
 Sbjct  928   AAAGGAATCTATCAAACTTCTAACTTTAG-AGTCCAACCA--ACAGAATCTATTGTTAGA  984
 
 Query  946   TTTCCTAATATTACAAATTTATGCCCTTTTGGTGAAGTTTTTAACGCCACCACTTTCGCT  1005
-             ||||||||||||||||| || |||||||||||||||||||||||||||||||  || || 
+             ||||||||||||||||| || |||||||||||||||||||||||||||||||  || ||
 Sbjct  985   TTTCCTAATATTACAAACTTGTGCCCTTTTGGTGAAGTTTTTAACGCCACCAGATTTGCA  1044
 
 Query  1006  TCAGTTTATGCATGGAACAGAAGAAGAATCAGCAATTGTGTTGCAGATTATTCTGTACTA  1065
@@ -207,7 +207,7 @@ Query  1066  TATAACACAACCTCATTTTCAACTTTTAAATGTTATGGGGTTTCACCCACTAAATTAAAT  1125
 Sbjct  1105  TATAATTCCGCATCATTTTCCACTTTTAAGTGTTATGGAGTGTCTCCTACTAAATTAAAT  1164
 
 Query  1126  GATCTCTGTTTTACTAATGTTTATGCAGACTCGTTTGTTGTTAGAGGTGATGAAGTTAGG  1185
-             |||||||| ||||||||||| |||||||| || |||||  |||||||||||||||| || 
+             |||||||| ||||||||||| |||||||| || |||||  |||||||||||||||| ||
 Sbjct  1165  GATCTCTGCTTTACTAATGTCTATGCAGATTCATTTGTAATTAGAGGTGATGAAGTCAGA  1224
 
 Query  1186  CAAATAGCTCCAGGTCAGACTGGCAAAATTGCTGACTATAATTATAAACTCCCAGATGAT  1245
@@ -219,7 +219,7 @@ Query  1246  TTTATGGGTTGTGTAATAGCATGGAATTCTATAAGTTTAGATGCT------GGTGGTTCT  1299
 Sbjct  1285  TTTACAGGCTGCGTTATAGCTTGGAATTCTAACAATCTTGATTCTAAGGTTGGTGGTAAT  1344
 
 Query  1300  TATTATTA------TAGACTTTTTAGAAAGTCTGTTCTTAAGCCTTTTGAAAGAGATATA  1353
-             ||| ||||      |||| | ||||| ||||||  ||| || |||||||| |||||||| 
+             ||| ||||      |||| | ||||| ||||||  ||| || |||||||| ||||||||
 Sbjct  1345  TATAATTACCTGTATAGATTGTTTAGGAAGTCTAATCTCAAACCTTTTGAGAGAGATATT  1404
 
 Query  1354  TCTACTCAACTTTATCAAGCAGGTGATAAACCTTGCTCA----GTTGAGGGTCCTGATTG  1409
@@ -465,7 +465,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 _fasta_description_items = _description.split()
                 if len(_fasta_description_items) < 15:
                     raise ValueError(f"Error: Header missing upstream blastn fields. Expected at least 15 items, found {len(_fasta_description_items)}. Ensure awk pipeline passes qseq/sseq columns natively.")
-                    
+
                 if len(_fasta_description_items) == 4:
                     _aln_start = int(_fasta_description_items[3])
                     _aln_stop = int(_fasta_description_items[2])
@@ -482,7 +482,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 _aln_stop_qseq = int(_fasta_description_items[10])
                 _qseq = record.seq # original query sequence matching on minus
                 _sseq = _fasta_description_items[14]
-                
+
                 # Perform blazing fast C-level native string reverse complement
                 _native_rc_seq = string_reverse_complement(_qseq)
 
@@ -500,7 +500,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 _aln_start += _min_start # increase the aln start position
                 _aln_stop += _max_stop # decrease the aln stop position by addition of a negative number
                 _reordered_header_items = ' '.join([_fasta_description_items[0], str(_aln_start), str(_aln_stop), 'plus'] + list(_fasta_description_items[4:]))
-                
+
                 yield _reordered_header_items, _sequence
             elif _fasta_description_items[3] == 'plus':
                 record.description = _description
@@ -511,7 +511,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 _qseq = record.seq # original query sequence matching on plus
                 if len(_fasta_description_items) < 15:
                     raise ValueError(f"Error: Header missing upstream blastn fields. Expected at least 15 items, found {len(_fasta_description_items)}. Ensure awk pipeline passes qseq/sseq columns natively.")
-                    
+
                 if len(_fasta_description_items) == 4:
                     _aln_start = int(_fasta_description_items[2])
                     _aln_stop = int(_fasta_description_items[3])
@@ -534,7 +534,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 if myoptions.debug: print("Debug: AFTER:  id=%s, len=%d padded query plus-oriented sequence\n%s" % (record.id, len(_sequence), _sequence))
                 if _required_alignment_width and len(_sequence) != _required_alignment_width:
                     raise ValueError("Length %d of the padded sequence %s does not match required alignment width %d" % (len(_sequence), _sequence, _required_alignment_width))
-                
+
                 _aln_start += _min_start # increase the aln start position
                 _aln_stop += _max_stop # decrease the aln stop position by addition of a negative number
                 _reordered_header_items = ' '.join([_fasta_description_items[0], str(_aln_start), str(_aln_stop), 'plus'] + list(_fasta_description_items[4:]))
@@ -545,7 +545,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 _fasta_description_items = _description.split()
                 if len(_fasta_description_items) < 15:
                     raise ValueError(f"Error: Header missing upstream blastn fields. Expected at least 15 items, found {len(_fasta_description_items)}. Ensure awk pipeline passes qseq/sseq columns natively.")
-                    
+
                 _aln_start_qseq = int(_fasta_description_items[9])
                 _aln_stop_qseq = int(_fasta_description_items[10])
                 _qseq = record.seq # original query sequence
@@ -560,7 +560,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 if myoptions.debug: print("Debug: id=%s, len=%d padded query sequence\n%s" % (record.id, len(_sequence), _sequence))
                 if _required_alignment_width and len(_sequence) != _required_alignment_width:
                     raise ValueError("Length %d of the padded sequence %s does not match required alignment width %d" % (len(_sequence), _sequence, _required_alignment_width))
-                
+
                 _aln_start += _min_start # increase the aln start position
                 _aln_stop += _max_stop # decrease the aln stop position by addition of a negative number
                 _reordered_header_items = ' '.join([_fasta_description_items[0], str(_aln_start), str(_aln_stop), 'plus'] + list(_fasta_description_items[4:]))
@@ -600,12 +600,12 @@ if __name__ == "__main__":
         _outfile = myoptions.outfile
 
     _sequences = parse_input(_infile, _reference_sequence, myoptions.infileformat, min_start=myoptions.min_start, max_stop=myoptions.max_stop)
-    
+
     if myoptions.outfile == '-' or not myoptions.outfile:
         out_f = sys.stdout
     else:
         out_f = open(myoptions.outfile, 'w')
-        
+
     try:
         # Avoid extremely slow Bio.SeqIO.write looping, write directly at C speed bindings
         for header, seq in _sequences:

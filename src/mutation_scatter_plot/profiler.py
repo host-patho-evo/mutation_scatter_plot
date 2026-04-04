@@ -11,19 +11,19 @@ class ResourceProfiler(threading.Thread):
         self.interval = interval
         self.pid = os.getpid()
         self.lock = threading.Lock()
-        
+
         # State
         self.active_phase = None
         self.phase_start_time = None
-        
+
         # Metrics for current phase
         self.phase_cpu_samples = []
         self.phase_ram_samples = []
-        
+
         # Current instant load
         self.current_cpu = 0.0
         self.current_ram_gb = 0.0
-        
+
         self.psutil = None
         try:
             import psutil
@@ -36,14 +36,14 @@ class ResourceProfiler(threading.Thread):
             main_proc = self.psutil.Process(self.pid)
             procs = [main_proc]
             procs.extend(main_proc.children(recursive=True))
-            
+
             # Baseline trigger
             for p in procs:
                 try: p.cpu_percent(interval=None)
                 except (self.psutil.NoSuchProcess, self.psutil.AccessDenied): pass
-                
+
             time.sleep(0.5)  # half-second measurement window
-            
+
             total_cpu = 0.0
             total_rss = 0.0
             for p in procs:
@@ -62,7 +62,7 @@ class ResourceProfiler(threading.Thread):
             # -p PID (parent) and --ppid PID (children)
             cmd = ["ps", "--no-headers", "-o", "pcpu,rss", "-p", str(self.pid), "--ppid", str(self.pid)]
             out = subprocess.check_output(cmd, encoding='ascii', stderr=subprocess.DEVNULL)
-            
+
             total_cpu = 0.0
             total_rss_kb = 0.0
             for line in out.strip().split('\n'):
@@ -81,16 +81,16 @@ class ResourceProfiler(threading.Thread):
                 cpu, ram_gb = self._get_metrics_psutil()
             else:
                 cpu, ram_gb = self._get_metrics_ps()
-                
+
             with self.lock:
-                # Discard 0.0 readings if the OS jittered 
+                # Discard 0.0 readings if the OS jittered
                 if cpu > 0 or ram_gb > 0:
                     self.current_cpu = cpu
                     self.current_ram_gb = ram_gb
                 if self.active_phase is not None:
                     self.phase_cpu_samples.append(self.current_cpu)
                     self.phase_ram_samples.append(self.current_ram_gb)
-            
+
             # Sleep remaining interval (account for the 0.5s psutil measurement window)
             elapsed = time.time() - t0
             if elapsed < self.interval:
@@ -102,7 +102,7 @@ class ResourceProfiler(threading.Thread):
             self.phase_start_time = datetime.datetime.now()
             self.phase_cpu_samples = []
             self.phase_ram_samples = []
-            
+
     def get_current_load_str(self) -> str:
         with self.lock:
             return f"  [Load: {self.current_ram_gb:.1f} GB RAM | {self.current_cpu:.0f}% CPU]"
@@ -111,10 +111,10 @@ class ResourceProfiler(threading.Thread):
         with self.lock:
             if self.active_phase is None or not self.phase_start_time:
                 return None
-                
+
             name = self.active_phase
             duration = datetime.datetime.now() - self.phase_start_time
-            
+
             secs = int(duration.total_seconds())
             hours, remainder = divmod(secs, 3600)
             minutes, seconds = divmod(remainder, 60)
@@ -127,10 +127,10 @@ class ResourceProfiler(threading.Thread):
             else:
                 peak_cpu = avg_cpu = self.current_cpu
                 peak_ram = self.current_ram_gb
-                
+
             summary = (f"         ↳ Profiler Summary ({name}): Peak RAM = {peak_ram:.1f} GB | "
                        f"Peak CPU = {peak_cpu:.0f}% | Avg CPU = {avg_cpu:.0f}% | Duration = {dur_str}")
-                       
+
             self.active_phase = None
             return summary
 

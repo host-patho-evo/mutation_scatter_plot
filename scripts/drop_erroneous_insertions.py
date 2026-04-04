@@ -204,7 +204,7 @@ Length=3822
  Strand=Plus/Plus
 
 Query  1     GATTTTAGGGTTGGTGGTAATTTTTATTTAATGTATAGATTGGTTTGGGAATTTAAGCTT  60
-             |||| || |||||||||||||| | |||   ||||||||||| || || | | ||| || 
+             |||| || |||||||||||||| | |||   ||||||||||| || || | | ||| ||
 Sbjct  1324  GATTCTAAGGTTGGTGGTAATTATAATTACCTGTATAGATTGTTTAGGAAGTCTAATCTC  1383
 
 Query  61    AAACCTTTTTAGAGGGGTATTTTAACAGAAATTTAACAAGGCGGTAAAAAACCTTGTAAT  120
@@ -299,15 +299,15 @@ def find_insertions_in_sseq_and_drop_them_from_qseq(qseq, sseq):
     in the reference can be used for subtraction.
     """
     _protect_multiples_of_3 = sseq.replace('---','###')
-    
+
     if myoptions.debug:
         print(f"BEFORE: {qseq}")
-        
+
     _qseq = "".join(q for q, p in zip(qseq, _protect_multiples_of_3) if p != '-')
-    
+
     if myoptions.debug:
         print(f"AFTER:  {_qseq}")
-        
+
     return _qseq
 
 if __name__ == "__main__":
