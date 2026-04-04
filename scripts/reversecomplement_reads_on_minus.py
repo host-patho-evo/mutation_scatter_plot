@@ -475,6 +475,9 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
             if _fasta_description_items[3] == 'minus':
                 # >A00808:1538:HWL7GDRX3:2:2101:7491:1125 1542 1141 minus
                 _fasta_description_items = _description.split()
+                if len(_fasta_description_items) < 15:
+                    raise ValueError(f"Error: Header missing upstream blastn fields. Expected at least 15 items, found {len(_fasta_description_items)}. Ensure awk pipeline passes qseq/sseq columns natively.")
+                    
                 if len(_fasta_description_items) == 4:
                     _aln_start = int(_fasta_description_items[3])
                     _aln_stop = int(_fasta_description_items[2])
@@ -518,6 +521,9 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 _aln_stop_qseq = int(_fasta_description_items[10])
                 _sseq = _fasta_description_items[14]
                 _qseq = record.seq # original query sequence matching on plus
+                if len(_fasta_description_items) < 15:
+                    raise ValueError(f"Error: Header missing upstream blastn fields. Expected at least 15 items, found {len(_fasta_description_items)}. Ensure awk pipeline passes qseq/sseq columns natively.")
+                    
                 if len(_fasta_description_items) == 4:
                     _aln_start = int(_fasta_description_items[2])
                     _aln_stop = int(_fasta_description_items[3])
@@ -549,6 +555,9 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 if myoptions.debug: print("Debug: --aln_start or --aln_stop was set")
                 record.description = _description
                 _fasta_description_items = _description.split()
+                if len(_fasta_description_items) < 15:
+                    raise ValueError(f"Error: Header missing upstream blastn fields. Expected at least 15 items, found {len(_fasta_description_items)}. Ensure awk pipeline passes qseq/sseq columns natively.")
+                    
                 _aln_start_qseq = int(_fasta_description_items[9])
                 _aln_stop_qseq = int(_fasta_description_items[10])
                 _sseq = _fasta_description_items[14]
