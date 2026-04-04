@@ -1701,6 +1701,8 @@ def render_bokeh(
     * ``--x-axis-minor-ticks-spacing``  (default: 5)
     * ``--x-axis-label-start``          (default: 0, meaning use xmin)
     """
+    from ..profiler import PROFILER
+    PROFILER.mark_phase_start("Phase 2: Bokeh Model construction")
     import bokeh.plotting
     import bokeh.models
 
@@ -1966,6 +1968,9 @@ def render_bokeh(
         f"{os.path.basename(outfile_prefix)} "
         f"| mutation_scatter_plot v{VERSION} git:{_GIT_VERSION}"
     )
+    _prof_sum = PROFILER.pop_phase_summary()
+    if _prof_sum: print(f"    {_prof_sum}")
+    PROFILER.mark_phase_start("Phase 3: Bokeh rendering (HTML)")
     print(f"Info: Writing into {outfile_prefix} + '.html'")
     bokeh.plotting.output_file(outfile_prefix + '.html')
     if show:
@@ -2217,11 +2222,24 @@ def render_matplotlib(
         except (IndexError, TypeError):
             sel.annotation.set_text("Error: Hover metadata not found")
 
-    try:
-        _cursor = mplcursors.cursor(_mpl_scatterplot, hover=True)
-        _cursor.connect("add", on_add)
-    except (ImportError, Exception): # pylint: disable=broad-exception-caught
-        pass
+    if show:
+        _prof_sum = PROFILER.pop_phase_summary()
+        if _prof_sum: print(f"    {_prof_sum}")
+        PROFILER.mark_phase_start("Phase 6: mplcursors index/backend setup")
+        try:
+            _cursor = mplcursors.cursor(_mpl_scatterplot, hover=True)
+            _cursor.connect("add", on_add)
+        except (ImportError, Exception): # pylint: disable=broad-exception-caught
+            pass
+        _prof_sum = PROFILER.pop_phase_summary()
+        if _prof_sum: print(f"    {_prof_sum}")
+        PROFILER.mark_phase_start("Phase 4: Matplotlib Model construction (Dummy)")
+    else:
+        try:
+            _cursor = mplcursors.cursor(_mpl_scatterplot, hover=True)
+            _cursor.connect("add", on_add)
+        except (ImportError, Exception): # pylint: disable=broad-exception-caught
+            pass
 
     _handles, _labels = [], []
     if myoptions.aminoacids:
@@ -2290,13 +2308,25 @@ def render_matplotlib(
         fontsize=6, color='#808080',
         transform=figure.transFigure,
     )
+    _prof_sum = PROFILER.pop_phase_summary()
+    if _prof_sum: print(f"    {_prof_sum}")
     for _ext in ('.png', '.pdf'):
         _wholefig = plt.gcf()
         _figsize = _wholefig.get_size_inches()*_wholefig.dpi
         print(f"Info: Writing into {outfile_prefix + _ext}, figure size is {_wholefig.get_size_inches()} inches and {_figsize} dpi")
+        PROFILER.mark_phase_start(f"Phase 5: Matplotlib rendering ({_ext})")
         figure.savefig(outfile_prefix + _ext, dpi=myoptions.dpi)
+        _prof_sum = PROFILER.pop_phase_summary()
+        if _prof_sum: print(f"    {_prof_sum}")
+        
+    PROFILER.mark_phase_start("Phase 4: Matplotlib Post-setup (Dummy)")
+    _prof_sum = PROFILER.pop_phase_summary()
+
     if show:
+        PROFILER.mark_phase_start("Phase 7: User-interactive Event Loop (idle)")
         plt.show()
+        _prof_sum = PROFILER.pop_phase_summary()
+        if _prof_sum: print(f"    {_prof_sum}")
     plt.close(figure)
 
 

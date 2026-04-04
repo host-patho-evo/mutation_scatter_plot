@@ -13,6 +13,7 @@ from . import (
     render_bokeh,
     render_matplotlib,
 )
+from ..profiler import PROFILER
 
 
 class NoWrapFormatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
@@ -233,6 +234,8 @@ def build_option_parser():
 
 def main():  # pylint: disable=too-many-locals
     """Entry point: parse options and run the full scatter-plot pipeline."""
+    PROFILER.start()
+    PROFILER.mark_phase_start("Phase 1: Input parsing and processing")
     myparser = build_option_parser()
     myoptions = myparser.parse_args()
     # --linear-circle-size implies --disable-bokeh-sqrt-size so that both the
@@ -325,6 +328,11 @@ def main():  # pylint: disable=too-many-locals
     )
 
     _xlabel = _ax1.get_xlabel()
+
+    _prof_sum = PROFILER.pop_phase_summary()
+    if _prof_sum:
+        print()
+        print(_prof_sum)
 
     if _circles_bokeh:
         render_bokeh(
