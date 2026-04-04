@@ -17,11 +17,6 @@ Tip: use --max-rows to benchmark on a manageable subset of a very large
 alignment file (e.g. millions of sequences) without changing the original.
 """
 
-from mutation_scatter_plot import alt_translate
-from mutation_scatter_plot.calculate_codon_frequencies import (
-    get_codons, parse_alignment,
-)
-from Bio import SeqIO
 import argparse
 import multiprocessing
 import multiprocessing.pool
@@ -30,6 +25,12 @@ import sys
 import tempfile
 import time
 import types
+
+from Bio import SeqIO
+
+from mutation_scatter_plot import alt_translate
+from mutation_scatter_plot.calculate_codon_frequencies import (get_codons,
+                                                               parse_alignment)
 
 # Allow running from project root without installing
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(

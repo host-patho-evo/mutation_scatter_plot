@@ -39,10 +39,10 @@ Usage::
         --infilename=spikenuc1207.no_junk.counts.3822.clean.fasta \\
         --original-fasta=spikenuc1207.no_junk.counts.fasta
 """
+import argparse
 import hashlib
 import os
 import sys
-import argparse
 
 VERSION = "202604022300"
 

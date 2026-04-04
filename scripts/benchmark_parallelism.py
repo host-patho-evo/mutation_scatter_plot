@@ -1,8 +1,8 @@
 """Benchmark parallel performance of calculate_codon_frequencies."""
 
-import time
-import subprocess
 import os
+import subprocess
+import time
 
 
 def run_benchmark(threads, input_file, ref_file):

@@ -7,10 +7,11 @@ isolation by replicating the same computation used inside the functions.
 """
 
 import unittest
-import numpy as np
+
 import matplotlib
 import matplotlib.colors
 import matplotlib.pyplot as plt
+import numpy as np
 
 matplotlib.use("Agg")   # headless backend — no display required
 
