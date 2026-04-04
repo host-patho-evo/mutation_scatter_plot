@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 """Benchmark parallel performance of calculate_codon_frequencies."""
 
 import os

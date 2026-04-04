@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 """Thread-scaling benchmark for calculate_codon_frequencies.
 
 Run this on the target machine (192-core Xeon) to measure actual wall-clock

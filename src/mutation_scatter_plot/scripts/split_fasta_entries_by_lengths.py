@@ -1,4 +1,6 @@
 #! /usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 
 """Split FASTA entries into separate files by sequence length.
 

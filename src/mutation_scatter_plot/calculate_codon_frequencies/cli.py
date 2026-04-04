@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 """Command-line interface for calculate_codon_frequencies."""
 # This work © 2025-2026 by Jiří Zahradník and Martin Mokrejš
 # (First Medical Faculty - Charles University in Prague) is licensed under

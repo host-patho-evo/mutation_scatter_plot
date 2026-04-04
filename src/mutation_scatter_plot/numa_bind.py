@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 """NUMA auto-bind helper.
 
 Detects multi-node NUMA topology via ``/sys/devices/system/node/`` and binds

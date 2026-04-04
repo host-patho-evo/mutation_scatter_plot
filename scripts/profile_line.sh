@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 # Line-level profiling for calculate_codon_frequencies using line_profiler.
 # Decorates parse_alignment (and optionally _process_one_site) at runtime
 # without modifying source, using line_profiler's explicit API.

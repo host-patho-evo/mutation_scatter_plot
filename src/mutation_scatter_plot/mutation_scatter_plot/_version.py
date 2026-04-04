@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 # This file is auto-populated by ``git archive --export-subst`` (see top-level
 # .gitattributes).  When git creates a release tarball/zip it substitutes the
 # $Format:…$ placeholder with the actual commit hash.  In a live git working

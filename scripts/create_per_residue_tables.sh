@@ -1,4 +1,5 @@
 #! /usr/bin/env bash
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 
 rm -f data/outputs/per_residue_tables/*.tsv
 

@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 """Unit tests for render_bokeh and render_matplotlib colorbar logic.
 
 These tests focus on the palette-building and tick-alignment code that was

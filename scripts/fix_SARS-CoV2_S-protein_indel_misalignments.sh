@@ -1,4 +1,5 @@
 #! /bin/sh
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 
 # this script is to fix mis-aligned deletion Y144del in GISAID/hCoV-19_spikenuc1012/GISAID__spikenuc1012.full.WTref.gofasta.aln
 # fix also CCTTGTAAAGG---TAAAGGTCCTAAT V483del
