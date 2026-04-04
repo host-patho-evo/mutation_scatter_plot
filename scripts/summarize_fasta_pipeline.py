@@ -2221,6 +2221,16 @@ def main() -> None:
     print(header)
     print(rule)
 
+    _em = '\u2014'  # em dash — pre-assigned to avoid backslash in f-string (Python < 3.12)
+    verify_cols_empty = ""
+    if verify_sha256:
+        verify_cols_empty = (
+            f"{sep}{_em:>{w_chg1}}{sep}{_em:>{w_chg2}}"
+            f"{sep}{_em:>{w_chg3}}{sep}{_em:>{w_chg4}}"
+            + (f"{sep}{_em:>{w_clip}}{sep}{_em:>{w_itrn}}"
+               if classify_mismatches else "")
+        )
+
     for i, (display, mtime_s, n_rec, n_sum) in enumerate(rows):
         p = parent_map.get(i)
         if p is not None:
@@ -2233,7 +2243,6 @@ def main() -> None:
             parent_label = ''
 
         # ── novel sha256s column ──────────────────────────────────────────────
-        _em = '\u2014'  # em dash — pre-assigned to avoid backslash in f-string (Python < 3.12)
         if p is not None:
             child_sha_set, child_legacy = sha256_sets[i]
             parent_sha_set, parent_legacy = sha256_sets[p]
@@ -2314,6 +2323,24 @@ def main() -> None:
             + disc_cols
             + (f"  ({parent_label})" if parent_label else '')
         )
+
+        if do_discard and p is not None and i in discard_data:
+            n_d, s_d = discard_data[i]
+            child_stem = _strip_fasta_suffix(display)
+            disc_display = f"{child_stem}.discarded_original_entries.fasta"
+            disc_label = f"  (vs {os.path.basename(files[p])})"
+
+            print(
+                f"{disc_display:<{col_file}}{sep}"
+                f"{_em:<{w_ts}}{sep}"             # Modified
+                f"{n_d:>{w_num},}{sep}{_em:>{w_delta}}{sep}"  # # FASTA entries (col 3) & delta
+                f"{s_d:>{w_num},}{sep}{_em:>{w_delta}}"     # Sum of NNNNx (col 5) & delta
+                + f"{sep}{_em:>{w_novel}}"                  # Novel
+                + f"{sep}{_em:>{w_prot}}{sep}{_em:>{w_dprot}}{sep}{_em:>{w_protn}}" # protein
+                + verify_cols_empty                         # Verify
+                + f"{sep}{_em:>{w_disc1}}{sep}{_em:>{w_disc2}}" # disc_cols
+                + disc_label
+            )
 
 
 
