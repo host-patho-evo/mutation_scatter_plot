@@ -300,8 +300,8 @@ class TestReferenceGistBehavior:
             f"Got duplicates: {indices}"
         )
         # With decrement for positive: score 0 and score +1 would collide.
-        idx_0   = norm(0)        # score 0, no decrement
-        idx_p1  = norm(1 - 1)   # score +1 with decrement → norm(0)
+        idx_0 = norm(0)        # score 0, no decrement
+        idx_p1 = norm(1 - 1)   # score +1 with decrement → norm(0)
         assert idx_0 == idx_p1, (
             "Demonstrating the decrement collision: score 0 and score +1 "
             f"both map to index {idx_0} with gist decrement."

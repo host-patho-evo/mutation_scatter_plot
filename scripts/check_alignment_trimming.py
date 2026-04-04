@@ -111,6 +111,7 @@ _COMPLEMENT_TAB = str.maketrans(
     'TGCAYRSWMKVHDBNtgcayrswmkvhdbn'
 )
 
+
 def _reverse_complement(seq: str) -> str:
     return seq.translate(_COMPLEMENT_TAB)[::-1]
 

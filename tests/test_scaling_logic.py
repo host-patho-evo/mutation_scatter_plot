@@ -13,6 +13,7 @@ from mutation_scatter_plot.mutation_scatter_plot import (
     collect_scatter_data, render_matplotlib
 )
 
+
 class TestScalingLogic(unittest.TestCase):
     """Verify that area-to-frequency scaling (1:10:100:300) is consistent across backends."""
 
@@ -30,6 +31,7 @@ class TestScalingLogic(unittest.TestCase):
         # pylint: disable=too-many-instance-attributes,too-few-public-methods
         class Options:
             """Mock options class for CLI parameters."""
+
             def __init__(self):
                 self.tsv_file_path = None
                 self.matrix = 'BLOSUM80'
@@ -166,6 +168,7 @@ class TestScalingLogic(unittest.TestCase):
                 # Bokeh Diameter intent
                 calc_size = float(np.sqrt(freq) * 100)
                 self.assertAlmostEqual(calc_size, exp_size, places=4)
+
 
 if __name__ == "__main__":
     unittest.main()

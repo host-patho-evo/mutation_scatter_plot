@@ -11,8 +11,8 @@
 # >A00808:1538:HWL7GDRX3:2:2101:25021:1235 minus
 # AGAAAGTACTACTACTCTGTATGGTTGGTGACCAACACCATAAGTGGGTCGGAAACCATATGATTGTAAAGGAAAGTAACAATTAGGACCTTTA---CCTTTACAAGGTTTGTTACCGGCCTGATAGATTTCAGTTGAAATATCTCTCTCAAAAGGTTTGAGTTTAGACTTCCTAAACAATCTATACCAGTAATCATAATTACCACTATGCTTAGAATCAAGCTTGTTAGAATTCCAAGCTATAACGCAGCCTGTAAAATCATCTGGTAATTTATAATTATAATCAGCAATATTTCCAGTTTGCCCTGGAGCGATTTGGCTGACTTCATTACCTTTAATTACAAATGAATCTGCATAGACATTAGTAAAGCAGAGATCATTTAATTTAGTAGGAGACACTCC
 
-#>1x.d2b2b8089265daaac94d3c3553ddf45d00841b13da817b2f2f703cd834d05437 1288 1584 plus
-#---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ACTGGCTGCGTTATAGCTTGGAATTCTAACAAGCTTGATTCTAAGGTTGGTGGTAATTATAATTACCTGTATAGATTGTTTAGGAAGTCTAATCTCAAACCTTTTGAGAGAGATATTTCAACTGAAATCTATCAGGCCGGTAACAAACCTTGTAATGGTGTTGCAGGTTTTAATTGTTACTTTCCTTTACGATCATATGGTTTCCGACCCACTTATGGTGTTGGTCACCAACCATACAGA---GTAGTACTTTCATTTGAACTTCTACATGCACCAGGAACTGTTTGTGGACCTAAA--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# >1x.d2b2b8089265daaac94d3c3553ddf45d00841b13da817b2f2f703cd834d05437 1288 1584 plus
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ACTGGCTGCGTTATAGCTTGGAATTCTAACAAGCTTGATTCTAAGGTTGGTGGTAATTATAATTACCTGTATAGATTGTTTAGGAAGTCTAATCTCAAACCTTTTGAGAGAGATATTTCAACTGAAATCTATCAGGCCGGTAACAAACCTTGTAATGGTGTTGCAGGTTTTAATTGTTACTTTCCTTTACGATCATATGGTTTCCGACCCACTTATGGTGTTGGTCACCAACCATACAGA---GTAGTACTTTCATTTGAACTTCTACATGCACCAGGAACTGTTTGTGGACCTAAA--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #
 # >1x.4a00c0c4ef25b507488b88a4a3ff5e9ab5c5abcb523664fffb12da2eaae85309 1 2066 plus 3363 3729 2078 95.813 1991 51 1991 6 36 95.81
 # ATGTTTGTTTTTCTTGTTTTATTGCCACTAGTCTCTAGTCAGTGTGTCATGCCGCTGTTTAATCTTMTAACTACAACTCAAT---------CATACACTAATTCTTTCACACGTGGTGTTTATTACCCTGACAAAGTTTTCAGATCCTCAGTTTTACATTTAACTCAGGACTTGTTCTTACCTTTCTTTTCCAATGTTACTTGGTTCCATGCTA------TCTCTGGGACCAATGGTACTAAGAGGTTTGATAACCCTGTCCTACCATTTAATGATGGTGTTTATTTTGCTTCCACTGAGAAGTCTAACATAATAAGAGGCTGGATTTTTGGTACTACTTTAGATTCGAAGACCCAGTCCCTACTTATTGTTAATAACGCTACTAATGTTTTTATTAAAGTCTGTGAATTTCAATTTTGTAATGATCCATTTTTGGATGTTTA---CCACAAAAACAACAAAAGTTGGATGGAAAGTGAGTCAGGAGTTTATTCTAGTGCGAATAATTGCACTTTTGAATATGTCTCTCAGCCTTTTCTTATGGACCTTGAAGGAAAACAGGGTAATTTCAAAAATCTTAGGGAATTTGTGTTTAAGAATATTGATGGTTATTTTAAAATATATTCTAAGCACACGCCTATTA---TAGGGCGTGATTTCCCTCAGGGTTTTTCGGCTTTAGAACCATTGGTAGATTTGCCAATAGGTATTAACATCACTAGGTTTCAAACTTTACTTGCTTTAAATAGAAGTTATTTGACTCCTGGTGATTCTTCTTCAGGTTGGACAGCTGGTGCTGCAGATTATTATGTGGGTTATCTTCAACCTAGGACTTTTCTATTAAAATATAATGAAAATGGAACCATTACAGATGCTGTAGACTGTGCACTTGACCCTCTCTCAGAAACAAAGTGTACGTTGAAATCCTTCACTGTAGAAAAAGGAATCTATCAAACTTCTAACTTTAGAGTCCAACCAACAGAATCTATTGTTAGATTTCCTAATGTTACAAACTTGTGCCCTTTTCATGAAGTTTTTAACGCCACCAGATTTGCATCTGTTTATGCTTGGAACAGGACGAGAATCAGCAACTGTGTTGCTGATTATTCTGTCCTATATAATTTCGCACCATTTTTCGCTTTTAAGTGTTATGGAGTGTCTCCTACTAAATTAAATGATCTCTGCTTTACTAATGTCTATGCAGATTCATTTGTAATTAAAGGTAATGAAGTCAGCCAAATCGCTCCAGGGCAAACTGGAAATATTGCTGATTATAATTATAAATTACCAGATGATTTTACAGGCTGCGTTATAGCTTGGAATTCTAACAAGCTTGATTCTAAGCATAGTGGTAATTATGATTACTGGTATAGATCGTTTAGGAAGTCTAAACTCAAACCTTTTGAGAGAGATATTTCAACTGAAATCTATCAGGCCGGTAACAAACCTTGTAAAGGT---AAAGGTCCTAATTGTTACTTTCCTTTACAATCATATGGTTTCCGACCCACTTATGGTGTTGGTCACCAACCATACAGAGTAGTAGTACTTTCTTTTGAACTTCTACATGCACCAGCAACTGTTTGTGGACCTAAAAAGTCTACTAATTTGGTTAAAAACAAATGTGTCAATTTCAACTTCAATGGTTTAACAGGCACAGGTGTTCTTACTAAGTCTAACAAAAAGTTTCTGCCTTTCCAACAATTTGGCAGAGACATTGTTGACACTACTGATGCTGTCCGTGATCCACAGACACTTGAGATTCTTGACATTACACCATGTTCTTTTGGTGGTGTCAGTGTTATAACACCAGGAACAAATACTTCTAACCAGGTTGCTGTTCTTTATCAGGGTGTTAACTGCACAGAAGTCTCTGTTGCTATTCATGCAGATCAACTTACTCCTACTTGGCGTGTTTATTCTACAGGTTCTAATGTTTTTCAAACACGTGCAGGCTGTTTAATAGGGGCTGAATATGTCAACAACTCATATGAGTGTGACATACCCATTGGTGCAGGTATATGCGCTAGTTATCAGACTCAGACTAAGTCTCGTCGGCGGGCACGTAGTGTAGCTAG
@@ -57,35 +57,37 @@ _COMPLEMENT_TAB = str.maketrans(
     'TGCAYRSWMKVHDBNtgcayrswmkvhdbn'
 )
 
+
 def string_reverse_complement(seq: str) -> str:
     """Natively calculate sequence reverse complement at C string speed without BioPython allocation overhead."""
     return str(seq).translate(_COMPLEMENT_TAB)[::-1]
 
+
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
 myparser.add_option("--infile", action="store", type="string", dest="infile", default='',
-    help="Input FASTA file with word plus or minus as the second word of the header, use minus (dash) for stdin")
+                    help="Input FASTA file with word plus or minus as the second word of the header, use minus (dash) for stdin")
 myparser.add_option("--outfile", action="store", type="string", dest="outfile", default='',
-    help="Output filename with words plus and minus removed from FASTA header lines, use minus (dash) for stdout")
+                    help="Output filename with words plus and minus removed from FASTA header lines, use minus (dash) for stdout")
 myparser.add_option("--infileformat", action="store", type="string", dest="infileformat", default='fasta',
-    help="Input file format (Default: fasta)")
+                    help="Input file format (Default: fasta)")
 myparser.add_option("--outfileformat", action="store", type="string", dest="outfileformat", default='fasta-2line',
-    help="Output file format (Default: fasta-2line)")
+                    help="Output file format (Default: fasta-2line)")
 myparser.add_option("--reference", action="store", type="string", dest="referencefilename", default='',
-    help="Reference filename to infer length of the reference sequence from. It is necessary to calculate lengths of paddings around the query sequence to fit width of the multiple sequence alignment. (Default: '')")
+                    help="Reference filename to infer length of the reference sequence from. It is necessary to calculate lengths of paddings around the query sequence to fit width of the multiple sequence alignment. (Default: '')")
 myparser.add_option("--min_start", action="store", type="int", dest="min_start", default=0,
-    help="Minimum start position of the amplicon region to be included in output. The length of the sequence if filled with padding dashes as necessary.")
+                    help="Minimum start position of the amplicon region to be included in output. The length of the sequence if filled with padding dashes as necessary.")
 myparser.add_option("--max_stop", action="store", type="int", dest="max_stop", default=0,
-    help="Specify width of the alignment to be output, including paddings. Maximum stop position of the amplicon region to be included in output. The length of the sequence if filled with padding dashes as necessary. If not specified, no trailing dashes will be added after the HSP match.")
+                    help="Specify width of the alignment to be output, including paddings. Maximum stop position of the amplicon region to be included in output. The length of the sequence if filled with padding dashes as necessary. If not specified, no trailing dashes will be added after the HSP match.")
 myparser.add_option("--aln_start", action="store", type="int", dest="aln_start", default=0,
-    help="Start coordinate of the FASTA sequence when aligned to a reference")
+                    help="Start coordinate of the FASTA sequence when aligned to a reference")
 myparser.add_option("--aln_stop", action="store", type="int", dest="aln_stop", default=0,
-    help="End coordinate of the FASTA sequence when aligned to a reference")
+                    help="End coordinate of the FASTA sequence when aligned to a reference")
 myparser.add_option("--min_count", action="store", type="int", dest="min_count", default=0,
-    help="Minimum read count")
+                    help="Minimum read count")
 myparser.add_option("--x-after-count", action="store_true", dest="x_after_count", default=False,
-    help="The FASTA file ID contains the count value followed by lowercase 'x', then followed by a dot and then by a checksum")
+                    help="The FASTA file ID contains the count value followed by lowercase 'x', then followed by a dot and then by a checksum")
 myparser.add_option("--debug", action="store", type="int", dest="debug", default=0,
-    help="Set debug level")
+                    help="Set debug level")
 (myoptions, myargs) = myparser.parse_args()
 
 
@@ -396,21 +398,26 @@ Sbjct  3804  CAAATTACATTACACATAA  3822
     """
 
     # determine how many nucleotides should be stripped away from the beginning of the padded query/sample sequence
-    if myoptions.debug: print("Info: entered shorten_sequence() with %s" % sequence)
+    if myoptions.debug:
+        print("Info: entered shorten_sequence() with %s" % sequence)
 
     if max_stop:
         if max_stop < aln_stop:
-            if myoptions.debug: print("Info: Seems we need to drop trailing %d nucleotides at the right end" % number_of_trailing_dashes)
+            if myoptions.debug:
+                print("Info: Seems we need to drop trailing %d nucleotides at the right end" % number_of_trailing_dashes)
             _sequence_to_return = number_of_leading_dashes * '-' + sequence + number_of_trailing_dashes * '-'
         elif max_stop > aln_stop:
-            if myoptions.debug: print("Info1: seems we need extra %d dashes at the right end for extra sequence" % number_of_trailing_dashes)
+            if myoptions.debug:
+                print("Info1: seems we need extra %d dashes at the right end for extra sequence" % number_of_trailing_dashes)
             _sequence_to_return = number_of_leading_dashes * '-' + sequence + number_of_trailing_dashes * '-'
         else:
-            if myoptions.debug: print("Info2: seems we need extra %d dashes at the right end for extra sequence" % number_of_trailing_dashes)
+            if myoptions.debug:
+                print("Info2: seems we need extra %d dashes at the right end for extra sequence" % number_of_trailing_dashes)
             _sequence_to_return = number_of_leading_dashes * '-' + sequence + number_of_trailing_dashes * '-'
     else:
 
-        if myoptions.debug: print("Info: max_stop was not defined, will not append trailing dashes")
+        if myoptions.debug:
+            print("Info: max_stop was not defined, will not append trailing dashes")
         _sequence_to_return = number_of_leading_dashes * '-' + sequence + number_of_trailing_dashes * '-'
 
     # slice the sequence before returning to match requested width as specified at the command line
@@ -431,7 +438,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
     """
 
     if min_start:
-        min_start -= 1 # treat real numbering like 0 for 0-based pythonic counting, undo off-by-one error when --min_start=1 is provided
+        min_start -= 1  # treat real numbering like 0 for 0-based pythonic counting, undo off-by-one error when --min_start=1 is provided
 
     if max_stop or min_start:
         _required_alignment_width = max_stop - min_start
@@ -442,7 +449,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
         _fasta_description_items = record.description.split()
         _min_start = 0
         # >A00808:1538:HWL7GDRX3:2:2101:7491:1125 1542 1141 minus
-        _description = record.description.replace(' plus','').replace(' minus','')
+        _description = record.description.replace(' plus', '').replace(' minus', '')
         if myoptions.x_after_count:
             _myid = _fasta_description_items[0]
             if 'x.' in _myid:
@@ -450,21 +457,25 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
             else:
                 _id = _myid.rstrip('x')
             try:
-                _some_count = int(_id) # cut out the numeric value
+                _some_count = int(_id)  # cut out the numeric value
             except:
                 _some_count = 1
-                if myoptions.debug: print("Error: parsing the number failed, _id=%s is probably not an integer" % str(_id))
+                if myoptions.debug:
+                    print("Error: parsing the number failed, _id=%s is probably not an integer" % str(_id))
         else:
             _some_count = 1
-            if myoptions.debug: print("Debug: You did not provide --x-after-count, assuming count 1")
-        if myoptions.debug: print("Debug: %s" % str(_fasta_description_items))
+            if myoptions.debug:
+                print("Debug: You did not provide --x-after-count, assuming count 1")
+        if myoptions.debug:
+            print("Debug: %s" % str(_fasta_description_items))
         # >60x.83b5909c7ce41adb2921d29154dfe53e5521ae9f769c33e187db0ecd5f02cfc5 1 3822 plus 0.0 6634 7356 3822 98.482 3764 46 3764 2 12 98.48
         if int(_some_count) >= myoptions.min_count and len(_fasta_description_items) > 1:
             if _fasta_description_items[3] == 'minus':
                 # >A00808:1538:HWL7GDRX3:2:2101:7491:1125 1542 1141 minus
                 _fasta_description_items = _description.split()
                 if len(_fasta_description_items) < 15:
-                    raise ValueError(f"Error: Header missing upstream blastn fields. Expected at least 15 items, found {len(_fasta_description_items)}. Ensure awk pipeline passes qseq/sseq columns natively.")
+                    raise ValueError(
+                        f"Error: Header missing upstream blastn fields. Expected at least 15 items, found {len(_fasta_description_items)}. Ensure awk pipeline passes qseq/sseq columns natively.")
 
                 if len(_fasta_description_items) == 4:
                     _aln_start = int(_fasta_description_items[3])
@@ -480,7 +491,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                     _aln_stop = 0
                 _aln_start_qseq = int(_fasta_description_items[9])
                 _aln_stop_qseq = int(_fasta_description_items[10])
-                _qseq = record.seq # original query sequence matching on minus
+                _qseq = record.seq  # original query sequence matching on minus
                 _sseq = _fasta_description_items[14]
 
                 # Perform blazing fast C-level native string reverse complement
@@ -489,17 +500,23 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 _number_of_leading_dashes = _aln_stop - 1
                 # compare reference_sequence length and end of the minus-oriented alignment to figure out how many leading dashes should be prepended to reverse-complemented query/sample sequence
                 if max_stop:
-                    _number_of_trailing_dashes = min(len(reference_sequence),max_stop) - _aln_start
+                    _number_of_trailing_dashes = min(len(reference_sequence), max_stop) - _aln_start
                 else:
                     _number_of_trailing_dashes = len(reference_sequence) - _aln_start
-                if myoptions.debug: print("Debug: BEFORE: id=%s, len=%d padded query minus-oriented sequence:\n%s" % (record.id, len(_native_rc_seq), _native_rc_seq))
-                _sequence, _min_start, _max_stop = shorten_sequence(_native_rc_seq, min_start, _number_of_leading_dashes, _number_of_trailing_dashes, max_stop, _aln_stop, _qseq, _aln_start_qseq, _aln_stop_qseq)
-                if myoptions.debug: print("Debug: AFTER: id=%s, len=%d padded query minus-oriented sequence:\n%s" % (record.id, len(_sequence), _sequence))
+                if myoptions.debug:
+                    print("Debug: BEFORE: id=%s, len=%d padded query minus-oriented sequence:\n%s" %
+                          (record.id, len(_native_rc_seq), _native_rc_seq))
+                _sequence, _min_start, _max_stop = shorten_sequence(
+                    _native_rc_seq, min_start, _number_of_leading_dashes, _number_of_trailing_dashes, max_stop, _aln_stop, _qseq, _aln_start_qseq, _aln_stop_qseq)
+                if myoptions.debug:
+                    print("Debug: AFTER: id=%s, len=%d padded query minus-oriented sequence:\n%s" % (record.id, len(_sequence), _sequence))
                 if _required_alignment_width and len(_sequence) != _required_alignment_width:
-                    raise ValueError("Length %d of the padded sequence %s does not match required alignment width %d" % (len(_sequence), _sequence, _required_alignment_width))
-                _aln_start += _min_start # increase the aln start position
-                _aln_stop += _max_stop # decrease the aln stop position by addition of a negative number
-                _reordered_header_items = ' '.join([_fasta_description_items[0], str(_aln_start), str(_aln_stop), 'plus'] + list(_fasta_description_items[4:]))
+                    raise ValueError("Length %d of the padded sequence %s does not match required alignment width %d" %
+                                     (len(_sequence), _sequence, _required_alignment_width))
+                _aln_start += _min_start  # increase the aln start position
+                _aln_stop += _max_stop  # decrease the aln stop position by addition of a negative number
+                _reordered_header_items = ' '.join([_fasta_description_items[0], str(
+                    _aln_start), str(_aln_stop), 'plus'] + list(_fasta_description_items[4:]))
 
                 yield _reordered_header_items, _sequence
             elif _fasta_description_items[3] == 'plus':
@@ -508,9 +525,10 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 _aln_start_qseq = int(_fasta_description_items[9])
                 _aln_stop_qseq = int(_fasta_description_items[10])
                 _sseq = _fasta_description_items[14]
-                _qseq = record.seq # original query sequence matching on plus
+                _qseq = record.seq  # original query sequence matching on plus
                 if len(_fasta_description_items) < 15:
-                    raise ValueError(f"Error: Header missing upstream blastn fields. Expected at least 15 items, found {len(_fasta_description_items)}. Ensure awk pipeline passes qseq/sseq columns natively.")
+                    raise ValueError(
+                        f"Error: Header missing upstream blastn fields. Expected at least 15 items, found {len(_fasta_description_items)}. Ensure awk pipeline passes qseq/sseq columns natively.")
 
                 if len(_fasta_description_items) == 4:
                     _aln_start = int(_fasta_description_items[2])
@@ -526,59 +544,73 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                     _aln_stop = 0
                 _number_of_leading_dashes = _aln_start - 1
                 if max_stop:
-                    _number_of_trailing_dashes = min(len(reference_sequence),max_stop) - _aln_stop
+                    _number_of_trailing_dashes = min(len(reference_sequence), max_stop) - _aln_stop
                 else:
                     _number_of_trailing_dashes = len(reference_sequence) - _aln_stop
-                if myoptions.debug: print("Debug: BEFORE: id=%s, len=%d padded query plus-oriented sequence\n%s" % (record.id, len(record.seq), record.seq))
-                _sequence, _min_start, _max_stop = shorten_sequence(record.seq, min_start, _number_of_leading_dashes, _number_of_trailing_dashes, max_stop, _aln_stop, _qseq, _aln_start_qseq, _aln_stop_qseq)
-                if myoptions.debug: print("Debug: AFTER:  id=%s, len=%d padded query plus-oriented sequence\n%s" % (record.id, len(_sequence), _sequence))
+                if myoptions.debug:
+                    print("Debug: BEFORE: id=%s, len=%d padded query plus-oriented sequence\n%s" % (record.id, len(record.seq), record.seq))
+                _sequence, _min_start, _max_stop = shorten_sequence(
+                    record.seq, min_start, _number_of_leading_dashes, _number_of_trailing_dashes, max_stop, _aln_stop, _qseq, _aln_start_qseq, _aln_stop_qseq)
+                if myoptions.debug:
+                    print("Debug: AFTER:  id=%s, len=%d padded query plus-oriented sequence\n%s" % (record.id, len(_sequence), _sequence))
                 if _required_alignment_width and len(_sequence) != _required_alignment_width:
-                    raise ValueError("Length %d of the padded sequence %s does not match required alignment width %d" % (len(_sequence), _sequence, _required_alignment_width))
+                    raise ValueError("Length %d of the padded sequence %s does not match required alignment width %d" %
+                                     (len(_sequence), _sequence, _required_alignment_width))
 
-                _aln_start += _min_start # increase the aln start position
-                _aln_stop += _max_stop # decrease the aln stop position by addition of a negative number
-                _reordered_header_items = ' '.join([_fasta_description_items[0], str(_aln_start), str(_aln_stop), 'plus'] + list(_fasta_description_items[4:]))
+                _aln_start += _min_start  # increase the aln start position
+                _aln_stop += _max_stop  # decrease the aln stop position by addition of a negative number
+                _reordered_header_items = ' '.join([_fasta_description_items[0], str(
+                    _aln_start), str(_aln_stop), 'plus'] + list(_fasta_description_items[4:]))
                 yield _reordered_header_items, _sequence
-            elif myoptions.aln_start or myoptions.aln_stop: # untested code below
-                if myoptions.debug: print("Debug: --aln_start or --aln_stop was set")
+            elif myoptions.aln_start or myoptions.aln_stop:  # untested code below
+                if myoptions.debug:
+                    print("Debug: --aln_start or --aln_stop was set")
                 record.description = _description
                 _fasta_description_items = _description.split()
                 if len(_fasta_description_items) < 15:
-                    raise ValueError(f"Error: Header missing upstream blastn fields. Expected at least 15 items, found {len(_fasta_description_items)}. Ensure awk pipeline passes qseq/sseq columns natively.")
+                    raise ValueError(
+                        f"Error: Header missing upstream blastn fields. Expected at least 15 items, found {len(_fasta_description_items)}. Ensure awk pipeline passes qseq/sseq columns natively.")
 
                 _aln_start_qseq = int(_fasta_description_items[9])
                 _aln_stop_qseq = int(_fasta_description_items[10])
-                _qseq = record.seq # original query sequence
+                _qseq = record.seq  # original query sequence
                 _aln_start = myoptions.aln_start
                 _aln_stop = myoptions.aln_stop
                 _number_of_leading_dashes = _aln_start - 1
                 if max_stop:
-                    _number_of_trailing_dashes = min(len(reference_sequence),max_stop) - _aln_stop
+                    _number_of_trailing_dashes = min(len(reference_sequence), max_stop) - _aln_stop
                 else:
                     _number_of_trailing_dashes = len(reference_sequence) - _aln_stop
-                _sequence, _min_start, _max_stop = shorten_sequence(record.seq, min_start, _number_of_leading_dashes, _number_of_trailing_dashes, max_stop, _aln_stop, _qseq, _aln_start_qseq, _aln_stop_qseq)
-                if myoptions.debug: print("Debug: id=%s, len=%d padded query sequence\n%s" % (record.id, len(_sequence), _sequence))
+                _sequence, _min_start, _max_stop = shorten_sequence(
+                    record.seq, min_start, _number_of_leading_dashes, _number_of_trailing_dashes, max_stop, _aln_stop, _qseq, _aln_start_qseq, _aln_stop_qseq)
+                if myoptions.debug:
+                    print("Debug: id=%s, len=%d padded query sequence\n%s" % (record.id, len(_sequence), _sequence))
                 if _required_alignment_width and len(_sequence) != _required_alignment_width:
-                    raise ValueError("Length %d of the padded sequence %s does not match required alignment width %d" % (len(_sequence), _sequence, _required_alignment_width))
+                    raise ValueError("Length %d of the padded sequence %s does not match required alignment width %d" %
+                                     (len(_sequence), _sequence, _required_alignment_width))
 
-                _aln_start += _min_start # increase the aln start position
-                _aln_stop += _max_stop # decrease the aln stop position by addition of a negative number
-                _reordered_header_items = ' '.join([_fasta_description_items[0], str(_aln_start), str(_aln_stop), 'plus'] + list(_fasta_description_items[4:]))
+                _aln_start += _min_start  # increase the aln start position
+                _aln_stop += _max_stop  # decrease the aln stop position by addition of a negative number
+                _reordered_header_items = ' '.join([_fasta_description_items[0], str(
+                    _aln_start), str(_aln_stop), 'plus'] + list(_fasta_description_items[4:]))
                 yield _reordered_header_items, _sequence
             else:
                 # >60x.83b5909c7ce41adb2921d29154dfe53e5521ae9f769c33e187db0ecd5f02cfc5 1 3822 plus 0.0 6634 7356 3822 98.482 3764 46 3764 2 12 98.48
                 raise RuntimeError("Either provide FASTA input with alignment start and stop coordinates or provide --min_start and --max_stop coordinates which will ensure the result is pre-padded and post-padded with dashes to be of requested width and the entries must specify plus or minus orientation as the last word in the description line.")
         else:
-            if myoptions.debug: print("Debug: incidence %s is =< %d or only one item is in FASTA description line" % (_some_count, myoptions.min_count))
+            if myoptions.debug:
+                print("Debug: incidence %s is =< %d or only one item is in FASTA description line" % (_some_count, myoptions.min_count))
 
 
 if __name__ == "__main__":
     if myoptions.infile == '-':
         _infile = sys.stdin
-        if myoptions.debug: print(f"Info: Parsing input file {sys.stdin}")
+        if myoptions.debug:
+            print(f"Info: Parsing input file {sys.stdin}")
     elif os.path.exists(myoptions.infile):
         _infile = str(myoptions.infile)
-        if myoptions.debug: print(f"Info: Parsing input file {myoptions.infile}")
+        if myoptions.debug:
+            print(f"Info: Parsing input file {myoptions.infile}")
     else:
         raise RuntimeError("File %s does not exist" % str(myoptions.infile))
 
@@ -591,7 +623,8 @@ if __name__ == "__main__":
             if _reference_sequence:
                 raise RuntimeError("There should be only one one reference sequence in the %s file" % myoptions.referencefilename)
             _reference_sequence = _reference.seq
-        if myoptions.debug: print("Debug: Reference sequence %s has length %d" % (_reference_sequence, len(_reference_sequence)))
+        if myoptions.debug:
+            print("Debug: Reference sequence %s has length %d" % (_reference_sequence, len(_reference_sequence)))
     if not myoptions.outfile or myoptions.outfile == '-':
         _outfile = sys.stdout
 #    elif os.path.exists(myoptions.outfile):
@@ -599,7 +632,8 @@ if __name__ == "__main__":
     else:
         _outfile = myoptions.outfile
 
-    _sequences = parse_input(_infile, _reference_sequence, myoptions.infileformat, min_start=myoptions.min_start, max_stop=myoptions.max_stop)
+    _sequences = parse_input(_infile, _reference_sequence, myoptions.infileformat,
+                             min_start=myoptions.min_start, max_stop=myoptions.max_stop)
 
     if myoptions.outfile == '-' or not myoptions.outfile:
         out_f = sys.stdout

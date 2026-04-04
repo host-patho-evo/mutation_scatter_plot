@@ -198,7 +198,6 @@ def _get_git_version() -> str:
         return "unknown"
 
 
-
 __all__ = [
     "VERSION",
     "_GIT_VERSION",
@@ -253,23 +252,27 @@ def get_colormap(myoptions, colormapname):
         # builder, matplotlib ListedColormap) receives a uniform format.
         # Previously index 29 was the CSS name "palegreen"; it is now its
         # exact hex equivalent #98fb98 (R=152 G=251 B=152).
-        _colors = ["#930000", "#930000", "#930000", "#930000", "#930000", "#930000", "#960000", "#580041", "#8200ff", "#c500ff", "#ff00fd", "#CC79A7", "#eea1d0", "#cc0000", "#ff0000", "#ff4f00", "#ff7c7c", "#ff9999", "#c58a24", "#9c644b", "#ffff00", "#ffcc00", "#ffa200", "#7DCCFF", "#0042ff", "#0000ff", "#D6D6D6", "#B7B7B7", "#8B8B8B", "#98fb98", "#bbff00", "#97CE2F", "#219f11", "#930000", "#930000", "#930000", "#930000", "#930000", "#930000"]
+        _colors = ["#930000", "#930000", "#930000", "#930000", "#930000", "#930000", "#960000", "#580041", "#8200ff", "#c500ff", "#ff00fd", "#CC79A7", "#eea1d0", "#cc0000", "#ff0000", "#ff4f00", "#ff7c7c", "#ff9999", "#c58a24",
+                   "#9c644b", "#ffff00", "#ffcc00", "#ffa200", "#7DCCFF", "#0042ff", "#0000ff", "#D6D6D6", "#B7B7B7", "#8B8B8B", "#98fb98", "#bbff00", "#97CE2F", "#219f11", "#930000", "#930000", "#930000", "#930000", "#930000", "#930000"]
         _cmap = matplotlib.colors.ListedColormap(_colors, "amino_acid_changes", len(_colors))
         myoptions.colormap = 'amino_acid_changes'
         _norm = matplotlib.colors.BoundaryNorm(np.arange(-19, 19, 1), _cmap.N)
 
     elif colormapname == 'dkeenan_26cols':
-        _colors = ["#00B7FF", "#004DFF", "#00FFFF", "#826400", "#580041", "#FF00FF", "#00FF00", "#C500FF", "#B4FFD7", "#FFCA00", "#969600", "#B4A2FF", "#C20078", "#000000", "#0000C1", "#FF8B00", "#FFC8FF", "#666666", "#FF0000", "#CCCCCC", "#009E8F", "#D7A870", "#8200FF", "#960000", "#BBFF00", "#FFFF00", "#006F00"]
+        _colors = ["#00B7FF", "#004DFF", "#00FFFF", "#826400", "#580041", "#FF00FF", "#00FF00", "#C500FF", "#B4FFD7", "#FFCA00", "#969600", "#B4A2FF", "#C20078",
+                   "#000000", "#0000C1", "#FF8B00", "#FFC8FF", "#666666", "#FF0000", "#CCCCCC", "#009E8F", "#D7A870", "#8200FF", "#960000", "#BBFF00", "#FFFF00", "#006F00"]
         _cmap = matplotlib.colors.ListedColormap(_colors, "dkeenan_26cols")
         myoptions.colormap = 'dkeenan_26cols'
         _norm = matplotlib.colors.BoundaryNorm(np.arange(-13, 13, 1), _cmap.N)
 
     elif colormapname == 'microshades_cvd_palettes':
-        _colors = list(_micro_cvd_orange) + list(_micro_cvd_turquoise) + list(_micro_cvd_blue) + list(_micro_cvd_purple) + list(_micro_cvd_green) + list(_micro_cvd_gray)
+        _colors = list(_micro_cvd_orange) + list(_micro_cvd_turquoise) + list(_micro_cvd_blue) + \
+            list(_micro_cvd_purple) + list(_micro_cvd_green) + list(_micro_cvd_gray)
         _cmap = matplotlib.colors.ListedColormap(_colors, 'microshades_cvd_palettes')
 
     elif colormapname == 'microshades_cvd_palettes_r':
-        _colors = list(_micro_cvd_orange[::-1]) + list(_micro_cvd_turquoise[::-1]) + list(_micro_cvd_blue[::-1]) + list(_micro_cvd_purple[::-1]) + list(_micro_cvd_green[::-1]) + list(_micro_cvd_gray[::-1])
+        _colors = list(_micro_cvd_orange[::-1]) + list(_micro_cvd_turquoise[::-1]) + list(_micro_cvd_blue[::-1]) + \
+            list(_micro_cvd_purple[::-1]) + list(_micro_cvd_green[::-1]) + list(_micro_cvd_gray[::-1])
         _cmap = matplotlib.colors.ListedColormap(_colors, 'microshades_cvd_palettes_r')
 
     elif colormapname == 'merged':
@@ -329,7 +332,7 @@ def get_colormap(myoptions, colormapname):
                         except (ImportError, Exception):
                             try:
                                 import palettable.mygbm
-                                _cmap_from_palettable = palettable.mygbm.get_map(_wished_cmapname_prefix) # pylint: disable=no-member
+                                _cmap_from_palettable = palettable.mygbm.get_map(_wished_cmapname_prefix)  # pylint: disable=no-member
                                 _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
                             except (ImportError, Exception):
                                 print(f"Warning: Colormap {colormapname} not found, falling back to coolwarm_r")
@@ -477,7 +480,8 @@ def get_score(myoptions, matrix, codon_on_input, old_codon_or_aa, new_codon_or_a
             ) from None
         _score = _min_theoretical_score
     except KeyError as exc:
-        raise ValueError(f"Cannot get a score for myoptions.matrix='{myoptions.matrix}', old_codon_or_aa='{old_codon_or_aa}', new_codon_or_aa='{new_codon_or_aa}'") from exc
+        raise ValueError(
+            f"Cannot get a score for myoptions.matrix='{myoptions.matrix}', old_codon_or_aa='{old_codon_or_aa}', new_codon_or_aa='{new_codon_or_aa}'") from exc
     _score_cache[_cache_key] = _score
     return _score
 
@@ -575,7 +579,8 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
             raise ValueError(f"Aieee, new_codon_or_aa='{new_codon_or_aa}' is empty")
 
         if myoptions.debug:
-            print(f"Info: some single-letter but neither asterisk nor dash amino acid residue: _old_codon_or_aa='{_old_codon_or_aa}', new_codon_or_aa='{new_codon_or_aa}'")
+            print(
+                f"Info: some single-letter but neither asterisk nor dash amino acid residue: _old_codon_or_aa='{_old_codon_or_aa}', new_codon_or_aa='{new_codon_or_aa}'")
 
     if _new_codon_or_aa in ('---', 'DEL', 'INS'):
         # Use the pre-computed module-level worst score (set by load_matrix())
@@ -626,7 +631,7 @@ def adjust_size_and_color(myoptions, frequency, codon_on_input, old_codon_or_aa,
             _color = '#808080'  # medium gray — codon translates to an ambiguous/stop residue
         else:
             if myoptions.debug:
-                sys.stdout.write(f"Info: Translating {_old_codon_or_aa} to {_new_codon_or_aa} to fetch color from _colors," )
+                sys.stdout.write(f"Info: Translating {_old_codon_or_aa} to {_new_codon_or_aa} to fetch color from _colors,")
             _color = colors[_colorindex]
             if myoptions.debug:
                 sys.stdout.write(f" which has yielded {_colorindex} and {str(_color)}{os.linesep}")
@@ -818,13 +823,17 @@ def load_and_clean_dataframe(myoptions, infilename, padded_position2position):
         df = pd.read_csv(infilename, sep='\t', header=None, na_filter=False, na_values=[None])
         _count_columns = len(df.columns.values)
         if _count_columns == 9:
-            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site']
+            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency',
+                          'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site']
         elif _count_columns == 11:
-            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'frequency_parent', 'frequency_selected']
+            df.columns = ['padded_position', 'position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon',
+                          'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'frequency_parent', 'frequency_selected']
         elif _count_columns == 10:
-            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site', 'frequency_parent', 'frequency_selected']
+            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon',
+                          'observed_codon_count', 'total_codons_per_site', 'frequency_parent', 'frequency_selected']
         elif _count_columns == 8:
-            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon', 'observed_codon_count', 'total_codons_per_site']
+            df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon',
+                          'mutant_codon', 'observed_codon_count', 'total_codons_per_site']
         elif _count_columns == 6:
             df.columns = ['position', 'original_aa', 'mutant_aa', 'frequency', 'original_codon', 'mutant_codon']
         else:
@@ -839,7 +848,7 @@ def load_and_clean_dataframe(myoptions, infilename, padded_position2position):
         df['position'] = df['position'] + int(myoptions.offset)
         df['padded_position'] = df['padded_position'] + int(myoptions.offset)
 
-    build_conversion_table(df, padded_position2position) # parse the data
+    build_conversion_table(df, padded_position2position)  # parse the data
 
     _mutant_codon = df['mutant_codon']
     _before = len(_mutant_codon)
@@ -906,12 +915,15 @@ def build_frequency_tables(myoptions, df, padded_position2position):
 
     _unique_padded_aa_positions = sorted(padded_position2position.keys())
     if myoptions.debug:
-        print(f"Debug: len(_unique_padded_aa_positions)={len(_unique_padded_aa_positions)}, _unique_padded_aa_positions: {str(_unique_padded_aa_positions)}")
+        print(
+            f"Debug: len(_unique_padded_aa_positions)={len(_unique_padded_aa_positions)}, _unique_padded_aa_positions: {str(_unique_padded_aa_positions)}")
     _unique_padded_codon_positions = list(set(_unique_padded_aa_positions))
     if myoptions.debug:
-        print(f"Debug: len(_unique_padded_codon_positions)={len(_unique_padded_codon_positions)}, _unique_padded_codon_positions: {str(_unique_padded_codon_positions)}")
+        print(
+            f"Debug: len(_unique_padded_codon_positions)={len(_unique_padded_codon_positions)}, _unique_padded_codon_positions: {str(_unique_padded_codon_positions)}")
 
-    _codons_whitelist = ['TTT', 'TTC', 'TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG', 'ATT', 'ATC', 'ATA', 'ATG', 'GTT', 'GTC', 'GTA', 'GTG', 'TCT', 'TCC', 'TCA', 'TCG', 'CCT', 'CCC', 'CCA', 'CCG', 'ACT', 'ACC', 'ACA', 'ACG', 'GCT', 'GCC', 'GCA', 'GCG', 'TAT', 'TAC', 'TAA', 'TAG', 'CAT', 'CAC', 'CAA', 'CAG', 'AAT', 'AAC', 'AAA', 'AAG', 'GAT', 'GAC', 'GAA', 'GAG', 'TGT', 'TGC', 'TGA', 'TGG', 'CGT', 'CGC', 'CGA', 'CGG', 'AGT', 'AGC', 'AGA', 'AGG', 'GGT', 'GGC', 'GGA', 'GGG']
+    _codons_whitelist = ['TTT', 'TTC', 'TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG', 'ATT', 'ATC', 'ATA', 'ATG', 'GTT', 'GTC', 'GTA', 'GTG', 'TCT', 'TCC', 'TCA', 'TCG', 'CCT', 'CCC', 'CCA', 'CCG', 'ACT', 'ACC', 'ACA', 'ACG', 'GCT', 'GCC', 'GCA',
+                         'GCG', 'TAT', 'TAC', 'TAA', 'TAG', 'CAT', 'CAC', 'CAA', 'CAG', 'AAT', 'AAC', 'AAA', 'AAG', 'GAT', 'GAC', 'GAA', 'GAG', 'TGT', 'TGC', 'TGA', 'TGG', 'CGT', 'CGC', 'CGA', 'CGG', 'AGT', 'AGC', 'AGA', 'AGG', 'GGT', 'GGC', 'GGA', 'GGG']
     if not myoptions.showstop:
         for _stopcodon in ('TGA', 'TAA', 'TAG'):
             _codons_whitelist.remove(_stopcodon)
@@ -924,7 +936,8 @@ def build_frequency_tables(myoptions, df, padded_position2position):
         _codons_whitelist_aa.append('DEL')
 
     if len(_codons_whitelist) != len(_codons_whitelist_aa):
-        raise ValueError(f"Length of _codons_whitelist is {len(_codons_whitelist)} which is not equal to _codons_whitelist_aa with {len(_codons_whitelist_aa)}")
+        raise ValueError(
+            f"Length of _codons_whitelist is {len(_codons_whitelist)} which is not equal to _codons_whitelist_aa with {len(_codons_whitelist_aa)}")
     _sorted_whitelist = sorted(zip(_codons_whitelist, _codons_whitelist_aa), key=lambda x: x[1])
 
     if myoptions.debug:
@@ -940,9 +953,11 @@ def build_frequency_tables(myoptions, df, padded_position2position):
         print(f"Debug: _codons_whitelist2={str(_codons_whitelist2)}")
 
     _old_aa_table = pd.DataFrame(Decimal(0), index=_amino_acids, columns=_unique_padded_aa_positions)
-    _new_aa_table = pd.DataFrame(Decimal(0), index=_amino_acids, columns=_unique_padded_aa_positions) # the table contains 64+1 rows and len(_unique_padded_codon_positions) columns
+    # the table contains 64+1 rows and len(_unique_padded_codon_positions) columns
+    _new_aa_table = pd.DataFrame(Decimal(0), index=_amino_acids, columns=_unique_padded_aa_positions)
     _old_codon_table = pd.DataFrame(Decimal(0), index=_codons_whitelist2, columns=_unique_padded_codon_positions)
-    _new_codon_table = pd.DataFrame(Decimal(0), index=_codons_whitelist2, columns=_unique_padded_codon_positions) # the table contains 64+1 rows and len(_unique_padded_codon_positions) columns
+    # the table contains 64+1 rows and len(_unique_padded_codon_positions) columns
+    _new_codon_table = pd.DataFrame(Decimal(0), index=_codons_whitelist2, columns=_unique_padded_codon_positions)
 
     _very_leftmost_aa_pos = None
     _calculated_aa_offset = 0
@@ -1076,7 +1091,7 @@ def setup_matplotlib_figure(
         if myoptions.xmax:
             _xmax = myoptions.xmax
         else:
-            _xmax = max(unique_aa_padded_positions) + 1 # this should be the position in the padded alignment
+            _xmax = max(unique_aa_padded_positions) + 1  # this should be the position in the padded alignment
     else:
         _ax1.set_ylabel('Introduced codon changes', fontsize=14)
         _ax1.set_title(title_data, fontsize=14)
@@ -1116,7 +1131,8 @@ def setup_matplotlib_figure(
         _ax1.tick_params(axis='x', which='both', labelsize=14)
         _y_ticks = np.arange(len(codons_whitelist))
         _ax1.set_yticks(_y_ticks)
-        _ax1.set_yticklabels([_pairs[0] + ' (' + _pairs[1] + ')  ' if _pairs[1] not in ('INS', 'DEL') else _pairs[0] + ' (' + _pairs[1] + ')' for _pairs in final_sorted_whitelist], fontsize=8)
+        _ax1.set_yticklabels([_pairs[0] + ' (' + _pairs[1] + ')  ' if _pairs[1] not in ('INS', 'DEL')
+                             else _pairs[0] + ' (' + _pairs[1] + ')' for _pairs in final_sorted_whitelist], fontsize=8)
         _ax1.tick_params(axis='y', which='major', labelsize=8)
 
     if myoptions.xaxis_bins:
@@ -1137,10 +1153,11 @@ def setup_matplotlib_figure(
         _ax2.figure.canvas.draw()
 
         if myoptions.aminoacids:
-            _ax2.bar(unique_aa_padded_positions, _total_frequencies, color='#000000', alpha=0.5, width=0.8, align='center')  # black bars (blended with white at alpha=0.5 → dark gray)
+            _ax2.bar(unique_aa_padded_positions, _total_frequencies, color='#000000', alpha=0.5,
+                     width=0.8, align='center')  # black bars (blended with white at alpha=0.5 → dark gray)
         else:
-            _ax2.bar(unique_padded_codon_positions, _total_frequencies, color='#000000', alpha=0.5, width=0.8, align='center')  # black bars (blended with white at alpha=0.5 → dark gray)
-
+            _ax2.bar(unique_padded_codon_positions, _total_frequencies, color='#000000', alpha=0.5,
+                     width=0.8, align='center')  # black bars (blended with white at alpha=0.5 → dark gray)
 
     if myoptions.aminoacids:
         _table = new_aa_table
@@ -1171,7 +1188,8 @@ def collect_scatter_data(
       metadata in ColumnDataSource, avoiding heavy per-dot calculation during rendering.
     """
 
-    _real_aa_positions = sorted(padded_position2position.values()) # better extract it dynamically from the table then from the dictionary just in case some values would be discarded while parsing on-the-fly
+    # better extract it dynamically from the table then from the dictionary just in case some values would be discarded while parsing on-the-fly
+    _real_aa_positions = sorted(padded_position2position.values())
     if myoptions.debug:
         print(f"Debug: _real_aa_positions={str(_real_aa_positions)}")
 
@@ -1234,8 +1252,8 @@ def collect_scatter_data(
     _matrix_values = set()
     matrix_name = myoptions.matrix
 
-    for i, _some_codon_or_aa in enumerate(table.index): # so _some_codon_or_aa contains the index specified when the table was constructed
-        for j, _padded_position in enumerate(table.columns): # so _aa_position contains the real aa_position
+    for i, _some_codon_or_aa in enumerate(table.index):  # so _some_codon_or_aa contains the index specified when the table was constructed
+        for j, _padded_position in enumerate(table.columns):  # so _aa_position contains the real aa_position
             if not xmin <= _padded_position <= xmax:
                 continue
             if myoptions.debug:
@@ -1245,18 +1263,22 @@ def collect_scatter_data(
             except KeyError:
                 continue
             if myoptions.debug:
-                print(f"Debug0: _padded_positions (typically will not be contiguous and will contain multiplicates): {sorted(list(table.columns))}{os.linesep}")
-                print(f"Debug0:     _aa_positions (typically will not be contiguous and will contain multiplicates): {sorted(padded_position2position.values())}{os.linesep}")
+                print(
+                    f"Debug0: _padded_positions (typically will not be contiguous and will contain multiplicates): {sorted(list(table.columns))}{os.linesep}")
+                print(
+                    f"Debug0:     _aa_positions (typically will not be contiguous and will contain multiplicates): {sorted(padded_position2position.values())}{os.linesep}")
             _frequency = table.loc[_some_codon_or_aa, _padded_position]
             if myoptions.debug and _frequency:
-                print(f"Debug0: _padded_position={_padded_position}, _aa_position={_aa_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={_frequency}")
+                print(
+                    f"Debug0: _padded_position={_padded_position}, _aa_position={_aa_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={_frequency}")
             try:
                 _old_codon = _pos_to_old_codon[_padded_position]
             except KeyError:
                 if _frequency and myoptions.debug:
                     print(f"Debug0b: _padded_position={_padded_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={_frequency}")
                 if _padded_position not in _warn_once:
-                    sys.stderr.write(f"Warning: Cannot determine original codon for position {_padded_position}, seems missing from input TSV{os.linesep}")
+                    sys.stderr.write(
+                        f"Warning: Cannot determine original codon for position {_padded_position}, seems missing from input TSV{os.linesep}")
                     _warn_once.append(_padded_position)
                 continue
             _codon_on_input, _old_codon_or_aa, _new_codon_or_aa = resolve_codon_or_aa(myoptions, _old_codon, _some_codon_or_aa)
@@ -1275,7 +1297,8 @@ def collect_scatter_data(
             # Data lookup and variable initialization for metadata/reporting
             _old_amino_acid = _pos_to_old_aa.get(_padded_position, "Unknown")
             _base_df = _df_groups.get((_padded_position, _some_codon_or_aa), pd.DataFrame())
-            _sub_df = _base_df[_base_df[myoptions.column_with_frequencies].astype(float).abs() >= myoptions.threshold] if not _base_df.empty else pd.DataFrame()
+            _sub_df = _base_df[_base_df[myoptions.column_with_frequencies].astype(
+                float).abs() >= myoptions.threshold] if not _base_df.empty else pd.DataFrame()
 
             if myoptions.aminoacids:
                 _new_amino_acid = _some_codon_or_aa
@@ -1295,10 +1318,12 @@ def collect_scatter_data(
                     _size, _color = adjust_size_and_color_weighted(Decimal(_frequency))
                     _score = -12
                 else:
-                    _score, _size, _color = adjust_size_and_color(myoptions, Decimal(_frequency), _codon_on_input, _old_codon, _some_codon_or_aa, _old_codon_or_aa, _new_codon_or_aa, matrix, _norm, _colors)
+                    _score, _size, _color = adjust_size_and_color(myoptions, Decimal(
+                        _frequency), _codon_on_input, _old_codon, _some_codon_or_aa, _old_codon_or_aa, _new_codon_or_aa, matrix, _norm, _colors)
                     _matrix_values.add(_score)
                 if myoptions.debug:
-                    print(f"Debug: Padded AA position: {_padded_position}, Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
+                    print(
+                        f"Debug: Padded AA position: {_padded_position}, Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
                 # bokeh_sqrt_size is False when --linear-circle-size is active
                 # (main() enforces the implication) or when --disable-bokeh-sqrt-size
                 # is passed explicitly.
@@ -1307,7 +1332,8 @@ def collect_scatter_data(
                 # --- O(1) Hover Metadata Reconstruction (Matplotlib) ---
                 if myoptions.aminoacids:
                     _frequencies = [Decimal(x) for x in _sub_df[myoptions.column_with_frequencies].to_list()] if not _sub_df.empty else []
-                    _observed_codon_counts = _sub_df['observed_codon_count'].to_list() if not _sub_df.empty and 'observed_codon_count' in _sub_df.columns else []
+                    _observed_codon_counts = _sub_df['observed_codon_count'].to_list(
+                    ) if not _sub_df.empty and 'observed_codon_count' in _sub_df.columns else []
                     _total_codons_per_site = _sub_df['total_codons_per_site'].iloc[0] if not _sub_df.empty and 'total_codons_per_site' in _sub_df.columns else 0
                     _observed_codon_count_sum = sum(_observed_codon_counts)
 
@@ -1376,16 +1402,20 @@ def collect_scatter_data(
                 if myoptions.aminoacids:
                     _mutation_str = f"{_old_amino_acid}{_aa_position}{_some_codon_or_aa}"
                     if _score < 0:
-                        _circles_bokeh.append((_padded_position, _some_codon_or_aa, _bokeh_size, 'circle', _color, 0.5, _score, _aa_position, _padded_position))
+                        _circles_bokeh.append((_padded_position, _some_codon_or_aa, _bokeh_size, 'circle',
+                                              _color, 0.5, _score, _aa_position, _padded_position))
                     else:
-                        _circles_bokeh.append((_padded_position, _some_codon_or_aa, _bokeh_size, 'hex', _color, 0.5, _score, _aa_position, _padded_position))
+                        _circles_bokeh.append((_padded_position, _some_codon_or_aa, _bokeh_size, 'hex',
+                                              _color, 0.5, _score, _aa_position, _padded_position))
                 else:
                     _mutation_str = f"{_old_codon}{_aa_position}{_some_codon_or_aa}"
                     _y_label_bokeh = _some_codon_or_aa + ' (' + alt_translate(_some_codon_or_aa) + ')'
                     if _score < 0:
-                        _circles_bokeh.append((_padded_position, _y_label_bokeh, _bokeh_size, 'circle_x', _color, 0.5, _score, _aa_position, _padded_position))
+                        _circles_bokeh.append((_padded_position, _y_label_bokeh, _bokeh_size, 'circle_x',
+                                              _color, 0.5, _score, _aa_position, _padded_position))
                     else:
-                        _circles_bokeh.append((_padded_position, _y_label_bokeh, _bokeh_size, 'hex', _color, 0.5, _score, _aa_position, _padded_position))
+                        _circles_bokeh.append((_padded_position, _y_label_bokeh, _bokeh_size, 'hex',
+                                              _color, 0.5, _score, _aa_position, _padded_position))
 
                 _mutations.append(_mutation_str)
                 _hover_text_bokeh.append(_hover_text)
@@ -1400,10 +1430,12 @@ def collect_scatter_data(
                 else:
                     _mpl_s = float(np.abs(_size) * 5000)
                 if _score < 0:
-                    _circles_matplotlib.append((_padded_position, i, _mpl_s, 'circle_x', _color, 0.5, _score, _aa_position, _padded_position, _hover_text))
+                    _circles_matplotlib.append((_padded_position, i, _mpl_s, 'circle_x', _color, 0.5,
+                                               _score, _aa_position, _padded_position, _hover_text))
                     _markers.append((_padded_position, i, 1, 'dot', '#000000', 0.5))    # black cross marker for negative-score circles
                 else:
-                    _circles_matplotlib.append((_padded_position, i, _mpl_s, 'circle', _color, 0.5, _score, _aa_position, _padded_position, _hover_text))
+                    _circles_matplotlib.append((_padded_position, i, _mpl_s, 'circle', _color, 0.5,
+                                               _score, _aa_position, _padded_position, _hover_text))
                     _markers.append((_padded_position, i, 1, 'circle', '#000000', 0.5))  # black rim marker for non-negative circles
                 _used_colors.add(_color)
 
@@ -1411,9 +1443,11 @@ def collect_scatter_data(
                 if _old_amino_acid and _size:
                     _mutant_codons_list = _new_codons if myoptions.aminoacids else [_some_codon_or_aa]
                     if len(_mutant_codons_list) > 1:
-                        _colors_tsv_rows.append((_padded_position, _aa_position, _old_codon, str(_mutant_codons_list), _old_amino_acid, _new_amino_acid, _frequency, _color, _score))
+                        _colors_tsv_rows.append((_padded_position, _aa_position, _old_codon, str(
+                            _mutant_codons_list), _old_amino_acid, _new_amino_acid, _frequency, _color, _score))
                     elif _mutant_codons_list:
-                        _colors_tsv_rows.append((_padded_position, _aa_position, _old_codon, _mutant_codons_list[0], _old_amino_acid, _new_amino_acid, _frequency, _color, _score))
+                        _colors_tsv_rows.append((_padded_position, _aa_position, _old_codon,
+                                                _mutant_codons_list[0], _old_amino_acid, _new_amino_acid, _frequency, _color, _score))
             else:
                 # just draw some tiny dot otherwise pandas will drop empty Y-rows for unused amino acids or codons,
                 # which sucks and it btw does happen for charts with codons too although they have more data and
@@ -1423,21 +1457,25 @@ def collect_scatter_data(
                 _dots.append((_padded_position, i, _size, 'dot', _color, 0.5, _score))
 
                 if myoptions.debug:
-                    print(f"Debug: Invisible dot. Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
+                    print(
+                        f"Debug: Invisible dot. Real AA position: {_padded_position}, observed codon: {_some_codon_or_aa}, _frequency: {_frequency}, _size: {_size}, color: {_color}")
 
                 _used_colors.add(_color)
 
     with open(_colors_tsv_filename, 'w', encoding="utf-8") as _color_file:
         print(f"Info: Writing into {_colors_tsv_filename}")
-        _color_file.write(f"padded_position\tposition\toriginal_codon\tmutant_codon\toriginal_aa\tmutant_aa\tfrequency\tcolor\tscore{os.linesep}")
+        _color_file.write(
+            f"padded_position\tposition\toriginal_codon\tmutant_codon\toriginal_aa\tmutant_aa\tfrequency\tcolor\tscore{os.linesep}")
         # Sort by padded_position (x[0]), then position (x[1]), then mutant_codon (x[3])
         for _row in sorted(_colors_tsv_rows, key=lambda x: (x[0], x[1], x[3])):
-            _color_file.write(f"{_row[0]}\t{_row[1]}\t{_row[2]}\t{_row[3]}\t{_row[4]}\t{_row[5]}\t{_row[6]:.6f}\t{_row[7]}\t{_row[8]}{os.linesep}")
+            _color_file.write(
+                f"{_row[0]}\t{_row[1]}\t{_row[2]}\t{_row[3]}\t{_row[4]}\t{_row[5]}\t{_row[6]:.6f}\t{_row[7]}\t{_row[8]}{os.linesep}")
 
     if _matrix_values:
         print(f"Info: The following values were collected from matrix {myoptions.matrix} based on the actual data (some values from matrix might not be needed for your data, hence are not listed here): {str(sorted(_matrix_values))} . Range spans {abs(min(_matrix_values)) + 1 + max(_matrix_values)} values (before symmetrization).")
     else:
-        print(f"Info: No mutations were found in the specified range (xmin={myoptions.xmin}, xmax={myoptions.xmax}) or with threshold {myoptions.threshold}.")
+        print(
+            f"Info: No mutations were found in the specified range (xmin={myoptions.xmin}, xmax={myoptions.xmax}) or with threshold {myoptions.threshold}.")
         _norm = matplotlib.colors.Normalize(vmin=-5, vmax=5)
         _cmap = matplotlib.colormaps.get_cmap('coolwarm_r')
         _used_colors = []
@@ -1715,9 +1753,11 @@ def render_bokeh(
         #   index 6 = raw integer BLOSUM score
         #   index 7 = _aa_position (real unpadded amino-acid position)
         #   index 8 = _padded_position again (duplicate of index 0)
-        _circles_x, _circles_y, _circles_size, _circles_marker, _circles_color, _circles_alpha, _circles_score, _circles_aa_pos, _circles_padded_pos_dup = zip(*circles_bokeh)
+        _circles_x, _circles_y, _circles_size, _circles_marker, _circles_color, _circles_alpha, _circles_score, _circles_aa_pos, _circles_padded_pos_dup = zip(
+            *circles_bokeh)
     else:
-        _circles_x, _circles_y, _circles_size, _circles_marker, _circles_color, _circles_alpha, _circles_score, _circles_aa_pos, _circles_padded_pos_dup = [], [], [], [], [], [], [], [], []
+        _circles_x, _circles_y, _circles_size, _circles_marker, _circles_color, _circles_alpha, _circles_score, _circles_aa_pos, _circles_padded_pos_dup = [
+        ], [], [], [], [], [], [], [], []
 
     _mysource = bokeh.models.ColumnDataSource(data={
         "x": _circles_x,
@@ -1733,15 +1773,16 @@ def render_bokeh(
         "mutation": mutations,
     })
 
-
     if myoptions.aminoacids:
         _tooltips = "@hover_text{safe}"
     else:
         _tooltips = "@hover_text{safe}"
     if myoptions.aminoacids:
-        _p = bokeh.plotting.figure(x_range=(xmin, xmax), y_range=amino_acids, tooltips=_tooltips, title=title_data, x_axis_label=xlabel, y_axis_label='Introduced amino acid changes', width=2000, height=1200, sizing_mode='stretch_width')
+        _p = bokeh.plotting.figure(x_range=(xmin, xmax), y_range=amino_acids, tooltips=_tooltips, title=title_data, x_axis_label=xlabel,
+                                   y_axis_label='Introduced amino acid changes', width=2000, height=1200, sizing_mode='stretch_width')
     else:
-        _p = bokeh.plotting.figure(x_range=(xmin, xmax), y_range=[_pairs[0] + ' (' + _pairs[1] + ')' for _pairs in final_sorted_whitelist], tooltips=_tooltips, title=title_data, x_axis_label=xlabel, y_axis_label='Introduced codon changes', height=1200, width=2000, sizing_mode='stretch_width')
+        _p = bokeh.plotting.figure(x_range=(xmin, xmax), y_range=[_pairs[0] + ' (' + _pairs[1] + ')' for _pairs in final_sorted_whitelist], tooltips=_tooltips,
+                                   title=title_data, x_axis_label=xlabel, y_axis_label='Introduced codon changes', height=1200, width=2000, sizing_mode='stretch_width')
 
     # Mirror matplotlib's xaxis_major_ticks_spacing / xaxis_minor_ticks_spacing.
     # Major ticks carry labels; minor ticks are unlabelled.
@@ -1930,7 +1971,7 @@ def render_bokeh(
     _color_mapper = bokeh.models.LinearColorMapper(
         palette=_score_palette_display,
         low=-_half - 0.5,
-        high= _half + 0.5,
+        high=_half + 0.5,
     )
     # FixedTicker places one tick label at every integer score in _score_range.
     # These tick coordinate values equal the band midpoints (see derivation
@@ -1969,7 +2010,8 @@ def render_bokeh(
         f"| mutation_scatter_plot v{VERSION} git:{_GIT_VERSION}"
     )
     _prof_sum = PROFILER.pop_phase_summary()
-    if _prof_sum: print(f"    {_prof_sum}")
+    if _prof_sum:
+        print(f"    {_prof_sum}")
     PROFILER.mark_phase_start("Phase 3: Bokeh rendering (HTML)")
     print(f"Info: Writing into {outfile_prefix} + '.html'")
     bokeh.plotting.output_file(outfile_prefix + '.html')
@@ -2225,21 +2267,23 @@ def render_matplotlib(
 
     if show:
         _prof_sum = PROFILER.pop_phase_summary()
-        if _prof_sum: print(f"    {_prof_sum}")
+        if _prof_sum:
+            print(f"    {_prof_sum}")
         PROFILER.mark_phase_start("Phase 6: mplcursors index/backend setup")
         try:
             _cursor = mplcursors.cursor(_mpl_scatterplot, hover=True)
             _cursor.connect("add", on_add)
-        except (ImportError, Exception): # pylint: disable=broad-exception-caught
+        except (ImportError, Exception):  # pylint: disable=broad-exception-caught
             pass
         _prof_sum = PROFILER.pop_phase_summary()
-        if _prof_sum: print(f"    {_prof_sum}")
+        if _prof_sum:
+            print(f"    {_prof_sum}")
         PROFILER.mark_phase_start("Phase 4: Matplotlib Model construction (Dummy)")
     else:
         try:
             _cursor = mplcursors.cursor(_mpl_scatterplot, hover=True)
             _cursor.connect("add", on_add)
-        except (ImportError, Exception): # pylint: disable=broad-exception-caught
+        except (ImportError, Exception):  # pylint: disable=broad-exception-caught
             pass
 
     _handles, _labels = [], []
@@ -2255,8 +2299,10 @@ def render_matplotlib(
         elif myoptions.column_with_frequencies in ['weighted_diff_escape_neutralized']:
             _size, _color = adjust_size_and_color_weighted(Decimal(_freq))
         else:
-            _score, _size, _color = adjust_size_and_color(myoptions, Decimal(_freq), _codon_on_input, _junk, _junk, _junk, _junk, matrix, norm, colors)
-        _handle = ax2.scatter(0, - 400 + _freq, s=float(_freq * 5000), color='#808080', alpha=0.5, label=f'{_freq:.1%}')  # medium gray size-legend bubbles
+            _score, _size, _color = adjust_size_and_color(myoptions, Decimal(
+                _freq), _codon_on_input, _junk, _junk, _junk, _junk, matrix, norm, colors)
+        _handle = ax2.scatter(0, - 400 + _freq, s=float(_freq * 5000), color='#808080',
+                              alpha=0.5, label=f'{_freq:.1%}')  # medium gray size-legend bubbles
         _label = str(_freq)
         _handles.append(_handle)
         _labels.append(_label)
@@ -2265,16 +2311,21 @@ def render_matplotlib(
 
     if myoptions.debug or os.environ.get('PYTEST_CURRENT_TEST'):
         _mpl_hovers = []
-        class MockAnnotation: # pylint: disable=too-few-public-methods
+
+        class MockAnnotation:  # pylint: disable=too-few-public-methods
             """Internal mock of an annotation object for hover generation."""
+
             def __init__(self):
                 """Initialize with empty text."""
                 self.text = ""
+
             def set_text(self, t):
                 """Set the annotation text."""
                 self.text = t
-        class MockSel: # pylint: disable=too-few-public-methods
+
+        class MockSel:  # pylint: disable=too-few-public-methods
             """Internal mock of a selection object for hover generation."""
+
             def __init__(self, idx):
                 """Initialize with a specific index and mock annotation."""
                 self.index = idx
@@ -2310,7 +2361,8 @@ def render_matplotlib(
         transform=figure.transFigure,
     )
     _prof_sum = PROFILER.pop_phase_summary()
-    if _prof_sum: print(f"    {_prof_sum}")
+    if _prof_sum:
+        print(f"    {_prof_sum}")
     for _ext in ('.png', '.pdf'):
         _wholefig = plt.gcf()
         _figsize = _wholefig.get_size_inches()*_wholefig.dpi
@@ -2318,7 +2370,8 @@ def render_matplotlib(
         PROFILER.mark_phase_start(f"Phase 5: Matplotlib rendering ({_ext})")
         figure.savefig(outfile_prefix + _ext, dpi=myoptions.dpi)
         _prof_sum = PROFILER.pop_phase_summary()
-        if _prof_sum: print(f"    {_prof_sum}")
+        if _prof_sum:
+            print(f"    {_prof_sum}")
 
     PROFILER.mark_phase_start("Phase 4: Matplotlib Post-setup (Dummy)")
     _prof_sum = PROFILER.pop_phase_summary()
@@ -2327,9 +2380,9 @@ def render_matplotlib(
         PROFILER.mark_phase_start("Phase 7: User-interactive Event Loop (idle)")
         plt.show()
         _prof_sum = PROFILER.pop_phase_summary()
-        if _prof_sum: print(f"    {_prof_sum}")
+        if _prof_sum:
+            print(f"    {_prof_sum}")
     plt.close(figure)
-
 
 
 # vim:ts=4:sw=4:expandtab:smartindent

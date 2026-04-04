@@ -1,3 +1,9 @@
+from scripts.reversecomplement_reads_on_minus import (
+    string_reverse_complement,
+    shorten_sequence,
+    parse_input,
+    myoptions
+)
 import sys
 import unittest
 import io
@@ -5,12 +11,6 @@ import io
 # Mock sys.argv before importing because the script invokes OptionParser.parse_args() at the module level
 sys.argv = ['reversecomplement_reads_on_minus.py']
 
-from scripts.reversecomplement_reads_on_minus import (
-    string_reverse_complement,
-    shorten_sequence,
-    parse_input,
-    myoptions
-)
 
 class TestReverseComplementReads(unittest.TestCase):
 
@@ -136,6 +136,7 @@ class TestReverseComplementReads(unittest.TestCase):
         # It's plus strand so reverse_complement is NOT called in normal logic, but if manually flipped:
         rc_seq = string_reverse_complement("".join(seq.split()))
         self.assertTrue(rc_seq.endswith("GTAGGAGACACTCC"))
+
 
 if __name__ == '__main__':
     unittest.main()

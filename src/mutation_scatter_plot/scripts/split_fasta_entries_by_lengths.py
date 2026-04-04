@@ -150,9 +150,9 @@ def main():
                     "Use --overwrite to replace it."
                 )
 
-    _exact_length_cnt   = 0
+    _exact_length_cnt = 0
     _shorter_length_cnt = 0
-    _longer_length_cnt  = 0
+    _longer_length_cnt = 0
 
     with (open(_exact_length_name,   'w', encoding='utf-8') as _exact_length,
           open(_shorter_length_name, 'w', encoding='utf-8') as _shorter_length,

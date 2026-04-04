@@ -4,8 +4,10 @@ import datetime
 import threading
 import subprocess
 
+
 class ResourceProfiler(threading.Thread):
     """Background thread to sample CPU and RAM (RSS) usage of this script and its children."""
+
     def __init__(self, interval: float = 5.0):
         super().__init__(daemon=True)
         self.interval = interval
@@ -39,8 +41,10 @@ class ResourceProfiler(threading.Thread):
 
             # Baseline trigger
             for p in procs:
-                try: p.cpu_percent(interval=None)
-                except (self.psutil.NoSuchProcess, self.psutil.AccessDenied): pass
+                try:
+                    p.cpu_percent(interval=None)
+                except (self.psutil.NoSuchProcess, self.psutil.AccessDenied):
+                    pass
 
             time.sleep(0.5)  # half-second measurement window
 
@@ -133,6 +137,7 @@ class ResourceProfiler(threading.Thread):
 
             self.active_phase = None
             return summary
+
 
 # Global instance imported by downstream tools
 PROFILER = ResourceProfiler(interval=5.0)
