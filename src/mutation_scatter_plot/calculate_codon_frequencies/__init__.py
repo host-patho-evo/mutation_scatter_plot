@@ -398,12 +398,12 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
             int(min(len(reference_as_codons), myoptions.right_reference_offset / 3))
         ]
         if myoptions.debug:
-            print(f"Info: len(padded_reference_dna_seq)={len(padded_reference_dna_seq)}, "
+            print(f"Debug: len(padded_reference_dna_seq)={len(padded_reference_dna_seq)}, "
                   f"myoptions.left_reference_offset={myoptions.left_reference_offset - 1}, "
                   f"myoptions.right_reference_offset={myoptions.right_reference_offset}")
-            print(f"Info: After cutting input using offset position: {_padded_reference_dna_seq}")
-            print(f"Info: After cutting input using offset position: {_reference_protein_seq}")
-            print(f"Info: After cutting input using offset position: {_reference_as_codons}")
+            print(f"Debug: After cutting input using offset position: {_padded_reference_dna_seq}")
+            print(f"Debug: After cutting input using offset position: {_reference_protein_seq}")
+            print(f"Debug: After cutting input using offset position: {_reference_as_codons}")
         if not _reference_protein_seq:
             raise ValueError(
                 "Error: No _reference_protein_seq provided or left. Was the "
@@ -637,14 +637,15 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     alnfilename_count.write(f"{_total_aln_entries_used}\n")
     alnfilename_count.close()
     _consensus = ''.join(_top_most_codons).upper()
-    print(f"Info: consensus = {_consensus!s}")
-    if _consensus in _padded_reference_dna_seq.upper():
-        print("Info: Sample consensus sequence should roughly match substring "
-              f"inside the reference {str(_padded_reference_dna_seq)} and IT DOES: {str(_top_most_codons)}")
-    else:
-        print("Info: Sample consensus sequence should roughly match substring "
-              f"inside the reference {str(_padded_reference_dna_seq)} BUT IT DOES NOT, maybe due to some true "
-              f"major mutations in some codons: {str(_top_most_codons)}")
+    if myoptions.debug:
+        print(f"Debug: consensus = {_consensus!s}")
+        if _consensus in _padded_reference_dna_seq.upper():
+            print("Debug: Sample consensus sequence should roughly match substring "
+                  f"inside the reference {str(_padded_reference_dna_seq)} and IT DOES: {str(_top_most_codons)}")
+        else:
+            print("Debug: Sample consensus sequence should roughly match substring "
+                  f"inside the reference {str(_padded_reference_dna_seq)} BUT IT DOES NOT, maybe due to some true "
+                  f"major mutations in some codons: {str(_top_most_codons)}")
 
 
 def open_file(outfilename, overwrite=False, encoding=None):

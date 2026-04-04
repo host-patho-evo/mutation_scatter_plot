@@ -17,6 +17,7 @@ from . import (
     open_file,
 )
 from .. import alt_translate
+from ..profiler import PROFILER
 
 
 class NoWrapFormatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
@@ -206,6 +207,9 @@ def main():
         if os.path.exists(myoptions.alignment_infilename):
             if os.path.getsize(myoptions.alignment_infilename) == 0:
                 raise RuntimeError(f"Input file {myoptions.alignment_infilename} is empty")
+            
+            PROFILER.start()
+            PROFILER.mark_phase_start("Phase 1: Parse sequences")
             parse_alignment(
                 myoptions,
                 myoptions.alignment_infilename,
@@ -222,6 +226,11 @@ def main():
                 chunksize=_chunksize,
                 translation_table=myoptions.translation_table,
             )
+            
+            _prof_sum = PROFILER.pop_phase_summary()
+            if _prof_sum:
+                print()
+                print(_prof_sum)
         else:
             raise RuntimeError(
                 f"Input file {str(myoptions.alignment_infilename)} does not exist or is not defined"

@@ -198,139 +198,7 @@ DISCARD_SCRIPT = os.path.join(SCRIPT_DIR, 'create_list_of_discarded_sequences.py
 
 VERSION = "202604030900"
 
-class ResourceProfiler(threading.Thread):
-    """Background thread to sample CPU and RAM (RSS) usage of this script and its children."""
-    def __init__(self, interval: float = 5.0):
-        super().__init__(daemon=True)
-        self.interval = interval
-        self.pid = os.getpid()
-        self.lock = threading.Lock()
-        
-        # State
-        self.active_phase = None
-        self.phase_start_time = None
-        
-        # Metrics for current phase
-        self.phase_cpu_samples = []
-        self.phase_ram_samples = []
-        
-        # Current instant load
-        self.current_cpu = 0.0
-        self.current_ram_gb = 0.0
-        
-        self.psutil = None
-        try:
-            import psutil
-            self.psutil = psutil
-        except ImportError:
-            pass
-
-    def _get_metrics_psutil(self) -> tuple[float, float]:
-        try:
-            main_proc = self.psutil.Process(self.pid)
-            procs = [main_proc]
-            procs.extend(main_proc.children(recursive=True))
-            
-            # Baseline trigger
-            for p in procs:
-                try: p.cpu_percent(interval=None)
-                except (self.psutil.NoSuchProcess, self.psutil.AccessDenied): pass
-                
-            time.sleep(0.5)  # half-second measurement window
-            
-            total_cpu = 0.0
-            total_rss = 0.0
-            for p in procs:
-                try:
-                    total_cpu += p.cpu_percent(interval=None)
-                    total_rss += p.memory_info().rss
-                except (self.psutil.NoSuchProcess, self.psutil.AccessDenied):
-                    pass
-            return total_cpu, total_rss / (1024**3)
-        except Exception:
-            # Fallback defensively if psutil tree topology evaporates mid-sweep
-            return 0.0, 0.0
-
-    def _get_metrics_ps(self) -> tuple[float, float]:
-        try:
-            # -p PID (parent) and --ppid PID (children)
-            cmd = ["ps", "--no-headers", "-o", "pcpu,rss", "-p", str(self.pid), "--ppid", str(self.pid)]
-            out = subprocess.check_output(cmd, encoding='ascii', stderr=subprocess.DEVNULL)
-            
-            total_cpu = 0.0
-            total_rss_kb = 0.0
-            for line in out.strip().split('\n'):
-                parts = line.strip().split()
-                if len(parts) == 2:
-                    total_cpu += float(parts[0])
-                    total_rss_kb += float(parts[1])
-            return total_cpu, total_rss_kb / (1024**2)  # ps RSS is in KB
-        except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
-            return 0.0, 0.0
-
-    def run(self):
-        while True:
-            t0 = time.time()
-            if self.psutil:
-                cpu, ram_gb = self._get_metrics_psutil()
-            else:
-                cpu, ram_gb = self._get_metrics_ps()
-                
-            with self.lock:
-                # Discard 0.0 readings if the OS jittered 
-                if cpu > 0 or ram_gb > 0:
-                    self.current_cpu = cpu
-                    self.current_ram_gb = ram_gb
-                if self.active_phase is not None:
-                    self.phase_cpu_samples.append(self.current_cpu)
-                    self.phase_ram_samples.append(self.current_ram_gb)
-            
-            # Sleep remaining interval (account for the 0.5s psutil measurement window)
-            elapsed = time.time() - t0
-            if elapsed < self.interval:
-                time.sleep(self.interval - elapsed)
-
-    def mark_phase_start(self, phase_name: str):
-        with self.lock:
-            self.active_phase = phase_name
-            self.phase_start_time = datetime.datetime.now()
-            self.phase_cpu_samples = []
-            self.phase_ram_samples = []
-            
-    def get_current_load_str(self) -> str:
-        with self.lock:
-            return f"  [Load: {self.current_ram_gb:.1f} GB RAM | {self.current_cpu:.0f}% CPU]"
-
-    def pop_phase_summary(self) -> str | None:
-        with self.lock:
-            if self.active_phase is None or not self.phase_start_time:
-                return None
-                
-            name = self.active_phase
-            duration = datetime.datetime.now() - self.phase_start_time
-            
-            secs = int(duration.total_seconds())
-            hours, remainder = divmod(secs, 3600)
-            minutes, seconds = divmod(remainder, 60)
-            dur_str = f"{hours}h {minutes:02d}m" if hours > 0 else f"{minutes}m {seconds:02d}s" if minutes > 0 else f"{seconds}s"
-
-            if self.phase_cpu_samples:
-                peak_cpu = max(self.phase_cpu_samples)
-                avg_cpu = sum(self.phase_cpu_samples) / len(self.phase_cpu_samples)
-                peak_ram = max(self.phase_ram_samples)
-            else:
-                peak_cpu = avg_cpu = self.current_cpu
-                peak_ram = self.current_ram_gb
-                
-            summary = (f"         ↳ Profiler Summary ({name}): Peak RAM = {peak_ram:.1f} GB | "
-                       f"Peak CPU = {peak_cpu:.0f}% | Avg CPU = {avg_cpu:.0f}% | Duration = {dur_str}")
-                       
-            self.active_phase = None
-            return summary
-
-
-# Global instance
-PROFILER = ResourceProfiler(interval=5.0)
+from mutation_scatter_plot.profiler import PROFILER
 
 # ── storage-type detection (for --jobs auto-tuning) ─────────────────────────
 
@@ -895,7 +763,7 @@ def _build_tsv(fasta_path: str, tsv_path: str,
                 # Warn and skip rather than polluting the TSV.
                 _print(f"  Warning: empty sequence for record '{flush_name}' in"
                        f" {fasta_path} — skipped in TSV",
-                       file=sys.stderr, flush=True)
+                       flush=True)
                 return
             digest = hashlib.sha256(seq).hexdigest()
         if digest in id_map:
@@ -1071,7 +939,7 @@ def _verify_sha256(
             # flagged as →novel.  Warn and skip so it doesn't inflate counts.
             print(f"  Warning: empty sequence for record '{flush_name}' in"
                   f" {fasta_path} — skipped in sha256 verification",
-                  file=sys.stderr, flush=True)
+                  flush=True)
             return
         new_sha = hashlib.sha256(seq).hexdigest()
         if new_sha == id_sha:
@@ -1185,7 +1053,7 @@ def _classify_mismatches(
                 _resolve(name)
     except OSError as exc:
         print(f'  Warning: _classify_mismatches: cannot read {parent_path}: {exc}',
-              file=sys.stderr)
+             )
     return cats
 
 
@@ -1247,7 +1115,7 @@ def _write_original_descr_lines(
     n_written = 0
     try:
         print(f"\n  streaming {os.path.basename(root_descr_tsv)}"
-              " for traceability files …", file=sys.stderr, flush=True)
+              " for traceability files …", flush=True)
         with open(root_descr_tsv, 'r', encoding='utf-8', errors='replace') as rf:
             for line in rf:
                 parts = line.rstrip('\n').split('\t', 2)
@@ -1273,14 +1141,14 @@ def _write_original_descr_lines(
                     n_written += 1
     except OSError as exc:
         print(f"  Warning: could not read root TSV {root_descr_tsv}: {exc}",
-              file=sys.stderr)
+             )
     finally:
         for fh in open_fhs.values():
             fh.close()  # type: ignore[union-attr]
         if open_fhs:
             print(f"  Info: wrote original GISAID headers for {n_written:,} unique"
                   f" sha256s into {len(open_fhs):,} traceability TSV file(s).",
-                  file=sys.stderr, flush=True)
+                  flush=True)
 
 
 def _has_legacy_ids(id_to_sha: dict) -> bool:
@@ -1607,12 +1475,12 @@ def _extract_discarded_to_fasta(
 
     print(f"  {child_disp}: extracting discarded records from {root_disp} "
           f"(sha256 map: {mapping_disp}) …",
-          file=sys.stderr, flush=True)
+          flush=True)
 
     # ── Step 1: read sha256 hashes ─────────────────────────────────────────
     if not os.path.exists(sha_file):
         print(f"    Skipped: {os.path.basename(sha_file)} not found.",
-              file=sys.stderr)
+             )
         return
 
     target_sha256s: set[str] = set()
@@ -1630,7 +1498,7 @@ def _extract_discarded_to_fasta(
 
     if not target_sha256s:
         print(f"    Skipped: no sha256 entries in {os.path.basename(sha_file)}.",
-              file=sys.stderr)
+             )
         return
 
     # ── Step 2: map sha256s → GISAID IDs via GISAID-level ancestor TSV ──────
@@ -1646,7 +1514,7 @@ def _extract_discarded_to_fasta(
         print(
             f"    Skipped: no usable ancestor TSV found "
             f"({os.path.basename(mapping_stem)}.sha256_to_{{ids,descr_lines}}.tsv).",
-            file=sys.stderr,
+           
         )
         return
 
@@ -1665,11 +1533,11 @@ def _extract_discarded_to_fasta(
     if not fasta_ids:
         print(f"    Warning: no FASTA IDs found for the "
               f"{len(target_sha256s):,} discarded sha256(s) in {os.path.basename(root_tsv)}.",
-              file=sys.stderr)
+             )
         return
 
     print(f"    {len(fasta_ids):,} GISAID ID(s) for {len(target_sha256s):,} sha256(s).",
-          file=sys.stderr)
+         )
 
     # ── Step 3: write temporary names file ──────────────────────────────
     names_file = child_stem + '.discarded_fasta_ids.tmp'
@@ -1693,9 +1561,9 @@ def _extract_discarded_to_fasta(
                 if in_target:
                     out_fh.write(raw)
         print(f"    Wrote {n_written:,} record(s) to "
-              f"{os.path.relpath(out_fasta, search_path)}.", file=sys.stderr)
+              f"{os.path.relpath(out_fasta, search_path)}.")
     except OSError as exc:
-        print(f"    Error extracting discarded sequences: {exc}", file=sys.stderr)
+        print(f"    Error extracting discarded sequences: {exc}")
 
     # ── Step 5: cleanup ──────────────────────────────────────────────────────
     try:
@@ -1777,7 +1645,7 @@ def _emit_lines(lines: list[str]) -> None:
     """Print a block of stderr lines atomically (thread-safe via _stderr_lock)."""
     with _stderr_lock:
         for ln in lines:
-            print(ln, file=sys.stderr, flush=True)
+            print(ln, flush=True)
 
 
 # Sentinel returned by _verify_one_file for protein files (verify_data left None).
@@ -1878,7 +1746,7 @@ def main() -> None:
         f"{_start_ts} summarize_fasta_pipeline.py"
         f"  version {VERSION}  git:{_GIT_VERSION}"
         f"  invoked: {' '.join(sys.argv)}",
-        file=sys.stderr,
+       
     )
     args = sys.argv[1:]
     if len(args) < 2 or '--help' in args or '-h' in args:
@@ -1901,6 +1769,14 @@ def main() -> None:
     classify_mismatches  = '--classify-mismatches'          in args
     extract_discarded_fasta = '--extract-discarded-fasta'   in args
     use_nnnx_counts      = '--use-nnnx-counts'              in args
+    # --outfile PATH: write TSV report to this file
+    _out_str = (
+        next((a.split('=', 1)[1] for a in args if a.startswith('--outfile=')), None)
+        or next((args[i + 1] for i, a in enumerate(args)
+                 if a == '--outfile' and i + 1 < len(args)), None)
+    )
+    outfile = _out_str or f"{prefix}.pipeline_summary.tsv"
+    out_fd = open(outfile, 'w', encoding='utf-8')
     # --jobs N: parallel workers for Phase 0 (sha256) and Phase 1 (scan).
     _jobs_str = (
         next((a.split('=', 1)[1] for a in args if a.startswith('--jobs=')), None)
@@ -1973,13 +1849,13 @@ def main() -> None:
             print(
                 f"  Skipping backup {os.path.basename(bp)!r} "
                 f"(clean {os.path.basename(clean)!r} present).",
-                file=sys.stderr,
+               
             )
     found = _clean_found
 
     if not found:
         print(f"No files found under '{search_path}' matching '{prefix}*.fasta{{,.old,.ori,.orig}}'",
-              file=sys.stderr)
+             )
         sys.exit(1)
 
     # Sort by stem length (shorter = earlier in pipeline), then alphabetically.
@@ -1998,7 +1874,7 @@ def main() -> None:
         _jobs_note = f" (explicit; storage: {fs_desc})"
     print(
         f"{_ts()}Found {n_files:,} file(s); using --jobs {jobs}{_jobs_note}\n",
-        file=sys.stderr,
+       
     )
 
     # ── infer parent->child pairs from naming convention ──────────────────────
@@ -2037,30 +1913,30 @@ def main() -> None:
                   if len(idxs) >= 2 and sz > 0}
     if _size_tied:
         summary = PROFILER.pop_phase_summary()
-        if summary: print(summary, file=sys.stderr)
+        if summary: print(summary)
         PROFILER.mark_phase_start("Phase 0")
         print(
             f"\n{_ts()}── Phase 0: Identity check (size + sha256) "
             f"─────────────────────────────────────────────────────────",
-            file=sys.stderr,
+           
         )
         print(
             f"  {len(_size_tied)} size group(s) with \u22652 files will be sha256-checked;"
             f" identical files share scan results.",
-            file=sys.stderr,
+           
         )
     def _sha256_worker(i: int) -> tuple[int, str]:
         """Compute sha256 for files[i]; print start message thread-safely."""
         _name = os.path.basename(files[i])
         with _stderr_lock:
             print(f"{_ts()}    computing sha256: {_name} \u2026",
-                  file=sys.stderr, flush=True)
+                  flush=True)
         return i, _fasta_sha256(files[i])
 
     for sz, idxs in _size_tied.items():
         print(
             f"\n{_ts()}  Size group {_fmt_size(sz)} \u2014 {len(idxs)} file(s):",
-            file=sys.stderr,
+           
         )
         # Compute sha256 for every file in this size group.
         # Runs in parallel when --jobs > 1 (I/O-bound; GIL released during read).
@@ -2086,28 +1962,28 @@ def main() -> None:
                 print(
                     f"{_ts()}    \u2192 {name} \u2261 {pri_name}"
                     f" (sha256={sha[:16]}\u2026) \u2014 scan results will be reused.",
-                    file=sys.stderr, flush=True,
+                    flush=True,
                 )
             else:
                 sha_to_primary[sha] = idx
                 print(f"{_ts()}    \u2192 {name}: sha256={sha[:16]}\u2026 (primary)",
-                      file=sys.stderr, flush=True)
+                      flush=True)
 
     # ── gather per-file data ─────────────────────────────────────────────────
     summary = PROFILER.pop_phase_summary()
-    if summary: print(summary, file=sys.stderr)
+    if summary: print(summary)
     PROFILER.mark_phase_start("Phase 1")
     print(
         f"\n{_ts()}── Phase 1: Gather per-file statistics "
         f"──────────────────────────────────────────────────────────────",
-        file=sys.stderr,
+       
     )
     n_twins = len(content_twin)
     n_primaries = len(files) - n_twins
     print(
         f"  {len(files)} file(s) total: {n_primaries} to scan, "
         f"{n_twins} to reuse from content-identical primary.",
-        file=sys.stderr,
+       
     )
     # Pre-size all accumulator lists so index-based (thread-safe) writes are
     # possible in the parallel path (no .append() ordering constraints).
@@ -2135,7 +2011,7 @@ def main() -> None:
         print(
             f"  Parallel Phase 1: scanning {len(primary_indices)} primary file(s) "
             f"with {max_w} worker(s).",
-            file=sys.stderr,
+           
         )
         with ThreadPoolExecutor(max_workers=max_w) as exc:
             futs = {
@@ -2168,7 +2044,7 @@ def main() -> None:
             f"{_ts()}  [{idx+1}/{len(files)}] {display}\n"
             f"        ↳ reusing results from [{pri+1}] {pri_display}"
             f" ({n_rec:,} records, NNNNx sum={n_sum:,}).",
-            file=sys.stderr, flush=True,
+            flush=True,
         )
 
     # sha256_sets is still needed in the table-printing loop for the
@@ -2176,12 +2052,12 @@ def main() -> None:
 
     if verify_sha256:
         summary = PROFILER.pop_phase_summary()
-        if summary: print(summary, file=sys.stderr)
+        if summary: print(summary)
         PROFILER.mark_phase_start("Phase 2")
         print(
             f"\n{_ts()}── Phase 2: sha256 integrity verification "
             f"────────────────────────────────────────────────────────",
-            file=sys.stderr,
+           
         )
         n_verify = sum(1 for i, f in enumerate(files)
                        if not _is_prot_file(f)
@@ -2192,7 +2068,7 @@ def main() -> None:
         print(
             f"  Verifying sha256 integrity for {n_verify} file(s) "
             f"(protein files and content twins with equivalent parent skipped).",
-            file=sys.stderr,
+           
         )
 
         def _run_verify(idx: int, _sha256_sets: list = sha256_sets) -> dict:
@@ -2213,7 +2089,7 @@ def main() -> None:
             print(
                 f"  Parallel Phase 2: verifying {n_verify} file(s) "
                 f"with {max_w2} worker(s).",
-                file=sys.stderr,
+               
             )
             with ThreadPoolExecutor(max_workers=max_w2) as exc:
                 futs = {exc.submit(_run_verify, idx): idx
@@ -2230,16 +2106,16 @@ def main() -> None:
     discard_data: dict[int, tuple[int, int]] = {}  # child_idx -> (n_ids, nnnx_sum)
     if do_discard:
         summary = PROFILER.pop_phase_summary()
-        if summary: print(summary, file=sys.stderr)
+        if summary: print(summary)
         PROFILER.mark_phase_start("Phase 3")
         print(
             "\n── Phase 3: Discard statistics (parent→child pairs) "
             "─────────────────────────────────────────────────────",
-            file=sys.stderr,
+           
         )
         print(
             f"  Computing discarded-sequence stats for {len(parent_map)} parent→child pair(s).",
-            file=sys.stderr,
+           
         )
 
         def _run_discard(i: int, f_child: str, p: int) -> dict:
@@ -2272,7 +2148,7 @@ def main() -> None:
             print(
                 f"  Parallel Phase 3: computing discard stats for {len(child_indices)} "
                 f"pair(s) with {max_w3} worker(s).",
-                file=sys.stderr,
+               
             )
             with ThreadPoolExecutor(max_workers=max_w3) as exc:
                 futs = {exc.submit(_run_discard, i, files[i], parent_map[i]): i
@@ -2286,12 +2162,12 @@ def main() -> None:
     # ── Phase 4: extract discarded FASTA records from root ancestor ──────────
     if do_discard and extract_discarded_fasta:
         summary = PROFILER.pop_phase_summary()
-        if summary: print(summary, file=sys.stderr)
+        if summary: print(summary)
         PROFILER.mark_phase_start("Phase 4")
         print(
             f"\n{_ts()}── Phase 4: Extract discarded records from root ancestor "
             f"─────────────────────────────────",
-            file=sys.stderr,
+           
         )
         p4_children = [
             i for i in range(len(files))
@@ -2374,7 +2250,7 @@ def main() -> None:
     summary = PROFILER.pop_phase_summary()
     if summary:
         print()
-        print(summary, file=sys.stderr)
+        print(summary)
     print()
     print(header)
     print(rule)
@@ -2479,7 +2355,8 @@ def main() -> None:
             + prot_col
             + verify_cols
             + disc_cols
-            + (f"  ({parent_label})" if parent_label else '')
+            + (f"  ({parent_label})" if parent_label else ''),
+            file=out_fd
         )
 
         if do_discard and p is not None and i in discard_data:
@@ -2497,12 +2374,13 @@ def main() -> None:
                 + f"{sep}{_em:>{w_prot}}{sep}{_em:>{w_dprot}}{sep}{_em:>{w_protn}}" # protein
                 + verify_cols_empty                         # Verify
                 + f"{sep}{_em:>{w_disc1}}{sep}{_em:>{w_disc2}}" # disc_cols
-                + disc_label
+                + disc_label,
+                file=out_fd
             )
 
 
 
-    print(rule)
+    print(rule, file=out_fd)
 
     # ── write original-header traceability TSV files ───────────────────────────
     if write_original_descr:
@@ -2517,7 +2395,7 @@ def main() -> None:
         else:
             print(f"  Warning: --write-original-descr-lines: root mapping TSV not found"
                   f" ({root_stem}.sha256_to_descr_lines.tsv). Run with"
-                  " --full-fasta-header first to build it.", file=sys.stderr)
+                  " --full-fasta-header first to build it.")
 
     del sha256_sets  # no longer needed; free RAM
 
@@ -2525,10 +2403,13 @@ def main() -> None:
     if len(rows) >= 2:
         first_rec, first_sum = rows[0][2], rows[0][3]
         last_rec,  last_sum  = rows[-1][2], rows[-1][3]
-        print()
-        print("Overall change  (last vs first):")
-        print(f"  # FASTA entries : {_delta_str(last_rec, first_rec):>16}  ({_pct_str(last_rec, first_rec)} of first)")
-        print(f"  Sum     : {_delta_str(last_sum, first_sum):>16}  ({_pct_str(last_sum, first_sum)} of first)")
+        print(file=out_fd)
+        print("Overall change  (last vs first):", file=out_fd)
+        print(f"  # FASTA entries : {_delta_str(last_rec, first_rec):>16}  ({_pct_str(last_rec, first_rec)} of first)", file=out_fd)
+        print(f"  Sum     : {_delta_str(last_sum, first_sum):>16}  ({_pct_str(last_sum, first_sum)} of first)", file=out_fd)
+
+    out_fd.close()
+    print(f"\n\u2728 Saved summary to {outfile}")
 
 
 if __name__ == '__main__':
