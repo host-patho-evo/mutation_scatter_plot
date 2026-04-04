@@ -127,7 +127,7 @@ Options:
                            Seq clipped(new)   records whose new sha256 is NOT in
                                               the parent (genuinely novel result)
                            NNNNx clipped(new) sum of NNNNx prefixes for those
-    --classify-mismatches
+    --disable-classify-mismatches
                          When --verify-sha256 detects mismatches, perform a
                          second pass over each file's direct parent FASTA to
                          compare the depadded post- and pre-alignment sequences
@@ -1763,9 +1763,9 @@ def main() -> None:
     # The old --verify-sha256 flag is accepted silently for backwards compat.
     verify_sha256        = '--no-verify-sha256'             not in args
     write_original_descr = '--write-original-descr-lines'  in args
-    # Classify mismatches as clip-only (right/left/both-ends) vs internal change.
-    # Requires an extra scan of each parent FASTA; opt-in only.
-    classify_mismatches  = '--classify-mismatches'          in args
+    # Classify mismatches is ON by default; pass --disable-classify-mismatches to disable.
+    # The old --classify-mismatches flag is accepted silently for backwards compat.
+    classify_mismatches  = '--disable-classify-mismatches'  not in args
     extract_discarded_fasta = '--extract-discarded-fasta'   in args
     use_nnnx_counts      = '--use-nnnx-counts'              in args
     # --outfile PATH: write TSV report to this file
