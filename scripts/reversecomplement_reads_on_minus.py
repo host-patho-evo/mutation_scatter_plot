@@ -395,19 +395,8 @@ Sbjct  3804  CAAATTACATTACACATAA  3822
     find . -name \\*.fastp.amplicons.counts.clean.fasta  | while read f; do echo $f; grep -v '^>' "$f" | awk '{ if ( length!=3822 ) print }' |  grep -v 3822 | sort | uniq | sort | while read s; do grep -B 1 -F -f - "$f"; done; done
     """
 
-    if max_stop or min_start:
-        _required_alignment_width = max_stop - min_start + 1
-    else:
-        _required_alignment_width = 0
-
-    # determine how many nucleotides should should be stripped away from the beginning of the padded query/sample sequence, after figuring out if it is in plus or minus orientation
+    # determine how many nucleotides should be stripped away from the beginning of the padded query/sample sequence
     if myoptions.debug: print("Info: entered shorten_sequence() with %s" % sequence)
-    if aln_start_qseq < aln_stop_qseq:
-        # is on plus
-        _unmatched_nucleotides_at_the_left_query_end = aln_start_qseq - 1 # length of the leading unmatched query sequence
-    else:
-        # is on minus
-        _unmatched_nucleotides_at_the_left_query_end = len(qseq) - aln_stop_qseq # length of the trailig unmatched query sequence
 
     if max_stop:
         if max_stop < aln_stop:
@@ -457,10 +446,9 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
         if myoptions.x_after_count:
             _myid = _fasta_description_items[0]
             if 'x.' in _myid:
-                _id, _checksum = _myid.split('x.')
+                _id, _ = _myid.split('x.')
             else:
                 _id = _myid.rstrip('x')
-                _checksum = ''
             try:
                 _some_count = int(_id) # cut out the numeric value
             except:
@@ -469,7 +457,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
         else:
             _some_count = 1
             if myoptions.debug: print("Debug: You did not provide --x-after-count, assuming count 1")
-        if myoptions.debug: print("Debug: %" % str(_fasta_description_items))
+        if myoptions.debug: print("Debug: %s" % str(_fasta_description_items))
         # >60x.83b5909c7ce41adb2921d29154dfe53e5521ae9f769c33e187db0ecd5f02cfc5 1 3822 plus 0.0 6634 7356 3822 98.482 3764 46 3764 2 12 98.48
         if int(_some_count) >= myoptions.min_count and len(_fasta_description_items) > 1:
             if _fasta_description_items[3] == 'minus':
@@ -560,7 +548,6 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                     
                 _aln_start_qseq = int(_fasta_description_items[9])
                 _aln_stop_qseq = int(_fasta_description_items[10])
-                _sseq = _fasta_description_items[14]
                 _qseq = record.seq # original query sequence
                 _aln_start = myoptions.aln_start
                 _aln_stop = myoptions.aln_stop

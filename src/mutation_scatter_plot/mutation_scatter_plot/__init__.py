@@ -2006,6 +2006,7 @@ def render_matplotlib(
     matrix, matrix_name,
     show=True,
 ):
+    from ..profiler import PROFILER
     """Render the matplotlib scatter figure with hover callbacks and save to PNG/PDF.
 
     Circle size scaling (matplotlib):
