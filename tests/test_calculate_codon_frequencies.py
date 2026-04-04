@@ -38,6 +38,7 @@ import sys
 import tempfile
 import unittest
 
+
 class TestCalculateCodonFrequencies(unittest.TestCase):
     """Test cases for the calculate_codon_frequencies CLI and core logic."""
     # pylint: disable=too-many-instance-attributes
@@ -134,7 +135,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
             if suffix == ".tsv" and self.__class__.golden_mutations:
                 try:
                     with open(generated_file, 'r', encoding='utf-8') as f:
-                        lines = f.readlines()[1:] # skip header
+                        lines = f.readlines()[1:]  # skip header
                     total = len(lines)
                     confirmed = 0
                     for line in lines:
@@ -355,6 +356,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
             result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
             self._check_outputs("test3.default.frequencies", outfile_prefix)
+
 
 if __name__ == "__main__":
     unittest.main()

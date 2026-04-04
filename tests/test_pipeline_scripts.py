@@ -178,7 +178,7 @@ class TestSummarizePipelineHelpers(unittest.TestCase):
         """Returns None when the .discarded_original_ids.txt file does not exist."""
         with tempfile.TemporaryDirectory() as d:
             parent = os.path.join(d, "a.fasta")
-            child  = os.path.join(d, "a.counts.fasta")
+            child = os.path.join(d, "a.counts.fasta")
             for p in (parent, child):
                 _touch(p)
             self.assertIsNone(self.mod._fresh_discarded_txt(child, parent))  # pylint: disable=protected-access
@@ -187,8 +187,8 @@ class TestSummarizePipelineHelpers(unittest.TestCase):
         """Returns None when the txt file is older than the child FASTA."""
         with tempfile.TemporaryDirectory() as d:
             parent = os.path.join(d, "a.fasta")
-            child  = os.path.join(d, "a.counts.fasta")
-            txt    = os.path.join(d, "a.counts.discarded_original_ids.txt")
+            child = os.path.join(d, "a.counts.fasta")
+            txt = os.path.join(d, "a.counts.discarded_original_ids.txt")
             for p in (txt, parent, child):
                 _touch(p)
             time.sleep(0.05)
@@ -199,8 +199,8 @@ class TestSummarizePipelineHelpers(unittest.TestCase):
         """Returns the txt path when it is newer than both FASTA files."""
         with tempfile.TemporaryDirectory() as d:
             parent = os.path.join(d, "a.fasta")
-            child  = os.path.join(d, "a.counts.fasta")
-            txt    = os.path.join(d, "a.counts.discarded_sha256_hashes.txt")
+            child = os.path.join(d, "a.counts.fasta")
+            txt = os.path.join(d, "a.counts.discarded_sha256_hashes.txt")
             for p in (parent, child):
                 _touch(p)
             time.sleep(0.05)
@@ -219,7 +219,7 @@ class TestSummarizePipelineHelpers(unittest.TestCase):
     def test_fresh_tsv_stale(self):
         """Returns None when the TSV is older than the parent FASTA."""
         with tempfile.TemporaryDirectory() as d:
-            tsv    = os.path.join(d, "a.sha256_to_ids.tsv")
+            tsv = os.path.join(d, "a.sha256_to_ids.tsv")
             parent = os.path.join(d, "a.fasta")
             for p in (tsv, parent):
                 _touch(p)
@@ -231,7 +231,7 @@ class TestSummarizePipelineHelpers(unittest.TestCase):
         """Returns the TSV path when it is newer than the parent FASTA."""
         with tempfile.TemporaryDirectory() as d:
             parent = os.path.join(d, "a.fasta")
-            tsv    = os.path.join(d, "a.sha256_to_ids.tsv")
+            tsv = os.path.join(d, "a.sha256_to_ids.tsv")
             _touch(parent)
             time.sleep(0.05)
             _touch(tsv)  # tsv is newest
@@ -280,7 +280,7 @@ class TestCountSameSequencesCLI(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             infile = os.path.join(d, "in.fasta")
             prefix = os.path.join(d, "in")
-            tsv    = os.path.join(d, "in.sha256_to_ids.tsv")
+            tsv = os.path.join(d, "in.sha256_to_ids.tsv")
             counts = os.path.join(d, "in.counts.fasta")
             with open(infile, 'w', encoding='utf-8') as f:
                 f.write(">ID1\nATGC\n")
@@ -300,7 +300,7 @@ class TestCountSameSequencesCLI(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             infile = os.path.join(d, "in.fasta")
             prefix = os.path.join(d, "in")
-            tsv    = os.path.join(d, "in.sha256_to_ids.tsv")
+            tsv = os.path.join(d, "in.sha256_to_ids.tsv")
             counts = os.path.join(d, "in.counts.fasta")
             for p in (counts, tsv):  # outputs created first → will be stale
                 _touch(p)
@@ -320,7 +320,7 @@ class TestCountSameSequencesCLI(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             infile = os.path.join(d, "in.fasta")
             prefix = os.path.join(d, "in")
-            tsv    = os.path.join(d, "in.sha256_to_ids.tsv")
+            tsv = os.path.join(d, "in.sha256_to_ids.tsv")
             with open(infile, 'w', encoding='utf-8') as f:
                 f.write(">ID1\nATGC\n")
             time.sleep(0.05)
@@ -352,7 +352,7 @@ class TestCreateListCLI(unittest.TestCase):
     def test_uptodate_exits_zero(self):
         """Output newer than infilename → skip with exit 0."""
         with tempfile.TemporaryDirectory() as d:
-            infile  = os.path.join(d, "kept.fasta")
+            infile = os.path.join(d, "kept.fasta")
             outfile = os.path.join(d, "kept.discarded_original_ids.txt")
             _make_nnnx_fasta(infile, [(1, "ATGC")])
             time.sleep(0.05)
@@ -367,7 +367,7 @@ class TestCreateListCLI(unittest.TestCase):
     def test_stale_errors_without_overwrite(self):
         """Output older than input without --overwrite → non-zero exit."""
         with tempfile.TemporaryDirectory() as d:
-            infile  = os.path.join(d, "kept.fasta")
+            infile = os.path.join(d, "kept.fasta")
             outfile = os.path.join(d, "kept.discarded_original_ids.txt")
             _touch(outfile)
             time.sleep(0.05)
@@ -382,7 +382,7 @@ class TestCreateListCLI(unittest.TestCase):
     def test_overwrite_bypasses_staleness(self):
         """--overwrite causes stale check to be skipped."""
         with tempfile.TemporaryDirectory() as d:
-            infile  = os.path.join(d, "kept.fasta")
+            infile = os.path.join(d, "kept.fasta")
             outfile = os.path.join(d, "kept.discarded_original_ids.txt")
             _touch(outfile)
             time.sleep(0.05)
@@ -413,7 +413,7 @@ class TestCreateListCLI(unittest.TestCase):
     def test_mixed_encoding_fasta_does_not_crash(self):
         """FASTA headers with non-UTF-8 bytes (Latin-1) are read without error."""
         with tempfile.TemporaryDirectory() as d:
-            infile  = os.path.join(d, "mixed.fasta")
+            infile = os.path.join(d, "mixed.fasta")
             outfile = os.path.join(d, "mixed.discarded_original_ids.txt")
             # Write a FASTA with a Latin-1 byte (0xED = í) in a description.
             with open(infile, 'wb') as f:

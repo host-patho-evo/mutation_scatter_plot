@@ -16,4 +16,4 @@ to fall back to ``git describe`` (Tier 2) or ``importlib.metadata`` (Tier 3).
 """
 
 _GIT_ARCHIVE_HASH = "$Format:%H$"
-_GIT_ARCHIVE_REF  = "$Format:%D$"    # decorated refs: "tag: v0.3, HEAD -> main"
+_GIT_ARCHIVE_REF = "$Format:%D$"    # decorated refs: "tag: v0.3, HEAD -> main"

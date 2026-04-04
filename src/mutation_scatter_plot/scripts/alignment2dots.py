@@ -212,7 +212,7 @@ def main():
     myoptions, _ = myparser.parse_args()
 
     _aln_start = (myoptions.aln_start - 1) if myoptions.aln_start else 0
-    _aln_stop  = (myoptions.aln_stop  - 1) if myoptions.aln_stop  else 0
+    _aln_stop = (myoptions.aln_stop - 1) if myoptions.aln_stop else 0
 
     if not myoptions.reference_infilename:
         raise RuntimeError("Please specify --reference-infile")

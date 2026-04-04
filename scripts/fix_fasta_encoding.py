@@ -735,7 +735,7 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     t_last = t_start
 
     with open(path, "rb") as fh, \
-         os.fdopen(tmp_fd, "w", encoding="utf-8") as fh_tmp:
+            os.fdopen(tmp_fd, "w", encoding="utf-8") as fh_tmp:
         for raw in fh:
             bytes_read += len(raw)
             lines_read += 1
@@ -827,8 +827,8 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
         (frozenset({'ctrl', 'esc'}),      "C0 control  +  \\uXXXX escapes"),
         (frozenset({'ctrl', 'lat1'}),     "C0 control  +  Latin-1 raw bytes"),
         (frozenset({'ctrl', 'utf8'}),     "C0 control  +  valid UTF-8 multi-byte"),
-        (frozenset({'esc','lat1','utf8'}),
-                                          "All three (\\uXXXX + Latin-1 + UTF-8) *** MIXED ***"),
+        (frozenset({'esc', 'lat1', 'utf8'}),
+         "All three (\\uXXXX + Latin-1 + UTF-8) *** MIXED ***"),
     ]
     if mix_counter:
         _emit("  Encoding-mix breakdown (per changed line):")
@@ -904,7 +904,7 @@ def main() -> None:
     # occurrence (primary) normally; for identical duplicates (twins) we just
     # rename the original to .orig and copy the primary's clean output.
     # This avoids re-running the full Python per-line pass on every twin.
-    valid_paths   = [p for p in opts.infiles if os.path.isfile(p)]
+    valid_paths = [p for p in opts.infiles if os.path.isfile(p)]
     invalid_paths = [p for p in opts.infiles if not os.path.isfile(p)]
 
     # Only consider files that will actually be processed (no .orig yet, or --overwrite).
@@ -940,10 +940,10 @@ def main() -> None:
 
     # Primaries first (ensures clean output exists before twins are processed).
     primaries = [p for p in valid_paths if p not in copy_from]
-    twins     = [p for p in valid_paths if p in copy_from]
-    ordered   = primaries + twins
+    twins = [p for p in valid_paths if p in copy_from]
+    ordered = primaries + twins
 
-    total_files   = 0
+    total_files = 0
     total_changed = 0
 
     for path in invalid_paths:
@@ -972,7 +972,7 @@ def main() -> None:
                     progress=opts.progress,
                     log_fh=log_fh,
                 )
-        total_files   += 1
+        total_files += 1
         total_changed += n
 
     print(

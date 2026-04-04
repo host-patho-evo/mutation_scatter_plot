@@ -28,6 +28,8 @@ an improvement over the prior `diff -u -w`.  The ANSI corruption was first
 observed when the DEL score changed from -11 → -6 (matrix-dynamic lookup,
 2026-03-31), producing the spurious "-116" artefact documented above.
 """
+from mutation_scatter_plot.mutation_scatter_plot.cli import main as mutation_scatter_plot_main  # pylint: disable=wrong-import-position
+from bokeh.document import Document  # pylint: disable=wrong-import-position
 import contextlib
 import filecmp
 import io
@@ -44,12 +46,11 @@ from unittest.mock import patch
 
 import matplotlib
 matplotlib.use('Agg')
-from bokeh.document import Document # pylint: disable=wrong-import-position
 
-from mutation_scatter_plot.mutation_scatter_plot.cli import main as mutation_scatter_plot_main # pylint: disable=wrong-import-position
 
 class TestMutationScatterPlot(unittest.TestCase):
     """Test cases for the mutation_scatter_plot CLI and rendering logic."""
+
     def setUp(self):
         # Determine the root directory of the project and paths to test inputs
         self.tests_dir = os.path.dirname(os.path.abspath(__file__))
@@ -78,9 +79,8 @@ class TestMutationScatterPlot(unittest.TestCase):
                     return 0, f.getvalue()
                 except SystemExit as e:
                     return e.code, f.getvalue()
-                except Exception as e: # pylint: disable=broad-exception-caught
+                except Exception as e:  # pylint: disable=broad-exception-caught
                     return 1, f.getvalue() + "\n" + str(e) + "\n" + traceback.format_exc()
-
 
     def _check_outputs(self, target_prefix, tmpdir, expected_basename_prefix):
         """Helper to compare all generated files with golden files stored in tests/outputs/"""
@@ -131,11 +131,13 @@ class TestMutationScatterPlot(unittest.TestCase):
                             self.fail(f"Bokeh internal data points differ for {gen_file}! "
                                       f"(see colorized diff above)")
                         else:
-                            print(f"Info: HTML file {gen_file} byte-mismatch ignored because internal Bokeh JSON structural mapping matched perfectly.")
+                            print(
+                                f"Info: HTML file {gen_file} byte-mismatch ignored because internal Bokeh JSON structural mapping matched perfectly.")
                     elif any(gen_file.endswith(ext) for ext in [".png", ".pdf"]):
                         print(f"Warning: {gen_file} plotting artifact differed from strictly byte-for-byte matching golden baseline natively (ignoring natively due to UUIDs/timestamps).\nDifferences:\nNone (diff unavailable without filecmp debug)")
                     else:
-                        self.fail(f"File {gen_file} does not match golden file {expected_filename}.\nDifferences:\nNone (diff unavailable without filecmp debug)")
+                        self.fail(
+                            f"File {gen_file} does not match golden file {expected_filename}.\nDifferences:\nNone (diff unavailable without filecmp debug)")
 
     def _extract_bokeh_data(self, html_path):
         """Extract data from Bokeh HTML file for comparison."""
@@ -694,6 +696,7 @@ class TestMutationScatterPlot(unittest.TestCase):
                 "#ffff80", html_text,
                 "Bokeh HTML must contain #ffff80 (blended yellow) in the colorbar palette",
             )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -116,7 +116,8 @@ def _process_one_site(
     _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3]
     _reference_codon_depadded = _reference_codon.replace('-', '')
 
-    _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index] if len(_reference_protein_seq) > _zero_based_padded_reference_aa_index else '?'
+    _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index] if len(
+        _reference_protein_seq) > _zero_based_padded_reference_aa_index else '?'
 
     # Pass 1: Local Grouping (Vectorized with NumPy)
     _local_groups = {}
@@ -270,6 +271,7 @@ def _process_one_site_wrapper(_pos: int):
         _d['minimum_aln_length'],
         _d['left_reference_offset'],
     )
+
 
 def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference_dna_seq: str,
                     reference_protein_seq: str, reference_as_codons: list[str],
@@ -527,7 +529,6 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
             )
         _aln_array = np.frombuffer(_all_seqs_str.encode('ascii'), dtype=np.uint8).reshape(_num_unique, _alignment_len)
 
-
         _counts_array = np.array([item['count'] for item in _parsed_alignments_list], dtype=np.int64)
         _padded_len_array = np.array([item['padded_len'] for item in _parsed_alignments_list], dtype=np.int32)
         _depadded_len_array = np.array([item['depadded_len'] for item in _parsed_alignments_list], dtype=np.int32)
@@ -600,16 +601,20 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         _last_flush_t = time.monotonic()
         for _res in _all_results:
             # Write results
-            write_tsv_line(outfilename_unchanged_codons, _res['unchanged'], _res['nat_padded'], _res['nat_depadded'], _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)
+            write_tsv_line(outfilename_unchanged_codons, _res['unchanged'], _res['nat_padded'], _res['nat_depadded'],
+                           _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)
             if _res['changed']:
-                write_tsv_line(outfilename, _res['changed'], _res['nat_padded'], _res['nat_depadded'], _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)
+                write_tsv_line(outfilename, _res['changed'], _res['nat_padded'], _res['nat_depadded'], _res['ref_aa'],
+                               _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)
             if _res['inserted']:
-                write_tsv_line(outfilename, _res['inserted'], _res['nat_padded'], _res['nat_depadded'], 'INS', _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)
+                write_tsv_line(outfilename, _res['inserted'], _res['nat_padded'], _res['nat_depadded'], 'INS',
+                               _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)
 
             if _res['is_deletion']:
                 for _some_deleted_codon in _res['deleted']:
                     _count = _res['deleted'][_some_deleted_codon]
-                    outfilename.write(f"{_res['nat_padded']}\t{_res['nat_depadded']}\t{_res['ref_aa']}\tDEL\t{Decimal(_count) / Decimal(_res['total_sum']):.6f}\t{_some_deleted_codon}\t---\t{_count}\t{_res['total_sum']}\n")
+                    outfilename.write(
+                        f"{_res['nat_padded']}\t{_res['nat_depadded']}\t{_res['ref_aa']}\tDEL\t{Decimal(_count) / Decimal(_res['total_sum']):.6f}\t{_some_deleted_codon}\t---\t{_count}\t{_res['total_sum']}\n")
 
             # Time-gated flush: avoids one NFS round-trip (~10 ms) per site.
             # On large datasets (hours runtime) this still flushes every 30 s so

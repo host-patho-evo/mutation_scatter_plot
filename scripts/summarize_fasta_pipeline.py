@@ -175,6 +175,7 @@ Examples:
     summarize_fasta_pipeline.py . spikenuc1207.native2ascii.no_junk --jobs 5 # exactly 5 workers
 """
 
+from mutation_scatter_plot.profiler import PROFILER
 import datetime
 import glob
 import hashlib
@@ -197,7 +198,6 @@ DISCARD_SCRIPT = os.path.join(SCRIPT_DIR, 'create_list_of_discarded_sequences.py
 
 VERSION = "202604030900"
 
-from mutation_scatter_plot.profiler import PROFILER
 
 # ── storage-type detection (for --jobs auto-tuning) ─────────────────────────
 
@@ -281,8 +281,8 @@ def _detect_storage_type(path: str) -> tuple[str, int]:
                 mpt_norm = mpt.rstrip('/') + '/'
                 if (real + '/').startswith(mpt_norm) and len(mpt_norm) > best_len:
                     best_len = len(mpt_norm)
-                    fs_type  = fstype
-                    mnt_dev  = dev
+                    fs_type = fstype
+                    mnt_dev = dev
     except OSError:
         return ('unknown (cannot read /proc/mounts)', _fallback_cap)
 
@@ -487,7 +487,6 @@ def _count_records_and_nnnx(path: str) -> tuple[int, int]:
     if n_nnnx_sum > 0:
         return n_rec, n_nnnx_sum + n_unprefixed
     return n_rec, 0
-
 
 
 def _shell_quote(s: str) -> str:
@@ -729,7 +728,7 @@ def _build_tsv(fasta_path: str, tsv_path: str,
     Returns a dict mapping each FASTA ID (first word) to its sha256hex string.
     """
     id_map: dict = {}    # sha256 -> [count, [first-word-id, ...]]
-    descr_map: dict = {} # sha256 -> [count, [full-header, ...]]
+    descr_map: dict = {}  # sha256 -> [count, [full-header, ...]]
     name = None
     full_header = None
     seq_parts: list[bytes] = []
@@ -951,10 +950,10 @@ def _verify_sha256(
         except ValueError:
             nnnx = 1
         if known_sha256s is not None and new_sha in known_sha256s:
-            n_existing  += 1
+            n_existing += 1
             sum_existing += nnnx
         else:
-            n_novel  += 1
+            n_novel += 1
             sum_novel += nnnx
 
     try:
@@ -966,7 +965,7 @@ def _verify_sha256(
                     line = _decode_fasta_line(raw).rstrip("\r\n")
                     if name is not None and is_nnnx_file:
                         _chk(name)
-                    hdr  = line[1:]
+                    hdr = line[1:]
                     toks = hdr.split()
                     name = toks[0] if toks else ""
                     seq_parts.clear()
@@ -1052,7 +1051,7 @@ def _classify_mismatches(
                 _resolve(name)
     except OSError as exc:
         print(f'  Warning: _classify_mismatches: cannot read {parent_path}: {exc}',
-             )
+              )
     return cats
 
 
@@ -1140,7 +1139,7 @@ def _write_original_descr_lines(
                     n_written += 1
     except OSError as exc:
         print(f"  Warning: could not read root TSV {root_descr_tsv}: {exc}",
-             )
+              )
     finally:
         for fh in open_fhs.values():
             fh.close()  # type: ignore[union-attr]
@@ -1237,10 +1236,10 @@ def _ensure_tsv(parent_path: str, add_checksums: bool = False,
             print(*args, **kwargs)
 
     stem = _strip_fasta_suffix(parent_path)
-    candidate     = stem + '.sha256_to_ids.tsv'
+    candidate = stem + '.sha256_to_ids.tsv'
     descr_candidate = stem + '.sha256_to_descr_lines.tsv' if full_fasta_header else ""
 
-    ids_tsv   = _fresh_tsv(parent_path)
+    ids_tsv = _fresh_tsv(parent_path)
     descr_tsv = _fresh_descr_tsv(parent_path) if full_fasta_header else None
 
     # If both TSVs are fresh and no checksums requested, return immediately.
@@ -1355,8 +1354,8 @@ def _compute_discard_stats(parent_path: str, child_path: str,
             print(*args, **kwargs)
 
     parent_base = os.path.basename(parent_path)
-    child_base  = os.path.basename(child_path)
-    child_stem  = _strip_fasta_suffix(child_path)
+    child_base = os.path.basename(child_path)
+    child_stem = _strip_fasta_suffix(child_path)
 
     # ── tier 1: fresh .discarded_sha256_hashes.txt ───────────────────────────
     txt = _fresh_discarded_txt(child_path, parent_path)
@@ -1383,16 +1382,16 @@ def _compute_discard_stats(parent_path: str, child_path: str,
         return None, None
 
     tsv, descr_tsv = _ensure_tsv(parent_path, add_checksums=add_checksums,
-                                  full_fasta_header=full_fasta_header,
-                                  verbose=verbose, out_lines=out_lines)
+                                 full_fasta_header=full_fasta_header,
+                                 verbose=verbose, out_lines=out_lines)
     # Prefer the descr TSV (full headers) when the caller requested it
     # and it was successfully built; fall back to ID-only TSV otherwise.
     mapping_tsv = descr_tsv if (full_fasta_header and descr_tsv) else tsv
     if mapping_tsv:
-        source_arg   = f'--mapping-outfile={mapping_tsv}'
+        source_arg = f'--mapping-outfile={mapping_tsv}'
         source_label = f"TSV: {os.path.basename(mapping_tsv)}"
     else:
-        source_arg   = f'--original-infilename={parent_path}'
+        source_arg = f'--original-infilename={parent_path}'
         source_label = f"FASTA scan: {parent_base}"
 
     if save_discard_list:
@@ -1403,7 +1402,7 @@ def _compute_discard_stats(parent_path: str, child_path: str,
         outfile = child_stem + '.discarded_sha256_hashes.txt'
         outfile_args = [f'--outfile={outfile}', '--overwrite']
     else:
-        outfile      = None
+        outfile = None
         outfile_args = ['--outfile=/dev/null']
 
     cmd = [
@@ -1464,12 +1463,12 @@ def _extract_discarded_to_fasta(
     mapping_path – the GISAID-level ancestor whose sha256_to_ids.tsv maps
                    sha256 → original GISAID accession IDs.
     """
-    child_stem   = _strip_fasta_suffix(child_path)
+    child_stem = _strip_fasta_suffix(child_path)
     mapping_stem = _strip_fasta_suffix(mapping_path)
-    sha_file     = child_stem + '.discarded_sha256_hashes.txt'
-    out_fasta    = child_stem + '.discarded_original_entries.fasta'
-    child_disp   = os.path.relpath(child_path,   search_path)
-    root_disp    = os.path.relpath(root_path,    search_path)
+    sha_file = child_stem + '.discarded_sha256_hashes.txt'
+    out_fasta = child_stem + '.discarded_original_entries.fasta'
+    child_disp = os.path.relpath(child_path,   search_path)
+    root_disp = os.path.relpath(root_path,    search_path)
     mapping_disp = os.path.relpath(mapping_path, search_path)
 
     print(f"  {child_disp}: extracting discarded records from {root_disp} "
@@ -1479,7 +1478,7 @@ def _extract_discarded_to_fasta(
     # ── Step 1: read sha256 hashes ─────────────────────────────────────────
     if not os.path.exists(sha_file):
         print(f"    Skipped: {os.path.basename(sha_file)} not found.",
-             )
+              )
         return
 
     target_sha256s: set[str] = set()
@@ -1497,7 +1496,7 @@ def _extract_discarded_to_fasta(
 
     if not target_sha256s:
         print(f"    Skipped: no sha256 entries in {os.path.basename(sha_file)}.",
-             )
+              )
         return
 
     # ── Step 2: map sha256s → GISAID IDs via GISAID-level ancestor TSV ──────
@@ -1532,11 +1531,11 @@ def _extract_discarded_to_fasta(
     if not fasta_ids:
         print(f"    Warning: no FASTA IDs found for the "
               f"{len(target_sha256s):,} discarded sha256(s) in {os.path.basename(root_tsv)}.",
-             )
+              )
         return
 
     print(f"    {len(fasta_ids):,} GISAID ID(s) for {len(target_sha256s):,} sha256(s).",
-         )
+          )
 
     # ── Step 3: write temporary names file ──────────────────────────────
     names_file = child_stem + '.discarded_fasta_ids.tmp'
@@ -1595,13 +1594,13 @@ def _scan_primary_file(
         'lines'      – list[str]  stderr progress lines (print atomically)
     """
     lines: list[str] = []
-    display  = os.path.relpath(f, search_path)
-    mtime_s  = datetime.datetime.fromtimestamp(
+    display = os.path.relpath(f, search_path)
+    mtime_s = datetime.datetime.fromtimestamp(
         os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M')
-    tag      = f"  [{idx + 1}/{n_total}]"
-    sz_str   = _fmt_size(os.path.getsize(f))
-    is_prot  = _is_prot_file(f)
-    kind     = 'protein FASTA' if is_prot else 'FASTA'
+    tag = f"  [{idx + 1}/{n_total}]"
+    sz_str = _fmt_size(os.path.getsize(f))
+    is_prot = _is_prot_file(f)
+    kind = 'protein FASTA' if is_prot else 'FASTA'
     lines.append(f"{_ts()}{tag} {display}  ({sz_str}, {kind}){PROFILER.get_current_load_str()}")
     lines.append("        counting records & summing NNNNx counts \u2026")
     n_rec, n_sum = _count_records_and_nnnx(f)
@@ -1687,7 +1686,7 @@ def _verify_one_file(
     # ── content twins with equivalent parent: no mismatches possible ───────────
     pri = content_twin.get(idx)
     if pri is not None:
-        p     = parent_map.get(idx)
+        p = parent_map.get(idx)
         p_pri = parent_map.get(pri)
         if p == pri or content_twin.get(p) == p_pri or p == p_pri:
             pri_display = os.path.relpath(files[pri], search_path)
@@ -1701,7 +1700,7 @@ def _verify_one_file(
         # Different parent context \u2014 fall through to normal verify.
 
     # ── normal verify ───────────────────────────────────────────────────────────
-    p              = parent_map.get(idx)
+    p = parent_map.get(idx)
     parent_sha256s = sha256_sets[p][0] if p is not None else None
     parent_display = (os.path.relpath(files[p], search_path)
                       if p is not None else '(no parent)')
@@ -1714,7 +1713,7 @@ def _verify_one_file(
         lines.append(
             f"{_ts()}    Warning: {display}:"
             + (f" {vd[0]:,} record(s) sha256\u2192existing" if vd[0] else "")
-            + (f" {vd[2]:,} record(s) sha256\u2192novel"    if vd[2] else "")
+            + (f" {vd[2]:,} record(s) sha256\u2192novel" if vd[2] else "")
             + f" (NNNNx: {vd[1]+vd[3]:,} total)"
         )
     else:
@@ -1753,21 +1752,21 @@ def main() -> None:
         sys.exit(0 if '--help' in args or '-h' in args else 1)
 
     search_path = args[0]
-    prefix      = args[1]
-    do_discard         = '--no-discard-stats'                      not in args
-    verbose            = '--verbose'                               in args
-    save_discard_list  = '--disable-discarded-original-ids-file'   not in args
-    add_checksums      = '--add-missing-checksums-to-fasta-files'  in args
-    full_fasta_header  = '--full-fasta-header'                     in args
+    prefix = args[1]
+    do_discard = '--no-discard-stats' not in args
+    verbose = '--verbose' in args
+    save_discard_list = '--disable-discarded-original-ids-file' not in args
+    add_checksums = '--add-missing-checksums-to-fasta-files' in args
+    full_fasta_header = '--full-fasta-header' in args
     # verify_sha256 is ON by default; pass --no-verify-sha256 to disable.
     # The old --verify-sha256 flag is accepted silently for backwards compat.
-    verify_sha256        = '--no-verify-sha256'             not in args
-    write_original_descr = '--write-original-descr-lines'  in args
+    verify_sha256 = '--no-verify-sha256' not in args
+    write_original_descr = '--write-original-descr-lines' in args
     # Classify mismatches is ON by default; pass --disable-classify-mismatches to disable.
     # The old --classify-mismatches flag is accepted silently for backwards compat.
-    classify_mismatches  = '--disable-classify-mismatches'  not in args
-    extract_discarded_fasta = '--extract-discarded-fasta'   in args
-    use_nnnx_counts      = '--use-nnnx-counts'              in args
+    classify_mismatches = '--disable-classify-mismatches' not in args
+    extract_discarded_fasta = '--extract-discarded-fasta' in args
+    use_nnnx_counts = '--use-nnnx-counts' in args
     # --outfile PATH: write TSV report to this file
     _out_str = (
         next((a.split('=', 1)[1] for a in args if a.startswith('--outfile=')), None)
@@ -1854,12 +1853,12 @@ def main() -> None:
 
     if not found:
         print(f"No files found under '{search_path}' matching '{prefix}*.fasta{{,.old,.ori,.orig}}'",
-             )
+              )
         sys.exit(1)
 
     # Sort by stem length (shorter = earlier in pipeline), then alphabetically.
     files = sorted(found, key=lambda p: (len(_strip_fasta_suffix(os.path.basename(p))),
-                                          os.path.basename(p)))
+                                         os.path.basename(p)))
     n_files = len(files)
     # ── resolve auto-jobs using the storage type of search_path ──────────────
     if jobs == 0:
@@ -1912,7 +1911,8 @@ def main() -> None:
                   if len(idxs) >= 2 and sz > 0}
     if _size_tied:
         summary = PROFILER.pop_phase_summary()
-        if summary: print(summary)
+        if summary:
+            print(summary)
         PROFILER.mark_phase_start("Phase 0")
         print(
             f"\n{_ts()}── Phase 0: Identity check (size + sha256) "
@@ -1924,6 +1924,7 @@ def main() -> None:
             f" identical files share scan results.",
 
         )
+
     def _sha256_worker(i: int) -> tuple[int, str]:
         """Compute sha256 for files[i]; print start message thread-safely."""
         _name = os.path.basename(files[i])
@@ -1954,7 +1955,7 @@ def main() -> None:
         sha_to_primary: dict[str, int] = {}
         for idx in sorted(idxs):
             name = os.path.basename(files[idx])
-            sha  = idx_to_sha[idx]
+            sha = idx_to_sha[idx]
             if sha in sha_to_primary:
                 pri_name = os.path.basename(files[sha_to_primary[sha]])
                 content_twin[idx] = sha_to_primary[sha]
@@ -1970,7 +1971,8 @@ def main() -> None:
 
     # ── gather per-file data ─────────────────────────────────────────────────
     summary = PROFILER.pop_phase_summary()
-    if summary: print(summary)
+    if summary:
+        print(summary)
     PROFILER.mark_phase_start("Phase 1")
     print(
         f"\n{_ts()}── Phase 1: Gather per-file statistics "
@@ -1999,7 +2001,7 @@ def main() -> None:
         for idx in primary_indices:
             result = _scan_primary_file(files[idx], idx, len(files), search_path, use_nnnx_counts)
             _emit_lines(result['lines'])
-            rows[idx]        = result['row']
+            rows[idx] = result['row']
             sha256_sets[idx] = result['sha256_set']
             prot_unique[idx] = result['prot_unique']
     else:
@@ -2022,7 +2024,7 @@ def main() -> None:
             for fut in as_completed(futs):
                 result = fut.result()
                 _emit_lines(result['lines'])
-                rows[result['idx']]        = result['row']
+                rows[result['idx']] = result['row']
                 sha256_sets[result['idx']] = result['sha256_set']
                 prot_unique[result['idx']] = result['prot_unique']
 
@@ -2036,7 +2038,7 @@ def main() -> None:
             os.path.getmtime(f)).strftime('%Y-%m-%d %H:%M')
         _, _, n_rec, n_sum = rows[pri]
         pri_display = os.path.relpath(files[pri], search_path)
-        rows[idx]        = (display, mtime_s, n_rec, n_sum)
+        rows[idx] = (display, mtime_s, n_rec, n_sum)
         sha256_sets[idx] = sha256_sets[pri]
         prot_unique[idx] = prot_unique[pri]
         print(
@@ -2051,7 +2053,8 @@ def main() -> None:
 
     if verify_sha256:
         summary = PROFILER.pop_phase_summary()
-        if summary: print(summary)
+        if summary:
+            print(summary)
         PROFILER.mark_phase_start("Phase 2")
         print(
             f"\n{_ts()}── Phase 2: sha256 integrity verification "
@@ -2081,7 +2084,7 @@ def main() -> None:
                 result = _run_verify(idx)
                 _emit_lines(result['lines'])
                 if result['verify_data'] is not _SKIP:
-                    verify_data[idx]   = result['verify_data']
+                    verify_data[idx] = result['verify_data']
                 classify_data[idx] = result['classify_data']
         else:
             max_w2 = min(jobs, len(files))
@@ -2097,7 +2100,7 @@ def main() -> None:
                     result = fut.result()
                     _emit_lines(result['lines'])
                     if result['verify_data'] is not _SKIP:
-                        verify_data[result['idx']]  = result['verify_data']
+                        verify_data[result['idx']] = result['verify_data']
                     classify_data[result['idx']] = result['classify_data']
 
     # ── phase 3: compute discard stats for all pairs ─────────────────────────
@@ -2105,7 +2108,8 @@ def main() -> None:
     discard_data: dict[int, tuple[int, int]] = {}  # child_idx -> (n_ids, nnnx_sum)
     if do_discard:
         summary = PROFILER.pop_phase_summary()
-        if summary: print(summary)
+        if summary:
+            print(summary)
         PROFILER.mark_phase_start("Phase 3")
         print(
             "\n── Phase 3: Discard statistics (parent→child pairs) "
@@ -2161,7 +2165,8 @@ def main() -> None:
     # ── Phase 4: extract discarded FASTA records from root ancestor ──────────
     if do_discard and extract_discarded_fasta:
         summary = PROFILER.pop_phase_summary()
-        if summary: print(summary)
+        if summary:
+            print(summary)
         PROFILER.mark_phase_start("Phase 4")
         print(
             f"\n{_ts()}── Phase 4: Extract discarded records from root ancestor "
@@ -2197,32 +2202,32 @@ def main() -> None:
     # ── print table ──────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))
     sep, w_num, w_delta, w_ts = "  ", 14, 16, 16
-    w_disc1  = len("'Discarded original unique Entries'")   # 34
-    w_disc2  = len("'Sum of discarded NNNNx'")               # 23
-    w_novel  = len("'Novel sha256s'")                   # 15
-    w_chg1   = max(len("'Seq clipped(dup)'"), w_num)
-    w_chg2   = max(len("'NNNNx clipped(dup)'"), w_num)
-    w_chg3   = max(len("'Seq clipped(new)'"), w_num)
-    w_chg4   = max(len("'NNNNx clipped(new)'"), w_num)
-    w_clip   = max(len("'Altered due to end-clipping'"), w_num)
-    w_itrn   = max(len("'Altered inside the sequence'"), w_num)
-    w_prot   = max(len("'Unique protein entries'"), w_num)
-    w_protn  = max(len("'Sum of protein NNNNx'"), w_num)
-    w_dprot  = max(len("Δprotein entries"), w_delta)
+    w_disc1 = len("'Discarded original unique Entries'")   # 34
+    w_disc2 = len("'Sum of discarded NNNNx'")               # 23
+    w_novel = len("'Novel sha256s'")                   # 15
+    w_chg1 = max(len("'Seq clipped(dup)'"), w_num)
+    w_chg2 = max(len("'NNNNx clipped(dup)'"), w_num)
+    w_chg3 = max(len("'Seq clipped(new)'"), w_num)
+    w_chg4 = max(len("'NNNNx clipped(new)'"), w_num)
+    w_clip = max(len("'Altered due to end-clipping'"), w_num)
+    w_itrn = max(len("'Altered inside the sequence'"), w_num)
+    w_prot = max(len("'Unique protein entries'"), w_num)
+    w_protn = max(len("'Sum of protein NNNNx'"), w_num)
+    w_dprot = max(len("Δprotein entries"), w_delta)
 
     _hdr_disc1 = "'Discarded original unique Entries'"
     _hdr_disc2 = "'Sum of discarded NNNNx'"
-    _hdr_nnnx  = "'Sum of NNNNx'"
-    _hdr_drec  = 'ΔFASTA entries'
-    _hdr_dsum  = 'ΔSumToParent'
+    _hdr_nnnx = "'Sum of NNNNx'"
+    _hdr_drec = 'ΔFASTA entries'
+    _hdr_dsum = 'ΔSumToParent'
     _hdr_novel = "'Novel sha256s'"
-    _hdr_chg1  = "'Seq clipped(dup)'"
-    _hdr_chg2  = "'NNNNx clipped(dup)'"
-    _hdr_chg3  = "'Seq clipped(new)'"
-    _hdr_chg4  = "'NNNNx clipped(new)'"
-    _hdr_clip  = "'Altered due to end-clipping'"
-    _hdr_itrn  = "'Altered inside the sequence'"
-    _hdr_prot  = "'Unique protein entries'"
+    _hdr_chg1 = "'Seq clipped(dup)'"
+    _hdr_chg2 = "'NNNNx clipped(dup)'"
+    _hdr_chg3 = "'Seq clipped(new)'"
+    _hdr_chg4 = "'NNNNx clipped(new)'"
+    _hdr_clip = "'Altered due to end-clipping'"
+    _hdr_itrn = "'Altered inside the sequence'"
+    _hdr_prot = "'Unique protein entries'"
     _hdr_dprot = "Δprotein entries"
     _hdr_protn = "'Sum of protein NNNNx'"
     verify_cols_hdr = (
@@ -2370,14 +2375,12 @@ def main() -> None:
                 f"{n_d:>{w_num},}{sep}{_em:>{w_delta}}{sep}"  # # FASTA entries (col 3) & delta
                 f"{s_d:>{w_num},}{sep}{_em:>{w_delta}}"     # Sum of NNNNx (col 5) & delta
                 + f"{sep}{_em:>{w_novel}}"                  # Novel
-                + f"{sep}{_em:>{w_prot}}{sep}{_em:>{w_dprot}}{sep}{_em:>{w_protn}}" # protein
+                + f"{sep}{_em:>{w_prot}}{sep}{_em:>{w_dprot}}{sep}{_em:>{w_protn}}"  # protein
                 + verify_cols_empty                         # Verify
-                + f"{sep}{_em:>{w_disc1}}{sep}{_em:>{w_disc2}}" # disc_cols
+                + f"{sep}{_em:>{w_disc1}}{sep}{_em:>{w_disc2}}"  # disc_cols
                 + disc_label,
                 file=out_fd
             )
-
-
 
     print(rule, file=out_fd)
 
@@ -2401,7 +2404,7 @@ def main() -> None:
     # ── overall summary ───────────────────────────────────────────────────────
     if len(rows) >= 2:
         first_rec, first_sum = rows[0][2], rows[0][3]
-        last_rec,  last_sum  = rows[-1][2], rows[-1][3]
+        last_rec,  last_sum = rows[-1][2], rows[-1][3]
         print(file=out_fd)
         print("Overall change  (last vs first):", file=out_fd)
         print(f"  # FASTA entries : {_delta_str(last_rec, first_rec):>16}  ({_pct_str(last_rec, first_rec)} of first)", file=out_fd)

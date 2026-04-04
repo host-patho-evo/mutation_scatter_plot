@@ -116,7 +116,7 @@ def _get_git_version() -> str:
 _GIT_VERSION: str = _get_git_version()
 
 _parser = argparse.ArgumentParser(description=__doc__,
-                                   formatter_class=argparse.RawDescriptionHelpFormatter)
+                                  formatter_class=argparse.RawDescriptionHelpFormatter)
 _parser.add_argument(
     "--infilename", required=True,
     help=(
@@ -214,7 +214,6 @@ _parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
-
 
 
 def _sort_inplace(path: str, sort_args: list) -> None:

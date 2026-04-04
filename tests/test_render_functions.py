@@ -82,8 +82,8 @@ def _build_bokeh_palette(colors, norm, cmap):
         raw_palette = ["#aaaaaa"] * n
     # Pre-blend to match the visual appearance of alpha=0.5 scatter glyphs.
     palette = [_blend_with_white(c, _BOKEH_CIRCLE_ALPHA) for c in raw_palette]
-    low_val  = -half - 0.5
-    high_val =  half + 0.5
+    low_val = -half - 0.5
+    high_val = half + 0.5
     return palette, low_val, high_val, list(score_range)
 
 
@@ -317,7 +317,6 @@ class TestRenderMatplotlibColorbar(unittest.TestCase):
         plt.close("all")
 
 
-
 # ---------------------------------------------------------------------------
 # Tests for _blend_with_white helper (alpha pre-blend logic)
 # ---------------------------------------------------------------------------
@@ -366,7 +365,7 @@ class TestBlendWithWhite(unittest.TestCase):
         neighbouring bands visually indistinguishable (the original bug was that
         the un-blended colorbar gold band for +1 looked the same as the blended
         orange circle for +2)."""
-        blended_0  = _blend_with_white("#ffff00", 0.5)   # score 0
+        blended_0 = _blend_with_white("#ffff00", 0.5)   # score 0
         blended_p2 = _blend_with_white("#ffa200", 0.5)   # score +2
         self.assertNotEqual(blended_0, blended_p2)
 

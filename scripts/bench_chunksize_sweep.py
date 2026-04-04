@@ -17,6 +17,11 @@ Tip: use --max-rows to benchmark on a manageable subset of a very large
 alignment file (e.g. millions of sequences) without changing the original.
 """
 
+from mutation_scatter_plot import alt_translate
+from mutation_scatter_plot.calculate_codon_frequencies import (
+    get_codons, parse_alignment,
+)
+from Bio import SeqIO
 import argparse
 import multiprocessing
 import multiprocessing.pool
@@ -32,13 +37,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
 
 # Bio and mutation_scatter_plot must follow sys.path fixup above.
 # pylint: disable=wrong-import-position
-from Bio import SeqIO
-from mutation_scatter_plot.calculate_codon_frequencies import (
-    get_codons, parse_alignment,
-)
-from mutation_scatter_plot import alt_translate
 
 # ── Subset helper (mirrors bench_thread_scaling.py) ──────────────────────────
+
 
 def _count_seqs(path):
     """Count FASTA records by counting '>' header lines."""
@@ -178,7 +179,7 @@ def main():
 
 
 def _run_sweep(args, alignment_file, n_workers, aln_size_kb, total_cores,
-              myoptions, ref_seq, prot_seq, codons, git_sha):
+               myoptions, ref_seq, prot_seq, codons, git_sha):
     """Inner sweep loop, separated so temp-dir cleanup always runs."""
     print(f"# Chunksize sweep for {os.path.basename(alignment_file)} ({aln_size_kb:.0f} KB)")
     print(f"# Workers: {n_workers}  |  Total cores: {total_cores}  |  Runs: {args.runs}")

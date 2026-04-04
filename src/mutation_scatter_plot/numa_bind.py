@@ -326,9 +326,9 @@ def autobind(mode: str = 'local', verbose: bool = True) -> int | None:
 
 
 def _print_bound_msg(best: _NUMANode, nodes: list[_NUMANode], method: str) -> None:
-    free_mib  = best.free_bytes // (1024 * 1024)
+    free_mib = best.free_bytes // (1024 * 1024)
     total_mib = sum(nd.free_bytes for nd in nodes) // (1024 * 1024)
-    cpus_str  = ','.join(str(c) for c in sorted(best.cpuset))
+    cpus_str = ','.join(str(c) for c in sorted(best.cpuset))
     print(
         f"[numa_bind] Bound to NUMA node {best.index} via {method}  "
         f"(free: {free_mib:,}/{total_mib:,} MiB, CPUs: {cpus_str})",

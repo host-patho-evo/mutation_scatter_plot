@@ -271,20 +271,21 @@ VERSION = "202601061600"
 
 myparser = OptionParser(version="%s version %s" % ('%prog', VERSION))
 myparser.add_option("--infile", action="store", type="string", dest="infile", default='',
-    help="Input FASTA file with start and stop coordinates and a word plus or minus as the last word of the header, use minus (dash) for stdin")
+                    help="Input FASTA file with start and stop coordinates and a word plus or minus as the last word of the header, use minus (dash) for stdin")
 myparser.add_option("--outfile", action="store", type="string", dest="outfile", default='',
-    help="Output filename with words plus and minus removed from FASTA header lines, use minus (dash) for stdout")
+                    help="Output filename with words plus and minus removed from FASTA header lines, use minus (dash) for stdout")
 myparser.add_option("--infileformat", action="store", type="string", dest="infileformat", default='fasta',
-    help="Input file format (Default: fasta)")
+                    help="Input file format (Default: fasta)")
 myparser.add_option("--outfileformat", action="store", type="string", dest="outfileformat", default='fasta-2line',
-    help="Output file format (Default: fasta-2line)")
+                    help="Output file format (Default: fasta-2line)")
 myparser.add_option("--drop-misinsertions", action="store_true", dest="drop_misinsertions", default=False,
-    help="Drop evidently mis-INSerted single- or double- nucleotides breaking the reading frame which must be a sequencing error. It drops the nucleotides from sample sequence if there is a dash in the reference.")
+                    help="Drop evidently mis-INSerted single- or double- nucleotides breaking the reading frame which must be a sequencing error. It drops the nucleotides from sample sequence if there is a dash in the reference.")
 myparser.add_option("--debug", action="store", type="int", dest="debug", default=0,
-    help="Enable debug output")
+                    help="Enable debug output")
 (myoptions, myargs) = myparser.parse_args()
 
-r=re.compile('-')
+r = re.compile('-')
+
 
 def find_insertions_in_sseq_and_drop_them_from_qseq(qseq, sseq):
     """Replace instances of single or double dashes and replace them with nothing.
@@ -298,7 +299,7 @@ def find_insertions_in_sseq_and_drop_them_from_qseq(qseq, sseq):
     We need to pass the sseq downstream in the output so that the number of INSertions
     in the reference can be used for subtraction.
     """
-    _protect_multiples_of_3 = sseq.replace('---','###')
+    _protect_multiples_of_3 = sseq.replace('---', '###')
 
     if myoptions.debug:
         print(f"BEFORE: {qseq}")
@@ -309,6 +310,7 @@ def find_insertions_in_sseq_and_drop_them_from_qseq(qseq, sseq):
         print(f"AFTER:  {_qseq}")
 
     return _qseq
+
 
 if __name__ == "__main__":
     if myoptions.infile == '-':
@@ -326,7 +328,8 @@ if __name__ == "__main__":
         _outfile = myoptions.outfile
 
     for _line in _infile:
-        myid, checksum, sstart, send, sstrand, evalue, bitscore, score, length, pident, nident, mismatch, positive, gapopen, gaps, ppos, qseq, sseq = 18 * ['']
+        myid, checksum, sstart, send, sstrand, evalue, bitscore, score, length, pident, nident, mismatch, positive, gapopen, gaps, ppos, qseq, sseq = 18 * \
+            ['']
         _fasta_header_items = _line.split()
         # qacc sstart send sstrand qseq sseq
         # qacc sstart send sstrand evalue bitscore score length pident nident mismatch positive gapopen gaps ppos qseq sseq
@@ -350,18 +353,22 @@ if __name__ == "__main__":
             # >A00877:1511:HWLFTDRX3:2:2101:30572:1141 1541 1141 minus
             raise ValueError("Cannot parse line %s" % _line)
 
-        _number_of_insertions_in_sseq = sseq.lstrip('-').rstrip('-').count('-') # we need the number of INSertions in the aligned sseq because that will make a difference when just subtracting coordinates
+        # we need the number of INSertions in the aligned sseq because that will make a difference when just subtracting coordinates
+        _number_of_insertions_in_sseq = sseq.lstrip('-').rstrip('-').count('-')
         if myoptions.drop_misinsertions and _number_of_insertions_in_sseq:
             # some INSertion in sample relative to reference
-            if myoptions.debug: print("some INSertion in sample")
+            if myoptions.debug:
+                print("some INSertion in sample")
             _qseq = find_insertions_in_sseq_and_drop_them_from_qseq(qseq, sseq)
         else:
             _qseq = qseq
 
         if checksum:
-            header_items = [f">{myid}.{checksum}", sstart, send, sstrand, evalue, bitscore, score, length, pident, nident, mismatch, positive, gapopen, gaps, ppos, sseq]
+            header_items = [f">{myid}.{checksum}", sstart, send, sstrand, evalue, bitscore,
+                            score, length, pident, nident, mismatch, positive, gapopen, gaps, ppos, sseq]
         else:
-            header_items = [f">{myid}", sstart, send, sstrand, evalue, bitscore, score, length, pident, nident, mismatch, positive, gapopen, gaps, ppos, sseq]
+            header_items = [f">{myid}", sstart, send, sstrand, evalue, bitscore, score,
+                            length, pident, nident, mismatch, positive, gapopen, gaps, ppos, sseq]
 
         header = " ".join(str(item) for item in header_items if item)
         sys.stdout.write(f"{header}\n{_qseq}\n")
