@@ -20,6 +20,5 @@ jobs:
         pip install -e .[dev]
         pip install pylint
     - name: Analysing the code with pylint
-      continue-on-error: true
       run: |
         pylint $(git ls-files '*.py')
