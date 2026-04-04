@@ -359,8 +359,9 @@ if __name__ == "__main__":
             _qseq = qseq
 
         if checksum:
-            output_str = ">%s.%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s%s" % (myid, checksum, sstart, send, sstrand, evalue, bitscore, score, length, pident, nident, mismatch, positive, gapopen, gaps, ppos, sseq, os.linesep, _qseq)
+            header_items = [f">{myid}.{checksum}", sstart, send, sstrand, evalue, bitscore, score, length, pident, nident, mismatch, positive, gapopen, gaps, ppos, sseq]
         else:
-            output_str = ">%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s%s" % (myid, sstart, send, sstrand, evalue, bitscore, score, length, pident, nident, mismatch, positive, gapopen, gaps, ppos, sseq, os.linesep, _qseq)
-            
-        sys.stdout.write(output_str + '\n')
+            header_items = [f">{myid}", sstart, send, sstrand, evalue, bitscore, score, length, pident, nident, mismatch, positive, gapopen, gaps, ppos, sseq]
+
+        header = " ".join(str(item) for item in header_items if item)
+        sys.stdout.write(f"{header}\n{_qseq}\n")
