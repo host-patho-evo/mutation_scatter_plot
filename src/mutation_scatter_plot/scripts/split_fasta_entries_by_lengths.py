@@ -86,6 +86,10 @@ def build_option_parser():
         "--debug", action="store", type=int, dest="debug", default=0,
         help="Set debug to some value",
     )
+    myparser.add_argument(
+        "--convert-to-upper", action="store_true", dest="convert_to_upper",
+        help="Convert nucleotide strings to uppercase before writing the outputs.",
+    )
     return myparser
 
 
@@ -155,6 +159,9 @@ def main():
           open(_longer_length_name,  'w', encoding='utf-8') as _longer_length):
 
         for _record in SeqIO.parse(myoptions.infile, myoptions.format):
+            if myoptions.convert_to_upper:
+                _record.seq = _record.seq.upper()
+                
             if myoptions.debug:
                 print(
                     f"Info: Record {_record.id} has length {len(_record.seq)} "
