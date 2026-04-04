@@ -6,6 +6,7 @@ import unittest
 sys.argv = ['reversecomplement_reads_on_minus.py']
 
 # isort: off
+# pylint: disable=wrong-import-position
 from scripts.reversecomplement_reads_on_minus import (
     myoptions, parse_input, shorten_sequence, string_reverse_complement)
 # isort: on
