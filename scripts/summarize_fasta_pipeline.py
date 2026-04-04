@@ -1818,7 +1818,11 @@ def main() -> None:
     # (which interprets literal \uXXXX escapes as real Unicode control chars,
     # causing header truncation and SHA256 mismatches in the discarded FASTA).
     _backup_suffixes = ('.fasta.orig', '.fasta.ori', '.fasta.old')
-    _clean_found = {p for p in found if not any(p.endswith(sfx) for sfx in _backup_suffixes)}
+    _clean_found = {
+        p for p in found
+        if not any(p.endswith(sfx) for sfx in _backup_suffixes)
+        and '.discarded_original_entries.' not in p
+    }
     _backed_up = found - _clean_found
     for bp in _backed_up:
         # Keep the backup only when no clean .fasta counterpart is present.
