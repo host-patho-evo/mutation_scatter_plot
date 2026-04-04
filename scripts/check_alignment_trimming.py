@@ -163,10 +163,10 @@ def _classify(current: str, original: str, current_id: str) -> str:
     """
     if not current or not original:
         return 'other'
-        
+
     parts = current_id.split()
     is_minus_header = False
-    
+
     # 1. Paranoid check: Look for "minus" or inverted start/stop coordinates
     if "minus" in parts[1:5]:
         is_minus_header = True
@@ -178,7 +178,7 @@ def _classify(current: str, original: str, current_id: str) -> str:
                 is_minus_header = True
         except ValueError:
             pass
-    
+
     # Forward strand checks
     if original.startswith(current):
         return 'header_conflict_warning' if is_minus_header else 'right_clipped'
@@ -186,7 +186,7 @@ def _classify(current: str, original: str, current_id: str) -> str:
         return 'header_conflict_warning' if is_minus_header else 'left_clipped'
     if current in original:
         return 'header_conflict_warning' if is_minus_header else 'both_ends_clipped'
-        
+
     # Reverse-complement strand checks
     rc_original = _reverse_complement(original)
     if rc_original.startswith(current):
@@ -195,7 +195,7 @@ def _classify(current: str, original: str, current_id: str) -> str:
         return 'left_clipped_rc'
     if current in rc_original:
         return 'both_ends_clipped_rc'
-        
+
     return 'other_rc_by_header' if is_minus_header else 'other'
 
 

@@ -161,7 +161,7 @@ def main():
         for _record in SeqIO.parse(myoptions.infile, myoptions.format):
             if myoptions.convert_to_upper:
                 _record.seq = _record.seq.upper()
-                
+
             if myoptions.debug:
                 print(
                     f"Info: Record {_record.id} has length {len(_record.seq)} "

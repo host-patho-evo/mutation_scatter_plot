@@ -2319,7 +2319,7 @@ def render_matplotlib(
         figure.savefig(outfile_prefix + _ext, dpi=myoptions.dpi)
         _prof_sum = PROFILER.pop_phase_summary()
         if _prof_sum: print(f"    {_prof_sum}")
-        
+
     PROFILER.mark_phase_start("Phase 4: Matplotlib Post-setup (Dummy)")
     _prof_sum = PROFILER.pop_phase_summary()
 

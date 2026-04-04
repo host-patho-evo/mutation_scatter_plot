@@ -207,7 +207,7 @@ def main():
         if os.path.exists(myoptions.alignment_infilename):
             if os.path.getsize(myoptions.alignment_infilename) == 0:
                 raise RuntimeError(f"Input file {myoptions.alignment_infilename} is empty")
-            
+
             PROFILER.start()
             PROFILER.mark_phase_start("Phase 1: Parse sequences")
             parse_alignment(
@@ -226,7 +226,7 @@ def main():
                 chunksize=_chunksize,
                 translation_table=myoptions.translation_table,
             )
-            
+
             _prof_sum = PROFILER.pop_phase_summary()
             if _prof_sum:
                 print()
