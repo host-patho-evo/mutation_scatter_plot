@@ -502,8 +502,8 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                     _aln_start = 0
                     _aln_stop = 0
                 if len(_fasta_description_items) >= 20:
-                    _aln_start_qseq = int(_fasta_description_items[3])
-                    _aln_stop_qseq = int(_fasta_description_items[4])
+                    _aln_start_qseq = int(_fasta_description_items[4])
+                    _aln_stop_qseq = int(_fasta_description_items[5])
                 else:
                     _aln_start_qseq = int(_fasta_description_items[9])
                     _aln_stop_qseq = int(_fasta_description_items[10])
