@@ -219,6 +219,16 @@ converted to their proper Unicode glyphs by this script:
     \u2019  '   Right single quotation mark / apostrophe  ← common in Italian
                     (e.g. dell\u2019Abruzzo, dell\u2019Aquila)
     \u2013  –   En dash                             (Greek hospital names)
+    \u05d3  ד   Hebrew letter Dalet                 (Israel)
+    \u05d5  ו   Hebrew letter Vav                   (Israel)
+    \u05d9  י   Hebrew letter Yod                   (Israel)
+    \u05dc  ל   Hebrew letter Lamed                 (Israel)
+    \u05de  מ   Hebrew letter Mem                   (Israel)
+    \u05df  ן   Hebrew letter Final Nun             (Israel)
+    \u05e2  ע   Hebrew letter Ayin                  (Israel)
+    \u05ea  ת   Hebrew letter Tav                   (Israel)
+    \u0e3a  ฺ   Thai character Phinthu              (Thailand: Bhumibol adulyadej)
+    \u00b2  ²   Superscript Two                     (USA: x²|Utah)
 
 Real-world examples (from spikenuc1207.fasta dry-run)
 ------------------------------------------------------
@@ -729,9 +739,10 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     mix_counter: Counter = Counter()
     # Per-codepoint frequency: how many changed lines contained each \uXXXX escape.
     cp_counter: Counter = Counter()
-    # Sample lines for each non-trivial encoding category (max 5 per type).
-    _max_samples = 5
+    # Sample lines for each non-trivial encoding category (max 50 per type).
+    _max_samples = 50
     warn_samples: dict = {}   # frozenset -> list[str]
+    warn_extras: dict = {}    # frozenset -> list[str] (for fallback)
     t_start = time.monotonic()
     t_last = t_start
 
@@ -768,8 +779,14 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
                 key = frozenset(enc_types)
                 if key != frozenset({'esc'}) and key != frozenset():
                     samples = warn_samples.setdefault(key, [])
+                    extras = warn_extras.setdefault(key, [])
+                    candidate = original_text.rstrip()
                     if len(samples) < _max_samples:
-                        samples.append(original_text.rstrip())
+                        # Force visual diversity: reject candidate if it shares a 35-char prefix with an existing sample
+                        if not any(candidate[:35] == s[:35] for s in samples):
+                            samples.append(candidate)
+                        elif len(extras) < _max_samples:
+                            extras.append(candidate)
 
                 if verbose or (not stats_only and dry_run):
                     # Print diff line; clear the progress line first if active.
@@ -863,7 +880,12 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
         frozenset({'esc', 'lat1', 'utf8'}),
     ]
     for key in _warn_keys:
-        samples = warn_samples.get(key)
+        samples = warn_samples.get(key, [])
+        extras = warn_extras.get(key, [])
+        # If we couldn't find 5 completely divergent examples, fill the rest from the redundant buffer.
+        while len(samples) < _max_samples and extras:
+            samples.append(extras.pop(0))
+
         if not samples:
             continue
         label = next((lb for k, lb in _mix_labels if k == key), str(sorted(key)))

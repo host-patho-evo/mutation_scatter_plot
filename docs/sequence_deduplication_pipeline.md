@@ -38,6 +38,20 @@ relationship machine-readable (see `summarize_fasta_pipeline.py`).
 
 ---
 
+## GISAID Data Woes: Encoding Corruption
+
+Due to the aggregated nature of GISAID FASTA exports worldwide, the header lines are frequently saturated with chaotic character-encoding combinations. A single dataset (e.g., `spikenuc1207.fasta`) may contain non-ASCII characters encoded simultaneously in three distinct formats—often crashing naive downstream parsing tools:
+
+1. **Valid UTF-8 multi-byte sequences** — standard international characters (e.g., `é` as `\xC3\xA9`).
+2. **Raw Latin-1 (ISO-8859-1) bytes** — single-byte accented characters injected by older laboratory legacy systems (e.g., French `é` as raw `\xe9`).
+3. **Literal `\uXXXX` escape sequences** — ASCII representations constructed by Java's `native2ascii` or Python's `unicode_escape` (e.g., the string `\u00e9`).
+
+Furthermore, some laboratory records contain completely obscure artifacts including Hebrew letters (`[U+05D3] ד`), Thai symbols (`[U+0E3A] ฺ`), and superscripts (`[U+00B2] ²`), often intertwined with Latin-1 bytes (such as an invisible soft hyphen `[\xAD]` glued to `Âƒ` in Mexican sequences).
+
+Using naively written parsers (e.g., standard `unidecode` or pure `try/except utf-8`) will catastrophically fail or corrupt valid bytes when it encounters a line that mixes raw Latin-1 (`\xe9`) with valid UTF-8 on the exact same header. This is uniquely mitigated by `fix_fasta_encoding.py`, which systematically losslessly parses and standardizes the entire 60GB raw input using Python's `surrogateescape` before any Java/BBTools layer touches the dataset.
+
+---
+
 ## File Naming Convention
 
 All scripts follow a consistent naming rule:
@@ -61,6 +75,13 @@ All scripts follow a consistent naming rule:
 
 ## Scripts
 
+### `analyze_obscure_chars.py`
+
+**Purpose:** Scans exactly root dataset elements for chaotic geographical non-ASCII combinations (international symbols, missing control byte encodings) and documents them thoroughly without altering the original database records.
+It produces a human-readable list of corrupt encodings sorted by character frequency map (`obscure_characters_analysis.txt`), ensuring robust traceability of character anomalies explicitly bypassed by the deduplication step. Extracted lists include precise references ranging from valid Unicode UTF-8 (`Košice`) to deeply tangled combinations like HTML soft hyphens and ISO-8859 byte ranges (`Ko ≈° ice`).
+
+**Mechanism:** Iterates natively over the original datasets utilizing Python `surrogateescape`, extracts encoding overlaps, and clusters them analytically. Triggered organically during Phase 0 of `summarize_fasta_pipeline.py`.
+
 ### `count_same_sequences.py`
 
 **Purpose:** Deduplicate a FASTA file and annotate each unique sequence with
@@ -79,7 +100,7 @@ where `NNNN` is the count and `sha256hex` is the 64-character hexadecimal
 SHA-256 of the uppercase, dash-stripped sequence.
 
 ### Post-Alignment Header Structure (`.clean.fasta`)
-If the sequences are subsequently processed through external alignment pipelines like `blastn` (e.g., via `processing4.sh`), the FASTA header is expanded into multiple tab-delimited columns. 
+If the sequences are subsequently processed through external alignment pipelines like `blastn` (e.g., via `processing4.sh`), the FASTA header is expanded into multiple tab-delimited columns.
 
 Crucially, the **very last item** appended to the end of the header line is the **padded reference sequence (`sseq`)** extracted directly from the true BLAST High-Scoring Segment Pair (HSP) alignment block.
 
@@ -90,9 +111,9 @@ A-G--T-T-GTT...
 ```
 
 > [!WARNING]
-> **Important Sequence Distinction:** 
+> **Important Sequence Distinction:**
 > Beware that the sequence appended to the end of the FASTA header line is **NOT** the raw sequence from the root (e.g., `spikenuc1207.fasta`), nor is it the sequence from the initial deduplication step (`spikenuc1207.no_junk.counts.fasta`), nor is it the plain, non-padded reference sequence of the Spike protein. It was excised from the HSP pairwise-alignment block.
-> 
+>
 > **It is a padded segment cut out from the aligned region** with its own unique length and dash placement. Furthermore, the DNA sequence data directly below it (the `SEQUENCE` body) is *also* padded, as it is extracted from that same HSP pairwise-alignment block.
 
 **Simultaneously** it performs a second pass over the original FASTA to build
@@ -269,7 +290,7 @@ used.
 | `--cpu-bind {local,spread,none}` | NUMA CPU binding policy (default: `local`). `local` binds all threads to the NUMA node with the most free RAM before any I/O begins. `spread` leaves OS placement unchanged. `none` disables autobind. Silently skipped on single-node hosts and when a job scheduler has already set placement via `GOMP_CPU_AFFINITY`, `KMP_AFFINITY`, `SLURM_CPU_BIND`, `SGE_BINDING`, or `OMP_PROC_BIND`. |
 | `--jobs N` | Number of parallel workers for Phase 0 (sha256 verification) and Phase 1 (FASTA scanning). **Default: 1 (sequential).** No auto-detection from environment variables: must be set explicitly. Recommended value: 4–8 for a pipeline with 5–20 FASTA files over NFS. |
 
-> **Why `--jobs` and not `--threads`?**  
+> **Why `--jobs` and not `--threads`?**
 > `summarize_fasta_pipeline.py` parallelises *across files* using
 > `concurrent.futures.ThreadPoolExecutor` (one thread per FASTA file).
 > In Phase 0 and Phase 1, FASTA reads utilize C-level operations (e.g., `bytes.split()`)
@@ -280,7 +301,7 @@ used.
 > heavily on Python string manipulation bytecode. The GIL forces sequential bytecode
 > execution, causing concurrent Phase 2 validations to context-switch and effectively
 > behave as if single-threaded (maxing out at 100% CPU). However, deploying
-> `ThreadPoolExecutor` instead of `ProcessPoolExecutor` guarantees the 11.8+ GB 
+> `ThreadPoolExecutor` instead of `ProcessPoolExecutor` guarantees the 11.8+ GB
 > `sha256_sets` dictionary is safely shared among all parallel verifications.
 > If processes were used, RAM cloning would trigger Out of Memory (OOM) kernel kills.
 
@@ -367,9 +388,9 @@ It normalises three encoding forms in a single streaming pass:
 
 ### Real-World GISAID Encoding Statistics
 
-Running `fix_fasta_encoding.py` on a standard 63-GB 17-million record GISAID dataset (`spikenuc1207.fasta`) produces a log confirming the massive scale of these broken formats. 
+Running `fix_fasta_encoding.py` on a standard 63-GB 17-million record GISAID dataset (`spikenuc1207.fasta`) produces a log confirming the massive scale of these broken formats.
 
-For the dataset, the script natively parses headers at **14.4 MB/s** and safely corrects over **1.4 million malformed lines** silently present in the GISAID aggregation. 
+For the dataset, the script natively parses headers at **14.4 MB/s** and safely corrects over **1.4 million malformed lines** silently present in the GISAID aggregation.
 The precise breakdown of the fixed pipeline anomalies is as follows:
 
 - **`\uXXXX` escapes only:** `1,398,889` lines (e.g. `\u00e9` for `é`)
@@ -495,7 +516,7 @@ GISAID sequence headers often contain geographical locations or institutions wit
 
 If parsing tools use basic `.split()[0]` isolation logic (cutting the string at the first space), these headers are dangerously truncated to: `Spike|hCoV-19/Hong` and `Spike|hCoV-19/South`.
 
-This causes catastrophic duplicate ID collisions. If a pipeline attempts to extract a single discarded sequence from Hong Kong using `.split()[0]`, it will inadvertently evaluate **every other sequence** from Hong Kong as a positive match because they all share the exact same truncated first word. This flaw is known to cause massive false-positive over-extractions (e.g., 156 discarded IDs errantly sweeping up 87,000 completely different sequences). 
+This causes catastrophic duplicate ID collisions. If a pipeline attempts to extract a single discarded sequence from Hong Kong using `.split()[0]`, it will inadvertently evaluate **every other sequence** from Hong Kong as a positive match because they all share the exact same truncated first word. This flaw is known to cause massive false-positive over-extractions (e.g., 156 discarded IDs errantly sweeping up 87,000 completely different sequences).
 
 ### The Pipeline Fix
 To prevent this, `summarize_fasta_pipeline.py` strictly prefers querying the `.sha256_to_descr_lines.tsv` mapping file during Phase 4 (`_extract_discarded_to_fasta`). By retaining the **full** un-split header string and using `_decode_fasta_line(raw)` to circumvent byte-level encoding mismatches, the pipeline natively discriminates between identical geographies and guarantees 1:1 traceability when extracting `discarded_original_entries.fasta` files.
@@ -543,7 +564,7 @@ Following native Python byte-parsing refactors (dropping external `grep` pipelin
 **Dataset Footprint (April 2026):**
 - 17,039,211 raw sequences (`spikenuc1207.fasta` / 63 GB)
 - 4,723,081 distinct sequence combinations deduplicated (`spikenuc1207.no_junk.counts.fasta` / 17 GB)
-- Cumulative `NNNNx` sequence expansion verified: 17,039,148 
+- Cumulative `NNNNx` sequence expansion verified: 17,039,148
 - Mathematical exact-match tracking confirmed lossless (63 explicitly junked sequences filtered).
 
 **Hardware Metrics (NVMe SSD with `--jobs 5`)**
@@ -554,7 +575,7 @@ Based on profiling of the full pipeline execution natively avoiding legacy shell
 * `Phase 3: Discard Statistics`: **17m 08s**, 16.8 GB Peak RAM (CPU Avg: 687%)
 * `Phase 4: Extract Discarded Records`: **8m 30s**, 18.4 GB Peak RAM (CPU Avg: 324%)
 
-**Total Time**: ~2 hours. 
+**Total Time**: ~2 hours.
 **(Note: Following the integration of `--use-nnnx-counts` in the upcoming `processing5.sh` runs, Phase 1 times are projected to further drop radically as `O(N)` heavy sequence regex counts are dynamically bypassed).**
 
 ### Pending Alignment Pipeline Benchmarks

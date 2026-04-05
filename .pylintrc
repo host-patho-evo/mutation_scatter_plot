@@ -10,7 +10,7 @@
 # W0621 redefined-outer-name – standard pytest fixture injection pattern
 # W0718 broad-exception-caught – intentional top-level catch-all handlers
 # duplicate-code             – pipeline stages share structural boilerplate
-disable=duplicate-code,C0301,R0912,R1702,R0913,R0917,W0718,R0915,C0415,R0914,W0621,C0209,C0103,R1705,R1720,R1732,W0613,W0702,W1514,R0911,W4901,C0116,W0105,C0114,R0902,C0115,W0612
+disable=duplicate-code,C0301,R0912,R1702,R0913,R0917,W0718,R0915,C0415,R0914,W0621,C0209,C0103,R1705,R1720,R1732,W0613,W0702,W1514,R0911,W4901,C0116,W0105,C0114,R0902,C0115,W0612,E2515,C0302
 
 [FORMAT]
 max-line-length=120
