@@ -315,27 +315,27 @@ def get_colormap(myoptions, colormapname):
                 import palettable
                 _cmap_from_palettable = palettable.colorbrewer.get_map(_wished_cmapname_prefix, 'diverging', _wished_cmapname_num)
                 _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-            except (ImportError, Exception):
+            except Exception:
                 try:
                     import palettable
                     _cmap_from_palettable = palettable.colorbrewer.get_map(_wished_cmapname_prefix, 'sequential', _wished_cmapname_num)
                     _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-                except (ImportError, Exception):
+                except Exception:
                     try:
                         import palettable.scientific.diverging
                         _cmap_from_palettable = palettable.scientific.diverging.get_map(_wished_cmapname_prefix)
                         _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-                    except (ImportError, Exception):
+                    except Exception:
                         try:
                             import palettable.scientific.sequential
                             _cmap_from_palettable = palettable.scientific.sequential.get_map(_wished_cmapname_prefix)
                             _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-                        except (ImportError, Exception):
+                        except Exception:
                             try:
                                 import palettable.mygbm
                                 _cmap_from_palettable = palettable.mygbm.get_map(_wished_cmapname_prefix)  # pylint: disable=no-member
                                 _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-                            except (ImportError, Exception):
+                            except Exception:
                                 print(f"Warning: Colormap {colormapname} not found, falling back to coolwarm_r")
                                 _cmap = matplotlib.colormaps.get_cmap('coolwarm_r')
     # Standard matplotlib colormaps (non-custom / no ListedColormap): sample
@@ -2274,7 +2274,7 @@ def render_matplotlib(
         try:
             _cursor = mplcursors.cursor(_mpl_scatterplot, hover=True)
             _cursor.connect("add", on_add)
-        except (ImportError, Exception):  # pylint: disable=broad-exception-caught
+        except Exception:  # pylint: disable=broad-exception-caught
             pass
         _prof_sum = PROFILER.pop_phase_summary()
         if _prof_sum:
@@ -2284,7 +2284,7 @@ def render_matplotlib(
         try:
             _cursor = mplcursors.cursor(_mpl_scatterplot, hover=True)
             _cursor.connect("add", on_add)
-        except (ImportError, Exception):  # pylint: disable=broad-exception-caught
+        except Exception:  # pylint: disable=broad-exception-caught
             pass
 
     _handles, _labels = [], []
@@ -2346,6 +2346,7 @@ def render_matplotlib(
 
         with open(outfile_prefix + ".matplotlib_hovers.json", "w", encoding="utf-8") as f:
             json.dump(_mpl_hovers, f, indent=2)
+            f.write("\n")
 
     # Embed the git commit hash as a small footnote so that PNG and PDF
     # files can always be traced back to the exact code version that produced
@@ -2366,7 +2367,7 @@ def render_matplotlib(
         print(f"    {_prof_sum}")
     for _ext in ('.png', '.pdf'):
         _wholefig = plt.gcf()
-        _figsize = _wholefig.get_size_inches()*_wholefig.dpi
+        _figsize = _wholefig.get_size_inches() * _wholefig.dpi
         print(f"Info: Writing into {outfile_prefix + _ext}, figure size is {_wholefig.get_size_inches()} inches and {_figsize} dpi")
         PROFILER.mark_phase_start(f"Phase 5: Matplotlib rendering ({_ext})")
         figure.savefig(outfile_prefix + _ext, dpi=myoptions.dpi)
