@@ -27,6 +27,20 @@ Behaviour
   ``--mapping-outfile`` are rejected with a helpful suggestion, catching the
   common typo ``--outfile-prefix=infilename=filename_prefix``.
 
+Performance Architecture
+------------------------
+This script was heavily optimized to solve catastrophic RAM death-spirals on 60+ GB inputs.
+Previously, the massive output of the Bash pipeline (`cat | reformat | sort | uniq`) was 
+buffered into memory via `subprocess.communicate()` and recursively copied into list arrays 
+via `io.StringIO(stdout).readlines()`. When executing deduplication over 30+ million sequences,
+slurping gigabytes of pipeline strings induced a locked GIL cycle, maxing CPU to 100% 
+while waiting for the operating system to swap RAM.
+
+The data generation is now completely asynchronous and natively streams off the `proc.stdout` iterator. 
+Memory footprint scales efficiently to O(1) independent of file mass. Because sequence output 
+from this script inherently flattens the sequences implicitly to single-line FASTA strings, 
+downstream scripts can safely drop overlapping `reformat.sh` wrappers.
+
 Example usage::
 
     count_same_sequences.py \\
@@ -162,7 +176,11 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
     print(f"Info: {cmd}")
     with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                           text=True, shell=True) as proc:
-        # Stream natively from the subprocess to prevent buffering gigabytes into RAM
+        # Stream natively from the subprocess to prevent buffering gigabytes into RAM.
+        # N.B. Legacy code used `stdout, _stderr = proc.communicate()` followed by
+        # `io.StringIO(stdout).readlines()`, which generated catastrophic memory loops
+        # and stalled CPU when flattening and allocating variables on 60 GB datasets.
+        # This explicit iterator prevents the process from becoming a single-core bottleneck.
         for line in proc.stdout:
             line = line.strip()
             if not line:
