@@ -8,9 +8,14 @@ import argparse
 
 def main():
     parser = argparse.ArgumentParser(description="High-performance sequence regex string replacer.")
-    default_tsv = os.path.join(os.path.dirname(os.path.abspath(__file__)), "s_protein_indel_misalignments.tsv")
-    parser.add_argument("--rules", default=default_tsv,
-                        help="Path to TSV rules. Defaults to s_protein_indel_misalignments.tsv alongside this script")
+    default_tsv = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "manual_SARS-CoV-2_InDel_realignment_rules.tsv"
+    )
+    parser.add_argument(
+        "--rules", default=default_tsv,
+        help="Path to TSV rules. Defaults to manual_SARS-CoV-2_InDel_realignment_rules.tsv alongside this script"
+    )
     args = parser.parse_args()
 
     # Pre-compile all regex rules safely
