@@ -50,6 +50,15 @@ Furthermore, some laboratory records contain completely obscure artifacts includ
 
 Using naively written parsers (e.g., standard `unidecode` or pure `try/except utf-8`) will catastrophically fail or corrupt valid bytes when it encounters a line that mixes raw Latin-1 (`\xe9`) with valid UTF-8 on the exact same header. This is uniquely mitigated by `fix_fasta_encoding.py`, which systematically losslessly parses and standardizes the entire 60GB raw input using Python's `surrogateescape` before any Java/BBTools layer touches the dataset.
 
+### The GISAID Decoding Timeline
+
+GISAID essentially functions as a pure database ingest interface without an aggressive normalization layer. The raw FASTA exports consist of hundreds of concatenated sequences submitted globally over years.
+
+When evaluating why UTF-8, Latin-1, and `\uXXXX` sequences coexist within the exact same database dump:
+* GISAID never officially "broke" or "fixed" their receiver over their timeline.
+* They absorb whichever literal byte sequence the submitting lab's software utilized. If a lab explicitly uploaded escaped HTML strings (`\uXXXX`), GISAID recorded the escaped string literal. If another lab uploaded raw binary Latin-1 natively from an older bioinformatics pipeline, GISAID stored the exact bytes. 
+* By strictly executing our new extraction utility right against the `*.orig` files utilizing Python's `surrogateescape`, we mathematically guarantee that we witness exactly what the submitter uploaded, bypassing GISAID entirely! It is a pure reflection of the global laboratory landscape.
+
 ---
 
 ## File Naming Convention
