@@ -2118,9 +2118,9 @@ def main() -> None:
             lines: list[str] = []
             p_display = os.path.relpath(files[p], search_path)
             c_display = os.path.relpath(f_child, search_path)
-            if i in sum_data and sum_data[i][0] == 0:
+            if rows[i] and rows[i][2] == 0:
                 lines.append(f"  [{i+1}/{len(files)}] {p_display} → {c_display} …")
-                n_p_rec, s_p_rec = sum_data[p]
+                n_p_rec, s_p_rec = rows[p][2], rows[p][3]
                 lines.append(f"    Skipped computation: file is empty (implicit 100% discard of {n_p_rec:,} IDs).")
                 return {'idx': i, 'stats': (n_p_rec, s_p_rec), 'lines': lines}
 
@@ -2180,8 +2180,9 @@ def main() -> None:
             )
         ]
         for child_idx in p4_children:
-            if child_idx in sum_data and sum_data[child_idx][0] == 0:
-                print(f"  Skipped extracting discarded records for {os.path.basename(files[child_idx])} (empty subset, implicit 100% discard).")
+            if rows[child_idx] and rows[child_idx][2] == 0:
+                print(f"  Skipped extracting discarded records for "
+                      f"{os.path.basename(files[child_idx])} (empty subset, implicit 100% discard).")
                 continue
             # Walk parent_map up to the root ancestor (no parent).
             root_idx = child_idx
