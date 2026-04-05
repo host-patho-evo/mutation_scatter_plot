@@ -312,27 +312,27 @@ def get_colormap(myoptions, colormapname):
             _cmap = plt.get_cmap(colormapname)
         except Exception:
             try:
-                import palettable
+                import palettable  # pylint: disable=import-error
                 _cmap_from_palettable = palettable.colorbrewer.get_map(_wished_cmapname_prefix, 'diverging', _wished_cmapname_num)
                 _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
             except Exception:
                 try:
-                    import palettable
+                    import palettable  # pylint: disable=import-error
                     _cmap_from_palettable = palettable.colorbrewer.get_map(_wished_cmapname_prefix, 'sequential', _wished_cmapname_num)
                     _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
                 except Exception:
                     try:
-                        import palettable.scientific.diverging
+                        import palettable.scientific.diverging  # pylint: disable=import-error
                         _cmap_from_palettable = palettable.scientific.diverging.get_map(_wished_cmapname_prefix)
                         _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
                     except Exception:
                         try:
-                            import palettable.scientific.sequential
+                            import palettable.scientific.sequential  # pylint: disable=import-error
                             _cmap_from_palettable = palettable.scientific.sequential.get_map(_wished_cmapname_prefix)
                             _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
                         except Exception:
                             try:
-                                import palettable.mygbm
+                                import palettable.mygbm  # pylint: disable=import-error,no-name-in-module
                                 _cmap_from_palettable = palettable.mygbm.get_map(_wished_cmapname_prefix)  # pylint: disable=no-member
                                 _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
                             except Exception:
