@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
 # vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
+"""
+High-Performance Sequence Realignment Filter
+
+Replaces legacy sequential bash 'sed' string pipelines by deploying a highly optimized
+C-native python regular expression matrix. This utility dynamically parses sequence strings
+identically to the historical sed expressions, ensuring output sequence parity.
+
+To shatter single-core stream limits natively bound to standard POSIX pipes, this module
+incorporates dynamic `multiprocessing.Pool` infrastructure. It arrays input sequence lines
+into chunks of 10,000 strings and asynchronously dispatches them across `N` background
+CPU workers internally using `imap`, perfectly scaling `blastn` pipelines organically
+while mathematically guaranteeing the returned stdout string order identical to stdin.
+
+It relies on an external TSV rule-database dynamically mapped upon worker startup,
+bypassing structural IPC locking and pickling bottlenecks correctly natively.
+"""
 import sys
 import os
 import re
@@ -13,8 +29,12 @@ _COMPILED_RULES = []
 
 def _init_worker(rules_path):
     """
-    Initializes each worker process by dynamically compiling the TSV regex rules.
-    This entirely prevents cross-process thread-safety and IPC pickling overhead.
+    Initializes each worker process by dynamically loading and structurally compiling
+    the TSV regex rules. This strictly prevents cross-process thread-safety and IPC
+    pickling overhead natively inside the memory-sandbox.
+
+    Args:
+        rules_path (str): The physical path to the tab-separated TSV patterns file.
     """
     global _COMPILED_RULES  # pylint: disable=global-statement
     _COMPILED_RULES = []
@@ -38,7 +58,14 @@ def _init_worker(rules_path):
 
 def _process_chunk(chunk):
     """
-    Processes a rigid multi-line chunk sequentially matching bash strictness structurally.
+    Evaluates a rigid multi-line structural chunk securely matching bash pipeline strictness.
+    Arrays the matrix over all `_COMPILED_RULES` sequentially across each line.
+
+    Args:
+        chunk (list): Native array representing a structural block of incoming FASTA strings.
+
+    Returns:
+        list: The securely processed line array identically maintaining ordered positional indices natively.
     """
     results = []
     for line in chunk:
@@ -50,7 +77,15 @@ def _process_chunk(chunk):
 
 def get_chunks(iterable, size=10000):
     """
-    Safely yields chunks of sizes dynamically buffered structurally bypassing RAM explosions.
+    Dynamically generates chunks of execution batches smoothly buffering I/O mathematically
+    bypassing monolithic system RAM allocation bottlenecks.
+
+    Args:
+        iterable: The physical sequence array (e.g. `sys.stdin`) dynamically evaluated.
+        size (int): Size per chunk buffer intuitively defaulted to 10000 identically safely.
+
+    Yields:
+        list: A structural block mapped perfectly natively internally safely.
     """
     it = iter(iterable)
     while True:
@@ -61,6 +96,10 @@ def get_chunks(iterable, size=10000):
 
 
 def main():
+    """
+    Main invocation mechanism structurally instantiating argument execution and multiprocess
+    logic deployments. It parses the dynamic terminal bindings natively.
+    """
     parser = argparse.ArgumentParser(description="High-performance multi-core sequence regex string replacer.")
     default_tsv = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),

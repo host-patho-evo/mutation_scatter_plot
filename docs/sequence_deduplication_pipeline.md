@@ -589,7 +589,7 @@ Based on profiling of the full pipeline execution natively avoiding legacy shell
 
 ### Pending Alignment Pipeline Benchmarks
 The metrics above reflect the tracking and summary analytics. The huge core alignment computation:
-`blastn | parse | drop_erroneous_insertions.py | reversecomplement_reads_on_minus.py | fix_SARS-CoV2...`
+`blastn | parse | drop_erroneous_insertions.py | reversecomplement_reads_on_minus.py | manual_SARS-CoV-2_InDel_realignment.py`
 skipped execution during this measurement window due to existing `.clean.fasta` cache hits. However, since we recently updated that chain to use high-throughput array parsers and absolute `O(1)` zip comprehensions, metrics reflecting those massive architectural speedups will be injected here following the next raw `processing5.sh` deployment.
 
 The native integration of `concurrent.futures.ThreadPoolExecutor` directly passing I/O buffers natively into C-space allows spanning multiple cores effectively through Python's GIL. Peak RAM reached 18.4GB across Phase 4 mapping operations, while iterating dynamically over **210+ GB of raw sequence data** efficiently in streaming chunks.
