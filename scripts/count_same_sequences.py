@@ -152,7 +152,7 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
         cmd = (
             f"cat {infilename} | reformat.sh fastawrap=0 in=stdin.{infile_format}"
             f" out=stdout.fasta simd=f"
-            f" | awk 'NR %% 2 == 0'"
+            f" | awk 'NR % 2 == 0'"
             f" | sort -S {sort_bucket_size}"
             f" | uniq -c | sort -S {sort_bucket_size} -nr | head -n {top_n}"
         )
@@ -160,7 +160,7 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
         cmd = (
             f"cat {infilename} | reformat.sh fastawrap=0 in=stdin.{infile_format}"
             f" out=stdout.fasta simd=f"
-            f" | awk 'NR %% 2 == 0'"
+            f" | awk 'NR % 2 == 0'"
             f" | sort -S {sort_bucket_size}"
             f" | uniq -c | sort -S {sort_bucket_size} -nr"
             f" | awk '{{if ($1 >= {min_count}) print}}'"
@@ -169,7 +169,7 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
         cmd = (
             f"cat {infilename} | reformat.sh fastawrap=0 in=stdin.{infile_format}"
             f" out=stdout.fasta simd=f"
-            f" | awk 'NR %% 2 == 0'"
+            f" | awk 'NR % 2 == 0'"
             f" | sort -S {sort_bucket_size}"
             f" | uniq -c | sort -S {sort_bucket_size} -nr"
         )
