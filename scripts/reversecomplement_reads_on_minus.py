@@ -501,9 +501,9 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                 else:
                     _aln_start = 0
                     _aln_stop = 0
-                if len(_fasta_description_items) >= 20:
-                    _aln_start_qseq = int(_fasta_description_items[4])
-                    _aln_stop_qseq = int(_fasta_description_items[5])
+                if len(_fasta_description_items) >= 19:
+                    _aln_start_qseq = int(_fasta_description_items[3])
+                    _aln_stop_qseq = int(_fasta_description_items[4])
                 else:
                     _aln_start_qseq = int(_fasta_description_items[9])
                     _aln_stop_qseq = int(_fasta_description_items[10])
@@ -537,7 +537,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
             elif _fasta_description_items[3] == 'plus':
                 record.description = _description
                 _fasta_description_items = _description.split()
-                if len(_fasta_description_items) >= 20:
+                if len(_fasta_description_items) >= 19:
                     _aln_start_qseq = int(_fasta_description_items[3])
                     _aln_stop_qseq = int(_fasta_description_items[4])
                 else:
@@ -589,7 +589,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
                     raise ValueError(
                         f"Error: Header missing upstream blastn fields. Expected at least 15 items, found {len(_fasta_description_items)}. Ensure awk pipeline passes qseq/sseq columns natively.")
 
-                if len(_fasta_description_items) >= 20:
+                if len(_fasta_description_items) >= 19:
                     _aln_start_qseq = int(_fasta_description_items[3])
                     _aln_stop_qseq = int(_fasta_description_items[4])
                 else:
