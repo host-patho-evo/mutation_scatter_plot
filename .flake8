@@ -12,3 +12,4 @@ per-file-ignores =
     tests/test_translation.py: E402
     scripts/analyze_obscure_chars.py: E501
     scripts/summarize_fasta_pipeline.py: E501
+    scripts/count_same_sequences.py: E501

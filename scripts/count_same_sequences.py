@@ -30,15 +30,15 @@ Behaviour
 Performance Architecture
 ------------------------
 This script was heavily optimized to solve catastrophic RAM death-spirals on 60+ GB inputs.
-Previously, the massive output of the Bash pipeline (`cat | reformat | sort | uniq`) was 
-buffered into memory via `subprocess.communicate()` and recursively copied into list arrays 
+Previously, the massive output of the Bash pipeline (`cat | reformat | sort | uniq`) was
+buffered into memory via `subprocess.communicate()` and recursively copied into list arrays
 via `io.StringIO(stdout).readlines()`. When executing deduplication over 30+ million sequences,
-slurping gigabytes of pipeline strings induced a locked GIL cycle, maxing CPU to 100% 
+slurping gigabytes of pipeline strings induced a locked GIL cycle, maxing CPU to 100%
 while waiting for the operating system to swap RAM.
 
-The data generation is now completely asynchronous and natively streams off the `proc.stdout` iterator. 
-Memory footprint scales efficiently to O(1) independent of file mass. Because sequence output 
-from this script inherently flattens the sequences implicitly to single-line FASTA strings, 
+The data generation is now completely asynchronous and natively streams off the `proc.stdout` iterator.
+Memory footprint scales efficiently to O(1) independent of file mass. Because sequence output
+from this script inherently flattens the sequences implicitly to single-line FASTA strings,
 downstream scripts can safely drop overlapping `reformat.sh` wrappers.
 
 Example usage::
@@ -57,7 +57,6 @@ Example usage::
 
 import argparse
 import hashlib
-import io
 import os
 import re
 import subprocess
@@ -140,12 +139,12 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
     we allow to specify percentage of total RAM to be used '50%' or specify size as '10G' from the [KMGTP].
 
     Note on BBTools flags:
-    `simd=f` is explicitly required to work around a known bug in BBTools (encountered in v39.55, 
-    present in <= v39.61) where SIMD-accelerated uppercase conversion (`tuc=t` or implicit forced uppercase) 
-    fails to check for letter status and inadvertently converts alignment padding dashes (`-`) 
+    `simd=f` is explicitly required to work around a known bug in BBTools (encountered in v39.55,
+    present in <= v39.61) where SIMD-accelerated uppercase conversion (`tuc=t` or implicit forced uppercase)
+    fails to check for letter status and inadvertently converts alignment padding dashes (`-`)
     into carriage returns (`\r`). This is slated to be fixed in bbmap 39.62+.
 
-    `fastawrap=0` is critical because BBTools native output defaults to wrapping sequence lines to 70 characters. 
+    `fastawrap=0` is critical because BBTools native output defaults to wrapping sequence lines to 70 characters.
     Without it, the downstream `awk 'NR % 2 == 0'` pipe would silently shred wrapped sequences into fragments.
     """
     if top_n:
@@ -203,7 +202,7 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
         _stderr = proc.stderr.read()
         if proc.returncode != 0:
             print(f"Warning: Data extraction pipeline completed with exit code {proc.returncode}. Stderr: {_stderr}", file=sys.stderr)
-            
+
     sys.stdout.flush()
     sys.stderr.flush()
 

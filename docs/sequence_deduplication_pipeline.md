@@ -56,7 +56,7 @@ GISAID essentially functions as a pure database ingest interface without an aggr
 
 When evaluating why UTF-8, Latin-1, and `\uXXXX` sequences coexist within the exact same database dump:
 * GISAID never officially "broke" or "fixed" their receiver over their timeline.
-* They absorb whichever literal byte sequence the submitting lab's software utilized. If a lab explicitly uploaded escaped HTML strings (`\uXXXX`), GISAID recorded the escaped string literal. If another lab uploaded raw binary Latin-1 natively from an older bioinformatics pipeline, GISAID stored the exact bytes. 
+* They absorb whichever literal byte sequence the submitting lab's software utilized. If a lab explicitly uploaded escaped HTML strings (`\uXXXX`), GISAID recorded the escaped string literal. If another lab uploaded raw binary Latin-1 natively from an older bioinformatics pipeline, GISAID stored the exact bytes.
 * By strictly executing our new extraction utility right against the `*.orig` files utilizing Python's `surrogateescape`, we mathematically guarantee that we witness exactly what the submitter uploaded, bypassing GISAID entirely! It is a pure reflection of the global laboratory landscape.
 
 ---

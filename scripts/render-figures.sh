@@ -41,7 +41,7 @@ mutation_scatter_plot --xmin 430 --xmax 528 --tsv BA2-4th-round-of-sort__G6.BA2.
 # move the resulting files to their respective folders
 d=`cwd`
 rm -f *.aa.frequencies.legend.png # zap empty figures
-mkdir -p "$d"data/outputs "$d"data/outputs/codon "$d"data/outputs/codon/legend "$d"data/outputs/codon/jpg "$d"data/outputs/codon/png "$d"data/outputs/codon/pdf "$d"data/outputs/codon/html "$d"data/outputs/codon/color "$d"data/outputs/aa "$d"data/outputs/aa/jpg "$d"data/outputs/aa/png "$d"data/outputs/aa/pdf "$d"data/outputs/aa/html "$d"data/outputs/aa/color/ 
+mkdir -p "$d"data/outputs "$d"data/outputs/codon "$d"data/outputs/codon/legend "$d"data/outputs/codon/jpg "$d"data/outputs/codon/png "$d"data/outputs/codon/pdf "$d"data/outputs/codon/html "$d"data/outputs/codon/color "$d"data/outputs/aa "$d"data/outputs/aa/jpg "$d"data/outputs/aa/png "$d"data/outputs/aa/pdf "$d"data/outputs/aa/html "$d"data/outputs/aa/color/
 mv *.codon.frequencies.legend.* "$d"/data/outputs/codon/legend/
 for ext in jpg png pdf html; do
     mv *.codon.frequencies."$ext" "$d"/data/outputs/codon/"$ext"/
@@ -51,4 +51,3 @@ done
 mv *.codon.frequencies.colors.tsv "$d"/data/outputs/codon/color/
 mv *.aa.frequencies.colors.tsv "$d"/data/outputs/aa/color/
 mv *.frequencies.actually_rendered.tsv "$d"/data/outputs/
-
