@@ -1862,6 +1862,7 @@ def main() -> None:
                 f"{_ts()}Analyzing global encoding corruption anomalies in "
                 f"{os.path.basename(root_file)}..."
             )
+            sys.stdout.flush()
             cmd = [sys.executable, ANALYZE_CHARS_SCRIPT, root_file, "--outfile", expected_out]
             try:
                 subprocess.run(cmd, check=True)
