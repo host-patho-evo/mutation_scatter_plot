@@ -162,12 +162,11 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
     print(f"Info: {cmd}")
     with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                           text=True, shell=True) as proc:
-        stdout, _stderr = proc.communicate()
-    sys.stdout.flush()
-    sys.stderr.flush()
-
-    for line in io.StringIO(stdout).readlines():
-        if line:
+        # Stream natively from the subprocess to prevent buffering gigabytes into RAM
+        for line in proc.stdout:
+            line = line.strip()
+            if not line:
+                continue
             try:
                 count, sequence = line.split()
             except ValueError:
@@ -181,6 +180,14 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
                     count, sequence = myvalues[0], myvalues[-1]
             digest = hashlib.sha256(sequence.replace('-', '').upper().encode()).hexdigest()
             outfileh.write(f">{count}x.{digest}{os.linesep}{sequence}{os.linesep}")
+
+        proc.wait()
+        _stderr = proc.stderr.read()
+        if proc.returncode != 0:
+            print(f"Warning: Data extraction pipeline completed with exit code {proc.returncode}. Stderr: {_stderr}", file=sys.stderr)
+            
+    sys.stdout.flush()
+    sys.stderr.flush()
 
 
 def build_sha256_id_mapping(infilename, mapping_outfile, debug=0):
