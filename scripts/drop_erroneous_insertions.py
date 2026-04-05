@@ -330,30 +330,19 @@ if __name__ == "__main__":
         _outfile = myoptions.outfile
 
     for _line in _infile:
-        myid, checksum, sstart, send, sstrand, evalue, bitscore, score, length, pident, nident, mismatch, positive, gapopen, gaps, ppos, qseq, sseq = 18 * \
-            ['']
         _fasta_header_items = _line.split()
-        # qacc sstart send sstrand qseq sseq
-        # qacc sstart send sstrand evalue bitscore score length pident nident mismatch positive gapopen gaps ppos qseq sseq
-        if len(_fasta_header_items) == 17:
-            myid, sstart, send, sstrand, evalue, bitscore, score, length, pident, nident, mismatch, positive, gapopen, gaps, ppos, qseq, sseq = _fasta_header_items
-            if 'x.' in myid:
-                myid, checksum = myid.split('.')
-            else:
-                checksum = ''
-        elif len(_fasta_header_items) == 18:
-            myid, checksum, sstart, send, sstrand, evalue, bitscore, score, length, pident, nident, mismatch, positive, gapopen, gaps, ppos, qseq, sseq = _fasta_header_items
-        elif len(_fasta_header_items) == 6:
-            myid, sstart, send, sstrand, qseq, sseq = _fasta_header_items
-            if 'x.' in myid:
-                myid, checksum = myid.split('.')
-            else:
-                checksum = ''
-        elif len(_fasta_header_items) == 7:
-            myid, checksum, sstart, send, sstrand, qseq, sseq = _fasta_header_items
-        else:
-            # >A00877:1511:HWLFTDRX3:2:2101:30572:1141 1541 1141 minus
+        if len(_fasta_header_items) < 4:
             raise ValueError("Cannot parse line %s" % _line)
+
+        qseq = _fasta_header_items[-2]
+        sseq = _fasta_header_items[-1]
+
+        if len(_fasta_header_items) > 6 and len(_fasta_header_items[1]) == 64 and all(c in '0123456789abcdefABCDEF' for c in _fasta_header_items[1]):
+            qacc = f"{_fasta_header_items[0]}.{_fasta_header_items[1]}"
+            middle_items = _fasta_header_items[2:-2]
+        else:
+            qacc = _fasta_header_items[0]
+            middle_items = _fasta_header_items[1:-2]
 
         # we need the number of INSertions in the aligned sseq because that will make a difference when just subtracting coordinates
         _number_of_insertions_in_sseq = sseq.lstrip('-').rstrip('-').count('-')
@@ -365,12 +354,6 @@ if __name__ == "__main__":
         else:
             _qseq = qseq
 
-        if checksum:
-            header_items = [f">{myid}.{checksum}", sstart, send, sstrand, evalue, bitscore,
-                            score, length, pident, nident, mismatch, positive, gapopen, gaps, ppos, sseq]
-        else:
-            header_items = [f">{myid}", sstart, send, sstrand, evalue, bitscore, score,
-                            length, pident, nident, mismatch, positive, gapopen, gaps, ppos, sseq]
-
+        header_items = [f">{qacc}"] + middle_items + [sseq]
         header = " ".join(str(item) for item in header_items if item)
         sys.stdout.write(f"{header}\n{_qseq}\n")
