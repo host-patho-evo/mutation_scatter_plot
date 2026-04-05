@@ -910,12 +910,8 @@ def _verify_sha256(
                        mismatch as padded(new).
 
     Returns:
-        (n_existing, sum_nnnx_existing, n_novel, sum_nnnx_novel) or None when
-        the file has no ID-embedded sha256 (GISAID / legacy) or is empty.
-
-    Returns:
         (n_clipped_dup, sum_nnnx_clipped_dup, n_clipped_new, sum_nnnx_clipped_new,
-         altered_id_sha256s)
+         altered_id_sha256s, mismatch_seqs)
         where *altered_id_sha256s* is the set of id-embedded sha256 strings for every
         record whose current sequence sha256 differs from the one in its ID.
         Returns None when the file has no ID-embedded sha256 or is empty.
@@ -925,12 +921,13 @@ def _verify_sha256(
     n_novel = 0
     sum_novel = 0
     altered_id_shas: set[str] = set()   # id-embedded sha256 of every mismatch
-    mismatch_seqs:   dict[str, str] = {}  # id-embedded sha256 → depadded current seq
+    mismatch_seqs: dict[str, tuple[str, str]] = {}  # id-embedded sha256 → (seq, hdr)
     is_nnnx_file: bool | None = None
     name: str | None = None
+    hdr_str: str = ""
     seq_parts: list[bytes] = []
 
-    def _chk(flush_name: str) -> None:
+    def _chk(flush_name: str, flush_hdr: str) -> None:
         nonlocal n_existing, sum_existing, n_novel, sum_novel
         id_sha = _extract_sha256_from_id(flush_name)
         if id_sha is None:
@@ -947,7 +944,7 @@ def _verify_sha256(
         if new_sha == id_sha:
             return  # unchanged
         altered_id_shas.add(id_sha)
-        mismatch_seqs[id_sha] = seq.decode('ascii')  # store depadded current seq for classification
+        mismatch_seqs[id_sha] = (seq.decode('ascii'), flush_hdr)  # store seq + hdr
         xpos = flush_name.find('x.')
         try:
             nnnx = int(flush_name[:xpos]) if xpos > 0 else 1
@@ -968,9 +965,9 @@ def _verify_sha256(
                 if raw.startswith(b">"):
                     line = _decode_fasta_line(raw).rstrip("\r\n")
                     if name is not None and is_nnnx_file:
-                        _chk(name)
-                    hdr = line[1:]
-                    toks = hdr.split()
+                        _chk(name, hdr_str)
+                    hdr_str = line[1:]
+                    toks = hdr_str.split()
                     name = toks[0] if toks else ""
                     seq_parts.clear()
                     if is_nnnx_file is None:
@@ -980,7 +977,7 @@ def _verify_sha256(
                 else:
                     seq_parts.append(raw)
             if name is not None and is_nnnx_file:
-                _chk(name)
+                _chk(name, hdr_str)
     except OSError:
         return None
 
@@ -990,21 +987,20 @@ def _verify_sha256(
 
 
 def _classify_mismatches(
-        mismatch_seqs: dict[str, str],
+        mismatch_seqs: dict[str, tuple[str, str]],
         parent_path: str,
 ) -> dict[str, int]:
     """Classify mismatch sequences against original sequences in *parent_path*.
 
-    *mismatch_seqs* maps id-embedded sha256 → depadded post-alignment sequence.
+    *mismatch_seqs* maps id-embedded sha256 → (depadded post-alignment sequence, FASTA header).
     Scans *parent_path* (the direct-parent FASTA with NNNNx.sha256hex IDs) and
     for each record whose sha256 matches a key in *mismatch_seqs*, compares
-    the original (depadded) and current sequences:
+    the exact explicitly dumped qstart/qend coordinates to the query length:
 
-      right_clipped     – current is a prefix of original (right end trimmed)
-      left_clipped      – current is a suffix of original (left end trimmed)
-      both_ends_clipped – current is an interior substring of original
-      other             – current is not a substring of original at all
-                          (internal bases were altered, not just ends clipped)
+      right_clipped     – qend < len(query)
+      left_clipped      – qstart > 1
+      both_ends_clipped – both conditions met
+      other             – (indels or logic errors not explained by coordinate clipping)
 
     Early-exits as soon as all sha256s in *mismatch_seqs* are resolved, so for
     rare mismatches (e.g. 130 out of 800 K records) only a small fraction of
@@ -1016,7 +1012,7 @@ def _classify_mismatches(
     if not mismatch_seqs:
         return cats
 
-    remaining = dict(mismatch_seqs)  # sha256 → current depadded seq; shrinks as resolved
+    remaining = dict(mismatch_seqs)  # sha256 → (seq, hdr); shrinks as resolved
     name: str | None = None
     parts: list[bytes] = []
 
@@ -1025,14 +1021,32 @@ def _classify_mismatches(
         if sha not in remaining:
             return
         orig_seq = b''.join(parts).replace(b'\r', b'').replace(b'\n', b'').replace(b'-', b'').upper()
-        curr_seq_str = remaining.pop(sha)
-        curr_seq = curr_seq_str.encode('ascii')
-        if orig_seq.startswith(curr_seq):
-            cats['right_clipped'] += 1
-        elif orig_seq.endswith(curr_seq):
-            cats['left_clipped'] += 1
-        elif curr_seq in orig_seq:
+        curr_seq_str, hdr = remaining.pop(sha)
+
+        hdr_toks = hdr.split()
+        if len(hdr_toks) > 5:
+            try:
+                qstart = int(hdr_toks[4])
+                qend = int(hdr_toks[5])
+                qlen = int(hdr_toks[7]) if len(hdr_toks) > 7 else len(orig_seq)
+            except ValueError:
+                qstart = 1
+                qend = len(orig_seq)
+                qlen = len(orig_seq)
+        else:
+            qstart = 1
+            qend = len(orig_seq)
+            qlen = len(orig_seq)
+
+        left_clipped = qstart > 1
+        right_clipped = qend < qlen
+
+        if left_clipped and right_clipped:
             cats['both_ends_clipped'] += 1
+        elif left_clipped:
+            cats['left_clipped'] += 1
+        elif right_clipped:
+            cats['right_clipped'] += 1
         else:
             cats['other'] += 1
 
@@ -2283,8 +2297,8 @@ def main() -> None:
         print()
         print(summary)
     print()
-    print(header)
-    print(rule)
+    print(header, file=out_fd)
+    print(rule, file=out_fd)
 
     _em = '\u2014'  # em dash — pre-assigned to avoid backslash in f-string (Python < 3.12)
     verify_cols_empty = ""
