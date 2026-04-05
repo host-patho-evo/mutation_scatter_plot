@@ -198,6 +198,7 @@ PROT_SUFFIXES = ('.prot.fasta', '.prot', '.faa')
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DISCARD_SCRIPT = os.path.join(SCRIPT_DIR, 'create_list_of_discarded_sequences.py')
+ANALYZE_CHARS_SCRIPT = os.path.join(SCRIPT_DIR, 'analyze_obscure_chars.py')
 
 VERSION = "202604030900"
 
@@ -1848,6 +1849,28 @@ def main() -> None:
         print(f"No files found under '{search_path}' matching '{prefix}*.fasta{{,.old,.ori,.orig}}'",
               )
         sys.exit(1)
+
+    target_roots = [
+        f for f in found if os.path.basename(f) in (f"{prefix}.fasta", f"{prefix}.fasta.orig")
+    ]
+    for root_file in target_roots:
+        expected_out = os.path.join(os.path.dirname(root_file), f"{prefix}.obscure_characters_analysis.txt")
+        if os.path.exists(expected_out) and os.path.getmtime(expected_out) >= os.path.getmtime(root_file):
+            print(f"{_ts()}Skipping {os.path.basename(root_file)} anomaly analysis (cache up-to-date)")
+        else:
+            print(
+                f"{_ts()}Analyzing global encoding corruption anomalies in "
+                f"{os.path.basename(root_file)}..."
+            )
+            cmd = [sys.executable, ANALYZE_CHARS_SCRIPT, root_file, "--outfile", expected_out]
+            try:
+                subprocess.run(cmd, check=True)
+            except subprocess.CalledProcessError as e:
+                print(
+                    f"Warning: analyze_obscure_chars.py failed with exit code {e.returncode} "
+                    f"for {root_file}",
+                    file=sys.stderr
+                )
 
     # Sort by stem length (shorter = earlier in pipeline), then alphabetically.
     files = sorted(found, key=lambda p: (len(_strip_fasta_suffix(os.path.basename(p))),

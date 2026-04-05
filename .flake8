@@ -10,3 +10,5 @@ extend-ignore = W503
 per-file-ignores =
     # E402: sys.argv patch requires imports inside try/finally block
     tests/test_translation.py: E402
+    scripts/analyze_obscure_chars.py: E501
+    scripts/summarize_fasta_pipeline.py: E501
