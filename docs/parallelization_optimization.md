@@ -1,7 +1,7 @@
 # Parallelization & Performance Optimization — `calculate_codon_frequencies`
 
-**Date:** 2026-03-29  
-**Authors:** Martin Mokrejš, Antigravity AI  
+**Date:** 2026-03-29
+**Authors:** Martin Mokrejš, Antigravity AI
 **Summary:** 13.6× end-to-end wall-time reduction on the 192-core Xeon production server
 (59.9 s → 4.41 s at 8 threads, 100k-row benchmark; original sequential baseline 59.9 s).
 

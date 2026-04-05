@@ -104,7 +104,7 @@ Below we explain what happens further upon the execution. Not only there is help
 
 **Simple Testcase to calculate codon frequencies and to render the figures**
 
-One can calculate the codon frequencies from a provided FASTA input file. The sequence must be in frame +1. In version 0.1 the padding dashes `-` are ignored and the software keeps fetches next() nucleotides as long until there are three nucleotides representing the codon to be translated. In the `main` branch there is now a version which requires the inut sequence to be fully aligned to codons. 
+One can calculate the codon frequencies from a provided FASTA input file. The sequence must be in frame +1. In version 0.1 the padding dashes `-` are ignored and the software keeps fetches next() nucleotides as long until there are three nucleotides representing the codon to be translated. In the `main` branch there is now a version which requires the inut sequence to be fully aligned to codons.
 
 ```bash
 calculate_codon_frequencies --reference-infile=tests/inputs/MN908947.3_S_full.fasta --alignment-file=tests/inputs/test2_full.fasta \
@@ -329,7 +329,7 @@ pipeline with 5–20 FASTA files over NFS.
 > file).  FASTA reads are I/O-bound and release the GIL, so OS threads are the
 > right primitive — no process-fork overhead needed.  The flag name follows the
 > GNU `make -j N` / `parallel -j N` convention where a **job** is an
-> independent unit of work (here: one file audit).  
+> independent unit of work (here: one file audit).
 > `calculate_codon_frequencies` uses **`--threads`** because it forks CPU-bound
 > worker **processes** via `multiprocessing.Pool` for the 1,274 codon-site
 > calculations.
