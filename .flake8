@@ -13,3 +13,4 @@ per-file-ignores =
     scripts/analyze_obscure_chars.py: E501
     scripts/summarize_fasta_pipeline.py: E501
     scripts/count_same_sequences.py: E501
+    src/mutation_scatter_plot/mutation_scatter_plot/__init__.py: E501
