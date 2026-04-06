@@ -126,7 +126,10 @@ def build_option_parser():
         "--include-synonymous", action="store_true",
         dest="include_synonymous", default=False,
         help="Include synonymous changes in --aminoacids output as green"
-             " diamonds. In codon output they are always shown."
+             " diamonds. In codon output they are always shown. Supplying this"
+             " flag causes the total-frequency top bar heights in --aminoacids"
+             " mode to mathematically mirror the taller bar heights natively"
+             " reached in codon mode."
              " [default is False]",
     )
     myparser.add_argument(

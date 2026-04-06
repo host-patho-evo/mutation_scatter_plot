@@ -2120,14 +2120,14 @@ def render_matplotlib(
     The mathematical heights of these bars are calculated upstream in `collect_scatter_data()` via:
         `_total_frequencies = np.sum(np.abs(new_aa_table), axis=0)`
 
-    This command isolates the 2D coordinate array holding every individual mutation score for that column
-    and applies a strict vertical NumPy sum (`axis=0`). Crucially, because `mutation_scatter_plot.py` actively
-    filters out unknown mutations (like sequences containing generic `N` characters), the bar plot accurately
-    represents ONLY the absolute summation of high-fidelity legitimate mutations rendered visually directly beneath
-    it inside the scatter distribution. The bars are drawn purely in black blending to dark gray (`alpha=0.5`).
-    If unsequenced/ragged boundary conditions mathematically inflate DELETION frequencies in the base TSVs (like
-    a ragged gap being misparsed as an evolutionary deletion), this bar plot will honestly spike to accurately
-    sum up the TSV errors!
+    Because `calculate_codon_frequencies` inherently normalizes the TSV frequency fractions by dividing specific
+    abnormal counts (insertions, deletions, substitutions) over the absolute `_total_codons_counted` denominator
+    (which intentionally excludes 'N' gaps), the `.frequencies.tsv` purely outputs the final divided decimals.
+
+    This command isolates the 2D coordinate array holding every individual mutation decimal score for that column
+    and applies a strict vertical NumPy sum (`axis=0`). Crucially:
+    - In **Codon Mode** (`--aminoacids` is False): The bars natively reach their maximum baseline height by physically summing all silent and non-silent substituted codons, insertions, and deletions natively read from the TSV.
+    - In **Amino Acid Mode** (`--aminoacids` is True): The mathematical matrix automatically scrubs out "synonymous" silent mutations natively (where mutant_aa == original_aa) BEFORE aggregating `new_aa_table`. Because these silent fractions are systematically evaporated from the sums, the identical bar chart will organically render much shorter. Supplying `--include-synonymous` forces the matrix to retain these silent data points, identically mirroring codon-mode peak heights.
 
     Example: if the first data point is at position 331 and
     ``xaxis_major_ticks_spacing=10``, the view starts at 331 and
