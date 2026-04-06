@@ -598,8 +598,16 @@ def main():
 
     else:
         # Default (non-inverted) mode: sha256_lines = dedup IDs from --infilename.
-        sha256_lines = list(infile_sha256s.values())
-
+        sha256_lines = []
+        for sha, rec_name in infile_sha256s.items():
+            if _extract_sha256(rec_name) is None:
+                x_pos = rec_name.find('x')
+                if x_pos > 0 and rec_name[:x_pos].isdigit():
+                    sha256_lines.append(f"{rec_name}.{sha}")
+                else:
+                    sha256_lines.append(f"1x.{sha}")
+            else:
+                sha256_lines.append(rec_name)
         if myoptions.mapping_outfile:
             # Fast path: expand via pre-built mapping TSV.
             _id_groups2: list[tuple[int, list[str]]] = []  # (nnnx_count, orig_ids) — sorted later
