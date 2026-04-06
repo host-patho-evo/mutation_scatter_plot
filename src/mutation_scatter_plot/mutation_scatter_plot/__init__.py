@@ -1059,7 +1059,7 @@ def setup_matplotlib_figure(
     myoptions,
     title_data, aln_rows, matrix_name, amino_acids, codons_whitelist,
     final_sorted_whitelist, unique_aa_padded_positions, unique_padded_codon_positions,
-    new_aa_table, new_codon_table,
+    new_aa_table, new_codon_table, padded_position2position,
 ):
     """Configure matplotlib figure, axes, labels, ticks, and the frequency bar chart."""
     matplotlib.rcParams['font.family'] = 'monospace'
@@ -1072,14 +1072,14 @@ def setup_matplotlib_figure(
 
     if myoptions.aminoacids:
         if myoptions.shortlegend:
-            _xlabel = 'Padded amino acid position'
+            _xlabel = 'Natural position (italic) and padded amino acid position (normal font)'
         else:
-            _xlabel = f'Padded amino acid position{os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
+            _xlabel = f'Natural position (italic) and padded amino acid position (normal){os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
     else:
         if myoptions.shortlegend:
-            _xlabel = 'Padded codon position'
+            _xlabel = 'Natural position (italic) and padded codon position (normal font)'
         else:
-            _xlabel = f'Padded codon position{os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
+            _xlabel = f'Natural position (italic) and padded codon position (normal){os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
     _ax1.set_xlabel(_xlabel, fontsize=14)
     if myoptions.aminoacids:
         _ax1.set_ylabel('Introduced amino acid changes', fontsize=14)
@@ -1109,6 +1109,15 @@ def setup_matplotlib_figure(
     _ax1.set_xlim(myoptions.xaxis_label_start or _xmin, _xmax)
     _ax1.xaxis.set_major_locator(ticker.MultipleLocator(myoptions.xaxis_major_ticks_spacing))
     _ax1.xaxis.set_minor_locator(ticker.MultipleLocator(myoptions.xaxis_minor_ticks_spacing))
+
+    def _dual_format(x, pos):
+        _padded = int(x)
+        _natural = padded_position2position.get(_padded, '')
+        if _natural != '':
+            return f"$\\mathit{{{_natural}}}$\n({_padded})"
+        return str(_padded)
+
+    _ax1.xaxis.set_major_formatter(ticker.FuncFormatter(_dual_format))
 
     if myoptions.debug:
         print(f"Debug: X-axis1: {_xmin}-{_xmax}")
@@ -1533,6 +1542,7 @@ def render_bokeh(
     circles_bokeh, mutations, hover_texts,
     title_data, xlabel,
     matrix_name, colors, norm, cmap,
+    padded_position2position,
     show=True,
 ):
     """Build and save the interactive Bokeh HTML scatter plot.
@@ -1802,6 +1812,21 @@ def render_bokeh(
         if x not in _major_ticks
     ]
     _p.xaxis.ticker = bokeh.models.FixedTicker(ticks=_major_ticks)
+
+    _js_mapping = json.dumps(padded_position2position)
+    _js_code = f"""
+        const mapping = {_js_mapping};
+        const padded = Math.round(tick);
+        if (mapping[padded] !== undefined) {{
+            // Unlike Matplotlib, Bokeh axes don't support math expressions natively on tick labels,
+            // but we can pass the raw strings.
+            return mapping[padded] + "\\n(" + padded + ")";
+        }} else {{
+            return String(padded);
+        }}
+    """
+    _p.xaxis.formatter = bokeh.models.CustomJSTickFormatter(code=_js_code)
+
     _p.xaxis.minor_tick_line_color = "black"
     _p.xgrid.minor_grid_line_color = None
     # Attach minor ticks via a second overlay axis sharing the same range

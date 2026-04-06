@@ -254,7 +254,9 @@ def main():  # pylint: disable=too-many-locals
     print(f"Info: Writing into {_outfile_prefix}.actually_rendered.tsv")
     # Speedup 6: Export Decimal to string for reporting while keeping precision
     _df_to_save = _df.copy()
-    _df_to_save[myoptions.column_with_frequencies] = _df_to_save[myoptions.column_with_frequencies].apply(lambda x: f"{x:.6f}")
+    _df_to_save[myoptions.column_with_frequencies] = _df_to_save[
+        myoptions.column_with_frequencies
+    ].apply(lambda x: f"{x:.6f}")
     _df_to_save.to_csv(
         f"{_outfile_prefix}.actually_rendered.tsv",
         sep='\t', header=True, index=False, float_format='{:.6f}'.format,
@@ -290,7 +292,10 @@ def main():  # pylint: disable=too-many-locals
         )
         del _df_frequencies_unchanged_codons
     else:
-        sys.stderr.write(f"Warning: File {_unchanged_tsv} not found, skipping supplemental conversion data.{os.linesep}")
+        sys.stderr.write(
+            f"Warning: File {_unchanged_tsv} not found, "
+            f"skipping supplemental conversion data.{os.linesep}"
+        )
 
     (
         _amino_acids, _codons_whitelist, _codons_whitelist2,
@@ -306,7 +311,7 @@ def main():  # pylint: disable=too-many-locals
             _title_data, _aln_rows, _matrix_name, _amino_acids,
             _codons_whitelist, _final_sorted_whitelist,
             _unique_aa_padded_positions, _unique_codon_padded_positions,
-            _new_aa_table, _new_codon_table,
+            _new_aa_table, _new_codon_table, _padded_position2position,
         )
 
     _table = _new_aa_table if myoptions.aminoacids else _new_codon_table
@@ -338,6 +343,7 @@ def main():  # pylint: disable=too-many-locals
             _circles_bokeh, _mutations, _hover_text_bokeh,
             _title_data, _xlabel,
             _matrix_name, _colors, _norm, _cmap,
+            _padded_position2position,
             show=not myoptions.disable_showing_bokeh,
         )
 
