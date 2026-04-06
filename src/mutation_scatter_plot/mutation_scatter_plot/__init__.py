@@ -2357,7 +2357,7 @@ def render_matplotlib(
             _mpl_s = float(np.abs(_size) ** 2 * 5000)
         else:
             _mpl_s = float(np.abs(_size) * 5000)
-            
+
         _handle = ax4.scatter(0, -400 + _freq, s=_mpl_s, color='#808080',
                               alpha=0.5, label=f'{_freq:.1%}')  # medium gray size-legend bubbles
         _label = str(_freq)
