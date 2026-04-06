@@ -174,12 +174,11 @@ _parser.add_argument(
     ),
 )
 _parser.add_argument(
-    "--full-fasta-header", dest="full_fasta_header", action="store_true",
+    "--disable-full-fasta-header", dest="full_fasta_header", action="store_false",
     help=(
-        "When reading the mapping TSV, prefer *.sha256_to_descr_lines.tsv "
-        "(full FASTA header lines, everything after '>') over "
-        "*.sha256_to_ids.tsv (first-word ID only).  The descr TSV is "
-        "auto-detected from the mapping TSV path when not provided explicitly. "
+        "Disable preferring *.sha256_to_descr_lines.tsv (full FASTA header "
+        "lines, everything after '>') over *.sha256_to_ids.tsv (first-word ID only). "
+        "By default, full FASTA headers are preferred and automatically detected. "
         "Embedded '\\t' two-character sequences in description fields are "
         "unescaped back to real TAB characters on read."
     ),
@@ -464,7 +463,8 @@ def main():
     for rec_name, _header, rec_seq in _iter_fasta(myoptions.infilename):
         sha = _extract_sha256(rec_name)
         if sha is None:
-            sha = hashlib.sha256(rec_seq.replace('\r', '').replace('\n', '').replace('-', '').upper().encode()).hexdigest()
+            _raw_cleaned = rec_seq.replace('\r', '').replace('\n', '').replace('-', '').upper()
+            sha = hashlib.sha256(_raw_cleaned.encode()).hexdigest()
             ids_computed += 1
         infile_sha256s[sha] = rec_name
         x_pos = rec_name.find('x')
@@ -509,7 +509,7 @@ def main():
     #   Generated only when --mapping-outfile or --original-infilename is given.
 
     sha256_lines = []        # NNNNx.sha256hex entries for the sha256 hashes file
-    original_id_lines = None # iterator for expanded original FASTA IDs
+    original_id_lines = None  # iterator for expanded original FASTA IDs
     expected_original_count = infile_total_count  # sum of counts from --infilename
     actual_original_count = 0
 

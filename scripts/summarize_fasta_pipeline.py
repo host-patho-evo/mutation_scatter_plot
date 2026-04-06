@@ -100,8 +100,8 @@ Options:
                          Skipped if a .fasta.orig backup already exists.
                          Only applies to deduplicated files whose IDs have
                          an NNNNx count prefix.
-    --full-fasta-header
-                         When building *.sha256_to_ids.tsv files, also write
+    --disable-full-fasta-header
+                         When building *.sha256_to_ids.tsv files, disable writing
                          a companion *.sha256_to_descr_lines.tsv that stores
                          the full FASTA header line (everything after '>'),
                          not just the first whitespace-delimited word.  This
@@ -1429,7 +1429,7 @@ def _compute_discard_stats(parent_path: str, child_path: str,
         source_arg,
         '--inverted',
         '--output-context=discarded',
-        *(['--full-fasta-header'] if full_fasta_header else []),
+        *(['--disable-full-fasta-header'] if not full_fasta_header else []),
         *outfile_args,
     ]
     if verbose:
@@ -1442,6 +1442,21 @@ def _compute_discard_stats(parent_path: str, child_path: str,
     if result.returncode != 0:
         _print(f"    [exit code {result.returncode}]", flush=True)
         return None, None
+
+    if save_discard_list:
+        outfile_eff = child_stem + '.effectively_used_sha256_hashes.txt'
+        cmd_eff = [
+            sys.executable, DISCARD_SCRIPT,
+            f'--infilename={child_path}',
+            source_arg,
+            '--output-context=effectively_used',
+            *(['--disable-full-fasta-header'] if not full_fasta_header else []),
+            f'--outfile={outfile_eff}', '--overwrite',
+        ]
+        result_eff = subprocess.run(cmd_eff, capture_output=True, text=True, encoding='utf-8', errors='replace', check=False)
+        for line in result_eff.stderr.splitlines():
+            if line.startswith(('Warning:', 'Error:')):
+                _print(f"    {line}", flush=True)
 
     if outfile and os.path.exists(outfile):
         return _read_discarded_txt_stats(outfile)
@@ -1463,33 +1478,35 @@ def _is_counts_file(path: str) -> bool:
     return 'counts' in basename.split('.')
 
 
-def _extract_discarded_to_fasta(
+def _extract_subset_to_fasta(
         child_path: str,
         root_path: str,
         mapping_path: str,
         search_path: str,
+        context: str = "discarded",
 ) -> None:
-    """Phase 4: extract discarded sequences from the root ancestor FASTA.
+    """Phase 4: extract subset of sequences from the root ancestor FASTA.
 
-    Reads {child_stem}.discarded_sha256_hashes.txt, maps the sha256 hexes to
+    Reads {child_stem}.{context}_sha256_hashes.txt, maps the sha256 hexes to
     original FASTA IDs via {mapping_stem}.sha256_to_ids.tsv (the first
     GISAID-level ancestor in the parent chain), writes a temporary names file,
     then runs filterbyname.sh (or a streaming Python fallback) to produce:
-        {child_stem}.discarded_original_entries.fasta
+        {child_stem}.{context}_original_entries.fasta
 
     root_path    – the root ancestor FASTA to extract records FROM.
     mapping_path – the GISAID-level ancestor whose sha256_to_ids.tsv maps
                    sha256 → original GISAID accession IDs.
+    context      – subset to extract (e.g. "discarded" or "effectively_used").
     """
     child_stem = _strip_fasta_suffix(child_path)
     mapping_stem = _strip_fasta_suffix(mapping_path)
-    sha_file = child_stem + '.discarded_sha256_hashes.txt'
-    out_fasta = child_stem + '.discarded_original_entries.fasta'
+    sha_file = child_stem + f'.{context}_sha256_hashes.txt'
+    out_fasta = child_stem + f'.{context}_original_entries.fasta'
     child_disp = os.path.relpath(child_path,   search_path)
     root_disp = os.path.relpath(root_path,    search_path)
     mapping_disp = os.path.relpath(mapping_path, search_path)
 
-    print(f"  {child_disp}: extracting discarded records from {root_disp} "
+    print(f"  {child_disp}: extracting {context} records from {root_disp} "
           f"(sha256 map: {mapping_disp}) …",
           flush=True)
 
@@ -1765,7 +1782,7 @@ def main() -> None:
     verbose = '--verbose' in args
     save_discard_list = '--disable-discarded-original-ids-file' not in args
     add_checksums = '--add-missing-checksums-to-fasta-files' in args
-    full_fasta_header = '--full-fasta-header' in args
+    full_fasta_header = '--disable-full-fasta-header' not in args
     # verify_sha256 is ON by default; pass --no-verify-sha256 to disable.
     # The old --verify-sha256 flag is accepted silently for backwards compat.
     verify_sha256 = '--no-verify-sha256' not in args
@@ -2203,8 +2220,8 @@ def main() -> None:
             print(summary)
         PROFILER.mark_phase_start("Phase 4")
         print(
-            f"\n{_ts()}── Phase 4: Extract discarded records from root ancestor "
-            f"─────────────────────────────────",
+            f"\n{_ts()}── Phase 4: Extract subsets (discarded/effectively_used) from root ancestor "
+            f"───────────────",
 
         )
         p4_children = [
@@ -2216,8 +2233,8 @@ def main() -> None:
         ]
         for child_idx in p4_children:
             if rows[child_idx] and rows[child_idx][2] == 0:
-                print(f"  Skipped extracting discarded records for "
-                      f"{os.path.basename(files[child_idx])} (empty subset, implicit 100% discard).")
+                print(f"  Skipped extracting subsets for "
+                      f"{os.path.basename(files[child_idx])} (empty child set).")
                 continue
             # Walk parent_map up to the root ancestor (no parent).
             root_idx = child_idx
@@ -2234,8 +2251,9 @@ def main() -> None:
                     mapping_idx = par_idx
                     break
                 idx = par_idx
-            _extract_discarded_to_fasta(files[child_idx], files[root_idx],
-                                        files[mapping_idx], search_path)
+            for ctx in ("discarded", "effectively_used"):
+                _extract_subset_to_fasta(files[child_idx], files[root_idx],
+                                         files[mapping_idx], search_path, context=ctx)
 
     # ── print table ──────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))
@@ -2435,7 +2453,7 @@ def main() -> None:
         else:
             print(f"  Warning: --write-original-descr-lines: root mapping TSV not found"
                   f" ({root_stem}.sha256_to_descr_lines.tsv). Run with"
-                  " --full-fasta-header first to build it.")
+                  " (ensure --disable-full-fasta-header was not used to build it).")
 
     del sha256_sets  # no longer needed; free RAM
 
