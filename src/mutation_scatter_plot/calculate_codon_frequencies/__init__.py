@@ -80,8 +80,9 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded,
     The overall TSV output is sorted sequentially by the structural `position`
     (as the multi-fasta alignment is iteratively or asynchronously mapped from left to right).
     Within each specific mapping site/position, the output rows are mathematically guaranteed
-    to be sorted alphabetically by the `mutant_codon` string (e.g., 'AAA', 'AAC', 'AAG', etc.).
-    This strict dual-sorting (position -> mutant_codon) perfectly preserves deterministic
+    to be sorted natively by `frequency` (top-down) and subsequently alphabetically by the
+    `mutant_codon` string (e.g., 'AAA', 'AAC', 'AAG', etc.).
+    This strict dual-sorting (position -> frequency -> mutant_codon) perfectly preserves deterministic
     cross-compatibility with output formatting structures established logically in v0.3.
 
     The written TSV file contains exactly 9 tabular columns:
@@ -106,9 +107,12 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded,
     else:
         _total_codons_per_site_sum = total_codons_per_site_sum
 
-    # Sort keys alphabetically by mutant_codon explicitly to restore v0.3 deterministic TSV output line order.
-    # Otherwise, NumPy array groups them mathematically by first-appearance order natively down the IPC stream.
-    for _some_codon in sorted(codons.keys()):
+    # Sort keys by frequency (top-down via descending count), then alphabetically by mutant_codon ascending.
+    _sorted_codons = sorted(
+        codons.keys(),
+        key=lambda x: (-codons[x], x)
+    )
+    for _some_codon in _sorted_codons:
         if len(_some_codon) < 3:
             _some_aa = 'X'
         else:
@@ -156,10 +160,10 @@ def _process_one_site(
       (`_pos < _lead` or `_pos + 2 >= _trail`), that triplet strictly flags as boundary padding and safely
       aborts without tallying +1 coverage or producing an artificial substitution score.
     - Internal framing gaps (`A-T`, `A--`) occurring strictly between unmasked alignment blocks (e.g. at the structural edge
-      of valid internal DELetions) correctly bypass these limits. This is an intentional implementation: by falling through
-      the filter natively, they correctly register as `X` translations (publishing their native `AT` or `A` bytes) inside the TSV arrays
-      and logging +1 towards coverage denominators. This allows researchers to statistically trace obscure internal structural variations
-      and frameshifts without them being incorrectly buried, while simultaneously guaranteeing unsequenced terminal drop-offs are discarded!
+      of valid internal DELetions) correctly bypass these limits. This is an intentional implementation: by falling through  # noqa: E501
+      the filter natively, they correctly register as `X` translations (publishing their native `AT` or `A` bytes) inside the TSV arrays  # noqa: E501
+      and logging +1 towards coverage denominators. This allows researchers to statistically trace obscure internal structural variations  # noqa: E501
+      and frameshifts without them being incorrectly buried, while simultaneously guaranteeing unsequenced terminal drop-offs are discarded!  # noqa: E501
 
     Coverage Preservation Mechanism for Internal DELetions:
     - Crucially, internal mixed gap bounds DO NOT artificially collapse the valid `total_coverage` denominator metrics!
@@ -171,13 +175,14 @@ def _process_one_site(
       Only the visual DELetion-specific frequency plummets natively back to baseline at the bounds, successfully trading
       local `DEL` density for substitution (`X`) frequencies without altering structural coverage.
 
-    These masked conditions are natively blended into the high bytes of our 32-bit integer (`_combined | actions << 24`).
+    These masked conditions are natively blended into the high bytes of our 32-bit integer (`_combined | actions << 24`).  # noqa: E501
     Using `np.unique` on this packed integer returns high-speed hashed groups. We unpack these hashes
     back into string tuples `(_codon, _action_str)` for accumulation.
     """
     _zero_based_padded_reference_aa_index = int(_pos / 3)
 
-    _reference_codon = _padded_reference_dna_seq[3*_zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3]
+    _reference_codon = _padded_reference_dna_seq[3 *
+                                                 _zero_based_padded_reference_aa_index:3*_zero_based_padded_reference_aa_index + 3]  # noqa: E501
     _reference_codon_depadded = _reference_codon.replace('-', '')
 
     _reference_aa = _reference_protein_seq[_zero_based_padded_reference_aa_index] if len(
@@ -198,14 +203,14 @@ def _process_one_site(
 
             # An overlapping boundary codon must be completely invalidated if ANY of its 3 positions fall within
             # the leading or trailing gap boundary. Leading gaps occupy indices [0, _lead - 1].
-            # Since the codon covers [_pos, _pos + 1, _pos + 2], it overlaps if _pos <= _lead - 1 (which is _pos < _lead).
+            # Since the codon covers [_pos, _pos + 1, _pos + 2], it overlaps if _pos <= _lead - 1 (which is _pos < _lead).  # noqa: E501
             _mask = _is_masked & (_lead != 0) & (_pos < _lead)
             _actions[_mask] = 3
             _is_masked &= ~_mask
 
             # Trailing gaps start at index _trail.
             # The codon overlaps if _pos + 2 >= _trail.
-            # This completely masks incompletely sequenced leading or trailing codons from being plotted as evolutionary DELetions.
+            # This completely masks incompletely sequenced leading or trailing codons from being plotted as evolutionary DELetions.  # noqa: E501
             _mask = _is_masked & (_trail != 0) & (_pos + 2 >= _trail)
             _actions[_mask] = 4
             _is_masked &= ~_mask
@@ -244,7 +249,8 @@ def _process_one_site(
 
     for (_rough_sample_codon, _action), _record_count in _local_groups.items():
         _sample_codon_contained_pad = '-' in _rough_sample_codon
-        _sample_codon_depadded = _rough_sample_codon.replace('-', '') if _sample_codon_contained_pad else _rough_sample_codon
+        _sample_codon_depadded = _rough_sample_codon.replace(
+            '-', '') if _sample_codon_contained_pad else _rough_sample_codon
 
         if _action == "regular":
             if _rough_sample_codon == '---' and _reference_codon != '---' and _reference_codon != 'NNN':
@@ -447,8 +453,8 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     360	333	INS	H	1.000000	---	CAT	37	37
     """
     if myoptions.debug:
-        print(f"Debug0: Depadded reference sequence has length {len(padded_reference_dna_seq.replace('-', ''))}, padded "
-              f"reference sequence has length {len(padded_reference_dna_seq)}, each entry from {alignment_file} must also "
+        print(f"Debug0: Depadded reference sequence has length {len(padded_reference_dna_seq.replace('-', ''))}, padded "  # noqa: E501
+              f"reference sequence has length {len(padded_reference_dna_seq)}, each entry from {alignment_file} must also "  # noqa: E501
               f"have same padded length {len(padded_reference_dna_seq)}")
         print(f"Debug1: reference_protein_seq={str(reference_protein_seq)} with length {len(reference_protein_seq)}")
     if not os.path.exists(alignment_file):
@@ -489,8 +495,8 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
                 f"slicing using myoptions.left_reference_offset-1={myoptions.left_reference_offset - 1}, "
                 f"myoptions.right_reference_offset={myoptions.right_reference_offset} wrong?")
         if myoptions.debug:
-            print(f"Debug2: Depadded reference sequence has length {len(_padded_reference_dna_seq.replace('-', ''))}, padded "
-                  f"reference sequence has length {len(_padded_reference_dna_seq)}, each padded entry from {alignment_file} "
+            print(f"Debug2: Depadded reference sequence has length {len(_padded_reference_dna_seq.replace('-', ''))}, padded "  # noqa: E501
+                  f"reference sequence has length {len(_padded_reference_dna_seq)}, each padded entry from {alignment_file} "  # noqa: E501
                   f"must also have same padded length")
     else:
         _padded_reference_dna_seq = padded_reference_dna_seq
@@ -605,7 +611,8 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         _padded_len_array = np.array([item['padded_len'] for item in _parsed_alignments_list], dtype=np.int32)
         _depadded_len_array = np.array([item['depadded_len'] for item in _parsed_alignments_list], dtype=np.int32)
         _leading_gap_array = np.array([item['end_of_leading_gaps'] for item in _parsed_alignments_list], dtype=np.int32)
-        _trailing_gap_array = np.array([item['start_of_trailing_gaps'] for item in _parsed_alignments_list], dtype=np.int32)
+        _trailing_gap_array = np.array([item['start_of_trailing_gaps']
+                                       for item in _parsed_alignments_list], dtype=np.int32)
     else:
         _aln_array = np.array([], dtype=np.uint8).reshape(0, _alignment_len)
         _counts_array = np.array([], dtype=np.int64)
@@ -674,19 +681,23 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         for _res in _all_results:
             # Write results
             write_tsv_line(outfilename_unchanged_codons, _res['unchanged'], _res['nat_padded'], _res['nat_depadded'],
-                           _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)
+                           _res['ref_aa'], _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)  # noqa: E501
             if _res['changed']:
                 write_tsv_line(outfilename, _res['changed'], _res['nat_padded'], _res['nat_depadded'], _res['ref_aa'],
-                               _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)
+                               _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)  # noqa: E501
             if _res['inserted']:
                 write_tsv_line(outfilename, _res['inserted'], _res['nat_padded'], _res['nat_depadded'], 'INS',
-                               _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)
+                               _res['total_sum'], _res['ref_codon'], debug=myoptions.debug, translation_table=translation_table)  # noqa: E501
 
             if _res['is_deletion']:
-                for _some_deleted_codon in sorted(_res['deleted'].keys()):
+                _sorted_deletions = sorted(
+                    _res['deleted'].keys(),
+                    key=lambda x, d=_res['deleted']: (-d[x], x)
+                )
+                for _some_deleted_codon in _sorted_deletions:
                     _count = _res['deleted'][_some_deleted_codon]
                     outfilename.write(
-                        f"{_res['nat_padded']}\t{_res['nat_depadded']}\t{_res['ref_aa']}\tDEL\t{Decimal(_count) / Decimal(_res['total_sum']):.6f}\t{_some_deleted_codon}\t---\t{_count}\t{_res['total_sum']}\n")
+                        f"{_res['nat_padded']}\t{_res['nat_depadded']}\t{_res['ref_aa']}\tDEL\t{Decimal(_count) / Decimal(_res['total_sum']):.6f}\t{_some_deleted_codon}\t---\t{_count}\t{_res['total_sum']}\n")  # noqa: E501
 
             # Time-gated flush: avoids one NFS round-trip (~10 ms) per site.
             # On large datasets (hours runtime) this still flushes every 30 s so
