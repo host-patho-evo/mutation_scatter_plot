@@ -1075,7 +1075,10 @@ def setup_matplotlib_figure(
     print(f"Info: matplotlib.get_backend={matplotlib.get_backend()}")
 
     _figure, (_ax1, _ax3, _ax4) = plt.subplots(1, 3, figsize=(16, 9), width_ratios=[55, 1, 6])
-    _figure.subplots_adjust(bottom=0.20)
+    if myoptions.aminoacids:
+        _figure.subplots_adjust(left=0.05, right=0.96, top=0.94, bottom=0.22)
+    else:
+        _figure.subplots_adjust(left=0.07, right=0.96, top=0.94, bottom=0.22)
 
     if myoptions.aminoacids:
         if myoptions.shortlegend:
@@ -2362,7 +2365,7 @@ def render_matplotlib(
         _labels.append(_label)
     ax4.set_ylim(0, 1)
     ax4.set_axis_off()
-    ax4.legend(loc='upper left', bbox_to_anchor=(0.0, 1.00), labelspacing=4.0, frameon=False, handletextpad=2.8, fontsize=14)
+    ax4.legend(loc='upper left', bbox_to_anchor=(0.0, 1.00), labelspacing=3.6, frameon=False, handletextpad=2.8, fontsize=16)
 
     if myoptions.debug or os.environ.get('PYTEST_CURRENT_TEST'):
         _mpl_hovers = []
