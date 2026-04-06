@@ -1076,9 +1076,9 @@ def setup_matplotlib_figure(
 
     _figure, (_ax1, _ax3, _ax4) = plt.subplots(1, 3, figsize=(16, 9), width_ratios=[55, 1, 6])
     if myoptions.aminoacids:
-        _figure.subplots_adjust(left=0.05, right=0.96, top=0.94, bottom=0.22)
+        _figure.subplots_adjust(left=0.05, right=0.92, top=0.94, bottom=0.15)
     else:
-        _figure.subplots_adjust(left=0.07, right=0.96, top=0.94, bottom=0.22)
+        _figure.subplots_adjust(left=0.07, right=0.92, top=0.94, bottom=0.15)
 
     if myoptions.aminoacids:
         if myoptions.shortlegend:
