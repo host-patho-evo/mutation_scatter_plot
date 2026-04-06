@@ -817,8 +817,14 @@ def load_and_clean_dataframe(myoptions, infilename, padded_position2position):
         # High precision: Convert to Decimal from string to avoid float64 drift
         df[_freq_col] = df[_freq_col].astype(str).apply(Decimal)
 
-    if 'position' in df.columns:
+    if 'position' in df.columns or 'codon_position' in df.columns:
         print(f"Info: Autodetected new TSV file format with a header in {infilename}")
+        if 'codon_position' in df.columns and 'position' not in df.columns:
+            df.rename(columns={'codon_position': 'position'}, inplace=True)
+            print("Info: Renamed legacy column 'codon_position' to 'position'")
+        if 'row_position' in df.columns and 'padded_position' not in df.columns:
+            df.rename(columns={'row_position': 'padded_position'}, inplace=True)
+            print("Info: Renamed legacy column 'row_position' to 'padded_position'")
     else:
         print(f"Info: Autodetected old TSV file format without a header in {infilename}, assigning default column names")
         df = pd.read_csv(infilename, sep='\t', header=None, na_filter=False, na_values=[None])
