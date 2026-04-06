@@ -1817,20 +1817,16 @@ def main() -> None:
 
     # ── collect matching files ────────────────────────────────────────────────
     found: set[str] = set()
+    # Accumulate all possible valid suffixes ('.fasta', '.prot', etc) in search_path.
     for suffix in FASTA_SUFFIXES:
-        for pat in (
-            os.path.join(search_path, prefix + '*' + suffix),
-            os.path.join(search_path, '**', prefix + '*' + suffix),
-        ):
-            found.update(glob.glob(pat, recursive=True))
+        pat = os.path.join(search_path, prefix + '*' + suffix)
+        found.update(glob.glob(pat, recursive=False))
+
     # Also pick up protein FASTA files (.prot.fasta already matched above;
     # .prot and .faa have no .fasta extension so need separate globs).
     for suffix in ('.prot', '.faa'):
-        for pat in (
-            os.path.join(search_path, prefix + '*' + suffix),
-            os.path.join(search_path, '**', prefix + '*' + suffix),
-        ):
-            found.update(glob.glob(pat, recursive=True))
+        pat = os.path.join(search_path, prefix + '*' + suffix)
+        found.update(glob.glob(pat, recursive=False))
 
     # Drop .fasta.orig / .fasta.ori / .fasta.old backup files when the
     # corresponding .fasta already exists.  These backups are created by
