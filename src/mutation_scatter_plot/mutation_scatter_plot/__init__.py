@@ -1114,7 +1114,7 @@ def setup_matplotlib_figure(
         _padded = int(x)
         _natural = padded_position2position.get(_padded, '')
         if _natural != '':
-            return f"$\\mathit{{{_natural}}}$\n({_padded})"
+            return f"$\\mathit{{{_natural}}}$ ({_padded})"
         return str(_padded)
 
     _ax1.xaxis.set_major_formatter(ticker.FuncFormatter(_dual_format))
@@ -1820,7 +1820,7 @@ def render_bokeh(
         if (mapping[padded] !== undefined) {{
             // Unlike Matplotlib, Bokeh axes don't support math expressions natively on tick labels,
             // but we can pass the raw strings.
-            return mapping[padded] + "\\n(" + padded + ")";
+            return mapping[padded] + " (" + padded + ")";
         }} else {{
             return String(padded);
         }}
