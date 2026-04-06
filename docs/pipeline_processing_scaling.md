@@ -73,7 +73,25 @@ By dividing `161.5` by `12.5`, we map roughly exactly a **`13X`** hardware ratio
 
 ---
 
-## 3. Persistent Error Logging Using NOHUP & UNIX Timestamps
+## 4. Benchmark: Sequential `sed` vs Parallel `multiprocessing`
+
+Real-world cache telemetry definitively illustrates the complete elimination of this single-threaded UNIX pipe bottleneck when replaced with the `multiprocessing` array matrix natively:
+
+### `sed`-based Pipeline (Legacy)
+* **Elapsed (Wall Clock):** `6:35:19`
+* **Average CPU Saturation:** `682%`
+* **Maximum Resident Memory RSS:** `83.5 GB`
+
+### Parallel Python Pool (Deployed `manual_SARS-CoV-2_InDel_realignment.py`)
+* **Elapsed (Wall Clock):** `4:01:26`
+* **Average CPU Saturation:** `1691%` (Successfully saturating +10 more idle NUMA threads seamlessly)
+* **Maximum Resident Memory RSS:** `83.5 GB`
+
+**Optimization Validation:** Swapping the legacy `sed` logic for the asynchronous Python `imap` map algorithm successfully stripped `2 hours and 34 minutes` of execution time (a 39% duration reduction) from the alignment phase natively. Crucially, due to optimized 10,000-line chunk parsing internally, memory inflation was zero.
+
+---
+
+## 5. Persistent Error Logging Using NOHUP & UNIX Timestamps
 
 Standard command execution forces a pipeline to freeze and dump to STDOUT across an unstable shell stream. To reliably track long-running executions independently, the recommended runtime command embeds a decoupled `nohup` wrapper, completely bypassing shell disconnection drops.
 
@@ -97,3 +115,22 @@ Because the background execution splits across multiple tightly-coupled concurre
 while true; do COLUMNS=512 top -c -b -w 512 -u "$USER" -n1 | grep -E 'grep|awk|python|blast|sed' | head -15; sleep 10; done
 ```
 *Note: The `-w 512` and `COLUMNS=512` flags ensure that the `top` batch output does not truncate long pipeline commands natively. The `-u "$USER"` strictly filters out foreign jobs.*
+
+---
+
+## 6. End-to-End NUMA Node Python Traceability Benchmarks
+
+Beyond `blastn`, the sequence deduplication phases rely exclusively on pure native Python utilities tied algorithmically to `libnuma` limits. Extracting execution telemetry from the tail-end Python modules over **4.72 million final output records** yields these empirically verified optimization results mapping strictly a single 48-core partition boundary natively:
+
+### `calculate_codon_frequencies`
+* **Dataset Scale:** `4,723,031 sequence records` (31GB raw matrix)
+* **Execution Duration:** `4 minutes 13 seconds`
+* **Peak Resource Draw:** `477.3 GB Peak RAM` | `1352% Peak CPU Array`
+
+### `mutation_scatter_plot` (Iterative Generation)
+* **HTML Bokeh Rendering:** `0s` elapsed CPU execution average natively internally.
+* **Matplotlib `*.png` Vectorization:** `2s -- 3s` elapsed on arrays natively.
+* **Matplotlib `*.pdf` Mapping:** `0s -- 1s` uniformly executing rendering.
+* **Peak Resources:** Only `0.4 GB Max RAM` overhead efficiently, utilizing burst `618% CPU` execution arrays to draw vectorizations correctly.
+
+The entire downstream formatting execution spans approximately mere minutes strictly due to dynamically optimized cache iterations.

@@ -840,7 +840,7 @@ def load_and_clean_dataframe(myoptions, infilename, padded_position2position):
         else:
             raise RuntimeError(f"Unexpected number of columns in the {infilename} file")
 
-    print(f"Info: The file {infilename} contains now these columns: {str(df.columns)}")
+    print(f"Info: The file {infilename} contains now these columns: {str(list(df.columns))}")
 
     if 'padded_position' not in df.columns:
         df['padded_position'] = df['position']
@@ -2077,6 +2077,22 @@ def render_matplotlib(
     ``MultipleLocator`` automatically places the first tick at the smallest
     multiple of the spacing that falls within the view range set by
     ``set_xlim()``, so labels always align with the data.
+
+    Top Bar Plot Calculation & Rendering
+    ------------------------------------
+    The summary bar plot (`ax2`, visually residing above the scatter array) renders the absolute cumulative frequency
+    of mutations mapped exactly per site. It is plotted via `_ax2.bar(...)`.
+    The mathematical heights of these bars are calculated upstream in `collect_scatter_data()` via:
+        `_total_frequencies = np.sum(np.abs(new_aa_table), axis=0)`
+
+    This command isolates the 2D coordinate array holding every individual mutation score for that column
+    and applies a strict vertical NumPy sum (`axis=0`). Crucially, because `mutation_scatter_plot.py` actively
+    filters out unknown mutations (like sequences containing generic `N` characters), the bar plot accurately
+    represents ONLY the absolute summation of high-fidelity legitimate mutations rendered visually directly beneath
+    it inside the scatter distribution. The bars are drawn purely in black blending to dark gray (`alpha=0.5`).
+    If unsequenced/ragged boundary conditions mathematically inflate DELETION frequencies in the base TSVs (like
+    a ragged gap being misparsed as an evolutionary deletion), this bar plot will honestly spike to accurately
+    sum up the TSV errors!
 
     Example: if the first data point is at position 331 and
     ``xaxis_major_ticks_spacing=10``, the view starts at 331 and

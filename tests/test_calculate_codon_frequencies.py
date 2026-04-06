@@ -228,6 +228,26 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
             self.assertFalse(os.path.exists(f"{outfile_prefix}.unchanged_codons.tsv"),
                              "Unchanged codons file should not have been created with --disable-print-unchanged-sites")
 
+    # --- test_ragged.fasta ---
+
+    def test_ragged_gaps_command(self):
+        """Test calculate_codon_frequencies against massively ragged sequence datasets (issue reproduction)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outfile_prefix = os.path.join(tmpdir, "test_ragged_gaps.frequencies")
+            test_ragged_fasta = os.path.join(self.tests_dir, "inputs", "test_ragged.fasta")
+            ref_full_fasta = os.path.join(self.tests_dir, "inputs", "MN908947.3_S.fasta")
+            cmd = self.base_cmd + [
+                "--alignment-file", test_ragged_fasta,
+                "--outfile-prefix", outfile_prefix,
+                "--padded-reference",
+                "--reference-infile", ref_full_fasta,
+                "--aa_start=413",
+                "--overwrite"
+            ]
+            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            self._check_outputs("test_ragged_gaps.frequencies", outfile_prefix)
+
     # --- test2.fasta ---
 
     def test_x_after_count(self):
