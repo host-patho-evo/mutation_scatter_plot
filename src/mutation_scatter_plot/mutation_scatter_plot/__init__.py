@@ -1072,14 +1072,14 @@ def setup_matplotlib_figure(
 
     if myoptions.aminoacids:
         if myoptions.shortlegend:
-            _xlabel = 'Natural position (italic in PNG/PDF) and padded amino acid position (in parentheses)'
+            _xlabel = 'Padded amino acid position (normal) and natural position (italic in parentheses)'
         else:
-            _xlabel = f'Natural position (italic in PNG/PDF) and padded amino acid position (in parentheses){os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
+            _xlabel = f'Padded amino acid position (normal) and natural position (italic in parentheses){os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
     else:
         if myoptions.shortlegend:
-            _xlabel = 'Natural position (italic in PNG/PDF) and padded codon position (in parentheses)'
+            _xlabel = 'Padded codon position (normal) and natural position (italic in parentheses)'
         else:
-            _xlabel = f'Natural position (italic in PNG/PDF) and padded codon position (in parentheses){os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
+            _xlabel = f'Padded codon position (normal) and natural position (italic in parentheses){os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
     _ax1.set_xlabel(_xlabel, fontsize=14)
     if myoptions.aminoacids:
         _ax1.set_ylabel('Introduced amino acid changes', fontsize=14)
@@ -1114,7 +1114,7 @@ def setup_matplotlib_figure(
         _padded = int(x)
         _natural = padded_position2position.get(_padded, '')
         if _natural != '':
-            return f"$\\mathit{{{_natural}}}$ ({_padded})"
+            return f"{_padded} ($\\mathit{{{_natural}}}$)"
         return str(_padded)
 
     _ax1.xaxis.set_major_formatter(ticker.FuncFormatter(_dual_format))
@@ -1131,14 +1131,14 @@ def setup_matplotlib_figure(
         print(f"Debug: len(_total_frequencies)={len(_total_frequencies)}, _total_frequencies={str(_total_frequencies.to_list())}")
 
     if myoptions.aminoacids:
-        _ax1.xaxis.set_tick_params(labelsize=14)
-        _ax1.tick_params(axis='x', which='both', labelsize=14)
+        _ax1.xaxis.set_tick_params(labelsize=10)
+        _ax1.tick_params(axis='x', which='both', labelsize=10)
         _y_ticks = np.arange(len(amino_acids))
         _ax1.set_yticks(_y_ticks)
         _ax1.set_yticklabels(amino_acids, fontsize=14)
     else:
-        _ax1.xaxis.set_tick_params(labelsize=14)
-        _ax1.tick_params(axis='x', which='both', labelsize=14)
+        _ax1.xaxis.set_tick_params(labelsize=10)
+        _ax1.tick_params(axis='x', which='both', labelsize=10)
         _y_ticks = np.arange(len(codons_whitelist))
         _ax1.set_yticks(_y_ticks)
         _ax1.set_yticklabels([_pairs[0] + ' (' + _pairs[1] + ')  ' if _pairs[1] not in ('INS', 'DEL')
@@ -1820,7 +1820,7 @@ def render_bokeh(
         if (mapping[padded] !== undefined) {{
             // Unlike Matplotlib, Bokeh axes don't support math expressions natively on tick labels,
             // but we can pass the raw strings.
-            return mapping[padded] + " (" + padded + ")";
+            return String(padded) + " (" + mapping[padded] + ")";
         }} else {{
             return String(padded);
         }}
@@ -1841,7 +1841,7 @@ def render_bokeh(
 
     _p.xaxis.major_label_orientation = 'vertical'
     _p.axis.axis_label_text_font_size = "12px"
-    _p.axis.major_label_text_font_size = "12px"
+    _p.axis.major_label_text_font_size = "10px"
     _p.scatter(x='x', y='y', size='s', marker='m', color='c', alpha='a', source=_mysource)
 
     # -------------------------------------------------------------------------
