@@ -37,28 +37,49 @@ def build_option_parser():
                           help="FASTA formatted input file with reference padded sequence or not")
     myparser.add_argument("--padded-reference", action="store_true",
                           dest="padded_reference", default=False,
-                          help="By default we do NOT require the reference sequence to be padded with '-' characters to match the alignment delineating INSertions. If it is not padded [default case] then INSertion will not be reported but gaps parsed in the alignment will be skipped as long until 3 nucleotides are available for codon translation. Regardless of this --padded-reference setting, length of the reference sequence must match length of each alignment line.")
+                          help="By default we do NOT require the reference sequence to be padded with '-' "
+                               "characters to match the alignment delineating INSertions. If it is not "
+                               "padded [default case] then INSertion will not be reported but gaps "
+                               "parsed in the alignment will be skipped as long until 3 nucleotides "
+                               "are available for codon translation. Regardless of this --padded-reference "
+                               "setting, length of the reference sequence must match length of each "
+                               "alignment line.")
     myparser.add_argument("--alignment-file", action="store", type=str,
                           dest="alignment_infilename", default=None, metavar="FILE",
-                          help="ALIGNMENT file in FASTA format with - (minus) chars to adjust the alignment to the --reference-infile")
+                          help="ALIGNMENT file in FASTA format with - (minus) chars to adjust the alignment "
+                               "to the --reference-infile")
     myparser.add_argument("--outfile-prefix", action="store", type=str,
                           dest="outfileprefix", default=None, metavar="FILE",
-                          help="It assumes *.frequencies.fasta files. The prefix specified should end with .frequencies . The .tsv and .unchanged_codons.tsv will be appended to the prefix.")
+                          help="It assumes *.frequencies.fasta files. The prefix specified should end with "
+                               ".frequencies . The .tsv and .unchanged_codons.tsv will be appended to the prefix.")
     myparser.add_argument("--left-reference-offset", action="store", type=int,
                           dest="left_reference_offset", default=0,
-                          help="First nucleotide of the ORF region of the REFERENCE of interest to be sliced out from the input sequences. This requires 0-based numbering.")
+                          help="First nucleotide of the ORF region of the REFERENCE of interest to be sliced out "
+                               "from the input sequences. This requires 0-based numbering.")
     myparser.add_argument("--right-reference-offset", action="store", type=int,
                           dest="right_reference_offset", default=0,
-                          help="Last nucleotide of the last codon of the REFERENCE of interest to be sliced out from the input sequences. This requires 0-based numbering.")
+                          help="Last nucleotide of the last codon of the REFERENCE of interest to be "
+                               "sliced out from the input sequences. This requires 0-based numbering.")
     myparser.add_argument("--aa_start", action="store", type=int,
                           dest="aa_start", default=0,
-                          help="Adjust (padded) real position of the very first codon unless (1 for an initiator ATG). This value is added to the codon position reported in the output TSV file (the ATG position minus one). Use this if you cannot use --left-reference-offset nor --right-reference-offset which would have been used for slicing the input reference. The value provided is decremented by one to match pythonic 0-based numbering.")
+                          help="Adjust (padded) real position of the very first codon unless (1 for an initiator "
+                               "ATG). This value is added to the codon position reported in the output TSV "
+                               "file (the ATG position minus one). Use this if you cannot use "
+                               "--left-reference-offset nor --right-reference-offset which would have "
+                               "been used for slicing the input reference. The value provided is decremented "
+                               "by one to match pythonic 0-based numbering.")
     myparser.add_argument("--min_start", action="store", type=int,
                           dest="min_start", default=0,
-                          help="Start parsing the alignment since this position of the ALIGNMENT file. This requires 1-based numbering. This is to speedup parsing of input sequences and of the reference by skipping typical leading and trailing padding dashes. Default: 0 (parse since the beginning)")
+                          help="Start parsing the alignment since this position of the ALIGNMENT file. "
+                               "This requires 1-based numbering. This is to speedup parsing of input "
+                               "sequences and of the reference by skipping typical leading and trailing "
+                               "padding dashes. Default: 0 (parse since the beginning)")
     myparser.add_argument("--max_stop", action="store", type=int,
                           dest="max_stop", default=0,
-                          help="Stop parsing the alignment at this position of the ALIGNMENT file. This requires 1-based numbering. This is to speedup parsing of input sequences and of the reference by skipping typical leading and trailing padding dashes. Default: 0 (parse until the very end)")
+                          help="Stop parsing the alignment at this position of the ALIGNMENT file. "
+                               "This requires 1-based numbering. This is to speedup parsing of input "
+                               "sequences and of the reference by skipping typical leading and trailing "
+                               "padding dashes. Default: 0 (parse until the very end)")
     myparser.add_argument("--x-after-count", action="store_true",
                           dest="x_after_count", default=False,
                           help="The FASTA file ID contains the count value followed by lowercase 'x'")
@@ -70,7 +91,12 @@ def build_option_parser():
                           help="Do NOT print out sites with unchanged codons to unchanged_codons.tsv file")
     myparser.add_argument("--discard-this-many-leading-nucs", action="store", type=int,
                           dest="discard_this_many_leading_nucs", default=0,
-                          help="Specify how many offending nucleotides are at the front of the FASTA sequences shifting the reading frame of the input FASTA file from frame +1 to either of the two remaining. Count the leading dashes and eventual nucleotides of incomplete codons too and check if it can be divided by 3.0 without slack. By default reading frame +1 is expected and hence no leading nucleotides are discarded. Default: 0")
+                          help="Specify how many offending nucleotides are at the front of the FASTA sequences "
+                               "shifting the reading frame of the input FASTA file from frame +1 to either "
+                               "of the two remaining. Count the leading dashes and eventual nucleotides of "
+                               "incomplete codons too and check if it can be divided by 3.0 without slack. "
+                               "By default reading frame +1 is expected and hence no leading nucleotides "
+                               "are discarded. Default: 0")
     myparser.add_argument("--discard-this-many-trailing-nucs", action="store", type=int,
                           dest="discard_this_many_trailing_nucs", default=0,
                           help="Specify how many offending nucleotides are at the end of each sequence. Default: 0")
@@ -163,7 +189,10 @@ def main():
         _count_filename = f"{'.'.join(myoptions.alignment_infilename.split('.')[:-1])}.count"
         _alnfilename_count_handle = stack.enter_context(open(_count_filename, 'w', encoding="utf-8"))
 
-        _tsv_header = "padded_position\tposition\toriginal_aa\tmutant_aa\tfrequency\toriginal_codon\tmutant_codon\tobserved_codon_count\ttotal_codons_per_site\n"
+        _tsv_header = (
+            "padded_position\tposition\toriginal_aa\tmutant_aa\tfrequency\t"
+            "original_codon\tmutant_codon\tobserved_codon_count\ttotal_codons_per_site\n"
+        )
 
         if myoptions.outfileprefix.endswith('.tsv'):
             _out_name = myoptions.outfileprefix

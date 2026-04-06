@@ -132,7 +132,12 @@ class ResourceProfiler(threading.Thread):
             secs = int(duration.total_seconds())
             hours, remainder = divmod(secs, 3600)
             minutes, seconds = divmod(remainder, 60)
-            dur_str = f"{hours}h {minutes:02d}m" if hours > 0 else f"{minutes}m {seconds:02d}s" if minutes > 0 else f"{seconds}s"
+            if hours > 0:
+                dur_str = f"{hours}h {minutes:02d}m"
+            elif minutes > 0:
+                dur_str = f"{minutes}m {seconds:02d}s"
+            else:
+                dur_str = f"{seconds}s"
 
             if self.phase_cpu_samples:
                 peak_cpu = max(self.phase_cpu_samples)

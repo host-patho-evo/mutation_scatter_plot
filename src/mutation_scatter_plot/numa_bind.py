@@ -54,6 +54,7 @@ from typing import NamedTuple
 # Internal data type
 # ---------------------------------------------------------------------------
 
+
 class _NUMANode(NamedTuple):
     """Per-node NUMA information read from sysfs."""
 

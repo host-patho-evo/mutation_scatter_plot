@@ -123,10 +123,18 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded,
         else:
             _observed_codon_count2 = _observed_codon_count
         outfilename.write(
-            f"{natural_codon_position_padded}\t{natural_codon_position_depadded}\t{reference_aa}\t{_some_aa}\t{Decimal(_observed_codon_count2) / Decimal(total_codons_per_site_sum):.6f}\t{reference_codon}\t{_some_codon}\t{_observed_codon_count2}\t{_total_codons_per_site_sum}\n"
+            f"{natural_codon_position_padded}\t{natural_codon_position_depadded}\t"
+            f"{reference_aa}\t{_some_aa}\t"
+            f"{Decimal(_observed_codon_count2) / Decimal(total_codons_per_site_sum):.6f}\t"
+            f"{reference_codon}\t{_some_codon}\t"
+            f"{_observed_codon_count2}\t{_total_codons_per_site_sum}\n"
         )
         if debug:
-            print(f"TESTING1:\t{natural_codon_position_padded}\t{natural_codon_position_depadded}\t{reference_aa}\t{_some_aa}\t{Decimal(_observed_codon_count2) / Decimal(total_codons_per_site_sum):.6f}\t{reference_codon}\t{_some_codon}\t{_observed_codon_count2}\t{_total_codons_per_site_sum}")
+            print(f"TESTING1:\t{natural_codon_position_padded}\t{natural_codon_position_depadded}\t"
+                  f"{reference_aa}\t{_some_aa}\t"
+                  f"{Decimal(_observed_codon_count2) / Decimal(total_codons_per_site_sum):.6f}\t"
+                  f"{reference_codon}\t{_some_codon}\t"
+                  f"{_observed_codon_count2}\t{_total_codons_per_site_sum}")
     # Flush is done by the caller on a time-gate to avoid expensive NFS round-trips.
 
 
