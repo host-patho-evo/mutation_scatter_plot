@@ -1069,6 +1069,7 @@ def setup_matplotlib_figure(
     print(f"Info: matplotlib.get_backend={matplotlib.get_backend()}")
 
     _figure, (_ax1, _ax3, _ax4) = plt.subplots(1, 3, figsize=(16, 9), width_ratios=[55, 1, 6])
+    _figure.subplots_adjust(bottom=0.20)
 
     if myoptions.aminoacids:
         if myoptions.shortlegend:
@@ -1080,7 +1081,7 @@ def setup_matplotlib_figure(
             _xlabel = 'Padded codon position (normal) and natural position (italic in parentheses)'
         else:
             _xlabel = f'Padded codon position (normal) and natural position (italic in parentheses){os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
-    _ax1.set_xlabel(_xlabel, fontsize=14)
+    _ax1.set_xlabel(_xlabel, fontsize=10)
     if myoptions.aminoacids:
         _ax1.set_ylabel('Introduced amino acid changes', fontsize=14)
         _ax1.set_title(title_data, fontsize=18)
@@ -1131,14 +1132,14 @@ def setup_matplotlib_figure(
         print(f"Debug: len(_total_frequencies)={len(_total_frequencies)}, _total_frequencies={str(_total_frequencies.to_list())}")
 
     if myoptions.aminoacids:
-        _ax1.xaxis.set_tick_params(labelsize=10)
-        _ax1.tick_params(axis='x', which='both', labelsize=10)
+        _ax1.xaxis.set_tick_params(labelsize=8)
+        _ax1.tick_params(axis='x', which='both', labelsize=8)
         _y_ticks = np.arange(len(amino_acids))
         _ax1.set_yticks(_y_ticks)
         _ax1.set_yticklabels(amino_acids, fontsize=14)
     else:
-        _ax1.xaxis.set_tick_params(labelsize=10)
-        _ax1.tick_params(axis='x', which='both', labelsize=10)
+        _ax1.xaxis.set_tick_params(labelsize=8)
+        _ax1.tick_params(axis='x', which='both', labelsize=8)
         _y_ticks = np.arange(len(codons_whitelist))
         _ax1.set_yticks(_y_ticks)
         _ax1.set_yticklabels([_pairs[0] + ' (' + _pairs[1] + ')  ' if _pairs[1] not in ('INS', 'DEL')
@@ -1840,8 +1841,8 @@ def render_bokeh(
     ), "below")
 
     _p.xaxis.major_label_orientation = 'vertical'
-    _p.axis.axis_label_text_font_size = "12px"
-    _p.axis.major_label_text_font_size = "10px"
+    _p.axis.axis_label_text_font_size = "10px"
+    _p.axis.major_label_text_font_size = "8px"
     _p.scatter(x='x', y='y', size='s', marker='m', color='c', alpha='a', source=_mysource)
 
     # -------------------------------------------------------------------------
