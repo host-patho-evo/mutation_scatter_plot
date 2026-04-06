@@ -600,7 +600,7 @@ def main():
         # Default (non-inverted) mode: sha256_lines = dedup IDs from --infilename.
         sha256_lines = list(infile_sha256s.values())
 
-        if myoptions.mapping_outfile and not ids_computed:
+        if myoptions.mapping_outfile:
             # Fast path: expand via pre-built mapping TSV.
             _id_groups2: list[tuple[int, list[str]]] = []  # (nnnx_count, orig_ids) — sorted later
             _is_descr_tsv = myoptions.mapping_outfile.endswith('.sha256_to_descr_lines.tsv')
