@@ -187,7 +187,7 @@ import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from mutation_scatter_plot.profiler import PROFILER
+from mutation_scatter_plot.profiler import PROFILER  # pylint: disable=import-error
 
 FASTA_SUFFIXES = ('.fasta.orig', '.fasta.ori', '.fasta.old', '.fasta')
 
