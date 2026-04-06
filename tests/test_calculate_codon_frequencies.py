@@ -167,8 +167,14 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--aa_start=413",
                 "--overwrite"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            result = subprocess.run(
+                cmd, cwd=self.project_root, env=self.env,
+                capture_output=True, text=True, check=False
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}"
+            )
             self._check_outputs("test1.default.frequencies", outfile_prefix)
 
     def test_test1_x_after_count(self):
@@ -184,8 +190,14 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--x-after-count",
                 "--overwrite"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            result = subprocess.run(
+                cmd, cwd=self.project_root, env=self.env,
+                capture_output=True, text=True, check=False
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}"
+            )
             self._check_outputs("test1.x_after_count.frequencies", outfile_prefix)
 
     def test_test1_x_after_count_and_min_start(self):
@@ -202,8 +214,14 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--min_start", "7",
                 "--overwrite"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            result = subprocess.run(
+                cmd, cwd=self.project_root, env=self.env,
+                capture_output=True, text=True, check=False
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}"
+            )
             self._check_outputs("test1.x_after_count_and_min_start.frequencies", outfile_prefix)
 
     def test_disable_print_unchanged_sites(self):
@@ -219,8 +237,12 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--disable-print-unchanged-sites",
                 "--overwrite"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}")
+            result = subprocess.run(
+                cmd, cwd=self.project_root, env=self.env,
+                capture_output=True, text=True, check=False
+            )
+            self.assertEqual(result.returncode, 0,
+                             f"Command failed with error:\n{result.stderr}")
 
             # Main TSV should exist
             self.assertTrue(os.path.exists(f"{outfile_prefix}.tsv"))
@@ -244,8 +266,14 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--aa_start=413",
                 "--overwrite"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            result = subprocess.run(
+                cmd, cwd=self.project_root, env=self.env,
+                capture_output=True, text=True, check=False
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}"
+            )
             self._check_outputs("test_ragged_gaps.frequencies", outfile_prefix)
 
     # --- test2.fasta ---
@@ -263,8 +291,14 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--aa_start=413",
                 "--overwrite"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            result = subprocess.run(
+                cmd, cwd=self.project_root, env=self.env,
+                capture_output=True, text=True, check=False
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}"
+            )
             self._check_outputs("test2.x_after_count.frequencies", outfile_prefix)
 
     def test_x_after_count_and_min_start(self):
@@ -281,8 +315,14 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--aa_start=413",
                 "--overwrite"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            result = subprocess.run(
+                cmd, cwd=self.project_root, env=self.env,
+                capture_output=True, text=True, check=False
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}"
+            )
             self._check_outputs("test2.x_after_count_and_min_start.frequencies", outfile_prefix)
 
     def test_short_alignment_aa_start(self):
@@ -297,8 +337,14 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--aa_start=413",
                 "--overwrite"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            result = subprocess.run(
+                cmd, cwd=self.project_root, env=self.env,
+                capture_output=True, text=True, check=False
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}"
+            )
             self._check_outputs("test2_short.aa_start.frequencies", outfile_prefix)
 
     # --- test2_full.fasta ---
@@ -316,8 +362,14 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--reference-infile", ref_full_fasta,
                 "--overwrite"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            result = subprocess.run(
+                cmd, cwd=self.project_root, env=self.env,
+                capture_output=True, text=True, check=False
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}"
+            )
             self._check_outputs("test2_full.default.frequencies", outfile_prefix)
 
     def test_test2_full_default_command(self):
@@ -334,8 +386,14 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--x-after-count",
                 "--overwrite"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            result = subprocess.run(
+                cmd, cwd=self.project_root, env=self.env,
+                capture_output=True, text=True, check=False
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}"
+            )
             # Note: We expect this to fail initially if the baseline is not yet updated for the zapped file.
             self._check_outputs("test2_full.x_after_count.frequencies", outfile_prefix)
 
@@ -352,8 +410,14 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--threads", "2",
                 "--overwrite"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            result = subprocess.run(
+                cmd, cwd=self.project_root, env=self.env,
+                capture_output=True, text=True, check=False
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}"
+            )
             # Compare with the same baseline as test1_default_command
             self._check_outputs("test1.default.frequencies", outfile_prefix)
 
@@ -375,8 +439,14 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
                 "--aa_start", "413",
                 "--overwrite"
             ]
-            result = subprocess.run(cmd, cwd=self.project_root, env=self.env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}")
+            result = subprocess.run(
+                cmd, cwd=self.project_root, env=self.env,
+                capture_output=True, text=True, check=False
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                f"Command failed with error:\n{result.stderr}\n\nStdout:\n{result.stdout}"
+            )
             self._check_outputs("test3.default.frequencies", outfile_prefix)
 
 
