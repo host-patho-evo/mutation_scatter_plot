@@ -2355,11 +2355,12 @@ def render_matplotlib(
         else:
             _mpl_s = float(np.abs(_size) * 5000)
             
-        _handle = ax4.scatter(0, 0, s=_mpl_s, color='#808080',
+        _handle = ax4.scatter(0, -400 + _freq, s=_mpl_s, color='#808080',
                               alpha=0.5, label=f'{_freq:.1%}')  # medium gray size-legend bubbles
         _label = str(_freq)
         _handles.append(_handle)
         _labels.append(_label)
+    ax4.set_ylim(0, 1)
     ax4.set_axis_off()
     ax4.legend(loc='upper left', bbox_to_anchor=(0.0, 1.00), labelspacing=4.0, frameon=False, handletextpad=2.8, fontsize=14)
 
