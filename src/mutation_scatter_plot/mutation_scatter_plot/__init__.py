@@ -2361,7 +2361,7 @@ def render_matplotlib(
         _handles.append(_handle)
         _labels.append(_label)
     ax4.set_axis_off()
-    ax4.legend(loc='upper left', bbox_to_anchor=(0.0, 1.00), labelspacing=5.4, frameon=False, handletextpad=2.8)
+    ax4.legend(loc='upper left', bbox_to_anchor=(0.0, 1.00), labelspacing=4.0, frameon=False, handletextpad=2.8, fontsize=14)
 
     if myoptions.debug or os.environ.get('PYTEST_CURRENT_TEST'):
         _mpl_hovers = []
