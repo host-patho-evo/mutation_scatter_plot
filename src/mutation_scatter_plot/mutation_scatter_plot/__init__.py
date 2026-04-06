@@ -1090,7 +1090,7 @@ def setup_matplotlib_figure(
             _xlabel = 'Padded codon position and natural position (in parentheses)'
         else:
             _xlabel = f'Padded codon position and natural position (in parentheses){os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
-    _ax1.set_xlabel(_xlabel, fontsize=10)
+    _ax1.set_xlabel(_xlabel, fontsize=14)
     if myoptions.aminoacids:
         _ax1.set_ylabel('Introduced amino acid changes', fontsize=14)
         _ax1.set_title(title_data, fontsize=18)
