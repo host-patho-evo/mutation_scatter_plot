@@ -1072,14 +1072,14 @@ def setup_matplotlib_figure(
 
     if myoptions.aminoacids:
         if myoptions.shortlegend:
-            _xlabel = 'Natural position (italic) and padded amino acid position (normal font)'
+            _xlabel = 'Natural position (italic in PNG/PDF) and padded amino acid position (in parentheses)'
         else:
-            _xlabel = f'Natural position (italic) and padded amino acid position (normal){os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
+            _xlabel = f'Natural position (italic in PNG/PDF) and padded amino acid position (in parentheses){os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
     else:
         if myoptions.shortlegend:
-            _xlabel = 'Natural position (italic) and padded codon position (normal font)'
+            _xlabel = 'Natural position (italic in PNG/PDF) and padded codon position (in parentheses)'
         else:
-            _xlabel = f'Natural position (italic) and padded codon position (normal){os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
+            _xlabel = f'Natural position (italic in PNG/PDF) and padded codon position (in parentheses){os.linesep}based on {aln_rows.strip(os.linesep)} ALN rows, matrix {matrix_name}, colormap {myoptions.colormap}, mutation_scatter_plot {VERSION}'
     _ax1.set_xlabel(_xlabel, fontsize=14)
     if myoptions.aminoacids:
         _ax1.set_ylabel('Introduced amino acid changes', fontsize=14)
