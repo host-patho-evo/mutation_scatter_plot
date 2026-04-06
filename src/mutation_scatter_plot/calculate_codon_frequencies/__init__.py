@@ -244,6 +244,8 @@ def _process_one_site(
     _changed_codons = Counter()
     _deleted_reference_codons = Counter()
     _inserted_codons = Counter()
+    _incomplete_codons = Counter()
+    _ambiguous_codons = Counter()
     _is_deletion = False
     _is_insertion = False
 
@@ -253,7 +255,11 @@ def _process_one_site(
             '-', '') if _sample_codon_contained_pad else _rough_sample_codon
 
         if _action == "regular":
-            if _rough_sample_codon == '---' and _reference_codon != '---' and _reference_codon != 'NNN':
+            if 'N' in _rough_sample_codon.upper():
+                _ambiguous_codons[_rough_sample_codon] += _record_count
+            elif '-' in _rough_sample_codon and _rough_sample_codon != '---' and _reference_codon != '---':
+                _incomplete_codons[_rough_sample_codon] += _record_count
+            elif _rough_sample_codon == '---' and _reference_codon != '---' and _reference_codon != 'NNN':
                 _is_deletion = True
                 _deleted_reference_codons[_reference_codon] += _record_count
             elif _reference_codon == '---' and _rough_sample_codon != '---':
@@ -282,6 +288,8 @@ def _process_one_site(
         'changed': _changed_codons,
         'inserted': _inserted_codons,
         'deleted': _deleted_reference_codons,
+        'incomplete': _incomplete_codons,
+        'ambiguous': _ambiguous_codons,
         'is_deletion': _is_deletion,
         'is_insertion': _is_insertion,
         'counts': _total_counts,
