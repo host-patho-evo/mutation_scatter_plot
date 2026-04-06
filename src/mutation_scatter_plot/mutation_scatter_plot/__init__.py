@@ -2350,13 +2350,18 @@ def render_matplotlib(
         else:
             _score, _size, _color = adjust_size_and_color(myoptions, Decimal(
                 _freq), _codon_on_input, _junk, _junk, _junk, _junk, matrix, norm, colors)
-        _handle = ax2.scatter(0, - 400 + _freq, s=float(_freq * 5000), color='#808080',
+        if myoptions.linear_circle_size:
+            _mpl_s = float(np.abs(_size) ** 2 * 5000)
+        else:
+            _mpl_s = float(np.abs(_size) * 5000)
+            
+        _handle = ax4.scatter(0, 0, s=_mpl_s, color='#808080',
                               alpha=0.5, label=f'{_freq:.1%}')  # medium gray size-legend bubbles
         _label = str(_freq)
         _handles.append(_handle)
         _labels.append(_label)
     ax4.set_axis_off()
-    ax2.legend(loc='upper center', bbox_to_anchor=(1.25, 1.00), labelspacing=5.4, frameon=False, handletextpad=2.8)
+    ax4.legend(loc='upper left', bbox_to_anchor=(0.0, 1.00), labelspacing=5.4, frameon=False, handletextpad=2.8)
 
     if myoptions.debug or os.environ.get('PYTEST_CURRENT_TEST'):
         _mpl_hovers = []
