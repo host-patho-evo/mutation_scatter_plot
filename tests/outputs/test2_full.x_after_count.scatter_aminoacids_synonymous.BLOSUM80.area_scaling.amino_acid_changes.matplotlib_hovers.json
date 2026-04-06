@@ -81,6 +81,6 @@
   },
   {
     "index": 20,
-    "text": "Padded position: 500\nPosition: 483\nOriginal Amino Acid: V (GTT)\nNew Amino Acid: DEL (['---'])\nBLOSUM80 score: -inf\nCumulative Frequency: 0.009015\nCodon Frequencies: ['0.009015']\nObserved codon counts: [14,213]\nObserved codon count sum: 14,213\nTotal codons per site: 1,576,651"
+    "text": "Padded position: 500\nPosition: 483\nOriginal Amino Acid: V (GTT)\nNew Amino Acid: DEL (['---'])\nBLOSUM80 score: -inf\nCumulative Frequency: 0.009015\nCodon Frequencies: ['0.009015']\nObserved codon counts: [14,213]\nObserved codon count sum: 14,213\nTotal codons per site: 1,576,650"
   }
 ]
