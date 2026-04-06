@@ -1611,6 +1611,7 @@ def _scan_primary_file(
     lines.append(f"{_ts()}{tag} {display}  ({sz_str}, {kind}){PROFILER.get_current_load_str()}")
     lines.append("        counting records & summing NNNNx counts \u2026")
     n_rec, n_sum = _count_records_and_nnnx(f)
+    raw_n_rec = n_rec
     if use_nnnx_counts and n_sum > 0:
         lines.append(f"        using NNNNx sum ({n_sum:,}) as record count \u2026")
         n_rec = n_sum
@@ -1632,10 +1633,10 @@ def _scan_primary_file(
     # sha256 set size < record count is expected and must NOT be flagged.
     # The n_legacy == 0 guard is still needed: when the TSV fast-path is used,
     # _collect_sha256_set() returns n_legacy=0 regardless of file type.
-    if n_sum > 0 and n_legacy == 0 and len(sha_set) != n_rec:
+    if n_sum > 0 and n_legacy == 0 and len(sha_set) != raw_n_rec:
         lines.append(
             f"        INTERNAL CHECK FAILED: sha256 set size {len(sha_set):,} "
-            f"\u2260 record count {n_rec:,} (duplicate sha256 IDs or stale TSV?)"
+            f"\u2260 record count {raw_n_rec:,} (duplicate sha256 IDs or stale TSV?)"
         )
     return {
         'idx':         idx,
