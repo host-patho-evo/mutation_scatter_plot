@@ -45,6 +45,7 @@ Due to the aggregated nature of GISAID FASTA exports worldwide, the header lines
 1. **Valid UTF-8 multi-byte sequences** — standard international characters (e.g., `é` as `\xC3\xA9`).
 2. **Raw Latin-1 (ISO-8859-1) bytes** — single-byte accented characters injected by older laboratory legacy systems (e.g., French `é` as raw `\xe9`).
 3. **Literal `\uXXXX` escape sequences** — ASCII representations constructed by Java's `native2ascii` or Python's `unicode_escape` (e.g., the string `\u00e9`).
+4. **Literal embedded TAB (`\t`) characters** — accidental TAB characters injected into metadata strings by sequencing labs (e.g., `INCARNATE WORD CONVENT - \t3400 BRADFORD STREET` in EPI_ISL_14481342), which fatally slice TSV-based downstream mapping pipelines into discrete columns if left intact.
 
 Furthermore, some laboratory records contain completely obscure artifacts including Hebrew letters (`[U+05D3] ד`), Thai symbols (`[U+0E3A] ฺ`), and superscripts (`[U+00B2] ²`), often intertwined with Latin-1 bytes (such as an invisible soft hyphen `[\xAD]` glued to `Âƒ` in Mexican sequences).
 

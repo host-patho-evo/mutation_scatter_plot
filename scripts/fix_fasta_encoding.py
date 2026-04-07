@@ -57,11 +57,24 @@ This script uses Python's ``surrogateescape`` error handler instead:
       (``'\\u' not in s``) makes this essentially free for the vast majority
       of lines (sequence lines, clean headers) that contain no escapes.
 
-  Step 4 — C0 control character stripping:
-      ASCII control characters 0x01–0x1F (excluding ``\\t`` 0x09, ``\\n``
-      0x0A, ``\\r`` 0x0D) are stripped from every line.
+  Step 4 — C0 control character stripping (and TAB conversion):
+      ASCII control characters 0x01–0x1F (excluding ``\\n`` 0x0A,
+      ``\\r`` 0x0D) are stripped from every line. In addition, literal
+      TAB (``\\t`` 0x09) characters are converted into standard spaces.
 
-      **Real-world example — GISAID record EPI_ISL_2016759:**
+      **Real-world example 1 — GISAID record EPI_ISL_14481342:**
+
+      The raw GISAID FASTA file contains literal TABs embedded internally
+      inside the description field (likely a typo from the sequencing lab)::
+
+          >...|INCARNATE WORD CONVENT - \t3400 BRADFORD STREET|...
+
+      If left intact, downstream TSV mapping logs (which rely on tabs as column
+      delimiters) would forcefully split this single ID into two columns during
+      parsing, permanently corrupting sequence traceability in `summarize_fasta_pipeline.py`.
+      This script explicitly converts that TAB into a space to maintain TSV integrity.
+
+      **Real-world example 2 — GISAID record EPI_ISL_2016759:**
 
       The raw GISAID FASTA file contains the *literal six-character ASCII
       text* ``\\u0003`` (bytes 0x5C 0x75 0x30 0x30 0x30 0x33: backslash,
