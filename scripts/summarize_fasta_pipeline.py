@@ -1593,6 +1593,12 @@ def _extract_subset_to_fasta(
                 if raw.startswith(b'>'):
                     line_str = _decode_fasta_line(raw).rstrip('\r\n')
                     header = line_str[1:]
+                    
+                    # Note: GISAID descriptions might contain literal trailing space characters correctly
+                    # (e.g. "... Pathology and "). Because the TSV-parsed `target_ids_set` strings 
+                    # mathematically drop these during construction via `.strip()`, we MUST structurally 
+                    # `.strip()` the fasta header string dynamically exactly here to prevent 
+                    # `"Pathology and " != "Pathology and"` sequence lookup dropouts.
                     match_id = header.strip() if is_descr else (header.split()[0] if header.split() else "")
                     in_target = match_id in target_ids_set
                     if in_target:
