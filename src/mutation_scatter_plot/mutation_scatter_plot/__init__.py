@@ -1845,17 +1845,28 @@ def render_bokeh(
     _p.xaxis.ticker = bokeh.models.FixedTicker(ticks=_major_ticks)
 
     _js_mapping = json.dumps(padded_position2position)
-    _js_code = f"""
-        const mapping = {_js_mapping};
-        const padded = Math.round(tick);
-        if (mapping[padded] !== undefined) {{
-            // Unlike Matplotlib, Bokeh axes don't support math expressions natively on tick labels,
-            // but we can pass the raw strings.
-            return String(padded) + " (" + mapping[padded] + ")";
-        }} else {{
-            return String(padded);
-        }}
-    """
+    if myoptions.disable_padded_x_axis:
+        _js_code = f"""
+            const mapping = {_js_mapping};
+            const padded = Math.round(tick);
+            if (mapping[padded] !== undefined) {{
+                return String(mapping[padded]);
+            }} else {{
+                return String(padded);
+            }}
+        """
+    else:
+        _js_code = f"""
+            const mapping = {_js_mapping};
+            const padded = Math.round(tick);
+            if (mapping[padded] !== undefined && mapping[padded] !== padded) {{
+                // Unlike Matplotlib, Bokeh axes don't support math expressions natively on tick labels,
+                // but we can pass the raw strings.
+                return String(padded) + " (" + mapping[padded] + ")";
+            }} else {{
+                return String(padded);
+            }}
+        """
     _p.xaxis.formatter = bokeh.models.CustomJSTickFormatter(code=_js_code)
 
     _p.xaxis.minor_tick_line_color = "black"
