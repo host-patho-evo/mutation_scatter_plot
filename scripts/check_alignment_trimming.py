@@ -1,0 +1,308 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
+"""Diagnostic: classify sequences changed by alignment.
+
+For each record in an aligned FASTA with NNNNx.sha256hex IDs, compare:
+  sha256(depadded_aligned_seq.upper())  vs  sha256 stored in the ID
+
+A mismatch means the alignment trimmed or modified the sequence so that
+its depadded form no longer matches the original pre-alignment sequence.
+Note that sequences may have also been reverse-complemented during alignment;
+since this changes the orientation, it inherently breaks the original hash
+and is classified as a modification ("other").
+
+When ``--original-fasta`` is provided (the *.counts.fasta that was fed into
+the alignment step), mismatching records are further classified by comparing
+the post-alignment depadded sequence against the pre-alignment original
+(also depadded and uppercased):
+
+  right_clipped     : current seq is a PREFIX of the original  (right end trimmed)
+  left_clipped      : current seq is a SUFFIX of the original  (left end trimmed)
+  both_ends_clipped : current seq is an INTERIOR substring of the original
+                      (both ends trimmed, internal content intact)
+  other             : current is not a substring of original at all
+                      — internal bases were modified, or the sequence was
+                      reverse-complemented, not just ends clipped
+
+Two-pass strategy to stay memory-efficient on large files:
+  Pass 1: scan aligned FASTA → collect {sha256_in_id: depadded_current_seq}
+           only for mismatching records (typically very few).
+  Pass 2: scan original FASTA → for each matching sha256, compare sequences.
+
+Usage::
+
+    # Basic: count mismatches only
+    check_alignment_trimming.py \\
+        --infilename=spikenuc1207.no_junk.counts.3822.clean.fasta
+
+    # With classification: also explain what changed
+    check_alignment_trimming.py \\
+        --infilename=spikenuc1207.no_junk.counts.3822.clean.fasta \\
+        --original-fasta=spikenuc1207.no_junk.counts.fasta
+"""
+import argparse
+import hashlib
+import os
+import sys
+
+VERSION = "202604022300"
+
+
+def _get_git_version() -> str:
+    """Return ``git describe --always --dirty --tags`` output, or ``'unknown'``."""
+    import subprocess as _sp
+    _here = os.path.dirname(os.path.abspath(__file__))
+    try:
+        result = _sp.run(
+            ["git", "describe", "--always", "--dirty", "--tags"],
+            capture_output=True, text=True, check=True,
+            cwd=_here,
+        )
+        ver = result.stdout.strip()
+        if ver:
+            return ver
+    except Exception:  # pylint: disable=broad-except
+        pass
+    env_ver = os.environ.get("GIT_COMMIT", "").strip()
+    return env_ver[:12] if env_ver else "unknown"
+
+
+_GIT_VERSION: str = _get_git_version()
+
+parser = argparse.ArgumentParser(
+    description=__doc__,
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+)
+parser.add_argument(
+    "--infilename", required=True,
+    help="Aligned FASTA with NNNNx.sha256hex IDs (post-alignment file to audit).",
+)
+parser.add_argument(
+    "--original-fasta", dest="original_fasta", default="",
+    help=(
+        "Pre-alignment *.counts.fasta (NNNNx.sha256hex IDs).  When provided, "
+        "each sha256 mismatch is classified as right_clipped / left_clipped / "
+        "both_ends_clipped / other by comparing the depadded post-alignment "
+        "sequence against the original depadded sequence from this file."
+    ),
+)
+parser.add_argument("--debug", action="store_true",
+                    help="Print per-record mismatch details.")
+parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
+args = parser.parse_args()
+
+
+def _extract_sha256(record_id: str) -> str | None:
+    """Return 64-char hex sha256 from a NNNNx.sha256hex ID, or None."""
+    xdot = record_id.find('x.')
+    if xdot >= 0:
+        candidate = record_id[xdot + 2:].split()[0]
+        if len(candidate) == 64 and all(c in '0123456789abcdefABCDEF' for c in candidate):
+            return candidate.lower()
+    return None
+
+
+def _depad(seq: str) -> str:
+    """Strip dashes and uppercase — the canonical pre-hash normalisation."""
+    return seq.replace('-', '').upper()
+
+
+_COMPLEMENT_TAB = str.maketrans(
+    'ACGTRYSWKMBDHVNacgtryswkmbdhvn',
+    'TGCAYRSWMKVHDBNtgcayrswmkvhdbn'
+)
+
+
+def _reverse_complement(seq: str) -> str:
+    return seq.translate(_COMPLEMENT_TAB)[::-1]
+
+
+def _iter_fasta(path: str, target_shas: set[str] | None = None):
+    """Yield (name, depadded_seq) for each record.
+    If target_shas is provided, sequence bodies for IDs possessing a known sha256
+    that is NOT in target_shas are skipped entirely (yielding an empty string).
+    """
+    name = None
+    parts: list[str] = []
+    skip_seq = False
+    with open(path, 'r', encoding='utf-8', errors='replace') as fh:
+        for line in fh:
+            line = line.rstrip('\r\n')
+            if not line:
+                continue
+            if line.startswith('>'):
+                if name is not None:
+                    yield name, ("" if skip_seq else _depad(''.join(parts)))
+                name = line[1:].split()[0]
+                parts = []
+                if target_shas is not None:
+                    sha = _extract_sha256(name)
+                    # If ID has a sha, and it's not what we're looking for, skip reading its sequence!
+                    skip_seq = (sha is not None and sha not in target_shas)
+                else:
+                    skip_seq = False
+            else:
+                if not skip_seq:
+                    parts.append(line)
+    if name is not None:
+        yield name, ("" if skip_seq else _depad(''.join(parts)))
+
+
+def _classify(current: str, original: str, current_id: str) -> str:
+    """Classify how *current* (post-alignment, depadded) relates to *original*.
+
+    Categories (mutually exclusive, checked in order):
+      right_clipped     – current is a non-empty prefix of original
+      left_clipped      – current is a non-empty suffix of original
+      both_ends_clipped – current is an interior substring of original
+                          (neither a prefix nor a suffix)
+      right_clipped_rc  – current is right-clipped from the revcom
+      left_clipped_rc   – current is left-clipped from the revcom
+      both_ends_clipped_rc – current is an interior substring of the revcom
+      other_rc_by_header – Not a clean substring, but header indicates minus strand
+      header_conflict_warning – Header indicates minus strand, but sequence matched forward!
+      other             – current is not a substring of original or RC at all
+    """
+    if not current or not original:
+        return 'other'
+
+    parts = current_id.split()
+    is_minus_header = False
+
+    # 1. Paranoid check: Look for "minus" or inverted start/stop coordinates
+    if "minus" in parts[1:5]:
+        is_minus_header = True
+    elif len(parts) >= 3:
+        try:
+            start = int(parts[1])
+            stop = int(parts[2])
+            if start > stop:
+                is_minus_header = True
+        except ValueError:
+            pass
+
+    # Forward strand checks
+    if original.startswith(current):
+        return 'header_conflict_warning' if is_minus_header else 'right_clipped'
+    if original.endswith(current):
+        return 'header_conflict_warning' if is_minus_header else 'left_clipped'
+    if current in original:
+        return 'header_conflict_warning' if is_minus_header else 'both_ends_clipped'
+
+    # Reverse-complement strand checks
+    rc_original = _reverse_complement(original)
+    if rc_original.startswith(current):
+        return 'right_clipped_rc'
+    if rc_original.endswith(current):
+        return 'left_clipped_rc'
+    if current in rc_original:
+        return 'both_ends_clipped_rc'
+
+    return 'other_rc_by_header' if is_minus_header else 'other'
+
+
+def main() -> None:
+    """Scan aligned FASTA and report (and optionally classify) sha256 mismatches."""
+    import datetime as _dt
+    _start_ts = _dt.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
+    print(
+        f"{_start_ts} check_alignment_trimming.py"
+        f"  version {VERSION}  git:{_GIT_VERSION}"
+        f"  invoked: {' '.join(sys.argv)}",
+        file=sys.stderr,
+    )
+
+    # ── Pass 1: detect mismatches ───────────────────────────────────────────
+    # mismatch_seqs: sha256_in_id → (record_id, depadded post-alignment sequence)
+    mismatch_seqs: dict[str, tuple[str, str]] = {}
+    n_total = n_with_sha = n_mismatch = 0
+
+    for rec_id, dep_seq in _iter_fasta(args.infilename):
+        n_total += 1
+        sha_in_id = _extract_sha256(rec_id)
+        if sha_in_id is None:
+            continue
+        n_with_sha += 1
+        sha_computed = hashlib.sha256(dep_seq.encode()).hexdigest()
+        if sha_computed != sha_in_id:
+            n_mismatch += 1
+            mismatch_seqs[sha_in_id] = (rec_id, dep_seq)
+            if args.debug:
+                print(
+                    f"MISMATCH id={rec_id}  id_sha={sha_in_id}"
+                    f"  seq_sha={sha_computed}  depadded_len={len(dep_seq)}",
+                    file=sys.stderr,
+                )
+        if n_total % 500_000 == 0:
+            print(f"Info: {n_total:,} records processed, "
+                  f"{n_mismatch:,} mismatches so far", file=sys.stderr)
+
+    # ── Pass 2 (optional): classify mismatches against the original FASTA ──
+    categories: dict[str, int] = {
+        'right_clipped': 0,
+        'left_clipped': 0,
+        'both_ends_clipped': 0,
+        'right_clipped_rc': 0,
+        'left_clipped_rc': 0,
+        'both_ends_clipped_rc': 0,
+        'other_rc_by_header': 0,
+        'header_conflict_warning': 0,
+        'other': 0,
+    }
+    n_classified = 0
+
+    if args.original_fasta and mismatch_seqs:
+        print(f"\nInfo: classifying {len(mismatch_seqs):,} mismatches against "
+              f"{args.original_fasta} …", file=sys.stderr)
+        remaining = dict(mismatch_seqs)  # copy; remove as we find matches
+        for orig_id, orig_seq in _iter_fasta(args.original_fasta, target_shas=set(remaining)):
+            sha_orig = _extract_sha256(orig_id)
+            if sha_orig is None:
+                # Legacy NNNNx ID — compute sha256 from sequence content.
+                sha_orig = hashlib.sha256(orig_seq.encode()).hexdigest()
+            if sha_orig not in remaining:
+                continue
+            curr_id, curr_seq = remaining.pop(sha_orig)
+            cat = _classify(curr_seq, orig_seq, curr_id)
+            categories[cat] += 1
+            n_classified += 1
+            if args.debug:
+                print(
+                    f"  sha={sha_orig[:16]}…  cat={cat}"
+                    f"  orig_len={len(orig_seq)}  curr_len={len(curr_seq)}",
+                    file=sys.stderr,
+                )
+            if not remaining:
+                break  # all mismatches resolved; no need to read further
+
+        if remaining:
+            print(
+                f"  Warning: {len(remaining):,} mismatching sha256(s) not found "
+                f"in {args.original_fasta} — original sequences missing or "
+                "from a different pipeline step.",
+                file=sys.stderr,
+            )
+
+    # ── Summary ─────────────────────────────────────────────────────────────
+    print("\nSummary")
+    print(f"  Total records           : {n_total:,}")
+    print(f"  Records with sha256 ID  : {n_with_sha:,}")
+    print(f"  sha256 mismatches       : {n_mismatch:,}"
+          "  (sequences trimmed/changed by alignment)")
+    if n_with_sha:
+        print(f"  Match rate              : "
+              f"{(n_with_sha - n_mismatch) / n_with_sha * 100:.4f}%")
+
+    if args.original_fasta:
+        print(f"\nClassification vs {args.original_fasta} ({n_classified:,} resolved):")
+        width = max(len(k) for k in categories) + 2
+        for cat, count in categories.items():
+            print(f"  {cat:<{width}}: {count:,}")
+        if n_mismatch > n_classified:
+            print(f"  (unresolved            : {n_mismatch - n_classified:,}"
+                  "  — sha256 absent from original FASTA)")
+
+
+if __name__ == "__main__":
+    main()

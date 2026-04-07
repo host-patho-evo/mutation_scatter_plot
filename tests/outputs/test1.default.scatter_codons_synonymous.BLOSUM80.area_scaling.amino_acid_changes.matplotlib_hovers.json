@@ -1,0 +1,82 @@
+[
+  {
+    "index": 0,
+    "text": "Padded position: 498\nPosition: 498\nOriginal Codon: CAA (Q)\nNew Codon: CGA (R)\nBLOSUM80 score: 1.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 1,
+    "text": "Padded position: 460\nPosition: 460\nOriginal Codon: AAT (N)\nNew Codon: AAA (K)\nBLOSUM80 score: 0.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 2,
+    "text": "Padded position: 478\nPosition: 478\nOriginal Codon: ACA (T)\nNew Codon: AAA (K)\nBLOSUM80 score: -1.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 3,
+    "text": "Padded position: 481\nPosition: 481\nOriginal Codon: AAT (N)\nNew Codon: AAA (K)\nBLOSUM80 score: 0.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 4,
+    "text": "Padded position: 484\nPosition: 484\nOriginal Codon: GAA (E)\nNew Codon: AAA (K)\nBLOSUM80 score: 1.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 5,
+    "text": "Padded position: 490\nPosition: 490\nOriginal Codon: TTT (F)\nNew Codon: AAA (K)\nBLOSUM80 score: -4.0\nFrequency: 0.076923\nObserved codon count: 1\nTotal codons per site: 13"
+  },
+  {
+    "index": 6,
+    "text": "Padded position: 440\nPosition: 440\nOriginal Codon: AAT (N)\nNew Codon: AAG (K)\nBLOSUM80 score: 0.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 7,
+    "text": "Padded position: 493\nPosition: 493\nOriginal Codon: CAA (Q)\nNew Codon: GAA (E)\nBLOSUM80 score: 2.0\nFrequency: 0.076923\nObserved codon count: 1\nTotal codons per site: 13"
+  },
+  {
+    "index": 8,
+    "text": "Padded position: 450\nPosition: 450\nOriginal Codon: AAT (N)\nNew Codon: GAT (D)\nBLOSUM80 score: 1.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 9,
+    "text": "Padded position: 417\nPosition: 417\nOriginal Codon: AAG (K)\nNew Codon: AAT (N)\nBLOSUM80 score: 0.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 10,
+    "text": "Padded position: 477\nPosition: 477\nOriginal Codon: AGC (S)\nNew Codon: AAC (N)\nBLOSUM80 score: 0.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 11,
+    "text": "Padded position: 455\nPosition: 455\nOriginal Codon: TTG (L)\nNew Codon: TCG (S)\nBLOSUM80 score: -3.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 12,
+    "text": "Padded position: 446\nPosition: 446\nOriginal Codon: GGT (G)\nNew Codon: AGT (S)\nBLOSUM80 score: -1.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 13,
+    "text": "Padded position: 445\nPosition: 445\nOriginal Codon: GTT (V)\nNew Codon: CAT (H)\nBLOSUM80 score: -4.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 14,
+    "text": "Padded position: 505\nPosition: 505\nOriginal Codon: TAC (Y)\nNew Codon: CAC (H)\nBLOSUM80 score: 2.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 15,
+    "text": "Padded position: 486\nPosition: 486\nOriginal Codon: TTT (F)\nNew Codon: CCT (P)\nBLOSUM80 score: -4.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 16,
+    "text": "Padded position: 452\nPosition: 452\nOriginal Codon: CTG (L)\nNew Codon: TGG (W)\nBLOSUM80 score: -2.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 17,
+    "text": "Padded position: 501\nPosition: 501\nOriginal Codon: AAT (N)\nNew Codon: TAT (Y)\nBLOSUM80 score: -3.0\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+  },
+  {
+    "index": 18,
+    "text": "Padded position: 456\nPosition: 456\nOriginal Codon: TTT (F)\nNew Codon: CTT (L)\nBLOSUM80 score: 0.0\nFrequency: 0.076923\nObserved codon count: 1\nTotal codons per site: 13"
+  },
+  {
+    "index": 19,
+    "text": "Padded position: 483\nPosition: 483\nOriginal Codon: GTT (V)\nNew Codon: --- (DEL)\nBLOSUM80 score: -inf\nFrequency: 0.600000\nObserved codon count: 3\nTotal codons per site: 5"
+  }
+]
