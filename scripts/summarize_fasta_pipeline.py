@@ -1593,11 +1593,11 @@ def _extract_subset_to_fasta(
                 if raw.startswith(b'>'):
                     line_str = _decode_fasta_line(raw).rstrip('\r\n')
                     header = line_str[1:]
-                    
+
                     # Note: GISAID descriptions might contain literal trailing space characters correctly
-                    # (e.g. "... Pathology and "). Because the TSV-parsed `target_ids_set` strings 
-                    # mathematically drop these during construction via `.strip()`, we MUST structurally 
-                    # `.strip()` the fasta header string dynamically exactly here to prevent 
+                    # (e.g. "... Pathology and "). Because the TSV-parsed `target_ids_set` strings
+                    # mathematically drop these during construction via `.strip()`, we MUST structurally
+                    # `.strip()` the fasta header string dynamically exactly here to prevent
                     # `"Pathology and " != "Pathology and"` sequence lookup dropouts.
                     match_id = header.strip() if is_descr else (header.split()[0] if header.split() else "")
                     in_target = match_id in target_ids_set
@@ -1627,7 +1627,10 @@ def _extract_subset_to_fasta(
             sfh.write("output_fasta\tsha256\textracted_count\n")
             for sha, count in extracted_sha_counts.items():
                 sfh.write(f"{os.path.basename(out_fasta)}\t{sha}\t{count}\n")
-        print(f"    Wrote {len(extracted_sha_counts):,} summary count entries to {_summary_tsv}")
+
+        total_extracted = sum(extracted_sha_counts.values())
+        print(f"    Wrote {len(extracted_sha_counts):,} summary count entries "
+              f"(totaling {total_extracted:,} extracted records) to {_summary_tsv}")
 
     except OSError as exc:
         print(f"    Error extracting discarded sequences: {exc}")
