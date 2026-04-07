@@ -1611,8 +1611,8 @@ def _extract_subset_to_fasta(
             if got != exp:
                 _dir = "fewer" if got < exp else "more"
                 print(
-                    f"    Warning: sha256 {sha[:16]}...: expected {exp:,} IDs "
-                    f"but exactly {got:,} were extracted ({_dir} than mapped in TSV).",
+                    f"    Warning: sha256 {sha}: expected {exp:,} IDs "
+                    f"but exactly {got:,} were extracted ({_dir} than mapped in {os.path.basename(root_tsv)}).",
                 )
 
         # Write mapping statistics summarizing exactly what was output
