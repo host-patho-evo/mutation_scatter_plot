@@ -1552,17 +1552,27 @@ def _extract_subset_to_fasta(
         return
 
     target_ids_set = set()
+    id_to_sha256 = {}
+    expected_counts = {}
     is_descr = root_tsv.endswith('.sha256_to_descr_lines.tsv')
     with open(root_tsv, 'r', encoding='utf-8', errors='replace') as fh:
         for line in fh:
             fields = line.rstrip('\n').split('\t')
             if not fields or fields[0] not in target_sha256s:
                 continue
+            sha = fields[0]
+            try:
+                tsv_count = int(fields[1])
+            except (ValueError, IndexError):
+                tsv_count = len(fields) - 2
+            expected_counts[sha] = tsv_count
+
             # TSV format: sha256 \t count \t id1 \t id2 …
             for raw_id in fields[2:]:
                 uid = raw_id.replace('\\t', '\t').strip() if is_descr else (raw_id.split()[0] if raw_id.strip() else '')
                 if uid:
                     target_ids_set.add(uid)
+                    id_to_sha256[uid] = sha
 
     if not target_ids_set:
         print(f"    Warning: no FASTA IDs found for the "
@@ -1575,6 +1585,7 @@ def _extract_subset_to_fasta(
 
     # ── Step 4: extract records (fast pure-Python byte streaming) ────────────
     n_written = 0
+    extracted_sha_counts = {}
     try:
         with open(root_path, 'rb') as in_fh, open(out_fasta, 'wb') as out_fh:
             in_target = False
@@ -1586,10 +1597,23 @@ def _extract_subset_to_fasta(
                     in_target = match_id in target_ids_set
                     if in_target:
                         n_written += 1
+                        current_sha = id_to_sha256.get(match_id)
+                        if current_sha:
+                            extracted_sha_counts[current_sha] = extracted_sha_counts.get(current_sha, 0) + 1
                 if in_target:
                     out_fh.write(raw)
         print(f"    Wrote {n_written:,} record(s) to "
               f"{os.path.relpath(out_fasta, search_path)}.")
+
+        # Post-extraction validation auditing exactly verifying extracted array hashes.
+        for sha, exp in expected_counts.items():
+            got = extracted_sha_counts.get(sha, 0)
+            if got != exp:
+                _dir = "fewer" if got < exp else "more"
+                print(
+                    f"    Warning: sha256 {sha[:16]}...: expected {exp:,} IDs "
+                    f"but exactly {got:,} were extracted ({_dir} than mapped in TSV).",
+                )
     except OSError as exc:
         print(f"    Error extracting discarded sequences: {exc}")
 

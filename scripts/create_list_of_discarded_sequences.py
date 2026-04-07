@@ -510,6 +510,7 @@ def main():
 
     sha256_lines = []        # NNNNx.sha256hex entries for the sha256 hashes file
     original_id_lines = None  # iterator for expanded original FASTA IDs
+    subset_tsv_lines = []     # string rows mirroring exactly the retained TSV lines
     expected_original_count = infile_total_count  # sum of counts from --infilename
     actual_original_count = 0
 
@@ -557,6 +558,8 @@ def main():
                                 f" ({_dir} than expected by {abs(tsv_count - len(orig_ids)):,})",
                                 file=sys.stderr,
                             )
+                        # Add raw TSV literal strings for shrunk down TSV output
+                        subset_tsv_lines.append(tsv_line.rstrip("\n"))
                         n_sha += 1
             # Sort groups by NNNNx count descending (mirrors sort -rn on the sha256_hashes
             # file), then flatten into an iterator instead of a giant list.
@@ -643,6 +646,8 @@ def main():
                                 f" ({_dir} than expected by {abs(count - len(orig_ids)):,})",
                                 file=sys.stderr,
                             )
+                        # Add raw TSV literal strings for shrunk down TSV output
+                        subset_tsv_lines.append(tsv_line.rstrip("\n"))
             # Sort groups by NNNNx count descending then flatten into an iterator.
             _id_groups2.sort(key=lambda g: g[0], reverse=True)
             original_id_lines = (oid for _, ids in _id_groups2 for oid in ids)
