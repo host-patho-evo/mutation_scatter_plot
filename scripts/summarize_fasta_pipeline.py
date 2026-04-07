@@ -1593,7 +1593,7 @@ def _extract_subset_to_fasta(
                 if raw.startswith(b'>'):
                     line_str = _decode_fasta_line(raw).rstrip('\r\n')
                     header = line_str[1:]
-                    match_id = header if is_descr else (header.split()[0] if header.split() else "")
+                    match_id = header.strip() if is_descr else (header.split()[0] if header.split() else "")
                     in_target = match_id in target_ids_set
                     if in_target:
                         n_written += 1
