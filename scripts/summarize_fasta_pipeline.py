@@ -1614,6 +1614,15 @@ def _extract_subset_to_fasta(
                     f"    Warning: sha256 {sha[:16]}...: expected {exp:,} IDs "
                     f"but exactly {got:,} were extracted ({_dir} than mapped in TSV).",
                 )
+
+        # Write mapping statistics summarizing exactly what was output
+        _summary_tsv = out_fasta + '.extraction_counts.tsv'
+        with open(_summary_tsv, 'w', encoding='utf-8') as sfh:
+            sfh.write("output_fasta\tsha256\textracted_count\n")
+            for sha, count in extracted_sha_counts.items():
+                sfh.write(f"{os.path.basename(out_fasta)}\t{sha}\t{count}\n")
+        print(f"    Wrote {len(extracted_sha_counts):,} summary count entries to {_summary_tsv}")
+
     except OSError as exc:
         print(f"    Error extracting discarded sequences: {exc}")
 
