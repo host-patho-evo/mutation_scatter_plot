@@ -21,14 +21,16 @@ these disjoint forms.
 
 Below is an exhaustive reference extracted dynamically from spikenuc1207.fasta.orig.
 
-Known Alphabet Translatior (185 unique characters):
+Known Alphabet Translatior (187 unique characters):
 ---------------------------------------------------
-    \u0081     UNKNOWN or CONTROL
-    \u0082     UNKNOWN or CONTROL
-    \u008c     UNKNOWN or CONTROL
-    \u008d     UNKNOWN or CONTROL
-    \u0096     UNKNOWN or CONTROL
-    \u009f     UNKNOWN or CONTROL
+    \u0003  \x03  END OF TEXT
+    \u0009  \t  CHARACTER TABULATION
+    \u0081      UNKNOWN or CONTROL
+    \u0082  ‚   UNKNOWN or CONTROL
+    \u008c  Œ   UNKNOWN or CONTROL
+    \u008d      UNKNOWN or CONTROL
+    \u0096  –   UNKNOWN or CONTROL
+    \u009f  Ÿ   UNKNOWN or CONTROL
     \u00a0      NO-BREAK SPACE
     \u00a1  ¡   INVERTED EXCLAMATION MARK
     \u00a4  ¤   CURRENCY SIGN
@@ -5867,8 +5869,8 @@ def analyze(input_file: str, out_file: str) -> None:
             if r"\u" in line_str:
                 line_str = unescape_unicode(line_str)
 
-            # Filter standard US-ASCII (codepoints < 128)
-            obscure_chars = "".join(sorted(set(c for c in line_str if ord(c) >= 128)))
+            # Filter standard clean US-ASCII. Catch Non-ASCII (>= 128) and C0 controls (< 32 except \n \r)
+            obscure_chars = "".join(sorted(set(c for c in line_str if ord(c) >= 128 or (ord(c) < 32 and ord(c) not in (10, 13)))))
 
             if obscure_chars:
                 non_ascii_counter[obscure_chars] += 1
