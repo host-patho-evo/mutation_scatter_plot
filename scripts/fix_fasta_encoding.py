@@ -797,9 +797,21 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
                     samples = warn_samples.setdefault(key, [])
                     extras = warn_extras.setdefault(key, [])
                     candidate = original_text.rstrip()
+
+                    # To maximize visual diversity of the examples, isolate the actual corrupting characters
+                    # (non-ASCII, C0 controls, and \uXXXX escapes) discarding all standard ASCII English letters.
+                    def _get_corruption_sig(text: str) -> str:
+                        controls_and_nonascii = "".join(
+                            c for c in text if ord(c) >= 128 or (ord(c) < 32 and ord(c) not in (10, 13))
+                        )
+                        escapes = "".join(re.findall(r'\\u[0-9a-fA-F]{4}', text))
+                        return controls_and_nonascii + escapes
+
                     if len(samples) < _max_samples:
-                        # Force visual diversity: reject candidate if it shares a 35-char prefix with an existing sample
-                        if not any(candidate[:35] == s[:35] for s in samples):
+                        cand_sig = _get_corruption_sig(candidate)
+
+                        # Only accept this candidate if it introduces a genuinely unique corruption combination.
+                        if not any(cand_sig == _get_corruption_sig(s) for s in samples):
                             samples.append(candidate)
                         elif len(extras) < _max_samples:
                             extras.append(candidate)
