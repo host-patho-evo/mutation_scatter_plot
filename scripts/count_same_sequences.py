@@ -132,7 +132,7 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
     the padded alignment.
 
     This runs the command
-    reformat.sh fastawrap=0 in=%s out=stdout.fasta | awk 'NR % 2 == 0' | sort -S $sort_bucket_size | uniq -c | sort -nr | head -n 100
+    awk '/^>/ {if(seq!="") print toupper(seq); seq=""; next} {gsub(/\r/, "", $0); seq=seq $0} END {if(seq!="") print toupper(seq)}' in=%s | sort -S $sort_bucket_size | uniq -c | sort -nr | head -n 100
     and parse output with counts.
 
     Unix sort respects TMPDIR variable to place the temporary files i there, instead of cwd. To make counting faster
@@ -147,28 +147,29 @@ def read_and_count_sequences(infilename, outfileh, infile_format,
     `fastawrap=0` is critical because BBTools native output defaults to wrapping sequence lines to 70 characters.
     Without it, the downstream `awk 'NR % 2 == 0'` pipe would silently shred wrapped sequences into fragments.
     """
+    if infile_format.lower() in ("fastq", "fq"):
+        unwrap_cmd = f"awk 'NR % 4 == 2 {{ gsub(/\\r/, \"\"); print toupper($0) }}' {infilename}"
+    else:
+        # FASTA native unwrap
+        awk_script = r"""/^>/ {if(seq!="") print toupper(seq); seq=""; next} {gsub(/\r/, "", $0); seq=seq $0} END {if(seq!="") print toupper(seq)}"""
+        unwrap_cmd = f"awk '{awk_script}' {infilename}"
+
     if top_n:
         cmd = (
-            f"cat {infilename} | reformat.sh fastawrap=0 in=stdin.{infile_format}"
-            f" out=stdout.fasta simd=f"
-            f" | awk 'NR % 2 == 0'"
+            f"{unwrap_cmd}"
             f" | sort -S {sort_bucket_size}"
             f" | uniq -c | sort -S {sort_bucket_size} -nr | head -n {top_n}"
         )
     elif min_count:
         cmd = (
-            f"cat {infilename} | reformat.sh fastawrap=0 in=stdin.{infile_format}"
-            f" out=stdout.fasta simd=f"
-            f" | awk 'NR % 2 == 0'"
+            f"{unwrap_cmd}"
             f" | sort -S {sort_bucket_size}"
             f" | uniq -c | sort -S {sort_bucket_size} -nr"
             f" | awk '{{if ($1 >= {min_count}) print}}'"
         )
     else:
         cmd = (
-            f"cat {infilename} | reformat.sh fastawrap=0 in=stdin.{infile_format}"
-            f" out=stdout.fasta simd=f"
-            f" | awk 'NR % 2 == 0'"
+            f"{unwrap_cmd}"
             f" | sort -S {sort_bucket_size}"
             f" | uniq -c | sort -S {sort_bucket_size} -nr"
         )
@@ -216,7 +217,7 @@ def build_sha256_id_mapping(infilename, mapping_outfile, debug=0):
 
     For each record the same SHA-256 is computed as in read_and_count_sequences():
     uppercase sequence, dashes preserved (alignment padding must not be removed),
-    no embedded newlines — identical to what reformat.sh + sort|uniq produces.
+    no embedded newlines — identical to what awk + sort|uniq produces.
 
     Output TSV columns (tab-separated, no header line):
         sha256hex   count   id_1    id_2    ...
@@ -234,7 +235,7 @@ def build_sha256_id_mapping(infilename, mapping_outfile, debug=0):
     pre_digest = None
 
     def _flush(flush_name, flush_parts, digest=None):
-        # Normalise to match what reformat.sh + sort|uniq does in
+        # Normalise to match what awk + sort|uniq does in
         # read_and_count_sequences(): uppercase only.  Dashes are intentionally
         # KEPT here, because read_and_count_sequences() also keeps them
         # (removing them would break subsequence slicing on padded alignments,
