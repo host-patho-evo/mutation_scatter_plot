@@ -520,6 +520,14 @@ _parser.add_argument(
         "when stderr is redirected (e.g. to a log file)."
     ),
 )
+_parser.add_argument(
+    "--filter-away-fasta-headers", metavar="FILE",
+    help=(
+        "Path to a text file containing FASTA IDs to completely filter out from the "
+        "file (e.g. junk.lst). Sequences matching these IDs will not be written to "
+        "the cleaned output, bypassing the need for a separate pass via filterbyname.sh."
+    ),
+)
 _parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
 
 
@@ -712,8 +720,9 @@ def _make_log_path(path: str, dt_str: str) -> str:
 
 def _process_file(path: str, dry_run: bool, overwrite: bool,
                   stats_only: bool, verbose: bool, progress: bool,
+                  filter_away_fasta_headers: str,
                   log_fh) -> int:
-    """Normalize *path* in-place.  Returns the number of lines changed."""
+    """Normalize *path* in-place and optionally drop unwanted sequences. Returns the number of lines changed."""
 
     def _emit(msg: str = "", **kwargs) -> None:
         """Print *msg* to stderr and tee to *log_fh* (no progress animation)."""
@@ -762,14 +771,42 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     t_start = time.monotonic()
     t_last = t_start
 
+    # Load the set of FASTA IDs to completely filter out.
+    junk_set: set[str] = set()
+    if filter_away_fasta_headers:
+        if os.path.exists(filter_away_fasta_headers):
+            with open(filter_away_fasta_headers, "r", encoding="utf-8") as f:
+                for line in f:
+                    s = line.strip()
+                    if s:
+                        if s.startswith(">"):
+                            s = s[1:]
+                        junk_set.add(s)
+        else:
+            _emit(f"  Warning: Filter file {filter_away_fasta_headers!r} not found.")
+
     with open(path, "rb") as fh, \
             os.fdopen(tmp_fd, "w", encoding="utf-8") as fh_tmp:
+        drop_current_sequence = False
         for raw in fh:
             bytes_read += len(raw)
             lines_read += 1
             # Preserve the original line ending (strip nothing here).
             original_text = raw.decode("latin-1")   # lossless reference decode
             clean = _decode_line(raw)
+
+            if clean.startswith(">"):
+                header_full = clean[1:].strip()
+                # BBTools filterbyname default matches the sequence ID (first contiguous string)
+                header_id = header_full.split()[0] if header_full else ""
+
+                drop_current_sequence = bool(
+                    filter_away_fasta_headers and (header_full in junk_set or header_id in junk_set)
+                )
+
+            if drop_current_sequence:
+                continue
+
             clean_line = clean if clean.endswith("\n") else clean.rstrip("\r\n") + "\n"
             fh_tmp.write(clean_line)
             if clean.rstrip("\r\n") != original_text.rstrip("\r\n"):
@@ -1021,6 +1058,7 @@ def main() -> None:
                     stats_only=opts.stats_only,
                     verbose=opts.verbose,
                     progress=opts.progress,
+                    filter_away_fasta_headers=opts.filter_away_fasta_headers,
                     log_fh=log_fh,
                 )
         total_files += 1
