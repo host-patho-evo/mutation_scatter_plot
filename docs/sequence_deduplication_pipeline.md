@@ -87,8 +87,8 @@ All scripts follow a consistent naming rule:
 
 ### `analyze_obscure_chars.py`
 
-**Purpose:** Scans exactly root dataset elements for chaotic geographical non-ASCII combinations (international symbols, missing control byte encodings) and documents them thoroughly without altering the original database records.
-It produces a human-readable list of corrupt encodings sorted by character frequency map (`obscure_characters_analysis.txt`), ensuring robust traceability of character anomalies explicitly bypassed by the deduplication step. Extracted lists include precise references ranging from valid Unicode UTF-8 (`Košice`) to deeply tangled combinations like HTML soft hyphens and ISO-8859 byte ranges (`Ko ≈° ice`).
+**Purpose:** Scans exactly root dataset elements for chaotic geographical non-ASCII combinations (international symbols, missing control byte encodings) and embedded ASCII C0 control anomalies (such as rogue TABs or ETX characters) and documents them thoroughly without altering the original database records.
+It produces a human-readable list of corrupt and problematic encodings sorted by character frequency map (`obscure_characters_analysis.txt`), ensuring robust traceability of character anomalies explicitly bypassed or converted by the deduplication step. Extracted lists include precise references ranging from valid Unicode UTF-8 (`Košice`) to deeply tangled combinations like HTML soft hyphens and ISO-8859 byte ranges (`Ko ≈° ice`) as well as misplaced formatting boundaries (`\t`).
 
 **Mechanism:** Iterates natively over the original datasets utilizing Python `surrogateescape`, extracts encoding overlaps, and clusters them analytically. Triggered organically during Phase 0 of `summarize_fasta_pipeline.py`.
 
