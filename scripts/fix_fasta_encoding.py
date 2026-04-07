@@ -128,6 +128,31 @@ This script uses Python's ``surrogateescape`` error handler instead:
       Stripping the ``\\u0003`` literal (via Steps 3 + 4) before any
       BBTools invocation resolves all three failure modes at the source.
 
+      **BBTools / Java Encoding Corruption (filterbyname.sh)**
+
+      ``filterbyname.sh`` implicitly relies on the Java Virtual Machine's default
+      platform character set. If a GISAID FASTA file contains pure UTF-8 encoded
+      multi-byte characters (e.g., the two-byte sequence ``\\xC3\\xAD`` for ``í`` in
+      ``Microbiología``), passing it through ``filterbyname.sh`` forces Java to
+      decode, internalise, and subsequently re-encode the byte stream.
+
+      Due to Java's lack of transparent byte-stream passthrough, misconfigured locale
+      boundaries or mixed-encoding headers cause the JVM to catastrophically shred
+      valid UTF-8 byte sequences. During sequence extraction, ``Microbiología``
+      becomes silently corrupted to ``Microbiologýýa`` on output.
+
+      Because BBTools intrinsically modifies the textual bytes during write-out,
+      the downstream python tracking systems—which reconstruct traceabilities via
+      byte-for-byte matching between FASTA files—completely fail.
+      The mapping dictionaries no longer align with the corrupted text bytes
+      present in BBTools' output, abruptly dropping thousands of sequences
+      (e.g., "expected 15,462 IDs but exactly 14,366 were extracted").
+
+      To universally prevent Java byte-corruption, the pipeline entirely bypasses
+      ``filterbyname.sh`` by supplying a ``--filter-away-fasta-headers``
+      argument directly to this pure python script. It safely drops unwanted FASTA
+      or FASTQ entries maintaining strict byte-for-byte integrity for the rest.
+
 Why ``unidecode`` failed
 ------------------------
 The ``unidecode`` command-line tool reads its input as pure UTF-8.  When it
@@ -480,8 +505,12 @@ _parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
 )
 _parser.add_argument(
-    "infiles", nargs="+", metavar="FASTA",
-    help="One or more FASTA files to normalize in-place.",
+    "positional_infiles", nargs="*", metavar="FASTA",
+    help="One or more FASTA files to normalize in-place (if not using --infile).",
+)
+_parser.add_argument(
+    "--infile", default=None,
+    help="Input FASTA file to normalize. Can be used instead of positional arguments.",
 )
 _parser.add_argument(
     "--dry-run", action="store_true",
@@ -495,6 +524,14 @@ _parser.add_argument(
     help=(
         "Re-process files even when a .orig backup already exists.  "
         "The existing .orig is overwritten."
+    ),
+)
+_parser.add_argument(
+    "--outfile", default=None,
+    help=(
+        "Output path. If specified, the input file will not be modified "
+        "in-place, and no .orig backup will be created. Requires exactly "
+        "one input file."
     ),
 )
 _parser.add_argument(
@@ -721,8 +758,9 @@ def _make_log_path(path: str, dt_str: str) -> str:
 def _process_file(path: str, dry_run: bool, overwrite: bool,
                   stats_only: bool, verbose: bool, progress: bool,
                   filter_away_fasta_headers: str,
-                  log_fh) -> int:
-    """Normalize *path* in-place and optionally drop unwanted sequences. Returns the number of lines changed."""
+                  outfile: str, log_fh) -> int:
+    """Normalize *path* in-place (or to *outfile*) and optionally drop unwanted FASTA or FASTQ entries.
+    Returns the number of lines changed."""
 
     def _emit(msg: str = "", **kwargs) -> None:
         """Print *msg* to stderr and tee to *log_fh* (no progress animation)."""
@@ -733,7 +771,7 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
 
     orig_path = path + ".orig"
 
-    if os.path.exists(orig_path) and not overwrite:
+    if os.path.exists(orig_path) and not overwrite and not outfile:
         _emit(
             f"  Skipping {path}: backup {os.path.basename(orig_path)} already "
             "exists (use --overwrite to force)."
@@ -965,11 +1003,15 @@ def _process_file(path: str, dry_run: bool, overwrite: bool,
     # Temp file is already written; just rename into place.
     # The temp file lives in the same directory so both os.rename() calls
     # are on the same filesystem (guaranteed atomic on POSIX).
-    # Backup original (or overwrite existing backup if --overwrite).
-    os.rename(path, orig_path)
-    _emit(f"  Renamed {os.path.basename(path)} -> {os.path.basename(orig_path)}")
-    os.rename(tmp_path, path)
-    _emit(f"  Written clean UTF-8 -> {os.path.basename(path)}")
+    if outfile:
+        os.rename(tmp_path, outfile)
+        _emit(f"  Written clean UTF-8 -> {outfile}")
+    else:
+        # Backup original (or overwrite existing backup if --overwrite).
+        os.rename(path, orig_path)
+        _emit(f"  Renamed {os.path.basename(path)} -> {os.path.basename(orig_path)}")
+        os.rename(tmp_path, path)
+        _emit(f"  Written clean UTF-8 -> {os.path.basename(path)}")
     return changed
 
 
@@ -985,6 +1027,20 @@ def main() -> None:
         file=sys.stderr,
     )
     opts = _parser.parse_args()
+
+    # Consolidate --infile and positional_infiles into a single unified list
+    opts.infiles = []
+    if opts.infile:
+        opts.infiles.append(opts.infile)
+    if opts.positional_infiles:
+        opts.infiles.extend(opts.positional_infiles)
+
+    if not opts.infiles:
+        _parser.error("At least one input FASTA file must be provided (either positionally or via --infile).")
+
+    if opts.outfile and len(opts.infiles) > 1:
+        _parser.error("--outfile cannot be used with multiple input files.")
+
     dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # ── detect identical inputs (size + sha256) ────────────────────────────
@@ -1059,6 +1115,7 @@ def main() -> None:
                     verbose=opts.verbose,
                     progress=opts.progress,
                     filter_away_fasta_headers=opts.filter_away_fasta_headers,
+                    outfile=opts.outfile,
                     log_fh=log_fh,
                 )
         total_files += 1
