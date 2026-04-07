@@ -637,12 +637,15 @@ _C0_STRIP = re.compile(r'[\x01-\x08\x0b\x0c\x0e-\x1f]')
 
 
 def _strip_c0_controls(s: str) -> str:
-    """Remove ASCII C0 control bytes (0x01–0x1f, excluding \\t/\\n/\\r) from *s*.
+    """Remove ASCII C0 control bytes (0x01–0x1f, excluding \\n/\\r) from *s*.
+    Converts \\t (TAB) to a space.
 
     These bytes have no valid meaning in a FASTA file and can break downstream
     parsers that use them as implicit record delimiters (e.g. BBTools
     filterbyname.sh treats ETX \\x03 as a header terminator).
     """
+    # Specifically convert literal TABs to spaces to prevent TSV mapping splits downstream
+    s = s.replace('\t', ' ')
     if not _C0_STRIP.search(s):
         return s
     return _C0_STRIP.sub('', s)
