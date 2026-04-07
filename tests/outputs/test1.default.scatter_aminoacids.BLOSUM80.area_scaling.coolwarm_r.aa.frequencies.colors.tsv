@@ -11,7 +11,7 @@ padded_position	position	original_codon	mutant_codon	original_aa	mutant_aa	frequ
 477	477	AGC	AAC	S	N	0.230769	#dcdddd	0
 478	478	ACA	AAA	T	K	0.230769	#e8d6cc	-1
 481	481	AAT	AAA	N	K	0.230769	#dcdddd	0
-483	483	GTT	---	V	DEL	0.230769	#ff0000	-6
+483	483	GTT	---	V	DEL	0.600000	#ff0000	-6
 484	484	GAA	AAA	E	K	0.230769	#d1dae9	1
 486	486	TTT	CCT	F	P	0.230769	#f7b396	-4
 490	490	TTT	AAA	F	K	0.076923	#f7b396	-4

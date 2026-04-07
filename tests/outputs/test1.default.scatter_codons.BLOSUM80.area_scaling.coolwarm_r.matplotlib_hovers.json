@@ -77,6 +77,6 @@
   },
   {
     "index": 19,
-    "text": "Padded position: 483\nPosition: 483\nOriginal Codon: GTT (V)\nNew Codon: --- (DEL)\nBLOSUM80 score: -inf\nFrequency: 0.230769\nObserved codon count: 3\nTotal codons per site: 13"
+    "text": "Padded position: 483\nPosition: 483\nOriginal Codon: GTT (V)\nNew Codon: --- (DEL)\nBLOSUM80 score: -inf\nFrequency: 0.600000\nObserved codon count: 3\nTotal codons per site: 5"
   }
 ]
