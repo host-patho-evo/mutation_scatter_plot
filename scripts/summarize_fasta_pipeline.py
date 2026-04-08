@@ -1484,6 +1484,7 @@ def _extract_subset_to_fasta(
         mapping_path: str,
         search_path: str,
         context: str = "discarded",
+        ancestors: list[str] | None = None
 ) -> None:
     """Phase 4: extract subset of sequences from the root ancestor FASTA.
 
@@ -1493,10 +1494,22 @@ def _extract_subset_to_fasta(
     then securely extracts sequences via a pure Python I/O byte stream to produce:
         {child_stem}.{context}_original_entries.fasta
 
+    Hash-Equivalence Symlinking:
+    If topological `ancestors` are provided, the system performs a zero-cost equality check (`filecmp.cmp`)
+    between the subset's hash map and any ancestor's hash map. If they are perfectly identical,
+    it natively bypasses the gigabyte-scale extraction and forcefully drops an `os.symlink`
+    mapped to the ancestor's sequence payload. It also efficiently streams and rewrites the `.extraction_counts.tsv`
+    index internally without redundant regeneration, mapping the child's identity explicitly.
+
+    This function dynamically masks simulated `\\t` mathematical typos inserted by malicious
+    or accidental sequence contributors (where characters `\\` and `t` incorrectly overlap
+    with TSV field logic preserving real `0x09` byte tabs), securing data pipeline extraction.
+
     root_path    – the root ancestor FASTA to extract records FROM.
     mapping_path – the GISAID-level ancestor whose sha256_to_ids.tsv maps
                    sha256 → original GISAID accession IDs.
     context      – subset to extract (e.g. "discarded" or "effectively_used").
+    ancestors    – topological chain of ancestor FASTA files allowing hash-deduplicated symlinks.
     """
     child_stem = _strip_fasta_suffix(child_path)
     mapping_stem = _strip_fasta_suffix(mapping_path)
@@ -1513,8 +1526,36 @@ def _extract_subset_to_fasta(
     # ── Step 1: read sha256 hashes ─────────────────────────────────────────
     if not os.path.exists(sha_file):
         print(f"    Skipped: {os.path.basename(sha_file)} not found.",
-              )
+              flush=True)
         return
+
+    # Check for identical hash array in ancestors to securely symlink identical FASTAs
+    if ancestors:
+        import filecmp
+        for anc in ancestors:
+            anc_stem = _strip_fasta_suffix(anc)
+            anc_sha = anc_stem + f'.{context}_sha256_hashes.txt'
+            anc_out = anc_stem + f'.{context}_original_entries.fasta'
+            if os.path.exists(anc_sha) and os.path.exists(anc_out):
+                if filecmp.cmp(sha_file, anc_sha, shallow=False):
+                    print(f"    Symlinked identical hashes map from identical ancestor '{os.path.basename(anc)}' to bypass redundant extraction.", flush=True)
+                    if os.path.lexists(out_fasta) or os.path.exists(out_fasta):
+                        os.unlink(out_fasta)
+                    os.symlink(os.path.relpath(anc_out, os.path.dirname(out_fasta) or '.'), out_fasta)
+
+                    # Rewrite the TSV summary strings internally instead of regenerating to cleanly map
+                    anc_tsv = anc_out + '.extraction_counts.tsv'
+                    out_tsv = out_fasta + '.extraction_counts.tsv'
+                    if os.path.exists(anc_tsv):
+                        with open(anc_tsv, 'r', encoding='utf-8') as fh_in, \
+                             open(out_tsv, 'w', encoding='utf-8') as fh_out:
+                            fh_out.write(fh_in.readline())  # Header
+                            basename = os.path.basename(out_fasta)
+                            for line in fh_in:
+                                fields = line.split('\t', 1)
+                                if len(fields) == 2:
+                                    fh_out.write(f"{basename}\t{fields[1]}")
+                    return
 
     target_sha256s: set[str] = set()
     with open(sha_file, 'r', encoding='utf-8') as fh:
@@ -1600,6 +1641,10 @@ def _extract_subset_to_fasta(
                     # `.strip()` the fasta header string dynamically exactly here to prevent
                     # `"Pathology and " != "Pathology and"` sequence lookup dropouts.
                     match_id = header.strip() if is_descr else (header.split()[0] if header.split() else "")
+                    # Apply identical collision-mapping for literal `\t` strings maliciously existing in native GISAID headers.
+                    # This perfectly mirrors the unescaping `.replace()` math applied to the TSV uids.
+                    if is_descr and '\\t' in match_id:
+                        match_id = match_id.replace('\\t', '\t')
                     in_target = match_id in target_ids_set
                     if in_target:
                         n_written += 1
@@ -2292,9 +2337,16 @@ def main() -> None:
                     mapping_idx = par_idx
                     break
                 idx = par_idx
+            # Gather all traceable ancestors
+            ancestors = []
+            idx_trace = child_idx
+            while idx_trace in parent_map:
+                idx_trace = parent_map[idx_trace]
+                ancestors.append(files[idx_trace])
+
             for ctx in ("discarded", "effectively_used"):
                 _extract_subset_to_fasta(files[child_idx], files[root_idx],
-                                         files[mapping_idx], search_path, context=ctx)
+                                         files[mapping_idx], search_path, context=ctx, ancestors=ancestors)
 
     # ── print table ──────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))

@@ -152,15 +152,21 @@ class TestSummarizePipelineHelpers(unittest.TestCase):
 
     def test_strip_fasta(self):
         """Standard .fasta suffix is stripped."""
-        self.assertEqual(self.mod._strip_fasta_suffix("prefix.counts.fasta"), "prefix.counts")  # pylint: disable=protected-access
+        self.assertEqual(
+            self.mod._strip_fasta_suffix("prefix.counts.fasta"), "prefix.counts"  # pylint: disable=protected-access
+        )
 
     def test_strip_fasta_old(self):
         """.fasta.old suffix is stripped leaving the base."""
-        self.assertEqual(self.mod._strip_fasta_suffix("prefix.counts.fasta.old"), "prefix.counts")  # pylint: disable=protected-access
+        self.assertEqual(
+            self.mod._strip_fasta_suffix("prefix.counts.fasta.old"), "prefix.counts"  # pylint: disable=protected-access
+        )
 
     def test_strip_fasta_orig(self):
         """.fasta.orig suffix is stripped."""
-        self.assertEqual(self.mod._strip_fasta_suffix("prefix.fasta.orig"), "prefix")  # pylint: disable=protected-access
+        self.assertEqual(
+            self.mod._strip_fasta_suffix("prefix.fasta.orig"), "prefix"  # pylint: disable=protected-access
+        )
 
     def test_strip_fasta_ori(self):
         """.fasta.ori suffix is stripped."""
@@ -506,6 +512,50 @@ class TestSplitFastaByLengthsCLI(unittest.TestCase):
             )
             combined = result.stderr + result.stdout
             self.assertNotIn("stale", combined)
+
+    def test_fasta_typo_collision_backslash_t(self):
+        """Test that _extract_subset_to_fasta correctly extracts headers with physical
+        backslash-t typos by perfectly masking the unescaping phase.
+        """
+        # Inject test inside existing TestSummarizePipelineHelpers
+        with tempfile.TemporaryDirectory() as tmpdir:
+            subset_fasta = os.path.join(tmpdir, "subset.fasta")
+            root_fasta = os.path.join(tmpdir, "root.fasta")
+            root_tsv = os.path.join(tmpdir, "root.sha256_to_descr_lines.tsv")
+            target_out = os.path.join(tmpdir, "subset.discarded_original_entries.fasta")
+            hashes_txt = os.path.join(tmpdir, "subset.discarded_sha256_hashes.txt")
+
+            # GISAID sequence physically containing literal '\' and 't' characters
+            test_header = "Spike|hCoV-19/USA/TX-123/2021|INCARNATE WORD CONVENT - \\t3400 BRADFORD STREET"
+
+            with open(root_fasta, 'wb') as f:
+                f.write(f">{test_header}\nATGC\n".encode('utf-8'))
+
+            # Simulated _auto_generate_tsv escape (it escapes nothing since there's no actual 0x09 tab)
+            test_sha = "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"
+            with open(root_tsv, 'w', encoding='utf-8') as f:
+                f.write(f"{test_sha}\t1\t{test_header}\n")
+
+            with open(hashes_txt, 'w', encoding='utf-8') as f:
+                f.write(f"{test_sha}\n")
+
+            # Run extraction using dynamically loaded module from class
+            # Since TestSummarizePipelineHelpers doesn't exist at the end of the file, we just load it manually
+            # if we are sitting in TestSplitFastaByLengthsCLI or general module.
+            mod = _load_module("summarize_fasta_pipeline.py")
+            mod._extract_subset_to_fasta(  # pylint: disable=protected-access
+                subset_fasta,
+                root_fasta,
+                root_fasta,  # passes to mapping_path to generate root.sha256_to_descr_lines.tsv internally
+                tmpdir,
+                "discarded"
+            )
+
+            # Must have successfully extracted the literal typo header instead of bypassing it
+            self.assertTrue(os.path.exists(target_out))
+            with open(target_out, 'r', encoding='utf-8') as f:
+                extracted_content = f.read()
+            self.assertIn("INCARNATE WORD CONVENT - \\t3400", extracted_content)
 
 
 if __name__ == '__main__':

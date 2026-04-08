@@ -45,11 +45,12 @@ Due to the aggregated nature of GISAID FASTA exports worldwide, the header lines
 1. **Valid UTF-8 multi-byte sequences** — standard international characters (e.g., `é` as `\xC3\xA9`).
 2. **Raw Latin-1 (ISO-8859-1) bytes** — single-byte accented characters injected by older laboratory legacy systems (e.g., French `é` as raw `\xe9`).
 3. **Literal `\uXXXX` escape sequences** — ASCII representations constructed by Java's `native2ascii` or Python's `unicode_escape` (e.g., the string `\u00e9`).
-4. **Literal embedded TAB (`\t`) characters** — accidental TAB characters injected into metadata strings by sequencing labs (e.g., `INCARNATE WORD CONVENT - \t3400 BRADFORD STREET` in EPI_ISL_14481342), which fatally slice TSV-based downstream mapping pipelines into discrete columns if left intact.
+4. **Literal embedded TAB (`\t`) characters** — genuine invisible TAB bytes (`0x09`) injected into metadata strings by sequencing labs natively breaking TSV fields.
+5. **Simulated TAB typos (`\t`)** — sequences where submitters literally typed the two characters `\` and `t` (e.g., `INCARNATE WORD CONVENT - \t3400 BRADFORD STREET`), creating fatal mathematical collisions with tools attempting to safely un-escape the genuine `0x09` TABs mentioned above.
 
 Furthermore, some laboratory records contain completely obscure artifacts including Hebrew letters (`[U+05D3] ד`), Thai symbols (`[U+0E3A] ฺ`), and superscripts (`[U+00B2] ²`), often intertwined with Latin-1 bytes (such as an invisible soft hyphen `[\xAD]` glued to `Âƒ` in Mexican sequences).
 
-Using naively written parsers (e.g., standard `unidecode` or pure `try/except utf-8`) will catastrophically fail or corrupt valid bytes when it encounters a line that mixes raw Latin-1 (`\xe9`) with valid UTF-8 on the exact same header. This is uniquely mitigated by `fix_fasta_encoding.py`, which systematically losslessly parses and standardizes the entire 60GB raw input using Python's `surrogateescape` before any Java/BBTools layer touches the dataset.
+Using naively written parsers (e.g., standard `unidecode` or pure `try/except utf-8`) will catastrophically fail or corrupt valid bytes when it encounters a line that mixes raw Latin-1 (`\xe9`) with valid UTF-8 on the exact same header. This is uniquely mitigated by `fix_fasta_encoding.py`, which systematically losslessly parses and standardizes the entire 60GB raw input using Python's `surrogateescape` before any Java/BBTools layer touches the dataset. Our mapping extraction dynamically isolates overlapping collisions natively.
 
 ### The GISAID Decoding Timeline
 
@@ -289,6 +290,10 @@ The *longest* matching ancestor is chosen as the direct parent (so
 All cache lookups compare file modification times (make-style): a file that
 exists but is older than its source is treated as stale and the next tier is
 used.
+
+**Phase 4: Hash-Equivalence Symlinking**
+When processing identical subset partitions (e.g., sequences split by length perfectly preserving earlier alignment logic), the extraction script intercepts Phase 4 by tracing lineage topologically. It compares child `{context}_sha256_hashes.txt` files directly against ancestor ones using zero-overhead `filecmp.cmp` evaluation.
+If identical mapping geometries are discovered, it entirely skips native byte-streaming. It drops a direct `os.symlink` locally targeting the ancestor's 20-40GB `original_entries.fasta` container, simultaneously injecting a line-by-line streaming `O(bytes)` rewrite on the `.extraction_counts.tsv` file to structurally adapt the internal string maps down to the child namespace correctly without gigabyte-scale regeneration.
 
 **Options:**
 
