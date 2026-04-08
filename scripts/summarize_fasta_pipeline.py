@@ -2616,21 +2616,31 @@ def main() -> None:
         if do_discard and p is not None and i in discard_data:
             n_d, s_d = discard_data[i]
             child_stem = _strip_fasta_suffix(display)
-            disc_display = f"{child_stem}.discarded_original_entries.fasta"
             disc_label = f"  (vs {os.path.basename(files[p])})"
 
-            print(
-                f"{disc_display:<{col_file}}{sep}"
-                f"{_em:<{w_ts}}{sep}"             # Modified
-                f"{n_d:>{w_num},}{sep}{_em:>{w_delta}}{sep}"  # # FASTA entries (col 3) & delta
-                f"{s_d:>{w_num},}{sep}{_em:>{w_delta}}"     # Sum of NNNNx (col 5) & delta
-                + f"{sep}{_em:>{w_disc1}}{sep}{_em:>{w_disc2}}"  # disc_cols
-                + f"{sep}{_em:>{w_novel}}"                  # Novel
-                + f"{sep}{_em:>{w_prot}}{sep}{_em:>{w_dprot}}{sep}{_em:>{w_protn}}"  # protein
-                + verify_cols_empty                         # Verify
-                + disc_label,
-                file=out_fd
-            )
+            for ctx in ("discarded", "effectively_used"):
+                ctx_display = f"{child_stem}.{ctx}_original_entries.fasta"
+                ctx_path = os.path.join(search_path, ctx_display)
+                ctx_mtime = datetime.datetime.fromtimestamp(os.path.getmtime(ctx_path)).strftime('%Y-%m-%d %H:%M') if os.path.exists(ctx_path) else _em
+
+                if ctx == "discarded":
+                    ctx_rec, ctx_sum = n_d, s_d
+                else:
+                    # 'effectively_used' physically traces exactly the surviving child sequence footprint back to the root ancestor
+                    ctx_rec, ctx_sum = n_sum, n_sum
+
+                print(
+                    f"{ctx_display:<{col_file}}{sep}"
+                    f"{ctx_mtime:<{w_ts}}{sep}"             # Modified
+                    f"{ctx_rec:>{w_num},}{sep}{_em:>{w_delta}}{sep}"  # # FASTA entries (col 3) & delta
+                    f"{ctx_sum:>{w_num},}{sep}{_em:>{w_delta}}"     # Sum of NNNNx (col 5) & delta
+                    + f"{sep}{_em:>{w_disc1}}{sep}{_em:>{w_disc2}}"  # disc_cols
+                    + f"{sep}{_em:>{w_novel}}"                  # Novel
+                    + f"{sep}{_em:>{w_prot}}{sep}{_em:>{w_dprot}}{sep}{_em:>{w_protn}}"  # protein
+                    + verify_cols_empty                         # Verify
+                    + disc_label,
+                    file=out_fd
+                )
 
     print(rule, file=out_fd)
 
