@@ -1714,7 +1714,7 @@ def _extract_subset_to_fasta(
                 gisaid_txt_out = os.path.join(
                     os.path.dirname(out_fasta),
                     os.path.basename(out_fasta).replace('.fasta', '').replace(
-                        'original_entries', 'original_GISAID_ids.txt')
+                        'original_entries', 'original_entry_GISAID_ids.txt')
                 )
                 n_gisaid_written = 0
                 n_duplicates = 0

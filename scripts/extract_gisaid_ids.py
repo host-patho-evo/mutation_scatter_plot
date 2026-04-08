@@ -11,7 +11,8 @@ Usage Examples:
   # 2. Extract into final subset .txt targets
   python extract_gisaid_ids.py --gisaid-tsv-mapping spikenuc1207.sha256_to_GISAID_ids.tsv \
                                --subset-txt spikenuc1207.no_junk.counts.effectively_used_sha256_hashes.txt \
-                               --out-subset-txt spikenuc1207.no_junk.counts.effectively_used_original_GISAID_ids.txt
+                               --out-subset-txt \\
+                                 spikenuc1207.no_junk.counts.effectively_used_original_entry_GISAID_ids.txt
 
   # 3. Batch backfill across missing Phase 4 extraction pipelines
   # for tsv in *.effectively_used_original_entries.fasta.extraction_counts.tsv; do
