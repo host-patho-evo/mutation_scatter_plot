@@ -10,6 +10,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 # Import core functions
+# pylint: disable=import-error
 from mutation_scatter_plot.mutation_scatter_plot import (
     build_frequency_tables, collect_scatter_data, load_and_clean_dataframe,
     load_matrix, setup_matplotlib_figure)
@@ -29,9 +30,12 @@ class TestDynamicColormap(unittest.TestCase):
 
     def _get_mock_options(self, dynamic=True):
         class Options:
+            # pylint: disable=too-few-public-methods
             """Mock options class for CLI parameters."""
 
             def __init__(self):
+                self.cmap_vmin = None
+                self.cmap_vmax = None
                 self.tsv_file_path = None
                 self.matrix = 'BLOSUM80'
                 self.matrix_file = None
@@ -62,7 +66,7 @@ class TestDynamicColormap(unittest.TestCase):
                 self.bokeh_sqrt_size = True
                 self.linear_circle_size = False
                 self.disable_padded_x_axis = False
-                
+
                 # Activate flag if dynamic scaling is disabled
                 self.spread_colormap_virtual_matrix = not dynamic
 
@@ -72,7 +76,7 @@ class TestDynamicColormap(unittest.TestCase):
 
     def test_colormap_bounds_divergence(self):
         """Compare the resulting palettes from dynamic dataset bounding vs static theoretical bounding."""
-        
+
         # 1. Dynamic Mode
         options_dyn = self._get_mock_options(dynamic=True)
         matrix, matrix_name, min_theoretical, max_theoretical, outfile_prefix = load_matrix(options_dyn)
@@ -86,8 +90,8 @@ class TestDynamicColormap(unittest.TestCase):
         _, _, _, _, _, _, _, circles_matplotlib_dyn, _, _, _ = \
             collect_scatter_data(options_dyn, df, nat, outfile_prefix, matrix, aa, cw2, p2p, xmin, xmax)
 
-        dyn_vmin = getattr(options_dyn, 'cmap_vmin')
-        dyn_vmax = getattr(options_dyn, 'cmap_vmax')
+        dyn_vmin = options_dyn.cmap_vmin
+        dyn_vmax = options_dyn.cmap_vmax
         plt.close(fig)
 
         # 2. Virtual Static Mode
@@ -99,8 +103,8 @@ class TestDynamicColormap(unittest.TestCase):
         _, _, _, _, _, _, _, circles_matplotlib_stat, _, _, _ = \
             collect_scatter_data(options_stat, df, nat, outfile_prefix, matrix, aa, cw2, p2p, xmin, xmax)
 
-        stat_vmin = getattr(options_stat, 'cmap_vmin')
-        stat_vmax = getattr(options_stat, 'cmap_vmax')
+        stat_vmin = options_stat.cmap_vmin
+        stat_vmax = options_stat.cmap_vmax
         plt.close(fig)
 
         # Assert physical boundary constraints are perfectly symmetric extremes
@@ -112,17 +116,18 @@ class TestDynamicColormap(unittest.TestCase):
         self.assertLessEqual(dyn_vmax, bound_abs)
 
         # Compare color scaling for a specific observed score map
-        # If the dataset doesn't strictly span the exact theoretical boundaries, the hex palettes will wildly diverge for the same score.
+        # If the dataset doesn't strictly span the exact theoretical boundaries, the hex palettes
+        # will wildly diverge for the same score.
         score_to_color_dyn = {c[6]: c[4] for c in circles_matplotlib_dyn}
         score_to_color_stat = {c[6]: c[4] for c in circles_matplotlib_stat}
-        
+
         # Save explicitly for reviewing artifact properties
         import json
         with open(os.path.join(self.outputs_dir, "test_colormap_bounds.dyn.colors.json"), "w") as f:
             json.dump(score_to_color_dyn, f, indent=4)
         with open(os.path.join(self.outputs_dir, "test_colormap_bounds.stat.colors.json"), "w") as f:
             json.dump(score_to_color_stat, f, indent=4)
-        
+
         diverged_scores = 0
         for score in score_to_color_dyn:
             if score == 12:  # Skip the sentinel dark-green
@@ -131,10 +136,12 @@ class TestDynamicColormap(unittest.TestCase):
             color_stat = score_to_color_stat[score]
             if color_dyn != color_stat:
                 diverged_scores += 1
-                
+
         # We expect color values to diverge if dyn_vmin != stat_vmin or dyn_vmax != stat_vmax
         if dyn_vmin != stat_vmin or dyn_vmax != stat_vmax:
-            self.assertGreater(diverged_scores, 0, "Color mappings identically collided despite distinct spread boundaries!")
+            self.assertGreater(diverged_scores, 0,
+                               "Color mappings identically collided despite distinct spread boundaries!")
+
 
 if __name__ == "__main__":
     unittest.main()
