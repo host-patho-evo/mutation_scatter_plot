@@ -2495,10 +2495,10 @@ def main() -> None:
         f"{'File':<{col_file}}{sep}"
         f"{'Modified':<{w_ts}}{sep}"
         f"{'# FASTA entries':>{w_num}}{sep}{_hdr_drec:>{w_delta}}{sep}"
-        f"{_hdr_nnnx:>{w_num}}{sep}{_hdr_dsum:>{w_delta}}{sep}"
-        f"{_hdr_novel:>{w_novel}}{sep}{_hdr_prot:>{w_prot}}{sep}{_hdr_dprot:>{w_dprot}}{sep}{_hdr_protn:>{w_protn}}"
-        + verify_cols_hdr
+        f"{_hdr_nnnx:>{w_num}}{sep}{_hdr_dsum:>{w_delta}}"
         + disc_header
+        + f"{sep}{_hdr_novel:>{w_novel}}{sep}{_hdr_prot:>{w_prot}}{sep}{_hdr_dprot:>{w_dprot}}{sep}{_hdr_protn:>{w_protn}}"
+        + verify_cols_hdr
     )
     rule = '-' * len(header)
     summary = PROFILER.pop_phase_summary()
@@ -2605,10 +2605,10 @@ def main() -> None:
             f"{mtime_s:<{w_ts}}{sep}"
             f"{n_rec:>{w_num},}{sep}{d_rec:>{w_delta}}{sep}"
             f"{n_sum:>{w_num},}{sep}{d_sum:>{w_delta}}"
+            + disc_cols
             + novel_col
             + prot_col
             + verify_cols
-            + disc_cols
             + (f"  ({parent_label})" if parent_label else ''),
             file=out_fd
         )
@@ -2624,10 +2624,10 @@ def main() -> None:
                 f"{_em:<{w_ts}}{sep}"             # Modified
                 f"{n_d:>{w_num},}{sep}{_em:>{w_delta}}{sep}"  # # FASTA entries (col 3) & delta
                 f"{s_d:>{w_num},}{sep}{_em:>{w_delta}}"     # Sum of NNNNx (col 5) & delta
+                + f"{sep}{_em:>{w_disc1}}{sep}{_em:>{w_disc2}}"  # disc_cols
                 + f"{sep}{_em:>{w_novel}}"                  # Novel
                 + f"{sep}{_em:>{w_prot}}{sep}{_em:>{w_dprot}}{sep}{_em:>{w_protn}}"  # protein
                 + verify_cols_empty                         # Verify
-                + f"{sep}{_em:>{w_disc1}}{sep}{_em:>{w_disc2}}"  # disc_cols
                 + disc_label,
                 file=out_fd
             )
