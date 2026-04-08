@@ -1772,9 +1772,6 @@ def _scan_primary_file(
     lines.append("        counting records & summing NNNNx counts \u2026")
     n_rec, n_sum = _count_records_and_nnnx(f)
     raw_n_rec = n_rec
-    if use_nnnx_counts and n_sum > 0:
-        lines.append(f"        using NNNNx sum ({n_sum:,}) as record count \u2026")
-        n_rec = n_sum
     lines.append("        collecting sha256 IDs \u2026")
     sha256_set_result = _collect_sha256_set(f)
     sha_set, n_legacy = sha256_set_result
