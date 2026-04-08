@@ -476,7 +476,7 @@ def main():
     if ids_computed:
         print(
             f"Info: {ids_computed:,} input records ({len(infile_sha256s):,} unique sequences)"
-            " in --infilename lacked sha256 — computed from sequence content.",
+            f" in {os.path.basename(myoptions.infilename)} lacked sha256 — computed from sequence content.",
             file=sys.stderr,
         )
         if not myoptions.mapping_outfile:
@@ -589,7 +589,7 @@ def main():
             expected_original_count = actual_original_count  # no count prefix available
             print(
                 f"Info: scanned {n_scanned:,} original records,"
-                f" {actual_original_count:,} not in infilename (discarded, inverted)",
+                f" {actual_original_count:,} not in {os.path.basename(myoptions.infilename)} (discarded, inverted)",
                 file=sys.stderr,
             )
         else:
@@ -709,7 +709,7 @@ def main():
         if actual_original_count != expected_original_count:
             print(
                 f"Warning: {actual_original_count:,} original IDs found but expected"
-                f" {expected_original_count:,} (sum of count prefixes in --infilename);"
+                f" {expected_original_count:,} (sum of count prefixes in {os.path.basename(myoptions.infilename)});"
                 f" total discrepancy of {abs(expected_original_count - actual_original_count):,}",
                 file=sys.stderr,
             )
