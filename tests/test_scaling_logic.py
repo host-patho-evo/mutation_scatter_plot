@@ -65,6 +65,7 @@ class TestScalingLogic(unittest.TestCase):
                 self.disable_showing_mplcursors = True
                 self.bokeh_sqrt_size = True
                 self.linear_circle_size = False
+                self.disable_padded_x_axis = False
 
         opts = Options()
         opts.tsv_file_path = self.tsv_path
@@ -81,7 +82,7 @@ class TestScalingLogic(unittest.TestCase):
             build_frequency_tables(options, df, p2p)
 
         fig, ax1, ax2, ax3, ax4, xmin, xmax = setup_matplotlib_figure(
-            options, 'Test', '0', matrix_name, aa, cw, fsw, uap, ucp, nat, nct)
+            options, 'Test', '0', matrix_name, aa, cw, fsw, uap, ucp, nat, nct, p2p)
 
         norm, cmap, colors, _, _, _, \
             _, circles_matplotlib, markers, dots, _ = \
@@ -94,8 +95,8 @@ class TestScalingLogic(unittest.TestCase):
         )
 
         # Legend collections at indices [0, 1, 2, 3, 4, 5] correspond to 100%, 50%, 30%, 10%, 1%, 0.1%
-        # They are added to ax2 in render_matplotlib
-        sizes = [coll.get_sizes()[0] for coll in ax2.collections]
+        # They are added to ax4 in render_matplotlib
+        sizes = [coll.get_sizes()[0] for coll in ax4.collections]
         ratios = [s / sizes[0] for s in sizes]
 
         # Expected ratios: 1.0, 0.5, 0.3, 0.1, 0.01, 0.001
@@ -111,7 +112,7 @@ class TestScalingLogic(unittest.TestCase):
             build_frequency_tables(options, df, p2p)
 
         fig, ax1, ax2, ax3, ax4, xmin, xmax = setup_matplotlib_figure(
-            options, 'Test', '0', matrix_name, aa, cw, fsw, uap, ucp, nat, nct)
+            options, 'Test', '0', matrix_name, aa, cw, fsw, uap, ucp, nat, nct, p2p)
 
         norm, cmap, colors, _, _, _, \
             _, circles_matplotlib, markers, dots, _ = \
@@ -123,7 +124,7 @@ class TestScalingLogic(unittest.TestCase):
             matrix, matrix_name, show=False
         )
 
-        sizes = [coll.get_sizes()[0] for coll in ax2.collections]
+        sizes = [coll.get_sizes()[0] for coll in ax4.collections]
         ratios = [s / sizes[0] for s in sizes]
 
         np.testing.assert_allclose(ratios, [1.0, 0.5, 0.3, 0.1, 0.01, 0.001], rtol=1e-5)
