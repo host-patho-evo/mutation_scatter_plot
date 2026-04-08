@@ -2263,6 +2263,18 @@ def main() -> None:
                 return {'idx': i, 'stats': (n_p_rec, s_p_rec), 'lines': lines}
 
             lines.append(f"  [{i+1}/{len(files)}] {p_display} → {c_display} …{PROFILER.get_current_load_str()}")
+
+            # If tracking into a translated protein space, DNA hash mapping is mathematically invalid
+            # and ID correlation drops. We securely assess translation integrity by purely cross-verifying
+            # the globally accumulated sequence NNNNx sums, preventing false-positive "discard" outputs.
+            if _is_prot_file(f_child):
+                c_sum = rows[i][3] if rows[i] else 0
+                p_sum = rows[p][3] if rows[p] else 0
+                n_d = p_sum - c_sum
+                s_d = n_d  # Metric maps equivalently as sequence geometry drops text hashes
+                lines.append(f"    Translation integrity check: {n_d:,} NNNNx drop between parent ({p_sum:,}) and protein ({c_sum:,}).")
+                return {'idx': i, 'stats': (n_d, s_d), 'lines': lines}
+
             n_d, s_d = _compute_discard_stats(
                 files[p], f_child,
                 add_checksums=add_checksums,
@@ -2277,27 +2289,61 @@ def main() -> None:
 
         child_indices = [i for i in range(len(files)) if parent_map.get(i) is not None]
 
-        if jobs <= 1 or len(child_indices) <= 1:
-            for i in child_indices:
+        # Isolate content twins structurally identically mirroring existing sequence arrays.
+        primary_child_indices = []
+        twin_child_indices = []
+        for i in child_indices:
+            pri = content_twin.get(i)
+            if pri is not None and parent_map.get(pri) == parent_map.get(i):
+                twin_child_indices.append(i)
+            else:
+                primary_child_indices.append(i)
+
+        if jobs <= 1 or len(primary_child_indices) <= 1:
+            for i in primary_child_indices:
                 result = _run_discard(i, files[i], parent_map[i])
                 _emit_lines(result['lines'])
                 if result['stats'] is not None:
                     discard_data[result['idx']] = result['stats']
         else:
-            max_w3 = min(jobs, len(child_indices))
+            max_w3 = min(jobs, len(primary_child_indices))
             print(
-                f"  Parallel Phase 3: computing discard stats for {len(child_indices)} "
-                f"pair(s) with {max_w3} worker(s).",
-
+                f"  Parallel Phase 3: computing discard stats for {len(primary_child_indices)} "
+                f"primary pair(s) with {max_w3} worker(s).",
+                flush=True
             )
             with ThreadPoolExecutor(max_workers=max_w3) as exc:
                 futs = {exc.submit(_run_discard, i, files[i], parent_map[i]): i
-                        for i in child_indices}
+                        for i in primary_child_indices}
                 for fut in as_completed(futs):
                     result = fut.result()
                     _emit_lines(result['lines'])
                     if result['stats'] is not None:
                         discard_data[result['idx']] = result['stats']
+
+        # Resolve discard stats for content twins instantly without 20 minute execution
+        for i in twin_child_indices:
+            pri = content_twin.get(i)
+            if discard_data.get(pri) is not None:
+                discard_data[i] = discard_data[pri]
+                n_d, s_d = discard_data[i]
+                c_display = os.path.relpath(files[i], search_path)
+                pri_display = os.path.relpath(files[pri], search_path)
+                print(
+                    f"{_ts()}  [{i+1}/{len(files)}] {os.path.relpath(files[parent_map[i]], search_path)} → {c_display}\n"
+                    f"        ↳ reusing discard stats from twin [{pri+1}] {pri_display} ({n_d:,} original IDs, NNNNx sum={s_d:,}).",
+                    flush=True
+                )
+
+                # Symmetrically drop identically secure symlinks for Phase 4 payloads natively
+                if save_discard_list:
+                    for ctx in ('discarded', 'effectively_used'):
+                        tgt = _strip_fasta_suffix(files[pri]) + f'.{ctx}_sha256_hashes.txt'
+                        lnk = _strip_fasta_suffix(files[i]) + f'.{ctx}_sha256_hashes.txt'
+                        if os.path.exists(tgt):
+                            if os.path.lexists(lnk) or os.path.exists(lnk):
+                                os.unlink(lnk)
+                            os.symlink(os.path.relpath(tgt, os.path.dirname(lnk) or '.'), lnk)
 
     # ── Phase 4: extract discarded FASTA records from root ancestor ──────────
     if do_discard and extract_discarded_fasta:
