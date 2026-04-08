@@ -18,7 +18,7 @@ Usage Examples:
   # for tsv in *.effectively_used_original_entries.fasta.extraction_counts.tsv; do
   #     python3 extract_gisaid_ids.py --gisaid-tsv-mapping spikenuc1207.no_junk.sha256_to_GISAID_ids.tsv \
   #                                   --subset-txt "$tsv" \
-  #                                   --out-subset-txt "${tsv%.fasta.extraction_counts.tsv}_GISAID_ids.txt"
+  #                                   --out-subset-txt "${tsv%.fasta.extraction_counts.tsv}_entry_GISAID_ids.txt"
   # done
 """
 
