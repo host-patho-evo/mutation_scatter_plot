@@ -733,6 +733,9 @@ def _build_tsv(fasta_path: str, tsv_path: str,
     """
     id_map: dict = {}    # sha256 -> [count, [first-word-id, ...]]
     descr_map: dict = {}  # sha256 -> [count, [full-header, ...]]
+    gisaid_map: dict = {}  # sha256 -> [count, [gisaid_id, ...]]
+    gisaid_re = __import__('re').compile(r'\|(EPI_ISL_[^|]+)\|')
+    gisaid_mode = [False]
     name = None
     full_header = None
     seq_parts: list[bytes] = []
@@ -774,10 +777,21 @@ def _build_tsv(fasta_path: str, tsv_path: str,
             if descr_tsv_path:
                 descr_map[digest][0] += 1
                 descr_map[digest][1].append(flush_full)
+                match = gisaid_re.search(flush_full)
+                if match:
+                    gisaid_mode[0] = True
+                val = match.group(1) if match else flush_name
+                gisaid_map[digest][0] += 1
+                gisaid_map[digest][1].append(val)
         else:
             id_map[digest] = [1, [flush_name]]
             if descr_tsv_path:
                 descr_map[digest] = [1, [flush_full]]
+                match = gisaid_re.search(flush_full)
+                if match:
+                    gisaid_mode[0] = True
+                val = match.group(1) if match else flush_name
+                gisaid_map[digest] = [1, [val]]
 
     n_in = 0
     with open(fasta_path, "rb") as fh:
@@ -1124,7 +1138,8 @@ def _write_original_descr_lines(
 
     def _fh(path: str) -> object:
         if path not in open_fhs:
-            open_fhs[path] = open(path, 'w', encoding='utf-8')  # type: ignore[assignment]  # pylint: disable=consider-using-with
+            # type: ignore[assignment]  # pylint: disable=consider-using-with
+            open_fhs[path] = open(path, 'w', encoding='utf-8')
         return open_fhs[path]
 
     # Stream root TSV, dispatch each sha256 to matching output files ────────────
@@ -1145,13 +1160,16 @@ def _write_original_descr_lines(
                     # Survivors: present in child AND not altered (mutually exclusive
                     # with _altered — an altered record goes only into _altered).
                     if surv_set and sha256 in surv_set and not (alt_set and sha256 in alt_set):
-                        _fh(stem + '.sha256_to_original_descr_lines_of_survived.tsv').write(out_line)  # type: ignore[union-attr]
+                        # type: ignore[union-attr]
+                        _fh(stem + '.sha256_to_original_descr_lines_of_survived.tsv').write(out_line)
                         matched = True
                     if disc_set and sha256 in disc_set:
-                        _fh(stem + '.sha256_to_original_descr_lines_of_discarded.tsv').write(out_line)  # type: ignore[union-attr]
+                        # type: ignore[union-attr]
+                        _fh(stem + '.sha256_to_original_descr_lines_of_discarded.tsv').write(out_line)
                         matched = True
                     if alt_set and sha256 in alt_set:
-                        _fh(stem + '.sha256_to_original_descr_lines_of_survived_altered.tsv').write(out_line)  # type: ignore[union-attr]
+                        # type: ignore[union-attr]
+                        _fh(stem + '.sha256_to_original_descr_lines_of_survived_altered.tsv').write(out_line)
                         matched = True
                 if matched:
                     n_written += 1
@@ -1453,7 +1471,8 @@ def _compute_discard_stats(parent_path: str, child_path: str,
             *(['--disable-full-fasta-header'] if not full_fasta_header else []),
             f'--outfile={outfile_eff}', '--overwrite',
         ]
-        result_eff = subprocess.run(cmd_eff, capture_output=True, text=True, encoding='utf-8', errors='replace', check=False)
+        result_eff = subprocess.run(cmd_eff, capture_output=True, text=True,
+                                    encoding='utf-8', errors='replace', check=False)
         for line in result_eff.stderr.splitlines():
             if line.startswith(('Warning:', 'Error:')):
                 _print(f"    {line}", flush=True)
@@ -1538,7 +1557,8 @@ def _extract_subset_to_fasta(
             anc_out = anc_stem + f'.{context}_original_entries.fasta'
             if os.path.exists(anc_sha) and os.path.exists(anc_out):
                 if filecmp.cmp(sha_file, anc_sha, shallow=False):
-                    print(f"    Symlinked identical hashes map from identical ancestor '{os.path.basename(anc)}' to bypass redundant extraction.", flush=True)
+                    print(
+                        f"    Symlinked identical hashes map from identical ancestor '{os.path.basename(anc)}' to bypass redundant extraction.", flush=True)
                     if os.path.lexists(out_fasta) or os.path.exists(out_fasta):
                         os.unlink(out_fasta)
                     os.symlink(os.path.relpath(anc_out, os.path.dirname(out_fasta) or '.'), out_fasta)
@@ -1548,7 +1568,7 @@ def _extract_subset_to_fasta(
                     out_tsv = out_fasta + '.extraction_counts.tsv'
                     if os.path.exists(anc_tsv):
                         with open(anc_tsv, 'r', encoding='utf-8') as fh_in, \
-                             open(out_tsv, 'w', encoding='utf-8') as fh_out:
+                                open(out_tsv, 'w', encoding='utf-8') as fh_out:
                             fh_out.write(fh_in.readline())  # Header
                             basename = os.path.basename(out_fasta)
                             for line in fh_in:
@@ -1676,6 +1696,42 @@ def _extract_subset_to_fasta(
         total_extracted = sum(extracted_sha_counts.values())
         print(f"    Wrote {len(extracted_sha_counts):,} summary count entries "
               f"(totaling {total_extracted:,} extracted records) to {_summary_tsv}")
+
+        # Native Phase 4 GISAID Subset Generation
+        gisaid_map_path = root_tsv.replace('.sha256_to_descr_lines.tsv', '.sha256_to_GISAID_ids.tsv')
+        if not gisaid_map_path.endswith('.sha256_to_GISAID_ids.tsv'):
+            gisaid_map_path = root_tsv.replace('.sha256_to_ids.tsv', '.sha256_to_GISAID_ids.tsv')
+
+        if os.path.exists(gisaid_map_path):
+            gisaid_tsv_map = {}
+            with open(gisaid_map_path, 'r', encoding='utf-8') as f_gis:
+                for ln in f_gis:
+                    parts = ln.rstrip('\n').split('\t')
+                    if len(parts) >= 3:
+                        gisaid_tsv_map[parts[0]] = parts[2:]
+
+            if gisaid_tsv_map:
+                gisaid_txt_out = os.path.join(
+                    os.path.dirname(out_fasta),
+                    os.path.basename(out_fasta).replace('.fasta', '').replace(
+                        'original_entries', 'original_GISAID_ids.txt')
+                )
+                n_gisaid_written = 0
+                n_duplicates = 0
+                unique_gisaids = set()
+                with open(gisaid_txt_out, 'w', encoding='utf-8') as f_gout:
+                    for s_hash in extracted_sha_counts:
+                        targets = gisaid_tsv_map.get(s_hash)
+                        if targets:
+                            for tgt in targets:
+                                f_gout.write(tgt + '\n')
+                                n_gisaid_written += 1
+                                if tgt in unique_gisaids:
+                                    n_duplicates += 1
+                                unique_gisaids.add(tgt)
+                if n_gisaid_written > 0:
+                    dup_warn = f" (Warning: {n_duplicates:,} identical string duplicates naturally preserved mirroring FASTA)" if n_duplicates > 0 else ""
+                    print(f"    Extracted {n_gisaid_written:,} native GISAID identifiers dynamically to {os.path.basename(gisaid_txt_out)}{dup_warn}")
 
     except OSError as exc:
         print(f"    Error extracting discarded sequences: {exc}")
@@ -2272,7 +2328,8 @@ def main() -> None:
                 p_sum = rows[p][3] if rows[p] else 0
                 n_d = p_sum - c_sum
                 s_d = n_d  # Metric maps equivalently as sequence geometry drops text hashes
-                lines.append(f"    Translation integrity check: {n_d:,} NNNNx drop between parent ({p_sum:,}) and protein ({c_sum:,}).")
+                lines.append(
+                    f"    Translation integrity check: {n_d:,} NNNNx drop between parent ({p_sum:,}) and protein ({c_sum:,}).")
                 return {'idx': i, 'stats': (n_d, s_d), 'lines': lines}
 
             n_d, s_d = _compute_discard_stats(
@@ -2602,7 +2659,8 @@ def main() -> None:
         last_rec,  last_sum = rows[-1][2], rows[-1][3]
         print(file=out_fd)
         print("Overall change  (last vs first):", file=out_fd)
-        print(f"  # FASTA entries : {_delta_str(last_rec, first_rec):>16}  ({_pct_str(last_rec, first_rec)} of first)", file=out_fd)
+        print(
+            f"  # FASTA entries : {_delta_str(last_rec, first_rec):>16}  ({_pct_str(last_rec, first_rec)} of first)", file=out_fd)
         print(f"  Sum     : {_delta_str(last_sum, first_sum):>16}  ({_pct_str(last_sum, first_sum)} of first)", file=out_fd)
 
     out_fd.close()
