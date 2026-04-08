@@ -706,16 +706,19 @@ def main():
 
     # Overall discrepancy report for the original IDs file.
     if original_id_lines:
+        _src_name = os.path.basename(
+            myoptions.mapping_outfile if myoptions.mapping_outfile else myoptions.original_infilename
+        )
         if actual_original_count != expected_original_count:
             print(
-                f"Warning: {actual_original_count:,} original IDs found but expected"
+                f"Warning: {actual_original_count:,} original IDs found in {_src_name} but expected"
                 f" {expected_original_count:,} (sum of count prefixes in {os.path.basename(myoptions.infilename)});"
                 f" total discrepancy of {abs(expected_original_count - actual_original_count):,}",
                 file=sys.stderr,
             )
         else:
             print(
-                f"Info: original ID count ({actual_original_count:,}) matches"
+                f"Info: original ID count ({actual_original_count:,}) found in {_src_name} matches"
                 f" expected total ({expected_original_count:,}) — no discrepancy",
                 file=sys.stderr,
             )
