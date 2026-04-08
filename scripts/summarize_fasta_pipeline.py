@@ -1998,7 +1998,8 @@ def main() -> None:
     _clean_found = {
         p for p in found
         if not any(p.endswith(sfx) for sfx in _backup_suffixes)
-        and '.discarded_original_entries.' not in p
+        and not p.endswith('.discarded_original_entries.fasta')
+        and not p.endswith('.effectively_used_original_entries.fasta')
     }
     _backed_up = found - _clean_found
     for bp in _backed_up:
