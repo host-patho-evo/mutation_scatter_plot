@@ -237,6 +237,7 @@ def get_colormap(myoptions, colormapname):
 
     _norm = None
     _colors = None
+    _cmap = None
 
     _micro_cvd_gray = ["#F5F5F5", "#D6D6D6", "#B7B7B7", "#8B8B8B", "#616161"]
     _micro_cvd_green = ["#DDFFA0", "#BDEC6F", "#97CE2F", "#6D9F06", "#4E7705"]
@@ -255,15 +256,15 @@ def get_colormap(myoptions, colormapname):
         # exact hex equivalent #98fb98 (R=152 G=251 B=152).
         _colors = ["#930000", "#930000", "#930000", "#930000", "#930000", "#930000", "#960000", "#580041", "#8200ff", "#c500ff", "#ff00fd", "#CC79A7", "#eea1d0", "#cc0000", "#ff0000", "#ff4f00", "#ff7c7c", "#ff9999", "#c58a24",
                    "#9c644b", "#ffff00", "#ffcc00", "#ffa200", "#7DCCFF", "#0042ff", "#0000ff", "#D6D6D6", "#B7B7B7", "#8B8B8B", "#98fb98", "#bbff00", "#97CE2F", "#219f11", "#930000", "#930000", "#930000", "#930000", "#930000", "#930000"]
-        _orig_norm = matplotlib.colors.BoundaryNorm(np.arange(-19, 19, 1), len(_colors))
-        
+
         if getattr(myoptions, 'spread_colormap_virtual_matrix', False):
             _local_vmin = getattr(myoptions, 'matrix_min_theoretical', -19)
             _local_vmax = getattr(myoptions, 'matrix_max_theoretical', 19)
         else:
             _local_vmin = getattr(myoptions, 'cmap_actual_vmin', -19)
             _local_vmax = getattr(myoptions, 'cmap_actual_vmax', 19)
-        if _local_vmin >= _local_vmax: _local_vmin = _local_vmax - 1
+        if _local_vmin >= _local_vmax:
+            _local_vmin = _local_vmax - 1
         myoptions.cmap_vmin = _local_vmin
         myoptions.cmap_vmax = _local_vmax
 
@@ -274,15 +275,15 @@ def get_colormap(myoptions, colormapname):
     elif colormapname == 'dkeenan_26cols':
         _colors = ["#00B7FF", "#004DFF", "#00FFFF", "#826400", "#580041", "#FF00FF", "#00FF00", "#C500FF", "#B4FFD7", "#FFCA00", "#969600", "#B4A2FF", "#C20078",
                    "#000000", "#0000C1", "#FF8B00", "#FFC8FF", "#666666", "#FF0000", "#CCCCCC", "#009E8F", "#D7A870", "#8200FF", "#960000", "#BBFF00", "#FFFF00", "#006F00"]
-        _orig_norm = matplotlib.colors.BoundaryNorm(np.arange(-13, 13, 1), len(_colors))
-        
+
         if getattr(myoptions, 'spread_colormap_virtual_matrix', False):
             _local_vmin = getattr(myoptions, 'matrix_min_theoretical', -13)
             _local_vmax = getattr(myoptions, 'matrix_max_theoretical', 13)
         else:
             _local_vmin = getattr(myoptions, 'cmap_actual_vmin', -13)
             _local_vmax = getattr(myoptions, 'cmap_actual_vmax', 13)
-        if _local_vmin >= _local_vmax: _local_vmin = _local_vmax - 1
+        if _local_vmin >= _local_vmax:
+            _local_vmin = _local_vmax - 1
         myoptions.cmap_vmin = _local_vmin
         myoptions.cmap_vmax = _local_vmax
 
@@ -1283,7 +1284,8 @@ def collect_scatter_data(
     mut_col = 'mutant_aa' if myoptions.aminoacids else 'mutant_codon'
     _emp_scores = set()
     for _, row in df[['original_codon', mut_col]].drop_duplicates().iterrows():
-        if pd.isna(row['original_codon']) or pd.isna(row[mut_col]): continue
+        if pd.isna(row['original_codon']) or pd.isna(row[mut_col]):
+            continue
         _codon_on_input, _old, _new = resolve_codon_or_aa(myoptions, str(row['original_codon']), str(row[mut_col]))
         if _new in ('---', 'DEL', 'INS'):
             _emp_scores.add(_min_theoretical_score)
@@ -2054,7 +2056,7 @@ def render_bokeh(
     _bk_vmin = getattr(myoptions, 'cmap_vmin', -_half)
     _bk_vmax = getattr(myoptions, 'cmap_vmax', _half)
     _score_range = range(_bk_vmin, _bk_vmax + 1)
-    
+
     if norm is not None and colors is not None:
         # Discrete ListedColormap path (amino_acid_changes, dkeenan).
         # Mirror adjust_size_and_color exactly: index colors[] using the
@@ -2371,11 +2373,11 @@ def render_matplotlib(
         _cb_norm = matplotlib.colors.BoundaryNorm(np.arange(_cb_vmin, _cb_vmax + 2, 1), len(_cb_sliced))
         _cb_sm = matplotlib.cm.ScalarMappable(cmap=_cb_cmap, norm=_cb_norm)
         _cb_sm.set_array([])
-        
+
         # alpha=0.5 is supported natively by matplotlib.colorbar — unlike
         # Bokeh's ColorBar which requires the pre-blend workaround in render_bokeh.
         _colorbar = figure.colorbar(_cb_sm, cax=ax3, label=_colorbar_label, location='right', pad=-0.1, alpha=0.5)
-        
+
         # Tick label placement: set_yticks with half-offset positions centres
         # each integer label inside its colour band (see docstring above).
         # np.arange(_cb_vmin + 0.5, _cb_vmax + 1.5, 1) generates one position
