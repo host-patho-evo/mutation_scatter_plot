@@ -1248,9 +1248,20 @@ def _write_original_descr_lines(
     for idx, pri in content_twin.items():
         p = parent_map.get(idx)
         p_pri = parent_map.get(pri)
-        if (p == pri
-                or content_twin.get(p) == p_pri
-                or p == p_pri):
+        # Check parent equivalence (same logic as Phase 2 + transitive):
+        #   1. twin's parent IS the primary itself
+        #   2. twin's parent is a content twin of the primary's parent
+        #   3. twin and primary share the exact same parent index
+        #   4. twin's parent and primary's parent are both content twins
+        #      mapping to the same underlying primary file
+        parents_equivalent = (
+            p == pri
+            or p == p_pri
+            or content_twin.get(p) == p_pri
+            or (content_twin.get(p) is not None
+                and content_twin.get(p) == content_twin.get(p_pri))
+        )
+        if parents_equivalent:
             twin_symlink_map[idx] = pri
 
     # Build per-file category sets ─────────────────────────────────────────────
