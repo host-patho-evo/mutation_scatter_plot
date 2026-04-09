@@ -1217,6 +1217,7 @@ def _write_original_descr_lines(
         parent_map: dict[int, int],
         sha256_sets: list[tuple[dict[str, int], int]],
         verify_data: list[tuple | None],
+        content_twin: dict[int, int] | None = None,
 ) -> None:
     """Stream *root_descr_tsv* once, writing per-step traceability TSV files.
 
@@ -1238,13 +1239,31 @@ def _write_original_descr_lines(
 
     All output files are opened lazily and written in one streaming pass.
     """
+    # Detect twin files whose traceability TSVs will be identical ───────────────
+    # A twin file with an equivalent parent context produces the exact same
+    # survived/discarded/altered sets → we can symlink instead of writing.
+    if content_twin is None:
+        content_twin = {}
+    twin_symlink_map: dict[int, int] = {}   # twin idx → primary idx
+    for idx, pri in content_twin.items():
+        p = parent_map.get(idx)
+        p_pri = parent_map.get(pri)
+        if (p == pri
+                or content_twin.get(p) == p_pri
+                or p == p_pri):
+            twin_symlink_map[idx] = pri
+
     # Build per-file category sets ─────────────────────────────────────────────
     # Each element: (survivor_set | None, discarded_set | None, altered_set | None, stem)
     file_cats: list[tuple] = []
     for i, f in enumerate(files):
+        stem = _strip_fasta_suffix(f)
+        if i in twin_symlink_map:
+            # Will be symlinked later — skip from the streaming loop.
+            file_cats.append((None, None, None, stem))
+            continue
         p = parent_map.get(i)
         child_sha256s, _ = sha256_sets[i]
-        stem = _strip_fasta_suffix(f)
         surv_set = child_sha256s.keys() if (p is not None and child_sha256s) else None
         disc_set: set[str] | None = None
         if p is not None:
@@ -1307,6 +1326,29 @@ def _write_original_descr_lines(
             print(f"  Info: wrote original GISAID headers for {n_written:,} unique"
                   f" sha256s into {len(open_fhs):,} traceability TSV file(s).",
                   flush=True)
+
+    # Symlink traceability TSVs for content-twin files ─────────────────────────
+    n_symlinked = 0
+    _suffixes = (
+        '.sha256_to_original_descr_lines_of_survived.tsv',
+        '.sha256_to_original_descr_lines_of_discarded.tsv',
+        '.sha256_to_original_descr_lines_of_survived_altered.tsv',
+    )
+    for twin_idx, pri_idx in twin_symlink_map.items():
+        twin_stem = _strip_fasta_suffix(files[twin_idx])
+        pri_stem = _strip_fasta_suffix(files[pri_idx])
+        for sfx in _suffixes:
+            src = pri_stem + sfx
+            dst = twin_stem + sfx
+            if not os.path.exists(src):
+                continue  # primary didn't write this category
+            if os.path.islink(dst) or os.path.exists(dst):
+                os.remove(dst)
+            os.symlink(os.path.basename(src), dst)
+            n_symlinked += 1
+    if n_symlinked:
+        print(f"  Info: symlinked {n_symlinked} traceability TSV(s) for"
+              f" {len(twin_symlink_map)} content-twin file(s).", flush=True)
 
 
 def _has_legacy_ids(id_to_sha: dict) -> bool:
@@ -2906,6 +2948,7 @@ def main() -> None:
         if os.path.exists(root_descr_tsv):
             _write_original_descr_lines(
                 root_descr_tsv, files, parent_map, sha256_sets, verify_data,
+                content_twin=content_twin,
             )
         else:
             print(f"  Warning: --write-original-descr-lines: root mapping TSV not found"
