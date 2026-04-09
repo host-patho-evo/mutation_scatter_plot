@@ -2219,9 +2219,21 @@ def main() -> None:
             parent_map[i] = p
 
     # ── intercept and auto-repair missing sha256 tracking hashes ────────────
+    # IMPORTANT: Only the *direct* counts-level FASTA (i.e. the file produced
+    # by count_same_sequences.py, whose stem ends at '.counts') should have
+    # its sha256 (re)computed from the sequence content.  All descendants
+    # (*.counts.clean.fasta, *.counts.3870.clean.exactly_3870.fasta, etc.)
+    # MUST inherit the sha256 from their .counts ancestor — their sequences
+    # may have been transformed (alignment padding, trimming, reverse-
+    # complementing, indel correction) and recomputing would break the
+    # traceability link back to the original pre-alignment sequence.
     for f in files:
         if _is_counts_file(f) and not _is_prot_file(f):
-            _repair_missing_hashes(f)
+            _stem = _strip_fasta_suffix(os.path.basename(f))
+            # Only repair if the stem ends at '.counts' — i.e. no further
+            # processing segments (.clean, .3870, .exactly_3870, etc.)
+            if _stem.endswith('.counts'):
+                _repair_missing_hashes(f)
 
     # ── detect identical files (size + sha256) to skip redundant scans ──────
     # Two files with the same raw content produce identical records, sha256 IDs,
