@@ -641,6 +641,90 @@ def _decode_fasta_line(raw: bytes) -> str:
     return _unescape_unicode(s)
 
 
+def _repair_missing_hashes(fasta_path: str) -> None:
+    """Detect if a counts-level FASTA has lost its sha256 payloads and reconstruct them.
+
+    Checks the first sequence header. If it lacks a .sha256 extension but has
+    an NNNNx prefix, renames the file to .orig and generates a correctly
+    tracked FASTA in its place mathematically computing hashes on the fly.
+    """
+    first_hdr = None
+    try:
+        with open(fasta_path, 'rb') as fh:
+            for raw in fh:
+                if raw.startswith(b'>'):
+                    first_hdr = raw.decode('utf-8', errors='replace').rstrip('\r\n')[1:]
+                    break
+    except OSError:
+        return
+
+    if not first_hdr:
+        return
+
+    toks = first_hdr.split()
+    if not toks:
+        return
+    first_id = toks[0]
+
+    # If the ID already has a valid tracking payload explicitly, we do exactly nothing.
+    if _extract_sha256_from_id(first_id) is not None:
+        return
+
+    xpos = first_id.find('x')
+    if xpos <= 0 or not first_id[:xpos].isdigit():
+        return
+
+    print(f"{_ts()}  [Auto-Repair] Legacy sequences missing tracking payload detected in {os.path.basename(fasta_path)}")
+    bak_path = fasta_path + '.orig'
+    if os.path.lexists(bak_path) or os.path.exists(bak_path):
+        print(f"    Warning: Cannot repair, backup {os.path.basename(bak_path)} already exists.")
+        return
+
+    try:
+        os.rename(fasta_path, bak_path)
+    except OSError as exc:
+        print(f"    Warning: Failed to rename for repair: {exc}")
+        return
+
+    print(f"    \u21b3 Backed up structurally to {os.path.basename(bak_path)}")
+    print(f"    \u21b3 Reconstructing structural sha256 sequences dynamically into {os.path.basename(fasta_path)} \u2026")
+
+    n_written = 0
+    with open(bak_path, 'rb') as f_in, open(fasta_path, 'w', encoding='utf-8') as f_out:
+        name = None
+        desc = ""
+        seq_parts: list[bytes] = []
+
+        def _flush() -> None:
+            nonlocal n_written
+            if name is None:
+                return
+            seq_b = b''.join(seq_parts)
+            clean_seq = seq_b.replace(b'\r', b'').replace(b'\n', b'').replace(b'-', b'').upper()
+            sha = hashlib.sha256(clean_seq).hexdigest()
+            hdr_str = f"{name}.{sha} {desc}".strip()
+            f_out.write(f">{hdr_str}\n")
+            f_out.write(seq_b.decode('utf-8', errors='replace'))
+            if not seq_b.endswith(b'\n'):
+                f_out.write('\n')
+            n_written += 1
+
+        for raw in f_in:
+            if raw.startswith(b'>'):
+                _flush()
+                # Parse the next header
+                line = _decode_fasta_line(raw).rstrip('\r\n')[1:]
+                parts = line.split(None, 1)
+                name = parts[0] if parts else ""
+                desc = parts[1] if len(parts) > 1 else ""
+                seq_parts.clear()
+            else:
+                seq_parts.append(raw)
+        _flush()
+
+    print(f"    \u21b3 Successfully embedded {n_written:,} mathematical tracking hashes.", flush=True)
+
+
 def _extract_sha256_from_id(record_id: str) -> str | None:
     """Return the 64-char hex sha256 embedded in a NNNNx.sha256hex ID, or None."""
     xdot = record_id.find('x.')
@@ -2078,6 +2162,11 @@ def main() -> None:
         p = _direct_parent_idx(i)
         if p is not None:
             parent_map[i] = p
+
+    # ── intercept and auto-repair missing sha256 tracking hashes ────────────
+    for f in files:
+        if _is_counts_file(f) and not _is_prot_file(f):
+            _repair_missing_hashes(f)
 
     # ── detect identical files (size + sha256) to skip redundant scans ──────
     # Two files with the same raw content produce identical records, sha256 IDs,
