@@ -1725,7 +1725,17 @@ def _extract_subset_to_fasta(
               )
         return
 
-    print(f"    {len(target_ids_set):,} GISAID ID(s) for {len(target_sha256s):,} sha256(s) in {os.path.basename(out_fasta)}.",
+    # Warn about sha256 hashes present in the target set but absent from root TSV.
+    unmapped_sha256s = target_sha256s - set(expected_counts)
+    if unmapped_sha256s:
+        print(f"    Warning: {len(unmapped_sha256s):,} of {len(target_sha256s):,} target sha256(s) "
+              f"were NOT found in {os.path.basename(root_tsv)} — "
+              f"their sequences cannot be extracted.",
+              flush=True)
+
+    print(f"    {len(target_ids_set):,} GISAID ID(s) for "
+          f"{len(expected_counts):,} of {len(target_sha256s):,} sha256(s) "
+          f"in {os.path.basename(out_fasta)}.",
           )
 
     # ── Step 4: extract records (fast pure-Python byte streaming) ────────────
@@ -1780,6 +1790,18 @@ def _extract_subset_to_fasta(
         total_extracted = sum(extracted_sha_counts.values())
         print(f"    Wrote {len(extracted_sha_counts):,} summary count entries "
               f"(totaling {total_extracted:,} extracted records) to {_summary_tsv}")
+
+        # Report overall unresolved sha256 hashes.
+        n_resolved = len(extracted_sha_counts)
+        n_target = len(target_sha256s)
+        if n_resolved < n_target:
+            n_missing = n_target - n_resolved
+            n_unmapped = len(target_sha256s - set(expected_counts))
+            n_unextracted = len(set(expected_counts) - set(extracted_sha_counts))
+            print(f"    Warning: {n_missing:,} of {n_target:,} target sha256(s) "
+                  f"were NOT extracted ({n_unmapped:,} absent from TSV mapping, "
+                  f"{n_unextracted:,} mapped but not found in root FASTA).",
+                  flush=True)
 
         # Native Phase 4 GISAID Subset Generation
         gisaid_map_path = root_tsv.replace('.sha256_to_descr_lines.tsv', '.sha256_to_GISAID_ids.tsv')
@@ -2742,17 +2764,49 @@ def main() -> None:
                 ctx_path = os.path.join(search_path, ctx_display)
                 ctx_mtime = datetime.datetime.fromtimestamp(os.path.getmtime(ctx_path)).strftime('%Y-%m-%d %H:%M') if os.path.exists(ctx_path) else _em
 
+                # Read actual extracted record count from Phase 4's
+                # .extraction_counts.tsv (avoids slow grep -c on multi-GB FASTA).
+                ctx_counts_tsv = ctx_path + '.extraction_counts.tsv'
+                ctx_rec_from_tsv = None
+                if os.path.exists(ctx_counts_tsv):
+                    try:
+                        _total = 0
+                        with open(ctx_counts_tsv, 'r', encoding='utf-8') as _cf:
+                            next(_cf, None)  # skip header
+                            for _cl in _cf:
+                                _parts = _cl.rstrip('\n').split('\t')
+                                if len(_parts) >= 3:
+                                    _total += int(_parts[2])
+                        ctx_rec_from_tsv = _total
+                    except (OSError, ValueError):
+                        pass
+
                 if ctx == "discarded":
-                    ctx_rec, ctx_sum = n_d, s_d
+                    ctx_rec = ctx_rec_from_tsv if ctx_rec_from_tsv is not None else n_d
+                    ctx_expected = s_d
                 else:
-                    # 'effectively_used' physically traces exactly the surviving child sequence footprint back to the root ancestor
-                    ctx_rec, ctx_sum = n_sum, n_sum
+                    ctx_rec = ctx_rec_from_tsv if ctx_rec_from_tsv is not None else n_sum
+                    ctx_expected = n_sum
+
+                # Extracted FASTAs contain original GISAID records with no
+                # NNNNx prefixes; following the pipeline convention (line 1885:
+                # n_sum==0 → use n_rec), Sum of NNNNx = record count.
+                ctx_sum = ctx_rec
+
+                # Delta compares actual extracted count against the pipeline
+                # expectation.  A negative value means some sha256 hashes
+                # could not be resolved (absent from TSV mapping, or
+                # sequences modified after deduplication).
+                if ctx_rec_from_tsv is not None and ctx_rec != ctx_expected:
+                    ctx_d_rec = _delta_str(ctx_rec, ctx_expected)
+                else:
+                    ctx_d_rec = _em
 
                 print(
                     f"{ctx_display:<{col_file}}{sep}"
                     f"{ctx_mtime:<{w_ts}}{sep}"             # Modified
-                    f"{ctx_rec:>{w_num},}{sep}{_em:>{w_delta}}{sep}"  # # FASTA entries (col 3) & delta
-                    f"{ctx_sum:>{w_num},}{sep}{_em:>{w_delta}}"     # Sum of NNNNx (col 5) & delta
+                    f"{ctx_rec:>{w_num},}{sep}{ctx_d_rec:>{w_delta}}{sep}"  # # FASTA entries & delta
+                    f"{ctx_sum:>{w_num},}{sep}{_em:>{w_delta}}"     # Sum of NNNNx & delta
                     + f"{sep}{_em:>{w_disc1}}{sep}{_em:>{w_disc2}}"  # disc_cols
                     + f"{sep}{_em:>{w_novel}}"                  # Novel
                     + f"{sep}{_em:>{w_prot}}{sep}{_em:>{w_dprot}}{sep}{_em:>{w_protn}}"  # protein
