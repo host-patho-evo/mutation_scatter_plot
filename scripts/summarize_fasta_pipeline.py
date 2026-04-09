@@ -1877,7 +1877,8 @@ def _scan_primary_file(
     if n_sum > 0 and n_legacy == 0 and len(sha_set) != raw_n_rec:
         lines.append(
             f"        INTERNAL CHECK FAILED: sha256 set size {len(sha_set):,} "
-            f"\u2260 record count {raw_n_rec:,} (duplicate sha256 IDs or stale TSV?)"
+            f"\u2260 record count {raw_n_rec:,} (duplicate sha256 IDs, stale TSV, or "
+            f"new sha256 checksums due to sequence modification in {os.path.basename(f)}?)"
         )
     return {
         'idx':         idx,
