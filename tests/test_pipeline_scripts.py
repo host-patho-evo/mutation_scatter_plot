@@ -558,5 +558,270 @@ class TestSplitFastaByLengthsCLI(unittest.TestCase):
             self.assertIn("INCARNATE WORD CONVENT - \\t3400", extracted_content)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# 6. _collect_sha256_set – dict return type & NNNNx counts
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestCollectSha256Set(unittest.TestCase):
+    """Tests for _collect_sha256_set returning dict[str, int] with NNNNx counts."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = _load_module("summarize_fasta_pipeline.py")
+
+    # ── return type ───────────────────────────────────────────────────────────
+
+    def test_fasta_returns_dict_not_set(self):
+        """_collect_sha256_set returns a dict (not a set) from FASTA fallback."""
+        with tempfile.TemporaryDirectory() as d:
+            fa = os.path.join(d, "test.fasta")
+            _make_nnnx_fasta(fa, [(3, "ACGT"), (7, "TGCA")])
+            result, n_legacy = self.mod._collect_sha256_set(fa)  # pylint: disable=protected-access
+            self.assertIsInstance(result, dict)
+            self.assertEqual(n_legacy, 0)
+
+    def test_tsv_returns_dict_not_set(self):
+        """_collect_sha256_set returns a dict from TSV fast path."""
+        with tempfile.TemporaryDirectory() as d:
+            fa = os.path.join(d, "test.fasta")
+            tsv = os.path.join(d, "test.sha256_to_ids.tsv")
+            _make_nnnx_fasta(fa, [(5, "AAAA"), (12, "CCCC")])
+            h1 = hashlib.sha256(b"AAAA").hexdigest()
+            h2 = hashlib.sha256(b"CCCC").hexdigest()
+            with open(tsv, 'w', encoding='utf-8') as f:
+                f.write(f"{h1}\t5\tid_a\tid_b\n")
+                f.write(f"{h2}\t12\tid_c\n")
+            # Ensure TSV is newer than FASTA
+            time.sleep(0.05)
+            os.utime(tsv, None)
+            result, n_legacy = self.mod._collect_sha256_set(fa)  # pylint: disable=protected-access
+            self.assertIsInstance(result, dict)
+            self.assertEqual(n_legacy, 0)
+
+    # ── NNNNx counts from FASTA ────────────────────────────────────────────────
+
+    def test_fasta_nnnx_counts(self):
+        """FASTA fallback extracts NNNNx count from the header prefix."""
+        with tempfile.TemporaryDirectory() as d:
+            fa = os.path.join(d, "test.fasta")
+            _make_nnnx_fasta(fa, [(42, "GATTACA"), (999, "CATTAG")])
+            result, _ = self.mod._collect_sha256_set(fa)  # pylint: disable=protected-access
+            h1 = hashlib.sha256(b"GATTACA").hexdigest()
+            h2 = hashlib.sha256(b"CATTAG").hexdigest()
+            self.assertEqual(result[h1], 42)
+            self.assertEqual(result[h2], 999)
+
+    def test_tsv_nnnx_counts(self):
+        """TSV fast path reads the count column as NNNNx."""
+        with tempfile.TemporaryDirectory() as d:
+            fa = os.path.join(d, "test.fasta")
+            tsv = os.path.join(d, "test.sha256_to_ids.tsv")
+            _make_nnnx_fasta(fa, [(1, "AAGG")])
+            h1 = hashlib.sha256(b"AAGG").hexdigest()
+            h2 = hashlib.sha256(b"TTCC").hexdigest()
+            with open(tsv, 'w', encoding='utf-8') as f:
+                f.write(f"{h1}\t350\tid1\n")
+                f.write(f"{h2}\t17\tid2\n")
+            time.sleep(0.05)
+            os.utime(tsv, None)
+            result, _ = self.mod._collect_sha256_set(fa)  # pylint: disable=protected-access
+            self.assertEqual(result[h1], 350)
+            self.assertEqual(result[h2], 17)
+
+    # ── legacy GISAID file ─────────────────────────────────────────────────────
+
+    def test_legacy_fasta_returns_empty_dict(self):
+        """A plain GISAID FASTA with no sha256 IDs returns an empty dict."""
+        with tempfile.TemporaryDirectory() as d:
+            fa = os.path.join(d, "gisaid.fasta")
+            _make_plain_fasta(fa, [
+                ("EPI_ISL_100", "ATGC"),
+                ("EPI_ISL_200", "GCTA"),
+                ("EPI_ISL_300", "TTAA"),
+            ])
+            result, n_legacy = self.mod._collect_sha256_set(fa)  # pylint: disable=protected-access
+            self.assertIsInstance(result, dict)
+            self.assertEqual(len(result), 0)
+            self.assertEqual(n_legacy, 3)
+
+    # ── set operations on dict.keys() ──────────────────────────────────────────
+
+    def test_dict_keys_set_difference(self):
+        """dict.keys() supports set difference (child − parent)."""
+        with tempfile.TemporaryDirectory() as d:
+            parent_fa = os.path.join(d, "parent.fasta")
+            child_fa = os.path.join(d, "child.fasta")
+            # Parent has 3 sequences, child has 2 (one novel, one shared)
+            _make_nnnx_fasta(parent_fa, [
+                (100, "AAAA"), (200, "CCCC"), (300, "GGGG"),
+            ])
+            _make_nnnx_fasta(child_fa, [
+                (150, "CCCC"), (50, "TTTT"),  # CCCC shared, TTTT novel
+            ])
+            parent_dict, _ = self.mod._collect_sha256_set(parent_fa)  # pylint: disable=protected-access
+            child_dict, _ = self.mod._collect_sha256_set(child_fa)  # pylint: disable=protected-access
+            novel_shas = child_dict.keys() - parent_dict.keys()
+            self.assertEqual(len(novel_shas), 1)
+            # The novel sha256 is TTTT's hash
+            novel_sha = hashlib.sha256(b"TTTT").hexdigest()
+            self.assertIn(novel_sha, novel_shas)
+            # NNNNx sum of novel
+            novel_nnnx = sum(child_dict[s] for s in novel_shas)
+            self.assertEqual(novel_nnnx, 50)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 7. Novel + Traceable invariants
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestNovelTraceableInvariants(unittest.TestCase):
+    """Cross-checks: Novel + Traceable must equal Total for entries and NNNNx.
+
+    Uses synthetic data with made-up sequences and counts.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = _load_module("summarize_fasta_pipeline.py")
+
+    def _compute_novel_traceable(self, parent_entries, child_entries):
+        """Build parent/child FASTAs and compute novel/traceable stats.
+
+        parent_entries: list of (nnnx_count, seq_str)
+        child_entries:  list of (nnnx_count, seq_str)
+
+        Returns: (n_novel, novel_nnnx, n_trace, trace_nnnx, n_rec, n_sum)
+        """
+        with tempfile.TemporaryDirectory() as d:
+            parent_fa = os.path.join(d, "parent.fasta")
+            child_fa = os.path.join(d, "child.fasta")
+            _make_nnnx_fasta(parent_fa, parent_entries)
+            _make_nnnx_fasta(child_fa, child_entries)
+            parent_dict, _ = self.mod._collect_sha256_set(parent_fa)  # pylint: disable=protected-access
+            child_dict, _ = self.mod._collect_sha256_set(child_fa)  # pylint: disable=protected-access
+
+            novel_shas = child_dict.keys() - parent_dict.keys()
+            n_novel = len(novel_shas)
+            novel_nnnx = sum(child_dict[s] for s in novel_shas)
+
+            n_rec = len(child_entries)
+            n_sum = sum(c for c, _ in child_entries)
+            n_trace = n_rec - n_novel
+            trace_nnnx = n_sum - novel_nnnx
+
+            return n_novel, novel_nnnx, n_trace, trace_nnnx, n_rec, n_sum
+
+    def test_all_shared_full_traceability(self):
+        """When child is a subset of parent, all entries are traceable."""
+        parent = [(500, "AAAA"), (200, "CCCC"), (80, "GGGG"), (10, "TTTT")]
+        child = [(500, "AAAA"), (80, "GGGG")]  # strict subset
+        n_novel, novel_nnnx, n_trace, trace_nnnx, n_rec, n_sum = \
+            self._compute_novel_traceable(parent, child)
+        self.assertEqual(n_novel, 0)
+        self.assertEqual(novel_nnnx, 0)
+        self.assertEqual(n_trace, n_rec)      # 2
+        self.assertEqual(trace_nnnx, n_sum)   # 580
+        # Invariant: novel + traceable == total
+        self.assertEqual(n_novel + n_trace, n_rec)
+        self.assertEqual(novel_nnnx + trace_nnnx, n_sum)
+
+    def test_all_novel_zero_traceability(self):
+        """When child has entirely new sequences, nothing is traceable."""
+        parent = [(100, "AAAA"), (200, "CCCC")]
+        child = [(30, "GATTACA"), (70, "CATTAG"), (15, "TAGGAT")]
+        n_novel, novel_nnnx, n_trace, trace_nnnx, n_rec, n_sum = \
+            self._compute_novel_traceable(parent, child)
+        self.assertEqual(n_novel, 3)
+        self.assertEqual(novel_nnnx, 115)   # 30 + 70 + 15
+        self.assertEqual(n_trace, 0)
+        self.assertEqual(trace_nnnx, 0)
+        # Invariant
+        self.assertEqual(n_novel + n_trace, n_rec)
+        self.assertEqual(novel_nnnx + trace_nnnx, n_sum)
+
+    def test_mixed_novel_and_shared(self):
+        """Mix of shared and novel sequences verifies the invariant."""
+        parent = [(1000, "AAAA"), (500, "CCCC"), (250, "GGGG")]
+        child = [
+            (800, "AAAA"),    # shared, different NNNNx
+            (120, "TTTT"),    # novel
+            (250, "GGGG"),    # shared, same NNNNx
+            (45, "GATTACA"),  # novel
+        ]
+        n_novel, novel_nnnx, n_trace, trace_nnnx, n_rec, n_sum = \
+            self._compute_novel_traceable(parent, child)
+        self.assertEqual(n_rec, 4)
+        self.assertEqual(n_sum, 800 + 120 + 250 + 45)   # 1215
+        self.assertEqual(n_novel, 2)                     # TTTT + GATTACA
+        self.assertEqual(novel_nnnx, 120 + 45)           # 165
+        self.assertEqual(n_trace, 2)                     # AAAA + GGGG
+        self.assertEqual(trace_nnnx, 800 + 250)          # 1050
+        # Invariant
+        self.assertEqual(n_novel + n_trace, n_rec)
+        self.assertEqual(novel_nnnx + trace_nnnx, n_sum)
+
+    def test_single_entry_shared(self):
+        """Single child entry that exists in parent → fully traceable."""
+        parent = [(77, "ACGT")]
+        child = [(33, "ACGT")]
+        n_novel, novel_nnnx, n_trace, trace_nnnx, n_rec, n_sum = \
+            self._compute_novel_traceable(parent, child)
+        self.assertEqual(n_novel, 0)
+        self.assertEqual(n_trace, 1)
+        self.assertEqual(trace_nnnx, 33)
+        self.assertEqual(n_novel + n_trace, n_rec)
+        self.assertEqual(novel_nnnx + trace_nnnx, n_sum)
+
+    def test_single_entry_novel(self):
+        """Single child entry NOT in parent → fully novel."""
+        parent = [(77, "ACGT")]
+        child = [(33, "TGCA")]
+        n_novel, novel_nnnx, n_trace, trace_nnnx, n_rec, n_sum = \
+            self._compute_novel_traceable(parent, child)
+        self.assertEqual(n_novel, 1)
+        self.assertEqual(novel_nnnx, 33)
+        self.assertEqual(n_trace, 0)
+        self.assertEqual(trace_nnnx, 0)
+        self.assertEqual(n_novel + n_trace, n_rec)
+        self.assertEqual(novel_nnnx + trace_nnnx, n_sum)
+
+    def test_large_counts_invariant(self):
+        """Invariant holds with large NNNNx values (similar to real data scale)."""
+        parent = [
+            (576521, "AAAA"), (513175, "CCCC"), (459607, "GGGG"),
+            (420410, "TTTT"), (313235, "AACCGG"),
+        ]
+        child = [
+            (576521, "AAAA"),   # shared
+            (513175, "CCCC"),   # shared
+            (1885, "GATTACA"),  # novel
+            (420410, "TTTT"),   # shared
+            (313235, "AACCGG"),  # shared
+            (750, "CATTAG"),    # novel
+        ]
+        n_novel, novel_nnnx, n_trace, trace_nnnx, n_rec, n_sum = \
+            self._compute_novel_traceable(parent, child)
+        self.assertEqual(n_rec, 6)
+        self.assertEqual(n_novel, 2)
+        self.assertEqual(novel_nnnx, 1885 + 750)   # 2635
+        self.assertEqual(n_trace, 4)
+        expected_trace = 576521 + 513175 + 420410 + 313235  # 1,823,341
+        self.assertEqual(trace_nnnx, expected_trace)
+        # Core invariant
+        self.assertEqual(n_novel + n_trace, n_rec)
+        self.assertEqual(novel_nnnx + trace_nnnx, n_sum)
+
+    def test_nonnegative_values(self):
+        """All novel/traceable values are non-negative by construction."""
+        parent = [(10, "AA"), (20, "CC")]
+        child = [(5, "CC"), (3, "GG"), (8, "TT")]
+        n_novel, novel_nnnx, n_trace, trace_nnnx, _, _ = \
+            self._compute_novel_traceable(parent, child)
+        self.assertGreaterEqual(n_novel, 0)
+        self.assertGreaterEqual(novel_nnnx, 0)
+        self.assertGreaterEqual(n_trace, 0)
+        self.assertGreaterEqual(trace_nnnx, 0)
+
+
 if __name__ == '__main__':
     unittest.main()
