@@ -582,7 +582,7 @@ def main():
                 n_scanned += 1
                 if sha not in target_sha256s:
                     original_id_lines.append(rec_header)
-                    actual_original_count += 1
+                    actual_original_count += _line_count(rec_header)
                 if myoptions.debug and n_scanned % 500_000 == 0:
                     print(f"Info: scanned {n_scanned:,}, emitted {actual_original_count:,}",
                           file=sys.stderr)
@@ -633,7 +633,7 @@ def main():
                         # group sort key (same integer used in sha256_hashes sort -rn).
                         nnnx = _line_count(infile_sha256s.get(digest, ''))
                         _id_groups2.append((nnnx, orig_ids))
-                        actual_original_count += len(orig_ids)
+                        actual_original_count += sum(_line_count(oid) for oid in orig_ids)
                         if len(orig_ids) != count:
                             _dir = "fewer" if len(orig_ids) < count else "more"
                             _tsv_mtime = datetime.datetime.fromtimestamp(
@@ -669,7 +669,7 @@ def main():
                 n_scanned += 1
                 if sha in target_sha256s:
                     original_id_lines.append(rec_header)
-                    actual_original_count += 1
+                    actual_original_count += _line_count(rec_header)
                     sha256_hit_counts[sha] = sha256_hit_counts.get(sha, 0) + 1
                 if myoptions.debug and n_scanned % 500_000 == 0:
                     print(f"Info: scanned {n_scanned:,}, matched {actual_original_count:,}",
