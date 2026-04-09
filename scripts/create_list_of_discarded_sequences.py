@@ -711,14 +711,16 @@ def main():
         )
         if actual_original_count != expected_original_count:
             print(
-                f"Warning: {actual_original_count:,} original IDs found in {_src_name} but expected"
+                f"Warning: {actual_original_count:,} original IDs found in {_src_name}"
+                f" using their sha256 checksums but expected"
                 f" {expected_original_count:,} (sum of count prefixes in {os.path.basename(myoptions.infilename)});"
                 f" total discrepancy of {abs(expected_original_count - actual_original_count):,}",
                 file=sys.stderr,
             )
         else:
             print(
-                f"Info: original ID count ({actual_original_count:,}) found in {_src_name} matches"
+                f"Info: original ID count ({actual_original_count:,}) found in {_src_name}"
+                f" using their sha256 checksums matches"
                 f" expected total ({expected_original_count:,}) — no discrepancy",
                 file=sys.stderr,
             )
