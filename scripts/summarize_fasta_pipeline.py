@@ -2423,6 +2423,35 @@ def main() -> None:
                 print(f"  Skipped extracting subsets for "
                       f"{os.path.basename(files[child_idx])} (empty child set).")
                 continue
+
+            # Fast-path: securely symlink structurally identical subsets for content twins.
+            pri = content_twin.get(child_idx)
+            if pri is not None and pri in p4_children:
+                pri_file = os.path.basename(files[pri])
+                print(f"  {os.path.basename(files[child_idx])}: extracting subsets ...")
+                print(f"    ↳ Symlinked identical extracted subsets from twin '{pri_file}' to bypass redundant FASTA extraction.")
+                pri_stem = _strip_fasta_suffix(files[pri])
+                child_stem = _strip_fasta_suffix(files[child_idx])
+                for ctx in ("discarded", "effectively_used"):
+                    tgt_fasta = pri_stem + f'.{ctx}_original_entries.fasta'
+                    lnk_fasta = child_stem + f'.{ctx}_original_entries.fasta'
+                    if os.path.exists(tgt_fasta):
+                        if os.path.lexists(lnk_fasta) or os.path.exists(lnk_fasta):
+                            os.unlink(lnk_fasta)
+                        os.symlink(os.path.relpath(tgt_fasta, os.path.dirname(lnk_fasta) or '.'), lnk_fasta)
+                        tgt_tsv = tgt_fasta + '.extraction_counts.tsv'
+                        lnk_tsv = lnk_fasta + '.extraction_counts.tsv'
+                        if os.path.exists(tgt_tsv):
+                            with open(tgt_tsv, 'r', encoding='utf-8') as fh_in, \
+                                    open(lnk_tsv, 'w', encoding='utf-8') as fh_out:
+                                fh_out.write(fh_in.readline())
+                                basename = os.path.basename(lnk_fasta)
+                                for line in fh_in:
+                                    fields = line.split('\t', 1)
+                                    if len(fields) == 2:
+                                        fh_out.write(f"{basename}\t{fields[1]}")
+                continue
+
             # Walk parent_map up to the root ancestor (no parent).
             root_idx = child_idx
             while root_idx in parent_map:
