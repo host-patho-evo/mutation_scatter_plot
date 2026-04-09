@@ -2480,7 +2480,7 @@ def main() -> None:
 
     # ── print table ──────────────────────────────────────────────────────────
     col_file = max(max(len(r[0]) for r in rows), len("File"))
-    sep, w_num, w_delta, w_ts = "  ", 14, 16, 16
+    sep, w_num, w_delta, w_ts = "\t", 14, 16, 16
     w_disc1 = len("'Discarded original unique Entries'")   # 34
     w_disc2 = len("'Sum of discarded NNNNx'")               # 23
     w_novel = len("'Novel sha256s'")                   # 15
