@@ -199,6 +199,16 @@ def build_option_parser():
              " great alternatives]",
     )
     myparser.add_argument(
+        "--spread-colormap-over-full-but-virtual-matrix-range", action="store_true",
+        dest="spread_colormap_virtual_matrix", default=False,
+        help="Provided a non-ListedColormap is used (e.g. coolwarm_r), the colors are natively dynamically "
+             "scaled across the minimum and maximum substitution scores ACTUALLY present across the evaluated dataset "
+             "to strictly visually maximize differences intrinsically. By utilizing this flag, it forcefully spreads "
+             "the scalar mapping back completely over the static global virtual matrix scoring ranges instead "
+             "(e.g., -19 to +10 natively mapping full bounds for BLOSUM80 identically to legacy architectures), "
+             "synchronizing unified standard visual color tones objectively across any divergent datasets.",
+    )
+    myparser.add_argument(
         "--dpi", action="store", type=int, dest="dpi", default=600,
         help="DPI resolution for images",
     )
