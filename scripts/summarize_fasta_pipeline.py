@@ -1897,9 +1897,12 @@ def _scan_primary_file(
     # The n_legacy == 0 guard is still needed: when the TSV fast-path is used,
     # _collect_sha256_set() returns n_legacy=0 regardless of file type.
     if n_sum > 0 and n_legacy == 0 and len(sha_set) != raw_n_rec:
+        tsv_name = os.path.basename(
+            _strip_fasta_suffix(f) + '.sha256_to_ids.tsv')
         lines.append(
             f"        INTERNAL CHECK FAILED: sha256 set size {len(sha_set):,} "
-            f"\u2260 record count {raw_n_rec:,} (duplicate sha256 IDs, stale TSV, or "
+            f"\u2260 record count {raw_n_rec:,} (duplicate sha256 IDs in "
+            f"{os.path.basename(f)}, stale TSV {tsv_name}, or "
             f"new sha256 checksums due to sequence modification in {os.path.basename(f)}?)"
         )
     return {
