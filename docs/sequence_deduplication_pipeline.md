@@ -72,11 +72,16 @@ All scripts follow a consistent naming rule:
 | `filename_prefix.fasta` | upstream source | raw FASTA (GISAID format) |
 | `filename_prefix.counts.fasta` | `count_same_sequences.py` | deduplicated; `NNNNx.sha256hex` IDs |
 | `filename_prefix.sha256_to_ids.tsv` | `count_same_sequences.py` | sha256 → original FASTA ID map |
+| `filename_prefix.sha256_to_descr_lines.tsv` | `count_same_sequences.py` | sha256 → full original FASTA header map |
 | `filename_prefix.counts.clean.fasta` | alignment filter | sequences that aligned successfully |
 | `filename_prefix.counts.clean.exactly_N.fasta` | `split_fasta_entries_by_lengths` | sequences of exactly N nt |
 | `filename_prefix.counts.clean.shorter_N.fasta` | `split_fasta_entries_by_lengths` | sequences shorter than N nt |
 | `filename_prefix.counts.clean.longer_N.fasta` | `split_fasta_entries_by_lengths` | sequences longer than N nt |
-| `filename_prefix.counts.clean.exactly_N.discarded_original_ids.txt` | `create_list_of_discarded_sequences.py` | original IDs of discarded sequences |
+| `*.discarded_sha256_hashes.txt` | `summarize_fasta_pipeline.py` | NNNNx.sha256hex entries of discarded sequences |
+| `*.effectively_used_sha256_hashes.txt` | `summarize_fasta_pipeline.py` | NNNNx.sha256hex entries of surviving sequences |
+| `*.discarded_original_entries.fasta` | `summarize_fasta_pipeline.py` (Phase 4) | expanded original GISAID records (discarded) |
+| `*.effectively_used_original_entries.fasta` | `summarize_fasta_pipeline.py` (Phase 4) | expanded original GISAID records (surviving) |
+| `*.original_entries.fasta.extraction_counts.tsv` | `summarize_fasta_pipeline.py` (Phase 4) | per-sha256 extracted record count |
 
 > **Note:** Replace `filename_prefix` with your actual file base name. These
 > scripts never embed literal dataset names — the prefix is always provided via
@@ -250,6 +255,40 @@ statistics inline.
 summarize_fasta_pipeline.py <search_path> <filename_prefix> [options]
 ```
 
+#### Execution Phases
+
+The script runs up to five sequential phases.  Each phase can be selectively
+disabled via command-line flags.
+
+| Phase | Name | What it does | Disable with |
+|-------|------|-------------|--------------|
+| **0** | Identity check | Groups files by size, computes sha256 of raw file content to detect **content-identical twins**.  Twins share all scan results, saving hours on multi-GB files. | *(always runs)* |
+| **1** | Per-file gather | Counts FASTA records, sums NNNNx prefixes, collects sha256 ID sets, counts unique protein sequences (for `.prot.fasta`).  Parallelised via `ThreadPoolExecutor`. | *(always runs)* |
+| **2** | sha256 integrity verification | For each `NNNNx.sha256hex` record, recomputes sha256 from the current (possibly modified) sequence and compares with the ID-embedded hash.  Optionally classifies mismatches as end-clipping vs. internal change. | `--no-verify-sha256` |
+| **3** | Discard statistics | For each parent→child pair, determines which sha256 hashes were discarded.  Uses a 3-tier cache: (1) `.discarded_sha256_hashes.txt`, (2) `.sha256_to_ids.tsv`, (3) full FASTA scan fallback. | `--no-discard-stats` |
+| **4** | Subset extraction | Extracts discarded and effectively-used original GISAID records from the root ancestor FASTA into per-step extraction FASTAs.  Uses symlinks for content-identical twins to avoid redundant multi-GB extractions.  Writes `.extraction_counts.tsv` alongside each extraction. | *(off unless `--extract-discarded-fasta`)* |
+
+#### Per-file ancillary files
+
+Each phase writes ancillary files alongside the pipeline FASTAs:
+
+| File | Written by | Content |
+|------|-----------|---------|
+| `*.sha256_to_ids.tsv` | Phase 1 | `sha256hex \t count \t id1 \t id2 …` — maps sequence hash to FASTA IDs |
+| `*.sha256_to_descr_lines.tsv` | Phase 1 | Same but with full FASTA headers (not just first word) |
+| `*.discarded_sha256_hashes.txt` | Phase 3 | One `NNNNx.sha256hex` per unique discarded sequence |
+| `*.effectively_used_sha256_hashes.txt` | Phase 3 | One `NNNNx.sha256hex` per unique surviving sequence |
+| `*.discarded_original_entries.fasta` | Phase 4 | Expanded original GISAID records (discarded at this step) |
+| `*.effectively_used_original_entries.fasta` | Phase 4 | Expanded original GISAID records (surviving at this step) |
+| `*.extraction_counts.tsv` | Phase 4 | Per-sha256 extracted record count (avoids re-scanning multi-GB FASTAs) |
+
+#### Cache priority (fastest → slowest)
+
+1. **`.discarded_sha256_hashes.txt`** newer than parent + child → read stats directly
+2. **`.sha256_to_ids.tsv`** newer than parent → TSV-based set subtraction
+3. **Full FASTA scan** via `create_list_of_discarded_sequences.py` (slow fallback)
+
+
 **Table columns** (printed to stdout after the scanning phase):
 
 | Column | Description |
@@ -266,6 +305,18 @@ summarize_fasta_pipeline.py <search_path> <filename_prefix> [options]
 | `Unique protein entries` | Unique sequences in companion `.prot.fasta` (if present) |
 | `Sum of protein NNNNx` | NNNNx sum of the companion protein file |
 
+**Extraction sub-rows** (when `--extract-discarded-fasta` is used):
+
+For each parent→child pair, two additional sub-rows appear below the child row
+for the `discarded_original_entries.fasta` and `effectively_used_original_entries.fasta`
+extraction files.  Their column semantics differ from the pipeline rows:
+
+| Column | Extraction sub-row value |
+|---|---|
+| `# FASTA entries` | Actual record count from `.extraction_counts.tsv` (real extracted records) |
+| `ΔFASTA entries` | Actual extracted count minus pipeline expectation; a negative value indicates unresolvable sha256 hashes |
+| `Sum of NNNNx` | Equals the record count (extracted FASTAs have no NNNNx prefixes — each `>` line counts as 1) |
+
 **Parent→child inference:**
 
 A file `B` is considered a direct child of `A` when
@@ -274,7 +325,7 @@ The *longest* matching ancestor is chosen as the direct parent (so
 `filename_prefix.counts.clean` is a child of `filename_prefix.counts`, not of
 `filename_prefix`).
 
-**Discard statistics — four-tier cache (fastest first):**
+**Phase 3 discard statistics — detailed cache tiers (fastest first):**
 
 1. **Existing `.discarded_original_ids.txt`** — newer than both FASTAs:
    read line count and NNNNx sum directly. Near-instant.

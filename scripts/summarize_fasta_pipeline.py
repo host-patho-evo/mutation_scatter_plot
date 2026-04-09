@@ -31,6 +31,33 @@ Per-step output files written alongside each child FASTA
     by create_list_of_discarded_sequences.py.  Generated automatically whenever
     a mapping TSV or original FASTA is available.
 
+{child_stem}.effectively_used_sha256_hashes.txt
+    One NNNNx.sha256hex entry per unique surviving sequence (complement of
+    .discarded_sha256_hashes.txt relative to the parent's sha256 set).
+
+Phase 4 extraction output files (--extract-discarded-fasta)
+------------------------------------------------------------
+{child_stem}.discarded_original_entries.fasta
+    Original GISAID records from the root ancestor FASTA whose sha256 hash
+    was discarded at this pipeline step.  Contains expanded (non-deduplicated)
+    records — each '>' line represents one original submission.
+
+{child_stem}.effectively_used_original_entries.fasta
+    Original GISAID records whose sha256 hash survived this pipeline step.
+
+{child_stem}.{discarded,effectively_used}_original_entries.fasta.extraction_counts.tsv
+    TSV with columns: output_fasta, sha256, extracted_count.  Allows the
+    summary table to report actual extracted record counts without scanning
+    the multi-GB extraction FASTA.  The total over all rows equals the number
+    of '>' records in the companion .fasta file.
+
+    If the number of sha256 groups in the .extraction_counts.tsv is less than
+    the number of target sha256 hashes, warnings are emitted:
+      - sha256 hashes absent from the root ancestor's sha256_to_ids.tsv
+        (cannot map sha256 → original GISAID IDs)
+      - sha256 hashes mapped but whose GISAID IDs were not found in the root
+        FASTA (encoding mismatch, or sequences modified after deduplication)
+
 Auto-migration of legacy files
 -------------------------------
 Older runs wrote NNNNx.sha256hex content into *.discarded_original_ids.txt
