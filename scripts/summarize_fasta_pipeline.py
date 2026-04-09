@@ -1725,7 +1725,7 @@ def _extract_subset_to_fasta(
               )
         return
 
-    print(f"    {len(target_ids_set):,} GISAID ID(s) for {len(target_sha256s):,} sha256(s).",
+    print(f"    {len(target_ids_set):,} GISAID ID(s) for {len(target_sha256s):,} sha256(s) in {os.path.basename(out_fasta)}.",
           )
 
     # ── Step 4: extract records (fast pure-Python byte streaming) ────────────
