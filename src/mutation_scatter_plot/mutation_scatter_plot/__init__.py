@@ -332,35 +332,40 @@ def get_colormap(myoptions, colormapname):
 
     try:
         _cmap = matplotlib.colormaps.get_cmap(colormapname)
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         try:
             _cmap = plt.get_cmap(colormapname)
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             try:
                 import palettable  # pylint: disable=import-error
                 _cmap_from_palettable = palettable.colorbrewer.get_map(_wished_cmapname_prefix, 'diverging', _wished_cmapname_num)
                 _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-            except Exception:
+            except Exception as _e3:  # pylint: disable=broad-except
+                print(f"Info: colorbrewer diverging lookup failed for '{_wished_cmapname_prefix}': {_e3}")
                 try:
                     import palettable  # pylint: disable=import-error
                     _cmap_from_palettable = palettable.colorbrewer.get_map(_wished_cmapname_prefix, 'sequential', _wished_cmapname_num)
                     _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-                except Exception:
+                except Exception as _e4:  # pylint: disable=broad-except
+                    print(f"Info: colorbrewer sequential lookup failed for '{_wished_cmapname_prefix}': {_e4}")
                     try:
                         import palettable.scientific.diverging  # pylint: disable=import-error
                         _cmap_from_palettable = palettable.scientific.diverging.get_map(_wished_cmapname_prefix)
                         _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-                    except Exception:
+                    except Exception as _e5:  # pylint: disable=broad-except
+                        print(f"Info: palettable scientific diverging lookup failed for '{_wished_cmapname_prefix}': {_e5}")
                         try:
                             import palettable.scientific.sequential  # pylint: disable=import-error
                             _cmap_from_palettable = palettable.scientific.sequential.get_map(_wished_cmapname_prefix)
                             _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-                        except Exception:
+                        except Exception as _e6:  # pylint: disable=broad-except
+                            print(f"Info: palettable scientific sequential lookup failed for '{_wished_cmapname_prefix}': {_e6}")
                             try:
                                 import palettable.mygbm  # pylint: disable=import-error,no-name-in-module
                                 _cmap_from_palettable = palettable.mygbm.get_map(_wished_cmapname_prefix)  # pylint: disable=no-member
                                 _cmap = matplotlib.colors.ListedColormap(_cmap_from_palettable.mpl_colors)
-                            except Exception:
+                            except Exception as _e7:  # pylint: disable=broad-except
+                                print(f"Info: palettable mygbm lookup failed for '{_wished_cmapname_prefix}': {_e7}")
                                 print(f"Warning: Colormap {colormapname} not found, falling back to coolwarm_r")
                                 _cmap = matplotlib.colormaps.get_cmap('coolwarm_r')
     # Standard matplotlib colormaps (non-custom / no ListedColormap): sample
@@ -391,7 +396,7 @@ def get_colormap(myoptions, colormapname):
 def resolve_codon_or_aa(myoptions, old_codon_or_aa, new_codon_or_aa):
     """Determine the codon or amino acid labels to use based on mode."""
 
-    _len_new_codon_or_aa = len(new_codon_or_aa)
+    _len_new_codon_or_aa = len(new_codon_or_aa)  # noqa: F841  (kept for future use/debugging)
 
     if myoptions.aminoacids:
         _old_codon_or_aa = alt_translate(old_codon_or_aa)
@@ -1007,21 +1012,11 @@ def build_frequency_tables(myoptions, df, padded_position2position):
 
     _very_leftmost_aa_pos = None
     _calculated_aa_offset = 0
-    # make tables with yet another number of rows summing up eventually the frequencies
-    # Pass 1: Filter and group by mutations
-    # We use float casting for the threshold check to avoid Decimal vs float comparison overhead
+    # The df arrives pre-filtered by load_and_clean_dataframe (threshold +
+    # synonymous exclusion already applied), so no second filter pass is
+    # needed here.  Use df directly for the groupby aggregation.
     _freq_col = myoptions.column_with_frequencies
-    # Condition 1: Keep row if (not aminoacid mode) OR (AA changed) OR (including synonymous)
-    if myoptions.include_synonymous or not myoptions.aminoacids:
-        _cond_mutation = True
-    else:
-        _cond_mutation = df['original_aa'] != df['mutant_aa']
-
-    # Condition 2: Frequencies above threshold
-    _cond_threshold = df[_freq_col].astype(float).abs() >= myoptions.threshold
-
-    _mask = _cond_mutation & _cond_threshold
-    _filtered_df = df.loc[_mask]
+    _filtered_df = df
 
     if myoptions.debug:
         print(f"Debug: build_frequency_tables processing {len(_filtered_df)} valid rows out of {len(df)}")
@@ -1313,7 +1308,7 @@ def collect_scatter_data(
     _circles_matplotlib: list[tuple[typing.Any, ...]] = []
     _markers: list[tuple[typing.Any, ...]] = []
     _dots: list[tuple[typing.Any, ...]] = []
-    _warn_once: list[int] = []
+    _warn_once: set[int] = set()
     _matrix_values: set[int] = set()
     _hover_text_bokeh: list[str] = []
 
@@ -1385,7 +1380,7 @@ def collect_scatter_data(
                 if _padded_position not in _warn_once:
                     sys.stderr.write(
                         f"Warning: Cannot determine original codon for position {_padded_position}, seems missing from input TSV{os.linesep}")
-                    _warn_once.append(_padded_position)
+                    _warn_once.add(_padded_position)
                 continue
             _codon_on_input, _old_codon_or_aa, _new_codon_or_aa = resolve_codon_or_aa(myoptions, _old_codon, _some_codon_or_aa)
             # Dark-green override gate: in aminoacids mode, synonymous entries
@@ -2186,7 +2181,6 @@ def render_matplotlib(
     matrix, matrix_name,
     show=True,
 ):
-    from ..profiler import PROFILER
     """Render the matplotlib scatter figure with hover callbacks and save to PNG/PDF.
 
     Circle size scaling (matplotlib):
@@ -2329,6 +2323,7 @@ def render_matplotlib(
     This is the key advantage of the matplotlib output path over the Bokeh
     HTML path (see ``render_bokeh`` for the Bokeh workaround).
     """
+    from ..profiler import PROFILER  # pylint: disable=import-outside-toplevel
 
     if circles_matplotlib:
         # Tuple layout: (padded_pos, i, size, marker, color, alpha, score, aa_pos, padded_pos, hover)
