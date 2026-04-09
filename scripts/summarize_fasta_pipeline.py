@@ -1826,8 +1826,10 @@ def _extract_subset_to_fasta(
             n_unmapped = len(target_sha256s - set(expected_counts))
             n_unextracted = len(set(expected_counts) - set(extracted_sha_counts))
             print(f"    Warning: {n_missing:,} of {n_target:,} target sha256(s) "
-                  f"were NOT extracted ({n_unmapped:,} absent from TSV mapping, "
-                  f"{n_unextracted:,} mapped but not found in root FASTA).",
+                  f"were NOT extracted ({n_unmapped:,} absent from TSV mapping "
+                  f"{os.path.basename(root_tsv)}, "
+                  f"{n_unextracted:,} mapped but not found in root FASTA "
+                  f"{os.path.basename(root_path)}).",
                   flush=True)
 
         # Native Phase 4 GISAID Subset Generation
