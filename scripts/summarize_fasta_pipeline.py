@@ -762,44 +762,51 @@ def _extract_sha256_from_id(record_id: str) -> str | None:
     return None
 
 
-def _collect_sha256_set(fasta_path: str) -> tuple[set[str], int]:
-    """Collect sha256 values associated with *fasta_path*.
+def _collect_sha256_set(fasta_path: str) -> tuple[dict[str, int], int]:
+    """Collect sha256 values and their NNNNx counts from *fasta_path*.
 
     Priority:
-      1. Read the first column of the cached *.sha256_to_ids.tsv — up to 60×
-         faster than reading the full FASTA because the TSV contains only
-         sha256 hex strings and IDs, not gigabytes of sequence data.
+      1. Read the cached *.sha256_to_ids.tsv — up to 60× faster than reading
+         the full FASTA because the TSV contains only sha256 hex strings and
+         IDs, not gigabytes of sequence data.
       2. Fall back to a header-only FASTA scan when no valid TSV cache exists.
 
-    The sha256 set is used to build the universe of all known sequence
+    The sha256 dict is used to build the universe of all known sequence
     fingerprints so that --verify-sha256 can classify mismatches as
     →existing (sequence changed to a known sha256) or →novel (new sha256).
+    The NNNNx count per sha256 allows computing the NNNNx sum of novel
+    sha256s in the summary table.
 
     Returns:
-        sha256_set : set of lowercase 64-char sha256hex strings
-        n_legacy   : number of records with no embedded sha256 (GISAID IDs)
-                     — meaningful only from the FASTA fallback path; from
-                     the TSV path every first-column entry IS a sha256 so
-                     n_legacy is always 0 there.
+        sha256_dict : dict mapping lowercase 64-char sha256hex → NNNNx count
+        n_legacy    : number of records with no embedded sha256 (GISAID IDs)
+                      — meaningful only from the FASTA fallback path; from
+                      the TSV path every first-column entry IS a sha256 so
+                      n_legacy is always 0 there.
     """
     # ── TSV fast path ─────────────────────────────────────────────────────
     tsv_candidate = _strip_fasta_suffix(fasta_path) + '.sha256_to_ids.tsv'
     if (os.path.exists(tsv_candidate)
             and os.path.getmtime(tsv_candidate) >= os.path.getmtime(fasta_path)):
-        sha256_set: set[str] = set()
+        sha256_dict: dict[str, int] = {}
         try:
             with open(tsv_candidate, "rb") as fh:
                 for raw in fh:
-                    # TSV first column is sha256hex; split on first tab only.
-                    sha_bytes = raw.split(b'\t', 1)[0].strip()
+                    # TSV columns: sha256hex \t count \t id_1 \t id_2 ...
+                    parts = raw.split(b'\t', 2)
+                    sha_bytes = parts[0].strip()
                     if len(sha_bytes) == 64:
-                        sha256_set.add(sha_bytes.decode('ascii').lower())
+                        try:
+                            nnnx = int(parts[1]) if len(parts) > 1 else 1
+                        except (ValueError, IndexError):
+                            nnnx = 1
+                        sha256_dict[sha_bytes.decode('ascii').lower()] = nnnx
         except OSError:
             pass
-        return sha256_set, 0  # every TSV row is a sha256 — no legacy count
+        return sha256_dict, 0  # every TSV row is a sha256 — no legacy count
 
     # ── FASTA fallback: header-only scan ───────────────────────────────────
-    sha256_set = set()
+    sha256_dict = {}
     n_legacy = 0
     try:
         with open(fasta_path, "rb") as fh:
@@ -808,20 +815,26 @@ def _collect_sha256_set(fasta_path: str) -> tuple[set[str], int]:
                     continue
                 line = _decode_fasta_line(raw).rstrip("\r\n")
                 toks = line[1:].split()
-                sha = _extract_sha256_from_id(toks[0]) if toks else None
+                first_word = toks[0] if toks else ""
+                sha = _extract_sha256_from_id(first_word) if first_word else None
                 if n_legacy == 0 and sha is None:
                     # First header has no embedded sha256 → GISAID/legacy file.
                     # All records use the same ID format, so no sha256 exists
                     # anywhere in this file.  Return immediately using wc
                     # just for the n_legacy count.
-                    return set(), _count_records(fasta_path)
+                    return {}, _count_records(fasta_path)
                 if sha is not None:
-                    sha256_set.add(sha)
+                    # Extract NNNNx count from ID (e.g. "576521x.sha256hex")
+                    x_pos = first_word.find('x')
+                    nnnx = int(first_word[:x_pos]) if (
+                        x_pos > 0 and first_word[:x_pos].isdigit()
+                    ) else 1
+                    sha256_dict[sha] = nnnx
                 else:
                     n_legacy += 1
     except OSError:
         pass
-    return sha256_set, n_legacy
+    return sha256_dict, n_legacy
 
 
 def _build_tsv(fasta_path: str, tsv_path: str,
@@ -1010,7 +1023,7 @@ def _count_prot_unique(path: str) -> tuple[int, int] | None:
 
 def _verify_sha256(
         fasta_path: str,
-        known_sha256s: set[str] | None = None,
+        known_sha256s: dict[str, int] | set[str] | None = None,
 ) -> tuple[int, int, int, int] | None:
     """Check ID-embedded sha256 against current sequence content.
 
@@ -1202,7 +1215,7 @@ def _write_original_descr_lines(
         root_descr_tsv: str,
         files: list[str],
         parent_map: dict[int, int],
-        sha256_sets: list[tuple[set[str], int]],
+        sha256_sets: list[tuple[dict[str, int], int]],
         verify_data: list[tuple | None],
 ) -> None:
     """Stream *root_descr_tsv* once, writing per-step traceability TSV files.
@@ -1232,11 +1245,11 @@ def _write_original_descr_lines(
         p = parent_map.get(i)
         child_sha256s, _ = sha256_sets[i]
         stem = _strip_fasta_suffix(f)
-        surv_set = child_sha256s if (p is not None and child_sha256s) else None
+        surv_set = child_sha256s.keys() if (p is not None and child_sha256s) else None
         disc_set: set[str] | None = None
         if p is not None:
             parent_sha256s, _ = sha256_sets[p]
-            diff = parent_sha256s - child_sha256s
+            diff = parent_sha256s.keys() - child_sha256s.keys()
             disc_set = diff if diff else None
         vd = verify_data[i]
         alt_set: set[str] | None = (
@@ -1891,7 +1904,7 @@ def _scan_primary_file(
     Returned keys:
         'idx'        – original file index (int)
         'row'        – (display, mtime_s, n_rec, n_sum)
-        'sha256_set' – (set[str], int)  sha256 set + n_legacy_ids count
+        'sha256_set' – (dict[str, int], int)  sha256→NNNNx dict + n_legacy_ids count
         'prot_unique'– None | (int, int)  distinct proteins + NNNNx sum
         'lines'      – list[str]  stderr progress lines (print atomically)
     """
@@ -2337,7 +2350,7 @@ def main() -> None:
     # Pre-size all accumulator lists so index-based (thread-safe) writes are
     # possible in the parallel path (no .append() ordering constraints).
     rows:          list = [None] * len(files)   # (display, mtime_s, n_rec, n_sum)
-    sha256_sets = [None] * len(files)           # (set[str], int) sha256 set + n_legacy
+    sha256_sets = [None] * len(files)           # (dict[str, int], int) sha256→NNNNx + n_legacy
     verify_data:   list = [None] * len(files)   # filled in Phase 2
     classify_data: list = [None] * len(files)   # filled after Phase 2
     prot_unique:   list = [None] * len(files)   # distinct protein seq count (prot files only)
@@ -2647,6 +2660,7 @@ def main() -> None:
     w_disc1 = len("'Discarded original unique Entries'")   # 34
     w_disc2 = len("'Sum of discarded NNNNx'")               # 23
     w_novel = len("'Novel sha256s'")                   # 15
+    w_novel_nnnx = len("'NNNNx of novel'")              # 15
     w_chg1 = max(len("'Seq clipped(dup)'"), w_num)
     w_chg2 = max(len("'NNNNx clipped(dup)'"), w_num)
     w_chg3 = max(len("'Seq clipped(new)'"), w_num)
@@ -2663,6 +2677,7 @@ def main() -> None:
     _hdr_drec = 'ΔFASTA entries'
     _hdr_dsum = 'ΔSumToParent'
     _hdr_novel = "'Novel sha256s'"
+    _hdr_novel_nnnx = "'NNNNx of novel'"
     _hdr_chg1 = "'Seq clipped(dup)'"
     _hdr_chg2 = "'NNNNx clipped(dup)'"
     _hdr_chg3 = "'Seq clipped(new)'"
@@ -2689,7 +2704,7 @@ def main() -> None:
         f"{'# FASTA entries':>{w_num}}{sep}{_hdr_drec:>{w_delta}}{sep}"
         f"{_hdr_nnnx:>{w_num}}{sep}{_hdr_dsum:>{w_delta}}"
         + disc_header
-        + f"{sep}{_hdr_novel:>{w_novel}}{sep}{_hdr_prot:>{w_prot}}{sep}{_hdr_dprot:>{w_dprot}}{sep}{_hdr_protn:>{w_protn}}"
+        + f"{sep}{_hdr_novel:>{w_novel}}{sep}{_hdr_novel_nnnx:>{w_novel_nnnx}}{sep}{_hdr_prot:>{w_prot}}{sep}{_hdr_dprot:>{w_dprot}}{sep}{_hdr_protn:>{w_protn}}"
         + verify_cols_hdr
     )
     rule = '-' * len(header)
@@ -2722,23 +2737,27 @@ def main() -> None:
             d_rec = d_sum = '\u2014'
             parent_label = ''
 
-        # ── novel sha256s column ──────────────────────────────────────────────
+        # ── novel sha256s column + NNNNx of novel column ──────────────────────
         if p is not None:
-            child_sha_set, child_legacy = sha256_sets[i]
-            parent_sha_set, parent_legacy = sha256_sets[p]
+            child_sha_dict, child_legacy = sha256_sets[i]
+            parent_sha_dict, parent_legacy = sha256_sets[p]
             parent_total = rows[p][2]  # record count of parent
             if parent_legacy == parent_total:
-                # Parent has only plain (non-NNNNx) IDs — sha256 set is empty,
+                # Parent has only plain (non-NNNNx) IDs — sha256 dict is empty,
                 # comparison is not meaningful.
-                novel_col = f"{sep}{_em:>{w_novel}}"
+                novel_col = f"{sep}{_em:>{w_novel}}{sep}{_em:>{w_novel_nnnx}}"
             else:
-                n_novel = len(child_sha_set - parent_sha_set)
+                novel_shas = child_sha_dict.keys() - parent_sha_dict.keys()
+                n_novel = len(novel_shas)
                 novel_str = f"{n_novel:,}"
                 if child_legacy > 0:
                     novel_str += "+"  # '+' = some records in child also lack embedded sha256
-                novel_col = f"{sep}{novel_str:>{w_novel}}"
+                # Sum the NNNNx counts for the novel sha256s
+                novel_nnnx = sum(child_sha_dict[s] for s in novel_shas)
+                novel_nnnx_str = f"{novel_nnnx:,}" if n_novel > 0 else "0"
+                novel_col = f"{sep}{novel_str:>{w_novel}}{sep}{novel_nnnx_str:>{w_novel_nnnx}}"
         else:
-            novel_col = f"{sep}{_em:>{w_novel}}"
+            novel_col = f"{sep}{_em:>{w_novel}}{sep}{_em:>{w_novel_nnnx}}"
 
         # ── protein-unique column ─────────────────────────────────────────────
         pu_result = prot_unique[i]  # None | (n_unique, nnnx_sum)
@@ -2859,7 +2878,7 @@ def main() -> None:
                     f"{ctx_rec:>{w_num},}{sep}{ctx_d_rec:>{w_delta}}{sep}"  # # FASTA entries & delta
                     f"{ctx_sum:>{w_num},}{sep}{_em:>{w_delta}}"     # Sum of NNNNx & delta
                     + f"{sep}{_em:>{w_disc1}}{sep}{_em:>{w_disc2}}"  # disc_cols
-                    + f"{sep}{_em:>{w_novel}}"                  # Novel
+                    + f"{sep}{_em:>{w_novel}}{sep}{_em:>{w_novel_nnnx}}"  # Novel + NNNNx of novel
                     + f"{sep}{_em:>{w_prot}}{sep}{_em:>{w_dprot}}{sep}{_em:>{w_protn}}"  # protein
                     + verify_cols_empty                         # Verify
                     + disc_label,
