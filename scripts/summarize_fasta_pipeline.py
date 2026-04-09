@@ -2661,6 +2661,8 @@ def main() -> None:
     w_disc2 = len("'Sum of discarded NNNNx'")               # 23
     w_novel = len("'Novel sha256s'")                   # 15
     w_novel_nnnx = len("'NNNNx of novel'")              # 15
+    w_trace = max(len("'Traceable sha256s'"), w_num)    # 19
+    w_trace_nnnx = max(len("'NNNNx traceable'"), w_num)  # 16
     w_chg1 = max(len("'Seq clipped(dup)'"), w_num)
     w_chg2 = max(len("'NNNNx clipped(dup)'"), w_num)
     w_chg3 = max(len("'Seq clipped(new)'"), w_num)
@@ -2678,6 +2680,8 @@ def main() -> None:
     _hdr_dsum = 'ΔSumToParent'
     _hdr_novel = "'Novel sha256s'"
     _hdr_novel_nnnx = "'NNNNx of novel'"
+    _hdr_trace = "'Traceable sha256s'"
+    _hdr_trace_nnnx = "'NNNNx traceable'"
     _hdr_chg1 = "'Seq clipped(dup)'"
     _hdr_chg2 = "'NNNNx clipped(dup)'"
     _hdr_chg3 = "'Seq clipped(new)'"
@@ -2704,7 +2708,7 @@ def main() -> None:
         f"{'# FASTA entries':>{w_num}}{sep}{_hdr_drec:>{w_delta}}{sep}"
         f"{_hdr_nnnx:>{w_num}}{sep}{_hdr_dsum:>{w_delta}}"
         + disc_header
-        + f"{sep}{_hdr_novel:>{w_novel}}{sep}{_hdr_novel_nnnx:>{w_novel_nnnx}}{sep}{_hdr_prot:>{w_prot}}{sep}{_hdr_dprot:>{w_dprot}}{sep}{_hdr_protn:>{w_protn}}"
+        + f"{sep}{_hdr_novel:>{w_novel}}{sep}{_hdr_novel_nnnx:>{w_novel_nnnx}}{sep}{_hdr_trace:>{w_trace}}{sep}{_hdr_trace_nnnx:>{w_trace_nnnx}}{sep}{_hdr_prot:>{w_prot}}{sep}{_hdr_dprot:>{w_dprot}}{sep}{_hdr_protn:>{w_protn}}"
         + verify_cols_hdr
     )
     rule = '-' * len(header)
@@ -2745,7 +2749,7 @@ def main() -> None:
             if parent_legacy == parent_total:
                 # Parent has only plain (non-NNNNx) IDs — sha256 dict is empty,
                 # comparison is not meaningful.
-                novel_col = f"{sep}{_em:>{w_novel}}{sep}{_em:>{w_novel_nnnx}}"
+                novel_col = f"{sep}{_em:>{w_novel}}{sep}{_em:>{w_novel_nnnx}}{sep}{_em:>{w_trace}}{sep}{_em:>{w_trace_nnnx}}"
             else:
                 novel_shas = child_sha_dict.keys() - parent_sha_dict.keys()
                 n_novel = len(novel_shas)
@@ -2755,9 +2759,15 @@ def main() -> None:
                 # Sum the NNNNx counts for the novel sha256s
                 novel_nnnx = sum(child_sha_dict[s] for s in novel_shas)
                 novel_nnnx_str = f"{novel_nnnx:,}" if n_novel > 0 else "0"
-                novel_col = f"{sep}{novel_str:>{w_novel}}{sep}{novel_nnnx_str:>{w_novel_nnnx}}"
+                # Derived: traceable = total minus novel
+                n_trace = n_rec - n_novel
+                trace_nnnx = n_sum - novel_nnnx
+                novel_col = (
+                    f"{sep}{novel_str:>{w_novel}}{sep}{novel_nnnx_str:>{w_novel_nnnx}}"
+                    f"{sep}{n_trace:>{w_trace},}{sep}{trace_nnnx:>{w_trace_nnnx},}"
+                )
         else:
-            novel_col = f"{sep}{_em:>{w_novel}}{sep}{_em:>{w_novel_nnnx}}"
+            novel_col = f"{sep}{_em:>{w_novel}}{sep}{_em:>{w_novel_nnnx}}{sep}{_em:>{w_trace}}{sep}{_em:>{w_trace_nnnx}}"
 
         # ── protein-unique column ─────────────────────────────────────────────
         pu_result = prot_unique[i]  # None | (n_unique, nnnx_sum)
@@ -2878,7 +2888,7 @@ def main() -> None:
                     f"{ctx_rec:>{w_num},}{sep}{ctx_d_rec:>{w_delta}}{sep}"  # # FASTA entries & delta
                     f"{ctx_sum:>{w_num},}{sep}{_em:>{w_delta}}"     # Sum of NNNNx & delta
                     + f"{sep}{_em:>{w_disc1}}{sep}{_em:>{w_disc2}}"  # disc_cols
-                    + f"{sep}{_em:>{w_novel}}{sep}{_em:>{w_novel_nnnx}}"  # Novel + NNNNx of novel
+                    + f"{sep}{_em:>{w_novel}}{sep}{_em:>{w_novel_nnnx}}{sep}{_em:>{w_trace}}{sep}{_em:>{w_trace_nnnx}}"  # Novel + NNNNx of novel + traceable
                     + f"{sep}{_em:>{w_prot}}{sep}{_em:>{w_dprot}}{sep}{_em:>{w_protn}}"  # protein
                     + verify_cols_empty                         # Verify
                     + disc_label,
