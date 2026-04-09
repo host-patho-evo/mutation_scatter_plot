@@ -35,6 +35,11 @@ VERSION = "0.3"
 # need to send a single integer (_pos) over the IPC pipe.
 _WORKER_SHARED: dict = {}
 
+# IUPAC ambiguity nucleotide codes (excludes A, C, G, T).
+# Used by _process_one_site to classify codons containing any of these
+# characters as ambiguous rather than as genuine mutations.
+_IUPAC_AMBIG = frozenset('NRYWSKMBDHV')
+
 __all__ = [
     "VERSION",
     "get_codons",
@@ -57,7 +62,7 @@ def get_codons(seq, debug=False):
         _seq_depadded = seq.replace('-', '')
         _seq_depadded_len = len(_seq_depadded)
         if _seq_depadded_len % 3 == 0:
-            _codons = [seq[_i:_i+3] for _i in range(0, _seq_depadded_len, 3)]
+            _codons = [_seq_depadded[_i:_i+3] for _i in range(0, _seq_depadded_len, 3)]
             if debug:
                 print(f"Debug: Detected {seq.count('-')} minus signs in the sequence but after all "
                       "the nucleotide sequence can be divided by three when they are "
@@ -103,9 +108,9 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded,
     if not outfilename:
         return
     if not total_codons_per_site_sum:
-        _total_codons_per_site_sum = 0
-    else:
-        _total_codons_per_site_sum = total_codons_per_site_sum
+        # No coverage at this site (e.g. every sequence was boundary-masked).
+        # Nothing to write — avoid ZeroDivisionError in the frequency column.
+        return
 
     # Sort keys by frequency (top-down via descending count), then alphabetically by mutant_codon ascending.
     _sorted_codons = sorted(
@@ -120,23 +125,19 @@ def write_tsv_line(outfilename, codons, natural_codon_position_padded,
         else:
             _some_aa = alt_translate(_some_codon, table=translation_table)
         _observed_codon_count = Decimal(codons[_some_codon])
-        if not _observed_codon_count:
-            _observed_codon_count2 = 0
-        else:
-            _observed_codon_count2 = _observed_codon_count
         outfilename.write(
             f"{natural_codon_position_padded}\t{natural_codon_position_depadded}\t"
             f"{reference_aa}\t{_some_aa}\t"
-            f"{Decimal(_observed_codon_count2) / Decimal(total_codons_per_site_sum):.6f}\t"
+            f"{_observed_codon_count / Decimal(total_codons_per_site_sum):.6f}\t"
             f"{reference_codon}\t{_some_codon}\t"
-            f"{_observed_codon_count2}\t{_total_codons_per_site_sum}\n"
+            f"{_observed_codon_count}\t{total_codons_per_site_sum}\n"
         )
         if debug:
             print(f"TESTING1:\t{natural_codon_position_padded}\t{natural_codon_position_depadded}\t"
                   f"{reference_aa}\t{_some_aa}\t"
-                  f"{Decimal(_observed_codon_count2) / Decimal(total_codons_per_site_sum):.6f}\t"
+                  f"{_observed_codon_count / Decimal(total_codons_per_site_sum):.6f}\t"
                   f"{reference_codon}\t{_some_codon}\t"
-                  f"{_observed_codon_count2}\t{_total_codons_per_site_sum}")
+                  f"{_observed_codon_count}\t{total_codons_per_site_sum}")
     # Flush is done by the caller on a time-gate to avoid expensive NFS round-trips.
 
 
@@ -272,7 +273,7 @@ def _process_one_site(
             _sample_codon_depadded = _rough_sample_codon
 
         if _action == "regular":
-            if 'N' in _rough_sample_codon.upper():
+            if set(_rough_sample_codon.upper()) & _IUPAC_AMBIG:
                 _ambiguous_codons[_rough_sample_codon] += _record_count
             elif '-' in _rough_sample_codon and _rough_sample_codon != '---' and _reference_codon != '---':
                 _incomplete_codons[_rough_sample_codon] += _record_count
@@ -287,6 +288,14 @@ def _process_one_site(
             else:
                 _changed_codons[_sample_codon_depadded] += _record_count
 
+    # Intentionally exclude _incomplete_codons and _ambiguous_codons from
+    # the coverage denominator (_total_counts).  Including them would inflate
+    # coverage at sites bordering internal DELetions, where mis-aligned
+    # individual nucleotides at the edges produce partial-gap codons (e.g.
+    # 'A--', '--G').  These are not reliably interpretable as mutations and
+    # would distort the frequency ratios of genuine substitutions.  IUPAC
+    # ambiguity codes (N, R, Y, etc.) are similarly excluded because they
+    # represent sequencing uncertainty, not observed mutations.
     _total_counts = _inserted_codons + _deleted_reference_codons + _changed_codons + _unchanged_codons
     _total_sum = sum(_total_counts.values())
     _new_gaps = _reference_codon.count('-')
