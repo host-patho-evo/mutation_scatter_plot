@@ -140,12 +140,25 @@ export PATH=/auto/vestec1-elixir/projects/biocev/mmokrejs/proj/mutation_scatter_
 reference_length=$(grep -v '^>' "$reference" | tr -d '\n' | wc -c)
 
 # Determine full-length filter.
-# Priority: --full-length > --old-alignment-file (first sequence) > reference length.
-if [ -n "$full_length" ]; then
-    somelen=$full_length
-elif [ -n "$old_alignment_file" ] && [ -f "$old_alignment_file" -o -L "$old_alignment_file" ]; then
+#   --old-alignment-file has highest authority (first sequence length).
+#   --full-length must agree if both are given; otherwise it is a hard error.
+#   --full-length must also match reference_length if no old alignment is given.
+if [ -n "$old_alignment_file" ] && [ -f "$old_alignment_file" -o -L "$old_alignment_file" ]; then
     somelen=$(sed -n '2p' "$old_alignment_file" | tr -d '\n' | wc -c)
     echo "  somelen=$somelen (derived from first sequence in $old_alignment_file)"
+    if [ -n "$full_length" ] && [ "$full_length" -ne "$somelen" ]; then
+        echo "Error: --full-length=$full_length contradicts --old-alignment-file" >&2
+        echo "  The first sequence in $old_alignment_file has length $somelen." >&2
+        echo "  Remove --full-length or fix the old alignment file." >&2
+        exit 1
+    fi
+elif [ -n "$full_length" ]; then
+    if [ "$full_length" -ne "$reference_length" ]; then
+        echo "Error: --full-length=$full_length does not match reference length $reference_length." >&2
+        echo "  Fix the reference file or remove --full-length." >&2
+        exit 1
+    fi
+    somelen=$full_length
 else
     somelen=$reference_length
 fi
