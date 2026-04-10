@@ -182,6 +182,7 @@ if [ -n "$discard_junk" ]; then
 else
     fp="${prefix}"
 fi
+export fp
 
 echo "═══════════════════════════════════════════════════════════════════════"
 echo "  run_fasta_pipeline.sh  version $VERSION  git:$GIT_VERSION"
