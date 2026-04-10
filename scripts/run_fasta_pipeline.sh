@@ -32,6 +32,10 @@ compare_frequencies=""
 old_alignment_file=""
 realign_covid19_spike=false
 full_length=""
+extract_discarded_fasta=false
+full_fasta_header=false
+write_original_descr_lines=false
+use_nnnx_counts=false
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Parse command-line arguments
@@ -82,6 +86,11 @@ Optional:
                             in the BLAST pipeline.  If omitted, the realignment
                             step is skipped, making the pipeline generic for
                             any organism [default: disabled].
+  --extract-discarded-fasta Pass --extract-discarded-fasta to summarize_fasta_pipeline.py.
+  --full-fasta-header       Pass --full-fasta-header to summarize_fasta_pipeline.py.
+  --write-original-descr-lines
+                            Pass --write-original-descr-lines to summarize_fasta_pipeline.py.
+  --use-nnnx-counts         Pass --use-nnnx-counts to summarize_fasta_pipeline.py.
   --help                    Show this help message and exit.
 USAGE
     exit "${1:-0}"
@@ -103,6 +112,10 @@ for arg in "$@"; do
         --version)               echo "run_fasta_pipeline.sh  version $VERSION  git:$GIT_VERSION"; exit 0 ;;
         --realign-covid19-spike) realign_covid19_spike=true ;;
         --full-length=*)         full_length="${arg#*=}" ;;
+        --extract-discarded-fasta) extract_discarded_fasta=true ;;
+        --full-fasta-header)     full_fasta_header=true ;;
+        --write-original-descr-lines) write_original_descr_lines=true ;;
+        --use-nnnx-counts)       use_nnnx_counts=true ;;
         --help)                  usage 0 ;;
         *)                       echo "Error: unknown argument: $arg" >&2; usage 1 ;;
     esac
@@ -457,11 +470,14 @@ done
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 10: Pipeline summary + traceability
 # ──────────────────────────────────────────────────────────────────────────────
+summarize_args=""
+[ "$extract_discarded_fasta" = true ] && summarize_args="$summarize_args --extract-discarded-fasta"
+[ "$full_fasta_header" = true ] && summarize_args="$summarize_args --full-fasta-header"
+[ "$write_original_descr_lines" = true ] && summarize_args="$summarize_args --write-original-descr-lines"
+[ "$use_nnnx_counts" = true ] && summarize_args="$summarize_args --use-nnnx-counts"
+
 summarize_fasta_pipeline.py . "$prefix" \
-    --extract-discarded-fasta \
-    --full-fasta-header \
-    --write-original-descr-lines \
-    --use-nnnx-counts \
+    $summarize_args \
     --jobs "$jobs"
 
 # ──────────────────────────────────────────────────────────────────────────────
