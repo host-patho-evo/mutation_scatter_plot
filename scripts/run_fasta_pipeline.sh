@@ -138,8 +138,14 @@ export PATH=/auto/vestec1-elixir/projects/biocev/mmokrejs/proj/mutation_scatter_
 
 # Compute reference sequence length from the single-entry FASTA.
 reference_length=$(grep -v '^>' "$reference" | tr -d '\n' | wc -c)
+
+# Determine full-length filter.
+# Priority: --full-length > --old-alignment-file (first sequence) > reference length.
 if [ -n "$full_length" ]; then
     somelen=$full_length
+elif [ -n "$old_alignment_file" ] && [ -f "$old_alignment_file" -o -L "$old_alignment_file" ]; then
+    somelen=$(sed -n '2p' "$old_alignment_file" | tr -d '\n' | wc -c)
+    echo "  somelen=$somelen (derived from first sequence in $old_alignment_file)"
 else
     somelen=$reference_length
 fi
