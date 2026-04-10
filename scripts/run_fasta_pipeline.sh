@@ -31,13 +31,14 @@ codon_freq_threads=8
 compare_frequencies=""
 old_alignment_file=""
 realign_covid19_spike=false
+full_length=""
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Parse command-line arguments
 # ──────────────────────────────────────────────────────────────────────────────
 usage() {
     cat <<'USAGE'
-Usage: processing5.sh --infile=FILE --reference=FILE [OPTIONS]
+Usage: run_fasta_pipeline.sh --infile=FILE --reference=FILE [OPTIONS]
 
 Required:
   --infile=FILE             Input FASTA file (e.g. spikenuc1207.fasta).
@@ -52,6 +53,10 @@ Optional:
                             and all downstream files include a '.no_junk' segment.
                             If omitted, filtering is skipped and filenames are
                             shorter (no '.no_junk' segment) [default: skip].
+  --full-length=INT         Override the full-length filter value.  By default,
+                            this is the reference sequence length.  Use when the
+                            reference is padded but you want to filter for the
+                            unpadded length (e.g. ref=3870, filter=3822).
   --xmin=INT                Start codon for scatter plots [default: 430].
   --xmax=INT                End codon for scatter plots [default: 528].
   --threshold=FLOAT         Minimum frequency for filtered TSVs [default: 0.001].
@@ -97,6 +102,7 @@ for arg in "$@"; do
         --old-alignment-file=*)     old_alignment_file="${arg#*=}" ;;
         --version)               echo "run_fasta_pipeline.sh  version $VERSION  git:$GIT_VERSION"; exit 0 ;;
         --realign-covid19-spike) realign_covid19_spike=true ;;
+        --full-length=*)         full_length="${arg#*=}" ;;
         --help)                  usage 0 ;;
         *)                       echo "Error: unknown argument: $arg" >&2; usage 1 ;;
     esac
@@ -132,7 +138,11 @@ export PATH=/auto/vestec1-elixir/projects/biocev/mmokrejs/proj/mutation_scatter_
 
 # Compute reference sequence length from the single-entry FASTA.
 reference_length=$(grep -v '^>' "$reference" | tr -d '\n' | wc -c)
-somelen=$reference_length
+if [ -n "$full_length" ]; then
+    somelen=$full_length
+else
+    somelen=$reference_length
+fi
 
 # Filtered prefix: includes '.no_junk' segment when junk filtering is active.
 if [ -n "$discard_junk" ]; then
