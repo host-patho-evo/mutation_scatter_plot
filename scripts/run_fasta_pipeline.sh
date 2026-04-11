@@ -494,10 +494,14 @@ PIPEEOF
     done
     else
         # No ranges specified — render full range.
-        # Use plain .aa / .codon suffix (no range numbers) because somelen
-        # is the padded reference length, not the natural protein length.
-        local _aa_suffix=".aa"
-        local _codon_suffix=".codon"
+        # Extract natural min/max from the unchanged_codons TSV (column 2).
+        local _nat_range
+        _nat_range=$(awk 'NR>1 {if(min=="" || $2+0<min+0) min=$2; if($2+0>max+0) max=$2} END {print min, max}' \
+                     "${_freq_prefix}.frequencies.unchanged_codons.tsv")
+        local _nat_min=${_nat_range% *}
+        local _nat_max=${_nat_range#* }
+        local _aa_suffix=".aa${_nat_min}-${_nat_max}"
+        local _codon_suffix=".codon${_nat_min}-${_nat_max}"
 
         for _scaling in '--linear-circle-size' ''; do
             mutation_scatter_plot $_scaling \
