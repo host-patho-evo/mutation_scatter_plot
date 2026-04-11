@@ -494,14 +494,24 @@ PIPEEOF
     done
     else
         # No ranges specified — render full range.
-        # Extract natural min/max from the unchanged_codons TSV (column 2).
-        local _nat_range
-        _nat_range=$(awk 'NR>1 {if(min=="" || $2+0<min+0) min=$2; if($2+0>max+0) max=$2} END {print min, max}' \
-                     "${_freq_prefix}.frequencies.unchanged_codons.tsv")
-        local _nat_min=${_nat_range% *}
-        local _nat_max=${_nat_range#* }
-        local _aa_suffix=".aa${_nat_min}-${_nat_max}"
-        local _codon_suffix=".codon${_nat_min}-${_nat_max}"
+        # Extract natural min/max from TSV column 2 (natural position).
+        local _nat_range=""
+        if [ -f "${_freq_prefix}.frequencies.unchanged_codons.tsv" ]; then
+            _nat_range=$(awk 'NR>1 {if(min=="" || $2+0<min+0) min=$2; if($2+0>max+0) max=$2} END {print min, max}' \
+                         "${_freq_prefix}.frequencies.unchanged_codons.tsv")
+        elif [ -f "${_freq_prefix}.frequencies.tsv" ]; then
+            _nat_range=$(awk 'NR>1 {if(min=="" || $2+0<min+0) min=$2; if($2+0>max+0) max=$2} END {print min, max}' \
+                         "${_freq_prefix}.frequencies.tsv")
+        fi
+
+        local _aa_suffix=".aa"
+        local _codon_suffix=".codon"
+        if [ -n "$_nat_range" ] && [ "$_nat_range" != " " ]; then
+            local _nat_min=${_nat_range% *}
+            local _nat_max=${_nat_range#* }
+            _aa_suffix=".aa${_nat_min}-${_nat_max}"
+            _codon_suffix=".codon${_nat_min}-${_nat_max}"
+        fi
 
         for _scaling in '--linear-circle-size' ''; do
             mutation_scatter_plot $_scaling \
