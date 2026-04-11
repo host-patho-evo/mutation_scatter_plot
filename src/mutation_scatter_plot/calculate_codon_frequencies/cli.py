@@ -55,11 +55,14 @@ def build_option_parser():
     myparser.add_argument("--left-reference-offset", action="store", type=int,
                           dest="left_reference_offset", default=0,
                           help="First nucleotide of the ORF region of the REFERENCE of interest to be sliced out "
-                               "from the input sequences. This requires 0-based numbering.")
+                               "from the input sequences. Uses 1-based numbering: e.g. 5 means 'skip the first "
+                               "4 nucleotides, the 5th nucleotide starts the first codon'. Default: 0 (use "
+                               "the whole reference from the beginning)")
     myparser.add_argument("--right-reference-offset", action="store", type=int,
                           dest="right_reference_offset", default=0,
                           help="Last nucleotide of the last codon of the REFERENCE of interest to be "
-                               "sliced out from the input sequences. This requires 0-based numbering.")
+                               "sliced out from the input sequences. Uses 1-based numbering. "
+                               "Default: 0 (use the whole reference to the end)")
     myparser.add_argument("--aa_start", action="store", type=int,
                           dest="aa_start", default=0,
                           help="Adjust (padded) real position of the very first codon unless (1 for an initiator "
