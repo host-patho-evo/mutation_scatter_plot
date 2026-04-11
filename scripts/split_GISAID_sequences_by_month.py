@@ -17,10 +17,12 @@ Example headers (all supported)::
 
 Some virus names contain stray ``|`` characters, e.g.::
 
+    >Spike|hCoV-19/USA/LA-OD-|O-4336284453/2023|2023-01-10|EPI_ISL_16576342|Original|...|USA
     >Spike|hCoV-19/USA/LA-OD-|O-4336284453/2023|EPI_ISL_16576342|2023-01-10|NorthAmerica
+    >Spike|hCoV-19/USA/LA-OD-|O-1530551633/2023|EPI_ISL_16671028|2023-01-10|NorthAmerica
 
-These are detected and sed edit recipes are written to a
-``.stray_pipes.sed`` file for fixing the input.
+These are detected and a ``.stray_pipes.sed`` recipe file is written;
+``sed -i`` is run automatically to fix the input before splitting.
 
 Output
 ------
