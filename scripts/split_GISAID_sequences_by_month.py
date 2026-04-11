@@ -25,6 +25,7 @@ Usage::
 """
 
 import argparse
+import re
 import os
 import subprocess
 from collections import defaultdict
@@ -143,6 +144,14 @@ def _parse_date_column(date_str):
     return year, month, day
 
 
+def _is_epi_id(text):
+    """Return True if *text* looks like a GISAID accession."""
+    return bool(re.match(r'EPI_ISL_\d+$', text.strip()))
+
+
+_EXPECTED_PIPE_COUNT = 4   # gene | virusname | date | epi_id | region
+
+
 def _parse_header_date(line):
     """Parse (year, month) from a GISAID FASTA header line.
 
@@ -173,6 +182,52 @@ def _parse_header_date(line):
     )
 
 
+def _detect_stray_pipes(line):
+    """Detect stray ``|`` inside the virus name.
+
+    Returns ``None`` if the header looks normal, or a dict with:
+      - ``original``: the original header (stripped)
+      - ``fixed``:    the corrected header with stray pipes removed
+      - ``virusname_original``: the broken virus name fragments
+      - ``virusname_fixed``:    the reconstructed virus name
+    """
+    raw = line.rstrip('\n')
+    all_cols = raw.split('|')
+    pipe_count = len(all_cols) - 1
+    if pipe_count <= _EXPECTED_PIPE_COUNT:
+        return None
+
+    # Identify which columns are "known" (date or EPI_ISL).
+    # Everything between the gene (col 0) and the first known
+    # column is the virus name (possibly split by stray pipes).
+    first_known_idx = None
+    for idx, col in enumerate(all_cols[1:], start=1):
+        stripped = col.strip()
+        if _looks_like_date(stripped) or _is_epi_id(stripped):
+            first_known_idx = idx
+            break
+
+    if first_known_idx is None or first_known_idx <= 1:
+        return None  # can't determine stray pipes
+
+    # Columns 1..first_known_idx-1 are fragments of the virus name
+    virusname_fragments = all_cols[1:first_known_idx]
+    virusname_fixed = ''.join(virusname_fragments)
+    fixed_cols = (
+        [all_cols[0]]
+        + [virusname_fixed]
+        + all_cols[first_known_idx:]
+    )
+
+    return {
+        'original': raw,
+        'fixed': '|'.join(fixed_cols),
+        'virusname_original': '|'.join(virusname_fragments),
+        'virusname_fixed': virusname_fixed,
+        'extra_pipes': first_known_idx - 2,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Core logic
 # ---------------------------------------------------------------------------
@@ -182,16 +237,29 @@ def get_list_of_yyyymm_present(infilename):
 
     We cannot use ``Bio.SeqIO`` because the GISAID "FASTA" format
     contains white spaces inside the description line.
+
+    Returns
+    -------
+    yyyymm_dictionary : dict
+        Mapping of YYYY-MM strings to empty lists.
+    stray_pipe_records : list of dict
+        Records describing headers with stray ``|`` in the virus
+        name, suitable for generating edit recipes.
     """
     _yyyymm_dictionary = defaultdict(list)
+    _stray_pipe_records = []
     with open(infilename) as _infile:
-        for _line in _infile:
+        for _lineno, _line in enumerate(_infile, start=1):
             if _line[0] == '>':
                 _year, _month = _parse_header_date(_line)
                 _yyyymm = f"{_year}-{_month}"
                 if _yyyymm not in _yyyymm_dictionary:
                     _yyyymm_dictionary[_yyyymm] = []
-    return _yyyymm_dictionary
+                _stray = _detect_stray_pipes(_line)
+                if _stray is not None:
+                    _stray['lineno'] = _lineno
+                    _stray_pipe_records.append(_stray)
+    return _yyyymm_dictionary, _stray_pipe_records
 
 
 def split_sequences_by_month(
@@ -268,7 +336,50 @@ def main():
         f"  version {VERSION}  git:{_GIT_VERSION}"
     )
 
-    yyyymm_dictionary = get_list_of_yyyymm_present(args.infilename)
+    yyyymm_dictionary, stray_pipe_records = \
+        get_list_of_yyyymm_present(args.infilename)
+
+    if stray_pipe_records:
+        _recipe_path = f"{outfile_prefix}.stray_pipes.sed"
+        with open(_recipe_path, 'w') as _fh:
+            _fh.write(
+                "# sed recipes to fix stray pipe characters "
+                "in virus names\n"
+            )
+            _fh.write(
+                f"# Generated from: {args.infilename}\n"
+            )
+            _fh.write(
+                f"# Total headers with stray pipes: "
+                f"{len(stray_pipe_records)}\n\n"
+            )
+            for rec in stray_pipe_records:
+                # Escape sed special chars in the original
+                _orig_esc = rec['original'].replace(
+                    '/', '\\/'
+                ).replace('&', '\\&')
+                _fixed_esc = rec['fixed'].replace(
+                    '/', '\\/'
+                ).replace('&', '\\&')
+                _fh.write(
+                    f"# Line {rec['lineno']}: "
+                    f"{rec['extra_pipes']} stray pipe(s) "
+                    f"in virus name "
+                    f"'{rec['virusname_original']}'\n"
+                )
+                _fh.write(
+                    f"s/{_orig_esc}/{_fixed_esc}/\n\n"
+                )
+        print(
+            f"Warning: {len(stray_pipe_records)} header(s) with "
+            f"stray '|' in virus name. "
+            f"Edit recipes written to: {_recipe_path}"
+        )
+        print(
+            f"  Fix with: sed -i -f {_recipe_path} "
+            f"{args.infilename}"
+        )
+
     if args.debug:
         print(
             f"Debug: Entries are from the following months: "
