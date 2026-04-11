@@ -396,14 +396,11 @@ def get_colormap(myoptions, colormapname):
 def resolve_codon_or_aa(myoptions, old_codon_or_aa, new_codon_or_aa):
     """Determine the codon or amino acid labels to use based on mode."""
 
-    _len_new_codon_or_aa = len(new_codon_or_aa)  # noqa: F841  (kept for future use/debugging)
-
     if myoptions.aminoacids:
         _old_codon_or_aa = alt_translate(old_codon_or_aa)
         if new_codon_or_aa == 'NNN':
             _new_codon_or_aa = 'X'
-            _len_new_codon_or_aa = len(_new_codon_or_aa)
-        elif _len_new_codon_or_aa > 1 and new_codon_or_aa not in ('---', 'DEL', 'INS'):
+        elif len(new_codon_or_aa) > 1 and new_codon_or_aa not in ('---', 'DEL', 'INS'):
             print(f"Info: Weird, the new_codon_or_aa={new_codon_or_aa}")
             _new_codon_or_aa = new_codon_or_aa.upper()
         else:
@@ -2013,10 +2010,7 @@ def render_bokeh(
         "mutation": mutations,
     })
 
-    if myoptions.aminoacids:
-        _tooltips = "@hover_text{safe}"
-    else:
-        _tooltips = "@hover_text{safe}"
+    _tooltips = "@hover_text{safe}"
     if myoptions.aminoacids:
         _p = bokeh.plotting.figure(x_range=(xmin, xmax), y_range=amino_acids, tooltips=_tooltips, title=title_data, x_axis_label=xlabel,
                                    y_axis_label='Introduced amino acid changes', width=2000, height=1200, sizing_mode='stretch_width')
@@ -2666,9 +2660,10 @@ def render_matplotlib(
     if _prof_sum:
         print(f"    {_prof_sum}")
     for _ext in ('.png', '.pdf'):
-        _wholefig = plt.gcf()
-        _figsize = _wholefig.get_size_inches() * _wholefig.dpi
-        print(f"Info: Writing into {outfile_prefix + _ext}, figure size is {_wholefig.get_size_inches()} inches and {_figsize} dpi")
+        if myoptions.debug:
+            _wholefig = plt.gcf()
+            _figsize_px = _wholefig.get_size_inches() * _wholefig.dpi
+            print(f"Debug: Writing into {outfile_prefix + _ext}, figure size is {_wholefig.get_size_inches()} inches, {_figsize_px} pixels at {_wholefig.dpi} dpi")
         PROFILER.mark_phase_start(f"Phase 5: Matplotlib rendering ({_ext})")
         figure.savefig(outfile_prefix + _ext, dpi=myoptions.dpi)
         _prof_sum = PROFILER.pop_phase_summary()

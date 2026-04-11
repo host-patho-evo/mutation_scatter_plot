@@ -300,8 +300,8 @@ def _process_one_site(
     _total_sum = sum(_total_counts.values())
     _new_gaps = _reference_codon.count('-')
     _prev_gaps = int(_ref_gaps_cumulative[_pos - 1]) if _pos > 0 else 0
-    _nat_pos_padded = _zero_based_padded_reference_aa_index + 1 + int(myoptions_left_reference_offset / 3.0) + aa_start
-    _nat_pos_depadded = _nat_pos_padded - int((_prev_gaps + _new_gaps) / 3.0)
+    _nat_pos_padded = _zero_based_padded_reference_aa_index + 1 + myoptions_left_reference_offset // 3 + aa_start
+    _nat_pos_depadded = _nat_pos_padded - (_prev_gaps + _new_gaps) // 3
 
     return {
         'pos': _pos,

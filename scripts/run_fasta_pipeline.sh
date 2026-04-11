@@ -11,7 +11,7 @@
 # Real-time monitoring:
 #   while true; do COLUMNS=512 top -c -b -w 512 -u "$USER" -n1 | grep -E 'grep|awk|python|blast|sed' | head -35; sleep 10; done
 
-VERSION="202604101800"
+VERSION="202604112100"
 GIT_VERSION=$(git -C "$(dirname "$0")" rev-parse --short=12 HEAD 2>/dev/null || echo "unknown")
 
 set -eo pipefail
@@ -37,6 +37,7 @@ full_fasta_header=false
 write_original_descr_lines=false
 use_nnnx_counts=false
 split_gisaid_by_month=false
+xranges=""
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Parse command-line arguments
@@ -64,6 +65,10 @@ Optional:
                             unpadded length (e.g. ref=3870, filter=3822).
   --xmin=INT                Start codon for scatter plots [default: full range].
   --xmax=INT                End codon for scatter plots [default: full range].
+  --xranges=RANGES          Comma-separated min-max pairs for scatter plots,
+                            e.g. '1-1274,331-528'.  Overrides --xmin/--xmax.
+                            Each range produces a separate set of figures.
+                            [default: use --xmin/--xmax or full range].
   --threshold=FLOAT         Minimum frequency for filtered TSVs [default: 0.001].
   --jobs=INT                Parallel jobs for summarize_fasta_pipeline.py [default: 5].
   --sort-bucket-size=SIZE   Memory fraction for sort buckets [default: 40%].
@@ -94,9 +99,9 @@ Optional:
   --use-nnnx-counts         Pass --use-nnnx-counts to summarize_fasta_pipeline.py.
   --split-gisaid-by-month   After the no_junk filtering step, split the FASTA
                             into per-month files (YYYY-MM) using
-                            split_GISAID_sequences_by_month.py.  The pipeline
-                            then continues only on the combined file; the
-                            monthly files are left for separate processing.
+                            split_GISAID_sequences_by_month.py.  Each monthly
+                            file then runs through the full pipeline (Stages
+                            2-9).  The combined file is NOT processed.
                             [default: disabled].
   --help                    Show this help message and exit.
 USAGE
@@ -124,6 +129,7 @@ for arg in "$@"; do
         --write-original-descr-lines) write_original_descr_lines=true ;;
         --use-nnnx-counts)       use_nnnx_counts=true ;;
         --split-gisaid-by-month) split_gisaid_by_month=true ;;
+        --xranges=*)             xranges="${arg#*=}" ;;
         --help)                  usage 0 ;;
         *)                       echo "Error: unknown argument: $arg" >&2; usage 1 ;;
     esac
@@ -202,7 +208,9 @@ else
     echo "  Discard junk: (disabled — no .no_junk filtering)"
 fi
 echo "  Full-length filter: $somelen"
-if [ -n "$xmin" ] && [ -n "$xmax" ]; then
+if [ -n "$xranges" ]; then
+    echo "  Plot ranges: $xranges, threshold: $threshold"
+elif [ -n "$xmin" ] && [ -n "$xmax" ]; then
     echo "  Plot range: codons ${xmin}–${xmax}, threshold: $threshold"
 else
     echo "  Plot range: full range, threshold: $threshold"
@@ -216,6 +224,9 @@ if [ -n "$old_alignment_file" ]; then
 fi
 if [ "$realign_covid19_spike" = true ]; then
     echo "  SARS-CoV-2 spike realignment: enabled"
+fi
+if [ "$split_gisaid_by_month" = true ]; then
+    echo "  Split by month: enabled (per-month pipeline, combined file skipped)"
 fi
 echo "═══════════════════════════════════════════════════════════════════════"
 
@@ -243,285 +254,336 @@ if $split_gisaid_by_month; then
     split_GISAID_sequences_by_month.py \
         --infilename="${fp}.fasta" \
         --outfile-prefix="${fp}"
-    echo "Info: Per-month files created.  Continuing pipeline on combined ${fp}.fasta."
+    echo "Info: Per-month files created."
 fi
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Stage 2: Deduplicate identical sequences (NNNNx. counting)
-# ──────────────────────────────────────────────────────────────────────────────
-if [ ! -e "${fp}.counts.fasta" ]; then
-    /usr/bin/time -v -o time_count_same_sequences.log \
-        count_same_sequences.py \
-            --infilename="${fp}.fasta" \
-            --outfile-prefix="${fp}" \
-            --sort-bucket-size="${sort_bucket_size}"
-fi
+# ══════════════════════════════════════════════════════════════════════════════
+# Helper: run Stages 2–9 for a single FASTA prefix.
+# Usage: _run_stages "$fp_current" ["$title_override"]
+# ══════════════════════════════════════════════════════════════════════════════
+_run_stages() {
+    local _fp="$1"
+    local _title_override="${2:-}"
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Stage 3: BLAST + realignment pipeline → cleaned FASTA
-# ──────────────────────────────────────────────────────────────────────────────
-# If --old-alignment-file was provided, symlink it instead of running BLAST.
-clean_fasta="${fp}.counts.${somelen}.clean.fasta"
-if [ -n "$old_alignment_file" ] && [ ! -e "$clean_fasta" ]; then
-    if [ ! -f "$old_alignment_file" ] && [ ! -L "$old_alignment_file" ]; then
-        echo "Error: old alignment file not found: $old_alignment_file" >&2
-        exit 1
-    fi
-    echo "  Injecting old alignment: $old_alignment_file → $clean_fasta"
-    ln -s "$(realpath "$old_alignment_file")" "$clean_fasta"
-fi
+    echo "───────────────────────────────────────────────────────────────────────"
+    echo "  Processing: ${_fp}.fasta"
+    echo "───────────────────────────────────────────────────────────────────────"
 
-if [ ! -e "$clean_fasta" ]; then
-    export somelen
-
-    # ────────────────────────────────────────────────────────────────────────
-    # PIPELINE SCALING & NUMA PERFORMANCE NOTES:
-    # ────────────────────────────────────────────────────────────────────────
-    # Originally, the `blastn` command was explicitly hardcoded to request
-    # `-num_threads 64` natively on a 192 CPU NUMA host, completely without
-    # assessing its actual hardware partitioning.  Because each isolated NUMA
-    # node on this platform physically caps out strictly at 48 hardware cores,
-    # spinning 64 threads inherently forced execution to brutally cross NUMA
-    # socket boundaries via sheer oversubscription.
-    #
-    # Performance Solution:
-    # We now dynamically parse hardware footprints on-the-fly to isolate the
-    # single NUMA node holding the largest chunk of free memory and cap blastn
-    # threads to fit inside that node.
-    # ────────────────────────────────────────────────────────────────────────
-
-    # Gracefully auto-detect NUMA topology capabilities
-    if command -v numactl >/dev/null 2>&1 && numactl --hardware >/dev/null 2>&1 && [ "$(numactl --hardware | grep -c '^node [0-9]')" -gt 1 ]; then
-        export BEST_NODE=$(numactl --hardware | awk '/free:/ {print $2, $4}' | sort -k2,2rn | head -n1 | awk '{print $1}')
-        export NODE_CORES=$(numactl --hardware | grep -E "^node ${BEST_NODE} cpus:" | awk '{print NF-3}')
-        NUMACTL_CMD="numactl --cpunodebind=${BEST_NODE} --localalloc "
-    else
-        export BEST_NODE="N/A"
-        export NODE_CORES=$(nproc 2>/dev/null || echo 8)
-        NUMACTL_CMD=""
+    # ──────────────────────────────────────────────────────────────────────
+    # Stage 2: Deduplicate identical sequences (NNNNx. counting)
+    # ──────────────────────────────────────────────────────────────────────
+    if [ ! -e "${_fp}.counts.fasta" ]; then
+        /usr/bin/time -v -o "time_count_same_sequences_$(basename "${_fp}").log" \
+            count_same_sequences.py \
+                --infilename="${_fp}.fasta" \
+                --outfile-prefix="${_fp}" \
+                --sort-bucket-size="${sort_bucket_size}"
     fi
 
-    # Reserve cores for downstream pipeline operators.
-    if [ "$NODE_CORES" -gt 24 ]; then
-        export REALIGN_CORES=$(( (NODE_CORES * 3) / 10 ))
-        export BLASTN_CORES=$((NODE_CORES - REALIGN_CORES - 4))
-    elif [ "$NODE_CORES" -gt 8 ]; then
-        export REALIGN_CORES=$((NODE_CORES / 4))
-        export BLASTN_CORES=$((NODE_CORES - REALIGN_CORES - 2))
-    elif [ "$NODE_CORES" -gt 4 ]; then
-        export REALIGN_CORES=1
-        export BLASTN_CORES=$((NODE_CORES - 2))
-    else
-        export REALIGN_CORES=1
-        export BLASTN_CORES=1
+    # ──────────────────────────────────────────────────────────────────────
+    # Stage 3: BLAST + realignment pipeline → cleaned FASTA
+    # ──────────────────────────────────────────────────────────────────────
+    local _clean_fasta="${_fp}.counts.${somelen}.clean.fasta"
+    if [ -n "$old_alignment_file" ] && [ ! -e "$_clean_fasta" ]; then
+        if [ ! -f "$old_alignment_file" ] && [ ! -L "$old_alignment_file" ]; then
+            echo "Error: old alignment file not found: $old_alignment_file" >&2
+            exit 1
+        fi
+        echo "  Injecting old alignment: $old_alignment_file → $_clean_fasta"
+        ln -s "$(realpath "$old_alignment_file")" "$_clean_fasta"
     fi
 
-    # Common pipeline prefix (written to temp script).
-    cat << 'PIPEEOF' > tmp_blastn_pipe_"${somelen}".sh
+    if [ ! -e "$_clean_fasta" ]; then
+        export somelen
+
+        # Gracefully auto-detect NUMA topology capabilities
+        if command -v numactl >/dev/null 2>&1 && numactl --hardware >/dev/null 2>&1 && [ "$(numactl --hardware | grep -c '^node [0-9]')" -gt 1 ]; then
+            export BEST_NODE=$(numactl --hardware | awk '/free:/ {print $2, $4}' | sort -k2,2rn | head -n1 | awk '{print $1}')
+            export NODE_CORES=$(numactl --hardware | grep -E "^node ${BEST_NODE} cpus:" | awk '{print NF-3}')
+            NUMACTL_CMD="numactl --cpunodebind=${BEST_NODE} --localalloc "
+        else
+            export BEST_NODE="N/A"
+            export NODE_CORES=$(nproc 2>/dev/null || echo 8)
+            NUMACTL_CMD=""
+        fi
+
+        # Reserve cores for downstream pipeline operators.
+        if [ "$NODE_CORES" -gt 24 ]; then
+            export REALIGN_CORES=$(( (NODE_CORES * 3) / 10 ))
+            export BLASTN_CORES=$((NODE_CORES - REALIGN_CORES - 4))
+        elif [ "$NODE_CORES" -gt 8 ]; then
+            export REALIGN_CORES=$((NODE_CORES / 4))
+            export BLASTN_CORES=$((NODE_CORES - REALIGN_CORES - 2))
+        elif [ "$NODE_CORES" -gt 4 ]; then
+            export REALIGN_CORES=1
+            export BLASTN_CORES=$((NODE_CORES - 2))
+        else
+            export REALIGN_CORES=1
+            export BLASTN_CORES=1
+        fi
+
+        # Common pipeline prefix (written to temp script).
+        # The heredoc uses unquoted PIPEEOF so shell variables are expanded
+        # at write time (they are all known at this point).
+        local _pipe_script="tmp_blastn_pipe_${somelen}_$(basename "${_fp}").sh"
+        cat << PIPEEOF > "$_pipe_script"
 #!/bin/bash
-blastn -task blastn -reward 2 -max_hsps 1 -num_alignments 1 -word_size 4 -num_threads "${BLASTN_CORES}" -dust no -evalue 1e-5 -outfmt "6 qacc sstart send sstrand qstart qend slen qlen evalue bitscore score length pident nident mismatch positive gapopen gaps ppos qseq sseq" -db "$reference" -query "${fp}.counts.fasta" 2>/dev/null | awk '{print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21}' | drop_erroneous_insertions.py --infile=- --outfile=- --drop-misinsertions | reversecomplement_reads_on_minus.py --infile=- --reference="$reference" --min_start=1 --max_stop="${somelen}" \
+blastn -task blastn -reward 2 -max_hsps 1 -num_alignments 1 -word_size 4 -num_threads "${BLASTN_CORES}" -dust no -evalue 1e-5 -outfmt "6 qacc sstart send sstrand qstart qend slen qlen evalue bitscore score length pident nident mismatch positive gapopen gaps ppos qseq sseq" -db "$reference" -query "${_fp}.counts.fasta" 2>/dev/null | awk '{print \$1,\$2,\$3,\$4,\$5,\$6,\$7,\$8,\$9,\$10,\$11,\$12,\$13,\$14,\$15,\$16,\$17,\$18,\$19,\$20,\$21}' | drop_erroneous_insertions.py --infile=- --outfile=- --drop-misinsertions | reversecomplement_reads_on_minus.py --infile=- --reference="$reference" --min_start=1 --max_stop="${somelen}" \\
 PIPEEOF
 
-    # Append the tail: realignment step or direct output.
-    if [ "$realign_covid19_spike" = true ]; then
-        echo '| manual_SARS-CoV-2_InDel_realignment.py --cores "${REALIGN_CORES}" > "${fp}.counts.${somelen}.clean.fasta"' >> tmp_blastn_pipe_"${somelen}".sh
-    else
-        echo '> "${fp}.counts.${somelen}.clean.fasta"' >> tmp_blastn_pipe_"${somelen}".sh
-    fi
-
-    /usr/bin/time -v -o time_blastn_pipeline_"${somelen}".log ${NUMACTL_CMD} bash tmp_blastn_pipe_"${somelen}".sh
-fi
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Stage 4: Split by length + smart symlink deduplication
-# ──────────────────────────────────────────────────────────────────────────────
-parent="${fp}.counts.${somelen}.clean.fasta"
-exactly="${fp}.counts.${somelen}.clean.exactly_${somelen}.fasta"
-shorter="${fp}.counts.${somelen}.clean.shorter_${somelen}.fasta"
-longer="${fp}.counts.${somelen}.clean.longer_${somelen}.fasta"
-combined="${fp}.counts.${somelen}.clean.exactly_or_shorter_${somelen}.fasta"
-
-if [ ! -e "$combined" ]; then
-    /usr/bin/time -v -o time_split_fasta_entries_by_lengths_"${somelen}".log \
-        split_fasta_entries_by_lengths \
-            --infile="$parent" \
-            --outfile-prefix="${fp}.counts.${somelen}.clean" \
-            --full-length="${somelen}" \
-            --convert-to-upper
-
-    # Smart deduplication after splitting:
-    #   exactly + shorter + longer = parent  (partition by length)
-    #
-    # If longer is empty AND shorter is empty → exactly ≡ parent → symlink.
-    # For combining exactly + shorter:
-    #   - If shorter is empty → exactly_or_shorter = exactly → symlink.
-    #   - If exactly is empty → exactly_or_shorter = shorter → symlink.
-    #   - Otherwise → cat (genuine concatenation needed).
-
-    # Step 1: If a split file equals the parent, symlink it.
-    if [ ! -s "$longer" ] && [ ! -s "$shorter" ]; then
-        echo "  split: exactly_${somelen} ≡ parent (shorter and longer both empty) → symlink"
-        rm -f "$exactly"
-        ln -s "$(basename "$parent")" "$exactly"
-    fi
-
-    # Step 2: Build exactly_or_shorter — avoid cat when possible.
-    if [ ! -s "$shorter" ]; then
-        echo "  split: exactly_or_shorter_${somelen} = exactly_${somelen} (shorter empty) → symlink"
-        ln -s "$(basename "$exactly")" "$combined"
-    elif [ ! -s "$exactly" ]; then
-        echo "  split: exactly_or_shorter_${somelen} = shorter_${somelen} (exactly empty) → symlink"
-        ln -s "$(basename "$shorter")" "$combined"
-    else
-        echo "  split: cat exactly_${somelen} + shorter_${somelen} → exactly_or_shorter_${somelen}"
-        cat "$exactly" "$shorter" > "$combined"
-    fi
-
-    if [ ! -s "$longer" ]; then
-        echo "  split: exactly_or_shorter_${somelen} ≡ parent (longer empty)"
-    fi
-fi
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Stage 5: Protein translation
-# ──────────────────────────────────────────────────────────────────────────────
-find . -name "*.clean.exactly_or_shorter_${somelen}.fasta" | while read f; do
-    p=$(echo "$f" | sed -e 's/.fasta//')
-    if [ ! -e "$p".prot.fasta ]; then
-        echo "translate.py  invoked: translate.py --infile=\"$f\" --respect-alignment --outfile=\"$p\".prot.fasta" >&2
-        nohup /usr/bin/time -v -o time_translate_"$(basename "$p")".log \
-            translate.py --infile="$f" --respect-alignment --outfile="$p".prot.fasta &
-    fi
-done
-wait  # wait for background translate.py jobs
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Stage 6: Codon frequency calculation
-# ──────────────────────────────────────────────────────────────────────────────
-freq_prefix="${fp}.counts.${somelen}.clean.exactly_or_shorter_${somelen}"
-
-if [ ! -e "${freq_prefix}.frequencies.tsv" ]; then
-    echo "calculate_codon_frequencies  invoked" >&2
-    /usr/bin/time -v -o time_calculate_codon_frequencies_"${somelen}".log \
-        calculate_codon_frequencies \
-            --reference-infile="$reference" \
-            --alignment-file="${freq_prefix}.fasta" \
-            --print-unchanged-sites \
-            --outfile-prefix="${freq_prefix}.frequencies" \
-            --x-after-count \
-            --padded-reference \
-            --threads "$codon_freq_threads"
-fi
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Stage 7: Frequency filtering
-# ──────────────────────────────────────────────────────────────────────────────
-# Convert threshold to a filename-safe string (e.g. 0.001 → 0001)
-threshold_tag=$(echo "$threshold" | tr -d '.')
-
-awk -v t="$threshold" '{if ($5 >= t) print}' "${freq_prefix}.frequencies.tsv" \
-    > "${freq_prefix}.frequencies.${threshold_tag}.tsv"
-awk -v t="$threshold" '{if ($5 >= t) print}' "${freq_prefix}.frequencies.unchanged_codons.tsv" \
-    > "${freq_prefix}.frequencies.unchanged_codons.${threshold_tag}.tsv"
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Stage 8: Comparison with old frequencies (optional)
-# ──────────────────────────────────────────────────────────────────────────────
-if [ -n "$compare_frequencies" ]; then
-    # Derive the unchanged_codons variant from the given frequencies file.
-    old_freqs="$compare_frequencies"
-    old_unchanged="$(echo "$compare_frequencies" | sed 's/\.tsv$/.unchanged_codons.tsv/')"
-
-    if [ -z "$xmin" ] || [ -z "$xmax" ]; then
-        echo "Warning: --compare-frequencies requires --xmin and --xmax; skipping comparison." >&2
-    else
-        if [ -f "$old_freqs" ]; then
-            for n in $(seq "$xmin" "$xmax"); do
-                echo ""
-                echo "$n OLD $old_freqs"
-                awk -F'\t' '$2=='"$n" "$old_freqs"
-                echo "$n NEW ${freq_prefix}.frequencies.${threshold_tag}.tsv"
-                awk -F'\t' '$2=='"$n" "${freq_prefix}.frequencies.${threshold_tag}.tsv"
-            done > "${freq_prefix}.frequencies.comparison.txt"
+        # Append the tail: realignment step or direct output.
+        if [ "$realign_covid19_spike" = true ]; then
+            echo "| manual_SARS-CoV-2_InDel_realignment.py --cores \"${REALIGN_CORES}\" > \"${_fp}.counts.${somelen}.clean.fasta\"" >> "$_pipe_script"
+        else
+            echo "> \"${_fp}.counts.${somelen}.clean.fasta\"" >> "$_pipe_script"
         fi
 
-        if [ -f "$old_unchanged" ]; then
-            for n in $(seq "$xmin" "$xmax"); do
-                echo ""
-                echo "$n OLD $old_unchanged"
-                awk -F'\t' '$2=='"$n" "$old_unchanged"
-                echo "$n NEW ${freq_prefix}.frequencies.unchanged_codons.${threshold_tag}.tsv"
-                awk -F'\t' '$2=='"$n" "${freq_prefix}.frequencies.unchanged_codons.${threshold_tag}.tsv"
-            done > "${freq_prefix}.frequencies.unchanged_codons.comparison.txt"
+        /usr/bin/time -v -o "time_blastn_pipeline_${somelen}_$(basename "${_fp}").log" ${NUMACTL_CMD} bash "$_pipe_script"
+    fi
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Stage 4: Split by length + smart symlink deduplication
+    # ──────────────────────────────────────────────────────────────────────
+    local _parent="${_fp}.counts.${somelen}.clean.fasta"
+    local _exactly="${_fp}.counts.${somelen}.clean.exactly_${somelen}.fasta"
+    local _shorter="${_fp}.counts.${somelen}.clean.shorter_${somelen}.fasta"
+    local _longer="${_fp}.counts.${somelen}.clean.longer_${somelen}.fasta"
+    local _combined="${_fp}.counts.${somelen}.clean.exactly_or_shorter_${somelen}.fasta"
+
+    if [ ! -e "$_combined" ]; then
+        /usr/bin/time -v -o "time_split_fasta_entries_by_lengths_${somelen}_$(basename "${_fp}").log" \
+            split_fasta_entries_by_lengths \
+                --infile="$_parent" \
+                --outfile-prefix="${_fp}.counts.${somelen}.clean" \
+                --full-length="${somelen}" \
+                --convert-to-upper
+
+        if [ ! -s "$_longer" ] && [ ! -s "$_shorter" ]; then
+            echo "  split: exactly_${somelen} ≡ parent (shorter and longer both empty) → symlink"
+            rm -f "$_exactly"
+            ln -s "$(basename "$_parent")" "$_exactly"
+        fi
+
+        if [ ! -s "$_shorter" ]; then
+            echo "  split: exactly_or_shorter_${somelen} = exactly_${somelen} (shorter empty) → symlink"
+            ln -s "$(basename "$_exactly")" "$_combined"
+        elif [ ! -s "$_exactly" ]; then
+            echo "  split: exactly_or_shorter_${somelen} = shorter_${somelen} (exactly empty) → symlink"
+            ln -s "$(basename "$_shorter")" "$_combined"
+        else
+            echo "  split: cat exactly_${somelen} + shorter_${somelen} → exactly_or_shorter_${somelen}"
+            cat "$_exactly" "$_shorter" > "$_combined"
+        fi
+
+        if [ ! -s "$_longer" ]; then
+            echo "  split: exactly_or_shorter_${somelen} ≡ parent (longer empty)"
         fi
     fi
-fi
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Stage 9: Mutation scatter plots
-# ──────────────────────────────────────────────────────────────────────────────
-interactive="--disable-showing-bokeh --disable-showing-mplcursors"
+    # ──────────────────────────────────────────────────────────────────────
+    # Stage 5: Protein translation
+    # ──────────────────────────────────────────────────────────────────────
+    if [ ! -e "${_fp}.counts.${somelen}.clean.exactly_or_shorter_${somelen}.prot.fasta" ]; then
+        echo "translate.py  invoked" >&2
+        /usr/bin/time -v -o "time_translate_$(basename "${_fp}").log" \
+            translate.py \
+                --infile="${_fp}.counts.${somelen}.clean.exactly_or_shorter_${somelen}.fasta" \
+                --respect-alignment \
+                --outfile="${_fp}.counts.${somelen}.clean.exactly_or_shorter_${somelen}.prot.fasta"
+    fi
 
-# Build conditional --xmin/--xmax arguments and output-prefix suffix.
-# When unset, mutation_scatter_plot renders the full range automatically.
-xrange_args=""
-if [ -n "$xmin" ]; then xrange_args="$xrange_args --xmin $xmin"; fi
-if [ -n "$xmax" ]; then xrange_args="$xrange_args --xmax $xmax"; fi
+    # ──────────────────────────────────────────────────────────────────────
+    # Stage 6: Codon frequency calculation
+    # ──────────────────────────────────────────────────────────────────────
+    local _freq_prefix="${_fp}.counts.${somelen}.clean.exactly_or_shorter_${somelen}"
 
-if [ -n "$xmin" ] && [ -n "$xmax" ]; then
-    aa_suffix=".aa${xmin}-aa${xmax}"
-    codon_suffix=".codon${xmin}-codon${xmax}"
+    if [ ! -e "${_freq_prefix}.frequencies.tsv" ]; then
+        echo "calculate_codon_frequencies  invoked" >&2
+        /usr/bin/time -v -o "time_calculate_codon_frequencies_${somelen}_$(basename "${_fp}").log" \
+            calculate_codon_frequencies \
+                --reference-infile="$reference" \
+                --alignment-file="${_freq_prefix}.fasta" \
+                --print-unchanged-sites \
+                --outfile-prefix="${_freq_prefix}.frequencies" \
+                --x-after-count \
+                --padded-reference \
+                --threads "$codon_freq_threads"
+    fi
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Stage 7: Frequency filtering
+    # ──────────────────────────────────────────────────────────────────────
+    local _threshold_tag
+    _threshold_tag=$(echo "$threshold" | tr -d '.')
+
+    awk -v t="$threshold" '{if ($5 >= t) print}' "${_freq_prefix}.frequencies.tsv" \
+        > "${_freq_prefix}.frequencies.${_threshold_tag}.tsv"
+    awk -v t="$threshold" '{if ($5 >= t) print}' "${_freq_prefix}.frequencies.unchanged_codons.tsv" \
+        > "${_freq_prefix}.frequencies.unchanged_codons.${_threshold_tag}.tsv"
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Stage 9: Mutation scatter plots
+    # ──────────────────────────────────────────────────────────────────────
+    local _interactive="--disable-showing-bokeh --disable-showing-mplcursors"
+
+    # Build the list of (xmin, xmax) ranges to iterate over.
+    local _ranges=""
+    if [ -n "$xranges" ]; then
+        _ranges="$xranges"
+    elif [ -n "$xmin" ] && [ -n "$xmax" ]; then
+        _ranges="${xmin}-${xmax}"
+    fi
+
+    if [ -n "$_ranges" ]; then
+        # Loop over each comma-separated range
+        echo "$_ranges" | tr ',' '\n' | while IFS='-' read -r _rmin _rmax; do
+            local _aa_suffix=".aa${_rmin}-aa${_rmax}"
+            local _codon_suffix=".codon${_rmin}-codon${_rmax}"
+            local _xrange_args="--xmin $_rmin --xmax $_rmax"
+
+            # Use wider tick spacing for full-protein ranges (>500 codons)
+            local _tick_args=""
+            if [ $(( _rmax - _rmin )) -gt 500 ]; then
+                _tick_args="--x-axis-major-ticks-spacing=40 --x-axis-minor-ticks-spacing=20"
+            fi
+
+            local _title_arg=""
+            if [ -n "$_title_override" ]; then
+                _title_arg="--title=$_title_override"
+            fi
+
+            for _scaling in '--linear-circle-size' ''; do
+                mutation_scatter_plot $_scaling \
+                    --tsv="${_freq_prefix}.frequencies.tsv" \
+                    --outfile-prefix="${_freq_prefix}${_aa_suffix}" \
+                    --aminoacids --show-DEL --show-INS \
+                    $_xrange_args --threshold "$threshold" \
+                    $_tick_args $_title_arg \
+                    --colormap=coolwarm_r $_interactive
+
+                mutation_scatter_plot $_scaling \
+                    --tsv="${_freq_prefix}.frequencies.tsv" \
+                    --outfile-prefix="${_freq_prefix}${_codon_suffix}" \
+                    --show-DEL --show-INS \
+                    $_xrange_args --threshold "$threshold" \
+                    $_tick_args $_title_arg \
+                    --include-synonymous --colormap=coolwarm_r $_interactive
+
+                mutation_scatter_plot $_scaling \
+                    --tsv="${_freq_prefix}.frequencies.tsv" \
+                    --outfile-prefix="${_freq_prefix}${_codon_suffix}" \
+                    --show-DEL --show-INS \
+                    $_xrange_args --threshold "$threshold" \
+                    $_tick_args $_title_arg \
+                    --include-synonymous $_interactive
+
+                mutation_scatter_plot $_scaling \
+                    --tsv="${_freq_prefix}.frequencies.tsv" \
+                    --outfile-prefix="${_freq_prefix}${_aa_suffix}" \
+                    --aminoacids --show-DEL --show-INS \
+                    $_xrange_args --threshold "$threshold" \
+                    $_tick_args $_title_arg \
+                    $_interactive
+            done
+        done
+    else
+        # No ranges specified — render full range
+        for _scaling in '--linear-circle-size' ''; do
+            mutation_scatter_plot $_scaling \
+                --tsv="${_freq_prefix}.frequencies.tsv" \
+                --outfile-prefix="${_freq_prefix}" \
+                --aminoacids --show-DEL --show-INS \
+                --threshold "$threshold" \
+                --colormap=coolwarm_r $_interactive
+
+            mutation_scatter_plot $_scaling \
+                --tsv="${_freq_prefix}.frequencies.tsv" \
+                --outfile-prefix="${_freq_prefix}" \
+                --show-DEL --show-INS \
+                --threshold "$threshold" \
+                --include-synonymous --colormap=coolwarm_r $_interactive
+
+            mutation_scatter_plot $_scaling \
+                --tsv="${_freq_prefix}.frequencies.tsv" \
+                --outfile-prefix="${_freq_prefix}" \
+                --show-DEL --show-INS \
+                --threshold "$threshold" \
+                --include-synonymous $_interactive
+
+            mutation_scatter_plot $_scaling \
+                --tsv="${_freq_prefix}.frequencies.tsv" \
+                --outfile-prefix="${_freq_prefix}" \
+                --aminoacids --show-DEL --show-INS \
+                --threshold "$threshold" \
+                $_interactive
+        done
+    fi
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Main dispatch: per-month loop vs. single combined processing
+# ══════════════════════════════════════════════════════════════════════════════
+if $split_gisaid_by_month; then
+    # ──────────────────────────────────────────────────────────────────────
+    # Per-month processing: run Stages 2–9 for each monthly file
+    # ──────────────────────────────────────────────────────────────────────
+    for month_fasta in "${fp}".????-??.fasta; do
+        [ -f "$month_fasta" ] || continue
+        fp_month="${month_fasta%.fasta}"
+        month_tag="${fp_month##*.}"   # e.g. "2025-06"
+        title="Mutations in SARS-CoV-2 per month in GISAID ${prefix} (${month_tag})"
+        _run_stages "$fp_month" "$title"
+    done
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Stage 12: Animated GIF assembly (excluding YYYY-00 months)
+    # ──────────────────────────────────────────────────────────────────────
+    if command -v magick >/dev/null 2>&1; then
+        echo "Info: Assembling animated GIFs from per-month PNGs..."
+        # Build the list of ranges for GIF assembly
+        _gif_ranges=""
+        if [ -n "$xranges" ]; then
+            _gif_ranges="$xranges"
+        elif [ -n "$xmin" ] && [ -n "$xmax" ]; then
+            _gif_ranges="${xmin}-${xmax}"
+        fi
+
+        if [ -n "$_gif_ranges" ]; then
+            echo "$_gif_ranges" | tr ',' '\n' | while IFS='-' read -r _rmin _rmax; do
+                for _mode in "aa${_rmin}-aa${_rmax}" "codon${_rmin}-codon${_rmax}"; do
+                    # Collect PNGs, sorted by YYYY-MM, excluding month-00
+                    _files=$(ls -1 ${fp}.????-??.counts.*.${_mode}.*.png 2>/dev/null \
+                             | grep -v '\.[0-9]\{4\}-00\.' | sort)
+                    if [ -n "$_files" ]; then
+                        _outgif="${fp}.${_mode}.animated.gif"
+                        echo "Info: Creating $_outgif"
+                        magick -dispose previous -delay 300 $_files gif:"$_outgif"
+                    fi
+                done
+            done
+        fi
+    else
+        echo "Warning: 'magick' (ImageMagick) not found, skipping GIF assembly." >&2
+    fi
 else
-    aa_suffix=""
-    codon_suffix=""
+    # ──────────────────────────────────────────────────────────────────────
+    # Standard combined-file processing
+    # ──────────────────────────────────────────────────────────────────────
+    _run_stages "$fp"
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Stage 10: Pipeline summary + traceability
+    # ──────────────────────────────────────────────────────────────────────
+    summarize_args=""
+    [ "$extract_discarded_fasta" = true ] && summarize_args="$summarize_args --extract-discarded-fasta"
+    [ "$full_fasta_header" = true ] && summarize_args="$summarize_args --full-fasta-header"
+    [ "$write_original_descr_lines" = true ] && summarize_args="$summarize_args --write-original-descr-lines"
+    [ "$use_nnnx_counts" = true ] && summarize_args="$summarize_args --use-nnnx-counts"
+
+    summarize_fasta_pipeline.py . "$prefix" \
+        $summarize_args \
+        --jobs "$jobs"
 fi
-
-for scaling in '--linear-circle-size' ''; do
-    # Amino acid plots with coolwarm_r
-    mutation_scatter_plot $scaling \
-        --tsv="${freq_prefix}.frequencies.tsv" \
-        --outfile-prefix="${freq_prefix}${aa_suffix}" \
-        --aminoacids --show-DEL --show-INS \
-        $xrange_args --threshold "$threshold" \
-        --colormap=coolwarm_r $interactive
-
-    # Codon plots with coolwarm_r
-    mutation_scatter_plot $scaling \
-        --tsv="${freq_prefix}.frequencies.tsv" \
-        --outfile-prefix="${freq_prefix}${codon_suffix}" \
-        --show-DEL --show-INS \
-        $xrange_args --threshold "$threshold" \
-        --include-synonymous --colormap=coolwarm_r $interactive
-
-    # Codon plots with default colormap (amino_acid_changes)
-    mutation_scatter_plot $scaling \
-        --tsv="${freq_prefix}.frequencies.tsv" \
-        --outfile-prefix="${freq_prefix}${codon_suffix}" \
-        --show-DEL --show-INS \
-        $xrange_args --threshold "$threshold" \
-        --include-synonymous $interactive
-
-    # Amino acid plots with default colormap
-    mutation_scatter_plot $scaling \
-        --tsv="${freq_prefix}.frequencies.tsv" \
-        --outfile-prefix="${freq_prefix}${aa_suffix}" \
-        --aminoacids --show-DEL --show-INS \
-        $xrange_args --threshold "$threshold" \
-        $interactive
-done
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Stage 10: Pipeline summary + traceability
-# ──────────────────────────────────────────────────────────────────────────────
-summarize_args=""
-[ "$extract_discarded_fasta" = true ] && summarize_args="$summarize_args --extract-discarded-fasta"
-[ "$full_fasta_header" = true ] && summarize_args="$summarize_args --full-fasta-header"
-[ "$write_original_descr_lines" = true ] && summarize_args="$summarize_args --write-original-descr-lines"
-[ "$use_nnnx_counts" = true ] && summarize_args="$summarize_args --use-nnnx-counts"
-
-summarize_fasta_pipeline.py . "$prefix" \
-    $summarize_args \
-    --jobs "$jobs"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 11: Post-pipeline deduplication
