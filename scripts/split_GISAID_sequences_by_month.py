@@ -57,19 +57,23 @@ _GIT_VERSION: str = _get_git_version()
 # Header parsing
 # ---------------------------------------------------------------------------
 
-def sanitize_year_and_month(year, month):
+def sanitize_year_and_month(year, month, original_date=''):
     """Validate and zero-pad year/month strings."""
+    _ctx = f" (from '{original_date}')" if original_date else ''
+
     if len(month) < 2:
         _month = f"0{month}"
     else:
         _month = month
 
     if _month == '00':
-        print(f"Info: Weird month in {year}-{month}")
+        print(f"Info: Weird month in {year}-{month}{_ctx}")
     else:
         try:
             if int(_month.lstrip('0')) > 12:
-                raise ValueError(f"Weird month {_month}")
+                raise ValueError(
+                    f"Weird month {_month}{_ctx}"
+                )
         except ValueError as exc:
             _month_names = {
                 'Jan': '01', 'Feb': '02', 'Mar': '03',
@@ -79,11 +83,13 @@ def sanitize_year_and_month(year, month):
             }
             _stripped = _month.lstrip('0')
             if _stripped not in _month_names:
-                raise ValueError(f"Weird month {_month}") from exc
+                raise ValueError(
+                    f"Weird month {_month}{_ctx}"
+                ) from exc
             _month = _month_names[_stripped]
 
     if len(year) < 4:
-        raise ValueError(f"Weird year {year}")
+        raise ValueError(f"Weird year {year}{_ctx}")
 
     return year, _month
 
@@ -125,7 +131,7 @@ def _parse_header_date(line):
 
     _year, _month, _day = _normalize_date_parts(_year, _month, _day)
 
-    return sanitize_year_and_month(_year, _month)
+    return sanitize_year_and_month(_year, _month, original_date=_date)
 
 
 # ---------------------------------------------------------------------------
