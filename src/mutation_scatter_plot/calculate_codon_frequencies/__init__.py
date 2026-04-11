@@ -396,15 +396,37 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     """
     Parse a padded multi-FASTA alignment and write codon frequency TSV files.
 
-    Optimizations:
+    All position parameters use values already converted from 1-based user
+    input to 0-based Python indices by the CLI layer.
+
+    Parameters
+    ----------
+    aa_start : int
+        0-based amino-acid offset added to output positions (CLI subtracts 1
+        from the user's 1-based ``--aa_start`` value).
+    min_start : int
+        0-based DNA nucleotide index in the alignment to start codon
+        iteration from (CLI subtracts 1 from the user's 1-based
+        ``--min_start`` value).
+    max_stop : int
+        1-based DNA nucleotide position of the last nucleotide (wobble
+        position) of the last codon to process.  Passed directly to
+        ``range(min_start, max_stop, 3)`` as the exclusive upper bound;
+        Python's range semantics ensure the last codon start included is
+        ``max_stop - 3`` (or the largest ``min_start + k*3 < max_stop``).
+        Value 0 means 'process until the end of the alignment'.
+    myoptions.left_reference_offset : int
+        1-based first nucleotide of the ORF region to slice from the
+        reference (code converts to 0-based: ``max(val - 1, 0)``).
+    myoptions.right_reference_offset : int
+        1-based last nucleotide of the last codon to slice from the
+        reference (used directly as Python slice end).
+
+    Optimizations
+    -------------
     - Speedup 4: NumPy-based vectorized column slicing for O(1) site extraction.
     - Speedup 5: Multi-processing parallelization using multiprocessing.Pool.
     - Speedup 6: High-precision Decimal(str) formatting for bit-identical output.
-
-    left_reference_offset and right_reference_offset are used to slice the
-    reference. discard_this_many_leading_nucs and
-    discard_this_many_trailing_nucs are used to discard offending
-    leading/trailing nucleotides.
 
     If the reference protein is shorter than the sample entries, the trailing codons
     after reference protein terminated are treated as INSertions with aa position
@@ -498,6 +520,10 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     # We use SeqIO.parse for streaming grouping to handle huge files
     # while only keeping unique sequences in memory.
 
+    # Slice the reference to the region of interest.
+    # left/right_reference_offset are 1-based user values;
+    # code converts left to 0-based index via max(val - 1, 0),
+    # right is used directly as Python slice end (exclusive).
     if myoptions.left_reference_offset or myoptions.right_reference_offset:
         _padded_reference_dna_seq = padded_reference_dna_seq[
             max(myoptions.left_reference_offset - 1, 0):
@@ -667,6 +693,10 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
     # worker processes inherit all large arrays via copy-on-write.  Each task
     # then only sends _pos (one int, 4 bytes) over the IPC pipe instead of
     # the full alignment array (~115 MB with 30k unique seqs × 3822 cols).
+    # Iterate codon positions: min_start is 0-based (CLI did val-1),
+    # max_stop is the user's 1-based wobble position passed directly.
+    # Python range(start, stop, 3) is exclusive on stop, so the last
+    # codon start included is the largest start + k*3 < max_stop.
     _slim_positions = list(range(min_start, max_stop or _alignment_len, 3))
 
     if _slim_positions:

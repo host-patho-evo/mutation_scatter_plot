@@ -104,7 +104,10 @@ def build_option_parser():
                           help="Specify how many offending nucleotides are at the end of each sequence. Default: 0")
     myparser.add_argument("--minimum-alignments-length", action="store", type=int,
                           dest="minimum_aln_length", default=50,
-                          help="Minimum length of aligned NGS read to be used for calculations")
+                          help="Minimum length of an aligned sequence to be included in calculations. "
+                               "The length is computed after excluding gap characters ('-') and "
+                               "ambiguous bases ('N'). Sequences shorter than this threshold are "
+                               "silently excluded. Default: 50")
     myparser.add_argument("--debug", action="store", type=int,
                           dest="debug", default=0,
                           help="Set debug level to some real number")
