@@ -57,9 +57,19 @@ _GIT_VERSION: str = _get_git_version()
 # Header parsing
 # ---------------------------------------------------------------------------
 
-def sanitize_year_and_month(year, month, original_date=''):
+def sanitize_year_and_month(
+    year, month, original_date='', header_line='',
+):
     """Validate and zero-pad year/month strings."""
-    _ctx = f" (from '{original_date}')" if original_date else ''
+    _hdr = header_line.rstrip('\n')
+    _ctx = ''
+    if original_date:
+        _ctx += f" (date='{original_date}'"
+        if _hdr:
+            _ctx += f", line='{_hdr}'"
+        _ctx += ')'
+    elif _hdr:
+        _ctx += f" (line='{_hdr}')"
 
     if len(month) < 2:
         _month = f"0{month}"
@@ -144,7 +154,8 @@ def _parse_header_date(line):
             _day = ''
         else:
             raise ValueError(
-                "Cannot parse date from '%s'" % str(_date)
+                "Cannot parse date from '%s' in line '%s'"
+                % (_date, line.rstrip('\n'))
             )
 
     if _day:
@@ -152,7 +163,10 @@ def _parse_header_date(line):
             _year, _month, _day
         )
 
-    return sanitize_year_and_month(_year, _month, original_date=_date)
+    return sanitize_year_and_month(
+        _year, _month, original_date=_date,
+        header_line=line,
+    )
 
 
 # ---------------------------------------------------------------------------
