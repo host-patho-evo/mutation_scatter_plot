@@ -88,12 +88,21 @@ def sanitize_year_and_month(year, month):
     return year, _month
 
 
+def _normalize_date_parts(year, month, day):
+    """Swap year/day when the date is in DD-Mon-YYYY order."""
+    if len(year) <= 2 and len(day) == 4:
+        return day, month, year
+    return year, month, day
+
+
 def _parse_header_date(line):
     """Parse (year, month) from a GISAID FASTA header line.
 
     Handles both column orderings:
       ``>Spike|virusname|DATE|EPI_ID|...``
       ``>Spike|virusname|EPI_ID|DATE|...``
+
+    Also handles DD-Mon-YYYY date formats (e.g. ``01-Jul-2021``).
     """
     try:
         _virusname, _date, _epi_id = line.split('|')[1:4]
@@ -113,6 +122,8 @@ def _parse_header_date(line):
                 "Cannot split date from line '%s'" % str(line)
             ) from exc
         _year, _month, _day = _date.split('-')
+
+    _year, _month, _day = _normalize_date_parts(_year, _month, _day)
 
     return sanitize_year_and_month(_year, _month)
 
