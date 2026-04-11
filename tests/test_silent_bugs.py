@@ -194,47 +194,45 @@ class TestBug1FloatDivisionOffsetSlicing(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestBug2MaxStopBoundary(unittest.TestCase):
-    """max_stop + 1 semantics in CLI → range()."""
+    """max_stop semantics in CLI → range() — wobble position semantics."""
 
-    def test_max_stop_range_semantics(self):
-        """range(min_start, max_stop, 3) — verify codon positions included.
+    def test_max_stop_wobble_position(self):
+        """--max_stop=12 (wobble of 4th codon) → process exactly 4 codons.
 
-        CLI does: _max_stop = (max_stop + 1) if max_stop else 0
+        CLI does: _max_stop = max_stop (no transform)
         Then:     range(min_start, max_stop or aln_len, 3)
+        Python range is exclusive, so range(0, 12, 3) = [0, 3, 6, 9].
+        Last codon starts at 0-based 9 → covers 1-based nt 10, 11, 12.
         """
-        # User provides --max_stop=10 (1-based), meaning "process up to
-        # nucleotide 10". CLI converts: _max_stop = 10 + 1 = 11.
-        # _min_start for --min_start=1 (1-based) → 0 (0-based).
         _min_start = 0
-        _max_stop = 11  # after CLI transform
+        _max_stop = 12  # user value passed directly (no +1)
 
         positions = list(range(_min_start, _max_stop, 3))
-        # Should include: 0, 3, 6, 9
         self.assertEqual(positions, [0, 3, 6, 9])
 
-        # The last codon starts at position 9 (0-based), covering nt 9,10,11
-        # The user asked to process "up to position 10" (1-based = nt index 9).
-        # So positions 9,10,11 is the codon starting at 9 — which extends
-        # one nucleotide PAST the user's requested stop. Document this.
-        self.assertIn(9, positions,
-                      "Codon at position 9 is included even though it "
-                      "extends beyond user's --max_stop=10")
+        # Last codon covers nt 10-12 (1-based), ending exactly at the stop
+        last_codon_end_1based = positions[-1] + 3  # 0-based end → 1-based
+        self.assertEqual(last_codon_end_1based, 12)
+
+    def test_max_stop_3822_alignment(self):
+        """--max_stop=3822 on a 3822-nt alignment → last codon is 3820-3822."""
+        _max_stop = 3822  # user value (1-based wobble of last codon)
+        positions = list(range(0, _max_stop, 3))
+        self.assertEqual(positions[-1], 3819)  # 0-based start of last codon
+        # 0-based 3819 → 1-based 3820, codon covers 3820-3822
+        self.assertEqual(positions[-1] + 3, 3822)
 
     def test_max_stop_mid_codon(self):
-        """Non-codon-boundary max_stop may silently include/exclude codons."""
-        # User: --max_stop=8 → CLI: _max_stop = 9
+        """--max_stop=10 (mid-codon) still includes that codon."""
+        # 0-based 9 < 10, so it's included in range(0, 10, 3)
+        positions = list(range(0, 10, 3))
+        self.assertEqual(positions, [0, 3, 6, 9])
+        # Codon at 0-based 9 covers nt 10-12 (1-based)
+
+        # --max_stop=9: 0-based 9 NOT < 9, so it's excluded
         positions = list(range(0, 9, 3))
         self.assertEqual(positions, [0, 3, 6])
-        # Codon at 6 covers nt 6,7,8 — exactly the boundary. Included.
-
-        # User: --max_stop=7 → CLI: _max_stop = 8
-        positions = list(range(0, 8, 3))
-        self.assertEqual(positions, [0, 3, 6])
-        # Codon at 6 covers nt 6,7,8 — but max_stop=7 means
-        # "process up to nt 7". The codon at 6 reaches nt 8, which is
-        # past the stop. It's still included because range uses the
-        # START of each codon. This is a minor inconsistency to document.
-        self.assertIn(6, positions)
+        # Last codon at 0-based 6 covers nt 7-9 (1-based)
 
 
 # ---------------------------------------------------------------------------

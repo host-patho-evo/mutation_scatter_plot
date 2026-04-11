@@ -78,9 +78,9 @@ def build_option_parser():
                                "Default: 0 (start from the beginning)")
     myparser.add_argument("--max_stop", action="store", type=int,
                           dest="max_stop", default=0,
-                          help="1-based DNA nucleotide position in the ALIGNMENT to stop processing at "
-                               "(inclusive). The last codon processed will be the one whose first "
-                               "nucleotide falls at or before this position. "
+                          help="1-based DNA nucleotide position of the last nucleotide (wobble position) "
+                               "of the last codon to process in the ALIGNMENT. E.g. for a 3822-nt "
+                               "alignment, use 3822 to process all codons. "
                                "Default: 0 (process until the end)")
     myparser.add_argument("--x-after-count", action="store_true",
                           dest="x_after_count", default=False,
@@ -218,7 +218,7 @@ def main():
 
         _aa_start = (myoptions.aa_start - 1) if myoptions.aa_start else 0
         _min_start = (myoptions.min_start - 1) if myoptions.min_start else 0
-        _max_stop = (myoptions.max_stop + 1) if myoptions.max_stop else 0
+        _max_stop = myoptions.max_stop if myoptions.max_stop else 0
         _threads = myoptions.threads if myoptions.threads > 0 else None
         _chunksize = myoptions.chunksize if myoptions.chunksize > 0 else None
 
