@@ -66,8 +66,17 @@ def sanitize_year_and_month(year, month):
 
     if _month == '00':
         print(f"Info: Weird month in {year}-{month}")
-    elif int(_month.lstrip('0')) > 12:
-        raise ValueError(f"Weird month {_month}")
+    else:
+        try:
+            if int(_month.lstrip('0')) > 12:
+                raise ValueError(f"Weird month {_month}")
+        except ValueError as exc:
+            _month_names = [
+                'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+            ]
+            if _month.lstrip('0') not in _month_names:
+                raise ValueError(f"Weird month {_month}") from exc
 
     if len(year) < 4:
         raise ValueError(f"Weird year {year}")
