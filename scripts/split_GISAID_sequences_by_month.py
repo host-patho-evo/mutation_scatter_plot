@@ -117,9 +117,18 @@ def _parse_header_date(line):
             "Cannot split entries from line '%s'" % str(line)
         ) from exc
 
-    try:
-        _year, _month, _day = _date.split('-')
-    except ValueError:
+    _year = _month = _day = ''
+    _parts = _date.split('-')
+    if len(_parts) == 3:
+        _year, _month, _day = _parts
+    elif len(_parts) == 2:
+        _year, _month = _parts
+        _day = ''
+    else:
+        # Not a valid date — try the 4th column instead
+        _parts = None
+
+    if _parts is None or (len(_year) < 4 and len(_day) == 0):
         # Date is in the 4th column instead of the 3rd
         try:
             _virusname, _epi_id, _date = line.split('|')[1:4]
@@ -127,9 +136,21 @@ def _parse_header_date(line):
             raise ValueError(
                 "Cannot split date from line '%s'" % str(line)
             ) from exc
-        _year, _month, _day = _date.split('-')
+        _parts = _date.split('-')
+        if len(_parts) == 3:
+            _year, _month, _day = _parts
+        elif len(_parts) == 2:
+            _year, _month = _parts
+            _day = ''
+        else:
+            raise ValueError(
+                "Cannot parse date from '%s'" % str(_date)
+            )
 
-    _year, _month, _day = _normalize_date_parts(_year, _month, _day)
+    if _day:
+        _year, _month, _day = _normalize_date_parts(
+            _year, _month, _day
+        )
 
     return sanitize_year_and_month(_year, _month, original_date=_date)
 
