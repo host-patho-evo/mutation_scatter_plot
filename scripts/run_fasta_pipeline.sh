@@ -491,12 +491,13 @@ PIPEEOF
                     $_tick_args $_title_arg \
                     $_interactive
             done
-        done
+    done
     else
-        # No ranges specified — render full range
-        local _full_max=$(( somelen / 3 ))
-        local _aa_suffix=".aa1-${_full_max}"
-        local _codon_suffix=".codon1-${_full_max}"
+        # No ranges specified — render full range.
+        # Use plain .aa / .codon suffix (no range numbers) because somelen
+        # is the padded reference length, not the natural protein length.
+        local _aa_suffix=".aa"
+        local _codon_suffix=".codon"
 
         for _scaling in '--linear-circle-size' ''; do
             mutation_scatter_plot $_scaling \
