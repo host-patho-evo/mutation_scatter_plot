@@ -1512,8 +1512,9 @@ def collect_scatter_data(
                 if _frequency and myoptions.debug:
                     print(f"Debug0b: _padded_position={_padded_position}, _some_codon_or_aa={_some_codon_or_aa}, _frequency={_frequency}")
                 if _padded_position not in _warn_once:
-                    sys.stderr.write(
-                        f"Warning: Cannot determine original codon for position {_padded_position}, seems missing from input TSV{os.linesep}")
+                    if myoptions.debug:
+                        sys.stderr.write(
+                            f"Debug: Cannot determine original codon for position {_padded_position}, seems missing from input TSV{os.linesep}")
                     _warn_once.add(_padded_position)
                 continue
             _codon_on_input, _old_codon_or_aa, _new_codon_or_aa = resolve_codon_or_aa(myoptions, _old_codon, _some_codon_or_aa)
