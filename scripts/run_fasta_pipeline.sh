@@ -443,8 +443,8 @@ PIPEEOF
     if [ -n "$_ranges" ]; then
         # Loop over each comma-separated range
         echo "$_ranges" | tr ',' '\n' | while IFS='-' read -r _rmin _rmax; do
-            local _aa_suffix=".aa${_rmin}-aa${_rmax}"
-            local _codon_suffix=".codon${_rmin}-codon${_rmax}"
+            local _aa_suffix=".aa${_rmin}-${_rmax}"
+            local _codon_suffix=".codon${_rmin}-${_rmax}"
             local _xrange_args="--xmin $_rmin --xmax $_rmax"
 
             # Use wider tick spacing for full-protein ranges (>500 codons)
@@ -495,8 +495,8 @@ PIPEEOF
     else
         # No ranges specified — render full range
         local _full_max=$(( somelen / 3 ))
-        local _aa_suffix=".aa1-aa${_full_max}"
-        local _codon_suffix=".codon1-codon${_full_max}"
+        local _aa_suffix=".aa1-${_full_max}"
+        local _codon_suffix=".codon1-${_full_max}"
 
         for _scaling in '--linear-circle-size' ''; do
             mutation_scatter_plot $_scaling \
@@ -560,7 +560,7 @@ if $split_gisaid_by_month; then
 
         if [ -n "$_gif_ranges" ]; then
             echo "$_gif_ranges" | tr ',' '\n' | while IFS='-' read -r _rmin _rmax; do
-                for _mode in "aa${_rmin}-aa${_rmax}" "codon${_rmin}-codon${_rmax}"; do
+                for _mode in "aa${_rmin}-${_rmax}" "codon${_rmin}-${_rmax}"; do
                     # Collect PNGs, sorted by YYYY-MM, excluding month-00
                     _files=$(ls -1 ${fp}.????-??.counts.*.${_mode}.*.png 2>/dev/null \
                              | grep -v '\.[0-9]\{4\}-00\.' | sort)
