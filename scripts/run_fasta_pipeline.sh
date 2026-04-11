@@ -36,6 +36,7 @@ extract_discarded_fasta=false
 full_fasta_header=false
 write_original_descr_lines=false
 use_nnnx_counts=false
+split_gisaid_by_month=false
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Parse command-line arguments
@@ -91,6 +92,12 @@ Optional:
   --write-original-descr-lines
                             Pass --write-original-descr-lines to summarize_fasta_pipeline.py.
   --use-nnnx-counts         Pass --use-nnnx-counts to summarize_fasta_pipeline.py.
+  --split-gisaid-by-month   After the no_junk filtering step, split the FASTA
+                            into per-month files (YYYY-MM) using
+                            split_GISAID_sequences_by_month.py.  The pipeline
+                            then continues only on the combined file; the
+                            monthly files are left for separate processing.
+                            [default: disabled].
   --help                    Show this help message and exit.
 USAGE
     exit "${1:-0}"
@@ -116,6 +123,7 @@ for arg in "$@"; do
         --full-fasta-header)     full_fasta_header=true ;;
         --write-original-descr-lines) write_original_descr_lines=true ;;
         --use-nnnx-counts)       use_nnnx_counts=true ;;
+        --split-gisaid-by-month) split_gisaid_by_month=true ;;
         --help)                  usage 0 ;;
         *)                       echo "Error: unknown argument: $arg" >&2; usage 1 ;;
     esac
@@ -225,6 +233,17 @@ if [ -n "$discard_junk" ]; then
                 --filter-away-fasta-headers="${discard_junk}" \
                 --outfile="${fp}.fasta"
     fi
+fi
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Stage 1b: Split FASTA by month (optional, GISAID-specific)
+# ──────────────────────────────────────────────────────────────────────────────
+if $split_gisaid_by_month; then
+    echo "Info: Splitting ${fp}.fasta by YYYY-MM into per-month files..."
+    split_GISAID_sequences_by_month.py \
+        --infilename="${fp}.fasta" \
+        --outfile-prefix="${fp}"
+    echo "Info: Per-month files created.  Continuing pipeline on combined ${fp}.fasta."
 fi
 
 # ──────────────────────────────────────────────────────────────────────────────
