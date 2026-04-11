@@ -1065,6 +1065,18 @@ def build_frequency_tables(myoptions, df, padded_position2position):
                 if _pos in _new_codon_table.columns:
                     _new_codon_table.at['+++', _pos] = Decimal(_val)
 
+    # INS summary row for aminoacids mode: aggregate all original_aa=='INS'
+    # entries by position into the 'INS' row.  The normal groupby(['mutant_aa',
+    # 'padded_position']) scatters INS events into their actual mutant_aa rows
+    # (V, M, P, …), leaving the 'INS' row empty.
+    if myoptions.aminoacids and 'INS' in _amino_acids and 'INS' in _new_aa_table.index:
+        _ins_df = _filtered_df[_filtered_df['original_aa'] == 'INS']
+        if not _ins_df.empty:
+            _ins_sums = _ins_df.groupby('padded_position')[_freq_col].sum()
+            for _pos, _val in _ins_sums.items():
+                if _pos in _new_aa_table.columns:
+                    _new_aa_table.at['INS', _pos] = Decimal(_val)
+
     # Finalize offset and debug info
     if not _filtered_df.empty:
         _first_row = _filtered_df.iloc[0]
@@ -1383,6 +1395,59 @@ def collect_scatter_data(
                     f"Debug0: _padded_positions (typically will not be contiguous and will contain multiplicates): {sorted(list(table.columns))}{os.linesep}")
                 print(
                     f"Debug0:     _aa_positions (typically will not be contiguous and will contain multiplicates): {sorted(padded_position2position.values())}{os.linesep}")
+
+            # Special case: INS summary row in aminoacids mode.
+            # Same logic as the +++ codon handler below, but for the 'INS' amino
+            # acid row.  The aa table's 'INS' row was explicitly populated by
+            # build_frequency_tables from original_aa=='INS' events.
+            if _some_codon_or_aa == 'INS' and myoptions.aminoacids:
+                _frequency = table.loc['INS', _padded_position]
+                _x_coord = _aa_position if myoptions.disable_padded_x_axis else _padded_position
+                if abs(Decimal(_frequency)) < myoptions.threshold:
+                    _dots.append((_x_coord, i, 0.00000000009, 'dot', '#000000', 0.5, _min_theoretical_score))
+                    continue
+                _ins_at_pos = df[
+                    (df['padded_position'] == _padded_position) & (df['original_aa'] == 'INS')
+                ]
+                _ins_codons = []
+                _ins_total_freq = Decimal(0)
+                for _, _ins_row in _ins_at_pos.iterrows():
+                    _mc = _ins_row['mutant_codon']
+                    _mf = Decimal(str(_ins_row[myoptions.column_with_frequencies]))
+                    _ma = _ins_row.get('mutant_aa', alt_translate(_mc))
+                    _ins_codons.append((_mc, _ma, _mf))
+                    _ins_total_freq += _mf
+
+                _color = '#ff0000'
+                _score = _min_theoretical_score
+                _size = _ins_total_freq
+
+                _hover_text = (
+                    f"Padded position: {_padded_position}\n"
+                    f"Position: {_aa_position}\n"
+                    f"INS summary ({len(_ins_codons)} codons):\n"
+                )
+                for _mc, _ma, _mf in sorted(_ins_codons, key=lambda x: -x[2]):
+                    _hover_text += f"  {_mc} ({_ma}): {_mf:.6f}\n"
+                _hover_text += f"Total INS frequency: {_ins_total_freq:.6f}"
+
+                _bokeh_size = float(np.sqrt(abs(float(_size))) * 100) if myoptions.bokeh_sqrt_size else float(abs(float(_size)) * 100)
+                _y_label_bokeh = 'INS'
+                _mutation_str = f"INS{_aa_position}"
+                _circles_bokeh.append((_x_coord, _y_label_bokeh, _bokeh_size, 'circle_x',
+                                      _color, 0.5, _score, _aa_position, _padded_position))
+                _mutations.append(_mutation_str)
+                _hover_text_bokeh.append(_hover_text)
+
+                if myoptions.linear_circle_size:
+                    _mpl_s = float(np.abs(float(_size)) ** 2 * 5000)
+                else:
+                    _mpl_s = float(np.abs(float(_size)) * 5000)
+                _circles_matplotlib.append((_x_coord, i, _mpl_s, 'circle_x', _color, 0.5,
+                                           _score, _aa_position, _padded_position, _hover_text))
+                _markers.append((_x_coord, i, 1, 'dot', '#000000', 0.5))
+                _used_colors.add(_color)
+                continue
 
             # Special case: INS summary row in codon mode.
             # The synthetic '+++' codon aggregates all INS events at this position
