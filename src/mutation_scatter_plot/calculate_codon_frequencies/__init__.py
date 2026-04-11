@@ -504,12 +504,12 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
             min(len(padded_reference_dna_seq), myoptions.right_reference_offset)
         ]
         _reference_protein_seq = reference_protein_seq[
-            int(max(myoptions.left_reference_offset - 1, 0) / 3):
-            int(min(len(reference_protein_seq), myoptions.right_reference_offset / 3))
+            max(myoptions.left_reference_offset - 1, 0) // 3:
+            min(len(reference_protein_seq), myoptions.right_reference_offset // 3)
         ]
         _reference_as_codons = reference_as_codons[
-            int(max(myoptions.left_reference_offset - 1, 0) / 3):
-            int(min(len(reference_as_codons), myoptions.right_reference_offset / 3))
+            max(myoptions.left_reference_offset - 1, 0) // 3:
+            min(len(reference_as_codons), myoptions.right_reference_offset // 3)
         ]
         if myoptions.debug:
             print(f"Debug: len(padded_reference_dna_seq)={len(padded_reference_dna_seq)}, "
