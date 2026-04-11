@@ -87,13 +87,13 @@ myparser.add_option("--outfileformat", action="store", type="string", dest="outf
 myparser.add_option("--reference", action="store", type="string", dest="referencefilename", default='',
                     help="Reference filename to infer length of the reference sequence from. It is necessary to calculate lengths of paddings around the query sequence to fit width of the multiple sequence alignment. (Default: '')")
 myparser.add_option("--min_start", action="store", type="int", dest="min_start", default=0,
-                    help="Minimum start position of the amplicon region to be included in output. The length of the sequence if filled with padding dashes as necessary.")
+                    help="1-based minimum start position of the amplicon region to be included in output. The sequence is padded with leading dashes as necessary.")
 myparser.add_option("--max_stop", action="store", type="int", dest="max_stop", default=0,
-                    help="Specify width of the alignment to be output, including paddings. Maximum stop position of the amplicon region to be included in output. The length of the sequence if filled with padding dashes as necessary. If not specified, no trailing dashes will be added after the HSP match.")
+                    help="1-based maximum stop position (inclusive) of the amplicon region to be included in output. Specifies the total alignment width including paddings. The sequence is padded with trailing dashes as necessary. If not specified, no trailing dashes will be added after the HSP match.")
 myparser.add_option("--aln_start", action="store", type="int", dest="aln_start", default=0,
-                    help="Start coordinate of the FASTA sequence when aligned to a reference")
+                    help="1-based start coordinate of the FASTA sequence when aligned to a reference")
 myparser.add_option("--aln_stop", action="store", type="int", dest="aln_stop", default=0,
-                    help="End coordinate of the FASTA sequence when aligned to a reference")
+                    help="1-based end coordinate of the FASTA sequence when aligned to a reference")
 myparser.add_option("--min_count", action="store", type="int", dest="min_count", default=0,
                     help="Minimum read count")
 myparser.add_option("--x-after-count", action="store_true", dest="x_after_count", default=False,
@@ -450,7 +450,7 @@ def parse_input(infile, reference_sequence, infileformat, min_start=0, max_stop=
     """
 
     if min_start:
-        min_start -= 1  # treat real numbering like 0 for 0-based pythonic counting, undo off-by-one error when --min_start=1 is provided
+        min_start -= 1  # convert user's 1-based position to 0-based Python index
 
     if max_stop or min_start:
         _required_alignment_width = max_stop - min_start

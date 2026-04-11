@@ -65,24 +65,23 @@ def build_option_parser():
                                "Default: 0 (use the whole reference to the end)")
     myparser.add_argument("--aa_start", action="store", type=int,
                           dest="aa_start", default=0,
-                          help="Adjust (padded) real position of the very first codon unless (1 for an initiator "
-                               "ATG). This value is added to the codon position reported in the output TSV "
-                               "file (the ATG position minus one). Use this if you cannot use "
-                               "--left-reference-offset nor --right-reference-offset which would have "
-                               "been used for slicing the input reference. The value provided is decremented "
-                               "by one to match pythonic 0-based numbering.")
+                          help="1-based amino-acid position of the very first codon in the output "
+                               "(e.g. 413 for the Spike RBD starting at residue 413). "
+                               "This offset is added to the codon position reported in the output TSV. "
+                               "Use this when the alignment starts at a sub-region of a protein and "
+                               "you want positions to reflect the full protein. Default: 0")
     myparser.add_argument("--min_start", action="store", type=int,
                           dest="min_start", default=0,
-                          help="Start parsing the alignment since this position of the ALIGNMENT file. "
-                               "This requires 1-based numbering. This is to speedup parsing of input "
-                               "sequences and of the reference by skipping typical leading and trailing "
-                               "padding dashes. Default: 0 (parse since the beginning)")
+                          help="1-based DNA nucleotide position in the ALIGNMENT to start processing at. "
+                               "Codons are iterated in steps of 3 starting from this position, so use "
+                               "this to select an alternative reading frame (e.g. 3 for frame +3). "
+                               "Default: 0 (start from the beginning)")
     myparser.add_argument("--max_stop", action="store", type=int,
                           dest="max_stop", default=0,
-                          help="Stop parsing the alignment at this position of the ALIGNMENT file. "
-                               "This requires 1-based numbering. This is to speedup parsing of input "
-                               "sequences and of the reference by skipping typical leading and trailing "
-                               "padding dashes. Default: 0 (parse until the very end)")
+                          help="1-based DNA nucleotide position in the ALIGNMENT to stop processing at "
+                               "(inclusive). The last codon processed will be the one whose first "
+                               "nucleotide falls at or before this position. "
+                               "Default: 0 (process until the end)")
     myparser.add_argument("--x-after-count", action="store_true",
                           dest="x_after_count", default=False,
                           help="The FASTA file ID contains the count value followed by lowercase 'x'")
