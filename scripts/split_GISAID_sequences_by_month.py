@@ -179,9 +179,6 @@ def _is_epi_id(text):
     return bool(re.match(r'EPI_ISL_\d+$', text.strip()))
 
 
-_EXPECTED_PIPE_COUNT = 4   # gene | virusname | date | epi_id | region
-
-
 def _parse_header_date(line):
     """Parse (year, month) from a GISAID FASTA header line.
 
@@ -246,9 +243,6 @@ def _detect_stray_pipes(line):
     """
     raw = line.rstrip('\n')
     all_cols = raw.split('|')
-    pipe_count = len(all_cols) - 1
-    if pipe_count <= _EXPECTED_PIPE_COUNT:
-        return None
 
     # Identify which columns are "known" (date or EPI_ISL).
     # Everything between the gene (col 0) and the first known
@@ -260,8 +254,10 @@ def _detect_stray_pipes(line):
             first_known_idx = idx
             break
 
-    if first_known_idx is None or first_known_idx <= 1:
-        return None  # can't determine stray pipes
+    # Virus name should be at index 1; if the first known column
+    # is at index 2, that's normal (gene|virusname|date_or_epi|...).
+    if first_known_idx is None or first_known_idx <= 2:
+        return None
 
     # Columns 1..first_known_idx-1 are fragments of the virus name
     virusname_fragments = all_cols[1:first_known_idx]
