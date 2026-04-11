@@ -111,61 +111,65 @@ def _normalize_date_parts(year, month, day):
     return year, month, day
 
 
+def _looks_like_date(text):
+    """Return True if *text* could be a date (YYYY-MM-DD, YYYY-MM, DD-Mon-YYYY)."""
+    parts = text.split('-')
+    if len(parts) < 2:
+        return False
+    # YYYY-MM or YYYY-MM-DD
+    if len(parts[0]) == 4 and parts[0].isdigit():
+        return True
+    # DD-Mon-YYYY
+    if len(parts[0]) <= 2 and parts[0].isdigit() and len(parts) == 3:
+        return True
+    return False
+
+
+def _parse_date_column(date_str):
+    """Split a date string into (year, month, day) parts.
+
+    Returns ``(year, month, day)``; *day* may be ``''`` for YYYY-MM.
+    """
+    parts = date_str.split('-')
+    if len(parts) == 3:
+        year, month, day = parts
+    elif len(parts) == 2:
+        year, month = parts
+        day = ''
+    else:
+        raise ValueError(f"Unexpected date format '{date_str}'")
+    if day:
+        year, month, day = _normalize_date_parts(year, month, day)
+    return year, month, day
+
+
 def _parse_header_date(line):
     """Parse (year, month) from a GISAID FASTA header line.
 
-    Handles both column orderings:
-      ``>Spike|virusname|DATE|EPI_ID|...``
-      ``>Spike|virusname|EPI_ID|DATE|...``
+    Scans all ``|``-delimited columns (after the first) for a value
+    that looks like a date, to handle varying GISAID column orderings.
 
-    Also handles DD-Mon-YYYY date formats (e.g. ``01-Jul-2021``).
+    Also handles DD-Mon-YYYY date formats (e.g. ``01-Jul-2021``)
+    and YYYY-MM dates without a day component.
     """
-    try:
-        _virusname, _date, _epi_id = line.split('|')[1:4]
-    except ValueError as exc:
+    columns = line.split('|')[1:]   # skip the gene/sequence name
+    if not columns:
         raise ValueError(
-            "Cannot split entries from line '%s'" % str(line)
-        ) from exc
-
-    _year = _month = _day = ''
-    _parts = _date.split('-')
-    if len(_parts) == 3:
-        _year, _month, _day = _parts
-    elif len(_parts) == 2:
-        _year, _month = _parts
-        _day = ''
-    else:
-        # Not a valid date — try the 4th column instead
-        _parts = None
-
-    if _parts is None or (len(_year) < 4 and len(_day) == 0):
-        # Date is in the 4th column instead of the 3rd
-        try:
-            _virusname, _epi_id, _date = line.split('|')[1:4]
-        except ValueError as exc:
-            raise ValueError(
-                "Cannot split date from line '%s'" % str(line)
-            ) from exc
-        _parts = _date.split('-')
-        if len(_parts) == 3:
-            _year, _month, _day = _parts
-        elif len(_parts) == 2:
-            _year, _month = _parts
-            _day = ''
-        else:
-            raise ValueError(
-                "Cannot parse date from '%s' in line '%s'"
-                % (_date, line.rstrip('\n'))
-            )
-
-    if _day:
-        _year, _month, _day = _normalize_date_parts(
-            _year, _month, _day
+            "No pipe-delimited columns in line '%s'"
+            % line.rstrip('\n')
         )
 
-    return sanitize_year_and_month(
-        _year, _month, original_date=_date,
-        header_line=line,
+    for col in columns:
+        col = col.strip()
+        if _looks_like_date(col):
+            _year, _month, _day = _parse_date_column(col)
+            return sanitize_year_and_month(
+                _year, _month, original_date=col,
+                header_line=line,
+            )
+
+    raise ValueError(
+        "No date column found in line '%s'" % line.rstrip('\n')
     )
 
 
