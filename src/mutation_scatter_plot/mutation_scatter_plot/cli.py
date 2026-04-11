@@ -99,12 +99,26 @@ def build_option_parser():
              " [default is False]",
     )
     myparser.add_argument(
-        "--show-INS", action="store_true", dest="showins", default=False,
-        help="Include INS in charts on Y-axis. [default is False]",
+        "--show-INS", action="store_const", const=True, dest="showins", default=None,
+        help="Always include INS row in charts on Y-axis, even if empty."
+             " Without this flag, INS is auto-detected: shown only when INS"
+             " events exist in the [xmin, xmax] viewing range. [default is auto]",
     )
     myparser.add_argument(
-        "--show-DEL", action="store_true", dest="showdel", default=False,
-        help="Include DEL in charts on Y-axis. [default is False]",
+        "--hide-INS", action="store_const", const=False, dest="showins",
+        help="Never include INS row in charts on Y-axis."
+             " Overrides auto-detection. [default is auto]",
+    )
+    myparser.add_argument(
+        "--show-DEL", action="store_const", const=True, dest="showdel", default=None,
+        help="Always include DEL row in charts on Y-axis, even if empty."
+             " Without this flag, DEL is auto-detected: shown only when DEL"
+             " events exist in the [xmin, xmax] viewing range. [default is auto]",
+    )
+    myparser.add_argument(
+        "--hide-DEL", action="store_const", const=False, dest="showdel",
+        help="Never include DEL row in charts on Y-axis."
+             " Overrides auto-detection. [default is auto]",
     )
     myparser.add_argument(
         "--show-X", action="store_true", dest="showx", default=False,
@@ -275,9 +289,10 @@ def main():  # pylint: disable=too-many-locals
         myoptions, myoptions.tsv_file_path, _padded_position2position,
     )
 
+    _effective_xmin = myoptions.xmin if myoptions.xmin else min(_padded_position2position.keys())
+    _effective_xmax = myoptions.xmax if myoptions.xmax else max(_padded_position2position.keys())
+
     if not myoptions.disable_padded_x_axis:
-        _effective_xmin = myoptions.xmin if myoptions.xmin else min(_padded_position2position.keys())
-        _effective_xmax = myoptions.xmax if myoptions.xmax else max(_padded_position2position.keys())
         _window = {k: v for k, v in _padded_position2position.items() if _effective_xmin <= k <= _effective_xmax}
         if _window:
             _differences = set(k - v for k, v in _window.items())
@@ -292,6 +307,34 @@ def main():  # pylint: disable=too-many-locals
                     "Switching to natural position X-axis.",
                     file=sys.stderr
                 )
+
+    # Auto-detect INS/DEL: resolve None → True/False based on data in viewing range
+    if myoptions.showins is None:
+        _ins_in_range = _df[
+            (_df['original_aa'] == 'INS') &
+            (_df['padded_position'] >= _effective_xmin) &
+            (_df['padded_position'] <= _effective_xmax)
+        ]
+        myoptions.showins = len(_ins_in_range) > 0
+        if myoptions.showins:
+            print(
+                f"Info: Auto-detected {len(_ins_in_range)} INS events in viewing range "
+                f"[{_effective_xmin}, {_effective_xmax}]. Enabling INS row.",
+                file=sys.stderr
+            )
+    if myoptions.showdel is None:
+        _del_in_range = _df[
+            (_df['mutant_aa'] == 'DEL') &
+            (_df['padded_position'] >= _effective_xmin) &
+            (_df['padded_position'] <= _effective_xmax)
+        ]
+        myoptions.showdel = len(_del_in_range) > 0
+        if myoptions.showdel:
+            print(
+                f"Info: Auto-detected {len(_del_in_range)} DEL events in viewing range "
+                f"[{_effective_xmin}, {_effective_xmax}]. Enabling DEL row.",
+                file=sys.stderr
+            )
 
     print(f"Info: Writing into {_outfile_prefix}.actually_rendered.tsv")
     # Speedup 6: Export Decimal to string for reporting while keeping precision

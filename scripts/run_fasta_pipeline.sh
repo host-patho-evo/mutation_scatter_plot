@@ -9,7 +9,7 @@
 #   nohup bash -c "run_fasta_pipeline.sh --infile=spikenuc1207.fasta --reference=MN908947.3_S.fasta 2>&1 | ts '[%Y-%m-%d %H:%M:%S]'" > pipeline_run.log &
 #
 # Real-time monitoring:
-#   while true; do COLUMNS=512 top -c -b -w 512 -u "$USER" -n1 | grep -E 'grep|awk|python|blast|sed' | head -15; sleep 10; done
+#   while true; do COLUMNS=512 top -c -b -w 512 -u "$USER" -n1 | grep -E 'grep|awk|python|blast|sed' | head -35; sleep 10; done
 
 VERSION="202604101800"
 GIT_VERSION=$(git -C "$(dirname "$0")" rev-parse --short=12 HEAD 2>/dev/null || echo "unknown")
