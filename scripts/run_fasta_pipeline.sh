@@ -464,7 +464,7 @@ PIPEEOF
                     --outfile-prefix="${_freq_prefix}${_aa_suffix}" \
                     --aminoacids --show-DEL --show-INS \
                     $_xrange_args --threshold "$threshold" \
-                    $_tick_args $_title_arg \
+                    $_tick_args ${_title_arg:+"$_title_arg"} \
                     --colormap=coolwarm_r $_interactive
 
                 mutation_scatter_plot $_scaling \
@@ -472,7 +472,7 @@ PIPEEOF
                     --outfile-prefix="${_freq_prefix}${_codon_suffix}" \
                     --show-DEL --show-INS \
                     $_xrange_args --threshold "$threshold" \
-                    $_tick_args $_title_arg \
+                    $_tick_args ${_title_arg:+"$_title_arg"} \
                     --include-synonymous --colormap=coolwarm_r $_interactive
 
                 mutation_scatter_plot $_scaling \
@@ -480,7 +480,7 @@ PIPEEOF
                     --outfile-prefix="${_freq_prefix}${_codon_suffix}" \
                     --show-DEL --show-INS \
                     $_xrange_args --threshold "$threshold" \
-                    $_tick_args $_title_arg \
+                    $_tick_args ${_title_arg:+"$_title_arg"} \
                     --include-synonymous $_interactive
 
                 mutation_scatter_plot $_scaling \
@@ -488,7 +488,7 @@ PIPEEOF
                     --outfile-prefix="${_freq_prefix}${_aa_suffix}" \
                     --aminoacids --show-DEL --show-INS \
                     $_xrange_args --threshold "$threshold" \
-                    $_tick_args $_title_arg \
+                    $_tick_args ${_title_arg:+"$_title_arg"} \
                     $_interactive
             done
     done
