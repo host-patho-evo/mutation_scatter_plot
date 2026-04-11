@@ -494,31 +494,35 @@ PIPEEOF
         done
     else
         # No ranges specified — render full range
+        local _full_max=$(( somelen / 3 ))
+        local _aa_suffix=".aa1-aa${_full_max}"
+        local _codon_suffix=".codon1-codon${_full_max}"
+
         for _scaling in '--linear-circle-size' ''; do
             mutation_scatter_plot $_scaling \
                 --tsv="${_freq_prefix}.frequencies.tsv" \
-                --outfile-prefix="${_freq_prefix}" \
+                --outfile-prefix="${_freq_prefix}${_aa_suffix}" \
                 --aminoacids --show-DEL --show-INS \
                 --threshold "$threshold" \
                 --colormap=coolwarm_r $_interactive
 
             mutation_scatter_plot $_scaling \
                 --tsv="${_freq_prefix}.frequencies.tsv" \
-                --outfile-prefix="${_freq_prefix}" \
+                --outfile-prefix="${_freq_prefix}${_codon_suffix}" \
                 --show-DEL --show-INS \
                 --threshold "$threshold" \
                 --include-synonymous --colormap=coolwarm_r $_interactive
 
             mutation_scatter_plot $_scaling \
                 --tsv="${_freq_prefix}.frequencies.tsv" \
-                --outfile-prefix="${_freq_prefix}" \
+                --outfile-prefix="${_freq_prefix}${_codon_suffix}" \
                 --show-DEL --show-INS \
                 --threshold "$threshold" \
                 --include-synonymous $_interactive
 
             mutation_scatter_plot $_scaling \
                 --tsv="${_freq_prefix}.frequencies.tsv" \
-                --outfile-prefix="${_freq_prefix}" \
+                --outfile-prefix="${_freq_prefix}${_aa_suffix}" \
                 --aminoacids --show-DEL --show-INS \
                 --threshold "$threshold" \
                 $_interactive
