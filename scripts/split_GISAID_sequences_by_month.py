@@ -3,13 +3,24 @@
 # vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
 """Split GISAID FASTA files into per-month (YYYY-MM) subsets.
 
-The GISAID header format places the collection date either in the 3rd or
-4th ``|``-delimited column.  Both variants are handled transparently.
+The GISAID header format places the collection date in varying
+``|``-delimited columns.  All columns are scanned to locate a
+date-like value.  The script also handles dates without a day
+component (``YYYY-MM``) and the ``DD-Mon-YYYY`` format.
 
-Example headers::
+Example headers (all supported)::
 
     >Spike|hCoV-19/Wuhan/WIV04/2019|2019-12-30|EPI_ISL_402124|...
     >Spike|hCoV-19/France/BRE-IPP16678/2021|EPI_ISL_3219515|2021-07-13|...
+    >Spike|hCoV-19/example/2021|EPI_ISL_999|2021-07|NorthAmerica
+    >Spike|hCoV-19/example/2021|EPI_ISL_999|01-Jul-2021|NorthAmerica
+
+Some virus names contain stray ``|`` characters, e.g.::
+
+    >Spike|hCoV-19/USA/LA-OD-|O-4336284453/2023|EPI_ISL_16576342|2023-01-10|NorthAmerica
+
+These are detected and sed edit recipes are written to a
+``.stray_pipes.sed`` file for fixing the input.
 
 Output
 ------
@@ -19,8 +30,8 @@ deposited in that month.
 
 Usage::
 
-    split_GISAID_sequences_by_month.py \\
-        --infilename spikenuc1207.fasta \\
+    split_GISAID_sequences_by_month.py \\\\
+        --infilename spikenuc1207.fasta \\\\
         --outfile-prefix spikenuc1207 --debug 1
 """
 
@@ -61,7 +72,18 @@ _GIT_VERSION: str = _get_git_version()
 def sanitize_year_and_month(
     year, month, original_date='', header_line='',
 ):
-    """Validate and zero-pad year/month strings."""
+    """Validate and zero-pad year/month strings.
+
+    Handles numeric months (``'1'`` → ``'01'``, ``'07'``) as well as
+    abbreviated month names (``'Jul'`` → ``'07'``).
+
+    Examples::
+
+        >>> sanitize_year_and_month('2023', '7')
+        ('2023', '07')
+        >>> sanitize_year_and_month('2021', 'Jul')
+        ('2021', '07')
+    """
     _hdr = header_line.rstrip('\n')
     _ctx = ''
     if original_date:
@@ -106,7 +128,15 @@ def sanitize_year_and_month(
 
 
 def _normalize_date_parts(year, month, day):
-    """Swap year/day when the date is in DD-Mon-YYYY order."""
+    """Swap year/day when the date is in DD-Mon-YYYY order.
+
+    Example::
+
+        >>> _normalize_date_parts('01', 'Jul', '2021')
+        ('2021', 'Jul', '01')
+        >>> _normalize_date_parts('2021', '07', '01')
+        ('2021', '07', '01')
+    """
     if len(year) <= 2 and len(day) == 4:
         return day, month, year
     return year, month, day
@@ -158,8 +188,23 @@ def _parse_header_date(line):
     Scans all ``|``-delimited columns (after the first) for a value
     that looks like a date, to handle varying GISAID column orderings.
 
-    Also handles DD-Mon-YYYY date formats (e.g. ``01-Jul-2021``)
-    and YYYY-MM dates without a day component.
+    Supported date formats:
+
+    - ``YYYY-MM-DD`` (e.g. ``2023-01-10``)
+    - ``YYYY-MM``    (e.g. ``2021-07``, no day component)
+    - ``DD-Mon-YYYY`` (e.g. ``01-Jul-2021``)
+
+    Examples::
+
+        >>> _parse_header_date(
+        ...     '>Spike|hCoV-19/Wuhan/WIV04/2019|2019-12-30|EPI_ISL_402124|Asia')
+        ('2019', '12')
+        >>> _parse_header_date(
+        ...     '>Spike|hCoV-19/example/2021|EPI_ISL_999|01-Jul-2021|Region')
+        ('2021', '07')
+        >>> _parse_header_date(
+        ...     '>Spike|hCoV-19/USA/LA-OD-|O-4336284453/2023|EPI_ISL_16576342|2023-01-10|NA')
+        ('2023', '01')
     """
     columns = line.split('|')[1:]   # skip the gene/sequence name
     if not columns:
@@ -185,11 +230,19 @@ def _parse_header_date(line):
 def _detect_stray_pipes(line):
     """Detect stray ``|`` inside the virus name.
 
+    For example, the header::
+
+        >Spike|hCoV-19/USA/LA-OD-|O-4336284453/2023|EPI_ISL_16576342|2023-01-10|NA
+
+    has a stray ``|`` splitting ``hCoV-19/USA/LA-OD-O-4336284453/2023``.
+
     Returns ``None`` if the header looks normal, or a dict with:
-      - ``original``: the original header (stripped)
-      - ``fixed``:    the corrected header with stray pipes removed
-      - ``virusname_original``: the broken virus name fragments
-      - ``virusname_fixed``:    the reconstructed virus name
+
+    - ``original``: the original header (stripped)
+    - ``fixed``:    the corrected header with stray pipes removed
+    - ``virusname_original``: the broken virus name fragments
+    - ``virusname_fixed``:    the reconstructed virus name
+    - ``extra_pipes``: number of stray pipes found
     """
     raw = line.rstrip('\n')
     all_cols = raw.split('|')
