@@ -425,9 +425,21 @@ def main():
             f"Edit recipes written to: {_recipe_path}"
         )
         print(
-            f"  Fix with: sed -i -f {_recipe_path} "
+            f"  Applying: sed -i -f {_recipe_path} "
             f"{args.infilename}"
         )
+        subprocess.run(
+            ['sed', '-i', '-f', _recipe_path, args.infilename],
+            check=True,
+        )
+        # Re-parse after fixing the input file
+        yyyymm_dictionary, stray_pipe_records2 = \
+            get_list_of_yyyymm_present(args.infilename)
+        if stray_pipe_records2:
+            print(
+                f"Warning: {len(stray_pipe_records2)} header(s) "
+                f"still have stray pipes after fix"
+            )
 
     if args.debug:
         print(
