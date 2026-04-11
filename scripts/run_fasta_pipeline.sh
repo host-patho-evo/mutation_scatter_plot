@@ -250,11 +250,17 @@ fi
 # Stage 1b: Split FASTA by month (optional, GISAID-specific)
 # ──────────────────────────────────────────────────────────────────────────────
 if $split_gisaid_by_month; then
-    echo "Info: Splitting ${fp}.fasta by YYYY-MM into per-month files..."
-    split_GISAID_sequences_by_month.py \
-        --infilename="${fp}.fasta" \
-        --outfile-prefix="${fp}"
-    echo "Info: Per-month files created."
+    # Guard: skip if per-month files already exist
+    _existing_months=$(ls -1 "${fp}".????-??.fasta 2>/dev/null | head -1)
+    if [ -z "$_existing_months" ]; then
+        echo "Info: Splitting ${fp}.fasta by YYYY-MM into per-month files..."
+        split_GISAID_sequences_by_month.py \
+            --infilename="${fp}.fasta" \
+            --outfile-prefix="${fp}"
+        echo "Info: Per-month files created."
+    else
+        echo "Info: Per-month files already exist, skipping split step."
+    fi
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
