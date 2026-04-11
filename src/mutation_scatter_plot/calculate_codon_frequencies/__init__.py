@@ -693,21 +693,21 @@ def parse_alignment(myoptions: typing.Any, alignment_file: str, padded_reference
         if _external_pool:
             _active_pool = pool
             try:
-                _all_results = _active_pool.starmap(
+                _all_results = list(_active_pool.map(
                     _process_one_site_wrapper,
-                    [(_pos,) for _pos in _slim_positions],
+                    _slim_positions,
                     chunksize=chunksize,
-                )
+                ))
             finally:
                 _WORKER_SHARED = {}
         else:
             with multiprocessing.Pool(processes=threads) as _active_pool:
                 try:
-                    _all_results = _active_pool.starmap(
+                    _all_results = list(_active_pool.map(
                         _process_one_site_wrapper,
-                        [(_pos,) for _pos in _slim_positions],
+                        _slim_positions,
                         chunksize=chunksize,
-                    )
+                    ))
                 finally:
                     _WORKER_SHARED = {}
 
