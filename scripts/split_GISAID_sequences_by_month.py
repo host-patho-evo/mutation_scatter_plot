@@ -72,7 +72,7 @@ _GIT_VERSION: str = _get_git_version()
 # ---------------------------------------------------------------------------
 
 def sanitize_year_and_month(
-    year, month, original_date='', header_line='',
+    year, month, original_date='', header_line='', quiet=False,
 ):
     """Validate and zero-pad year/month strings.
 
@@ -102,7 +102,8 @@ def sanitize_year_and_month(
         _month = month
 
     if _month == '00':
-        print(f"Info: Weird month in {year}-{month}{_ctx}")
+        if not quiet:
+            print(f"Info: Weird month in {year}-{month}{_ctx}")
     else:
         try:
             if int(_month.lstrip('0')) > 12:
@@ -181,7 +182,7 @@ def _is_epi_id(text):
     return bool(re.match(r'EPI_ISL_\d+$', text.strip()))
 
 
-def _parse_header_date(line):
+def _parse_header_date(line, quiet=False):
     """Parse (year, month) from a GISAID FASTA header line.
 
     Scans all ``|``-delimited columns (after the first) for a value
@@ -218,7 +219,7 @@ def _parse_header_date(line):
             _year, _month, _day = _parse_date_column(col)
             return sanitize_year_and_month(
                 _year, _month, original_date=col,
-                header_line=line,
+                header_line=line, quiet=quiet,
             )
 
     raise ValueError(
@@ -328,7 +329,9 @@ def split_sequences_by_month(
             for _line in _infile:
                 if _line[0] == '>':
                     _output_following_lines = False
-                    _year, _month = _parse_header_date(_line)
+                    _year, _month = _parse_header_date(
+                        _line, quiet=True,
+                    )
                     _yyyymm = f"{_year}-{_month}"
                     if _yyyymm == yyyymm:
                         _outfileh.write(_line)
