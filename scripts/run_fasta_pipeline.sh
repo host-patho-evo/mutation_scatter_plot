@@ -22,8 +22,8 @@ set -eo pipefail
 infile=""
 reference=""
 discard_junk=""
-xmin=430
-xmax=528
+xmin=""
+xmax=""
 threshold=0.001
 jobs=5
 sort_bucket_size="40%"
@@ -61,8 +61,8 @@ Optional:
                             this is the reference sequence length.  Use when the
                             reference is padded but you want to filter for the
                             unpadded length (e.g. ref=3870, filter=3822).
-  --xmin=INT                Start codon for scatter plots [default: 430].
-  --xmax=INT                End codon for scatter plots [default: 528].
+  --xmin=INT                Start codon for scatter plots [default: full range].
+  --xmax=INT                End codon for scatter plots [default: full range].
   --threshold=FLOAT         Minimum frequency for filtered TSVs [default: 0.001].
   --jobs=INT                Parallel jobs for summarize_fasta_pipeline.py [default: 5].
   --sort-bucket-size=SIZE   Memory fraction for sort buckets [default: 40%].
@@ -194,7 +194,11 @@ else
     echo "  Discard junk: (disabled — no .no_junk filtering)"
 fi
 echo "  Full-length filter: $somelen"
-echo "  Plot range: codons ${xmin}–${xmax}, threshold: $threshold"
+if [ -n "$xmin" ] && [ -n "$xmax" ]; then
+    echo "  Plot range: codons ${xmin}–${xmax}, threshold: $threshold"
+else
+    echo "  Plot range: full range, threshold: $threshold"
+fi
 echo "  Jobs: $jobs, codon-freq threads: $codon_freq_threads"
 if [ -n "$compare_frequencies" ]; then
     echo "  Compare with:  $compare_frequencies"
@@ -409,24 +413,28 @@ if [ -n "$compare_frequencies" ]; then
     old_freqs="$compare_frequencies"
     old_unchanged="$(echo "$compare_frequencies" | sed 's/\.tsv$/.unchanged_codons.tsv/')"
 
-    if [ -f "$old_freqs" ]; then
-        for n in $(seq "$xmin" "$xmax"); do
-            echo ""
-            echo "$n OLD $old_freqs"
-            awk -F'\t' '$2=='"$n" "$old_freqs"
-            echo "$n NEW ${freq_prefix}.frequencies.${threshold_tag}.tsv"
-            awk -F'\t' '$2=='"$n" "${freq_prefix}.frequencies.${threshold_tag}.tsv"
-        done > "${freq_prefix}.frequencies.comparison.txt"
-    fi
+    if [ -z "$xmin" ] || [ -z "$xmax" ]; then
+        echo "Warning: --compare-frequencies requires --xmin and --xmax; skipping comparison." >&2
+    else
+        if [ -f "$old_freqs" ]; then
+            for n in $(seq "$xmin" "$xmax"); do
+                echo ""
+                echo "$n OLD $old_freqs"
+                awk -F'\t' '$2=='"$n" "$old_freqs"
+                echo "$n NEW ${freq_prefix}.frequencies.${threshold_tag}.tsv"
+                awk -F'\t' '$2=='"$n" "${freq_prefix}.frequencies.${threshold_tag}.tsv"
+            done > "${freq_prefix}.frequencies.comparison.txt"
+        fi
 
-    if [ -f "$old_unchanged" ]; then
-        for n in $(seq "$xmin" "$xmax"); do
-            echo ""
-            echo "$n OLD $old_unchanged"
-            awk -F'\t' '$2=='"$n" "$old_unchanged"
-            echo "$n NEW ${freq_prefix}.frequencies.unchanged_codons.${threshold_tag}.tsv"
-            awk -F'\t' '$2=='"$n" "${freq_prefix}.frequencies.unchanged_codons.${threshold_tag}.tsv"
-        done > "${freq_prefix}.frequencies.unchanged_codons.comparison.txt"
+        if [ -f "$old_unchanged" ]; then
+            for n in $(seq "$xmin" "$xmax"); do
+                echo ""
+                echo "$n OLD $old_unchanged"
+                awk -F'\t' '$2=='"$n" "$old_unchanged"
+                echo "$n NEW ${freq_prefix}.frequencies.unchanged_codons.${threshold_tag}.tsv"
+                awk -F'\t' '$2=='"$n" "${freq_prefix}.frequencies.unchanged_codons.${threshold_tag}.tsv"
+            done > "${freq_prefix}.frequencies.unchanged_codons.comparison.txt"
+        fi
     fi
 fi
 
@@ -434,37 +442,52 @@ fi
 # Stage 9: Mutation scatter plots
 # ──────────────────────────────────────────────────────────────────────────────
 interactive="--disable-showing-bokeh --disable-showing-mplcursors"
+
+# Build conditional --xmin/--xmax arguments and output-prefix suffix.
+# When unset, mutation_scatter_plot renders the full range automatically.
+xrange_args=""
+if [ -n "$xmin" ]; then xrange_args="$xrange_args --xmin $xmin"; fi
+if [ -n "$xmax" ]; then xrange_args="$xrange_args --xmax $xmax"; fi
+
+if [ -n "$xmin" ] && [ -n "$xmax" ]; then
+    aa_suffix=".aa${xmin}-aa${xmax}"
+    codon_suffix=".codon${xmin}-codon${xmax}"
+else
+    aa_suffix=""
+    codon_suffix=""
+fi
+
 for scaling in '--linear-circle-size' ''; do
     # Amino acid plots with coolwarm_r
     mutation_scatter_plot $scaling \
         --tsv="${freq_prefix}.frequencies.tsv" \
-        --outfile-prefix="${freq_prefix}.aa${xmin}-aa${xmax}" \
+        --outfile-prefix="${freq_prefix}${aa_suffix}" \
         --aminoacids --show-DEL --show-INS \
-        --xmin "$xmin" --xmax "$xmax" --threshold "$threshold" \
+        $xrange_args --threshold "$threshold" \
         --colormap=coolwarm_r $interactive
 
     # Codon plots with coolwarm_r
     mutation_scatter_plot $scaling \
         --tsv="${freq_prefix}.frequencies.tsv" \
-        --outfile-prefix="${freq_prefix}.codon${xmin}-codon${xmax}" \
+        --outfile-prefix="${freq_prefix}${codon_suffix}" \
         --show-DEL --show-INS \
-        --xmin "$xmin" --xmax "$xmax" --threshold "$threshold" \
+        $xrange_args --threshold "$threshold" \
         --include-synonymous --colormap=coolwarm_r $interactive
 
     # Codon plots with default colormap (amino_acid_changes)
     mutation_scatter_plot $scaling \
         --tsv="${freq_prefix}.frequencies.tsv" \
-        --outfile-prefix="${freq_prefix}.codon${xmin}-codon${xmax}" \
+        --outfile-prefix="${freq_prefix}${codon_suffix}" \
         --show-DEL --show-INS \
-        --xmin "$xmin" --xmax "$xmax" --threshold "$threshold" \
+        $xrange_args --threshold "$threshold" \
         --include-synonymous $interactive
 
     # Amino acid plots with default colormap
     mutation_scatter_plot $scaling \
         --tsv="${freq_prefix}.frequencies.tsv" \
-        --outfile-prefix="${freq_prefix}.aa${xmin}-aa${xmax}" \
+        --outfile-prefix="${freq_prefix}${aa_suffix}" \
         --aminoacids --show-DEL --show-INS \
-        --xmin "$xmin" --xmax "$xmax" --threshold "$threshold" \
+        $xrange_args --threshold "$threshold" \
         $interactive
 done
 
