@@ -74,7 +74,8 @@ class TimelinePoint:
     computed during data collection.
     """
     month: str           # 'YYYY-MM'
-    position: int        # aa position
+    position: int        # aa position (real)
+    padded_position: int # padded alignment position
     ref_aa: str          # reference amino acid
     mutant_aa: str       # mutant amino acid
     ref_codon: str       # reference codon
@@ -133,13 +134,17 @@ def _slot_sort_key(slot_key: str, codon_view: bool = True) -> tuple:
     (mutant amino acid) using the standard amino acid order.
     """
     if codon_view:
-        # key = "ref_codon|mutant_codon"
+        # key = "padded_pos|ref_codon|mutant_codon"
         parts = slot_key.split('|')
-        mutant = parts[1] if len(parts) > 1 else parts[0]
-        return (_CODON_RANK.get(mutant.upper(), 999), slot_key)
-    # AA mode: key = label like "D614G", last char is mutant_aa
-    mutant_aa = slot_key[-1] if slot_key else '?'
-    return (_AA_RANK.get(mutant_aa, 999), slot_key)
+        padded = int(parts[0]) if parts[0].isdigit() else 0
+        mutant = parts[2] if len(parts) > 2 else parts[-1]
+        return (padded, _CODON_RANK.get(mutant.upper(), 999), slot_key)
+    # AA mode: key = "padded_pos|label", label like "D614G"
+    parts = slot_key.split('|')
+    padded = int(parts[0]) if parts[0].isdigit() else 0
+    lbl = parts[1] if len(parts) > 1 else parts[0]
+    mutant_aa = lbl[-1] if lbl else '?'
+    return (padded, _AA_RANK.get(mutant_aa, 999), slot_key)
 
 
 def recolor_timeline_data(
@@ -502,6 +507,7 @@ def collect_timeline_data(
 
         for _, row in df_filtered.iterrows():
             pos = int(row['position'])
+            padded_pos = int(row.get('padded_position', pos))
             ref_codon = str(row.get('original_codon', ''))
             mut_codon = str(row.get('mutant_codon', ''))
             ref_aa = str(row.get('original_aa', ''))
@@ -554,6 +560,7 @@ def collect_timeline_data(
             pt = TimelinePoint(
                 month=month_str,
                 position=pos,
+                padded_position=padded_pos,
                 ref_aa=ref_aa,
                 mutant_aa=mut_aa,
                 ref_codon=ref_codon,
@@ -565,37 +572,6 @@ def collect_timeline_data(
             )
             data.points.append(pt)
             seen_positions.add(pos)
-
-    # Deduplicate: if the same codon mutation appears multiple times in the
-    # same month (e.g. from multiple padded positions mapping to the same real
-    # position), merge by summing frequencies.  Keep the colour/score from
-    # the entry with the highest individual frequency.
-    _dedup: dict[tuple, TimelinePoint] = {}
-    for pt in data.points:
-        _key = (pt.month, pt.position, pt.ref_codon, pt.mutant_codon)
-        if _key in _dedup:
-            existing = _dedup[_key]
-            merged_freq = existing.frequency + pt.frequency
-            # Keep the score/colour from whichever has the higher frequency
-            if pt.frequency > existing.frequency:
-                _dedup[_key] = TimelinePoint(
-                    month=pt.month, position=pt.position,
-                    ref_aa=pt.ref_aa, mutant_aa=pt.mutant_aa,
-                    ref_codon=pt.ref_codon, mutant_codon=pt.mutant_codon,
-                    frequency=merged_freq,
-                    color=pt.color, score=pt.score, label=pt.label,
-                )
-            else:
-                _dedup[_key] = TimelinePoint(
-                    month=existing.month, position=existing.position,
-                    ref_aa=existing.ref_aa, mutant_aa=existing.mutant_aa,
-                    ref_codon=existing.ref_codon, mutant_codon=existing.mutant_codon,
-                    frequency=merged_freq,
-                    color=existing.color, score=existing.score, label=existing.label,
-                )
-        else:
-            _dedup[_key] = pt
-    data.points = list(_dedup.values())
 
     data.months = sorted(seen_months)
     data.positions = sorted(seen_positions)
@@ -653,14 +629,15 @@ def _compute_intra_band_spread(band_spacing: float) -> float:
 def _slot_key(pt: TimelinePoint, codon_view: bool = True) -> str:
     """Return a unique key for vertical slot assignment within a band.
 
-    In codon mode, uses the codon pair (ref_codon, mutant_codon) so that
-    every distinct codon mutation gets its own row.
-    In AA mode, uses the AA-level label (e.g. 'D614G') so that different
-    codons producing the same AA change share one row (with summed freq).
+    Includes the padded_position so that different alignment rows mapping
+    to the same real position get distinct vertical slots.
+
+    In codon mode: ``'padded_pos|ref_codon|mutant_codon'``.
+    In AA mode:    ``'padded_pos|label'``.
     """
     if codon_view:
-        return f"{pt.ref_codon}|{pt.mutant_codon}"
-    return pt.label
+        return f"{pt.padded_position}|{pt.ref_codon}|{pt.mutant_codon}"
+    return f"{pt.padded_position}|{pt.label}"
 
 
 def _slot_display(pt: TimelinePoint, codon_view: bool = True) -> str:
@@ -700,9 +677,9 @@ def aggregate_aa_timeline(
         if include_syn or pt.ref_aa != pt.mutant_aa
     ]
 
-    groups: dict[tuple[str, int, str], list[TimelinePoint]] = defaultdict(list)
+    groups: dict[tuple[str, int, int, str], list[TimelinePoint]] = defaultdict(list)
     for pt in filtered:
-        groups[(pt.month, pt.position, pt.label)].append(pt)
+        groups[(pt.month, pt.position, pt.padded_position, pt.label)].append(pt)
 
     merged: list[TimelinePoint] = []
     for pts in groups.values():
@@ -710,6 +687,7 @@ def aggregate_aa_timeline(
         t = pts[0]  # template
         merged.append(TimelinePoint(
             month=t.month, position=t.position,
+            padded_position=t.padded_position,
             ref_aa=t.ref_aa, mutant_aa=t.mutant_aa,
             ref_codon=t.ref_codon, mutant_codon=t.mutant_codon,
             frequency=total_freq,
