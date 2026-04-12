@@ -285,6 +285,7 @@ and verification results can be found in [docs/rendering_scaling.md](docs/render
 
 For in-depth analysis of specific modules and subsystems, refer to the following documentation:
 
+- **[Programmatic API Reference](docs/api.md)**: High-level Python API for rendering scatter plots, timelines, and computing frequencies from code — with usage examples for Jupyter, Flask, and automated pipelines.
 - **[Graphical Scaling Architecture](docs/rendering_scaling.md)**: Three scaling modes (area_scaling, linear_scaling, legacy), mathematical derivations, and pixel-level rasterization verification.
 - **[Performance Profiling Report](docs/profiling_report.md)**: End-to-end latency analysis and comparison against the v0.3 baseline.
 - **[Codon Frequency Optimizations](docs/performance_calculate_codon_frequencies.md)**: Technical breakdown of streaming, grouping, and caching strategies.
