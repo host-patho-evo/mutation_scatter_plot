@@ -74,7 +74,8 @@ class TimelinePoint:
     position while ``padded_position`` is the alignment row — multiple
     padded positions can map to the same real position (e.g. for insertions).
     Within each band (real position), rows are distinguished by
-    ``padded_position``.
+    ``padded_position``. The reason is that INSertions are numbered after its
+    preceding codon or aminoacid, by rule.
 
     The ``color`` and ``label`` fields are computed during data collection.
     """
