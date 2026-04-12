@@ -815,9 +815,15 @@ def render_timeline_matplotlib(
     _vmin = getattr(myoptions, 'cmap_vmin', -11)
     _vmax = getattr(myoptions, 'cmap_vmax', 11)
     _matrix_name = getattr(myoptions, 'matrix', 'BLOSUM80')
+    # Same conditional label as mutation_scatter_plot: mention synonymous
+    # codon changes only when they are actually present in the data.
+    if getattr(myoptions, 'include_synonymous', False) or not getattr(myoptions, 'aminoacids', False):
+        _cb_label = f'{_matrix_name} score values (synonymous codon changes shown in dark green)'
+    else:
+        _cb_label = f'{_matrix_name} score values'
     setup_matplotlib_colorbar(
         fig, ax_cb, norm, cmap, colors, _vmin, _vmax,
-        label=f'{_matrix_name} score values (synonymous codon changes shown in dark green)', alpha=0.5,
+        label=_cb_label, alpha=0.5,
     )
 
     # Size legend — rendered in dedicated ax_leg column
@@ -1069,7 +1075,10 @@ def render_timeline_bokeh(
     # ── Bokeh Colorbar (shared helper, same approach as mutation_scatter_plot) ──
     _bk_vmin = getattr(myoptions, 'cmap_vmin', -11)
     _bk_vmax = getattr(myoptions, 'cmap_vmax', 11)
-    _matrix_label = f"{_matrix_name} score values (synonymous codon changes shown in dark green)"
+    if getattr(myoptions, 'include_synonymous', False) or not getattr(myoptions, 'aminoacids', False):
+        _matrix_label = f"{_matrix_name} score values (synonymous codon changes shown in dark green)"
+    else:
+        _matrix_label = f"{_matrix_name} score values"
     try:
         add_bokeh_colorbar(
             bokeh_fig, norm, cmap, colors, _bk_vmin, _bk_vmax,

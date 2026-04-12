@@ -1676,10 +1676,15 @@ def render_bokeh(
     # These tick coordinate values equal the band midpoints (see derivation
     # above), so each label sits visually centred inside its colour band.
     _tick_positions = list(_score_range)
+    # Same conditional label as matplotlib path above.
+    if getattr(myoptions, 'include_synonymous', False) or not getattr(myoptions, 'aminoacids', False):
+        _colorbar_label_bokeh = f"{matrix_name} score values (synonymous codon changes shown in dark green)"
+    else:
+        _colorbar_label_bokeh = f"{matrix_name} score values"
     _colorbar = bokeh.models.ColorBar(
         color_mapper=_color_mapper,
         label_standoff=8,
-        title=f"{matrix_name} score values (synonymous codon changes shown in dark green)",
+        title=_colorbar_label_bokeh,
         title_standoff=10,
         location=(0, 0),
         ticker=bokeh.models.FixedTicker(ticks=_tick_positions),
@@ -1919,7 +1924,13 @@ def render_matplotlib(
         else:
             _mpl_scatterplot = ax1.scatter([], [], marker='o', s=[], alpha=0.5, c=[])
 
-    _colorbar_label = f"{matrix_name} score values (synonymous codon changes shown in dark green)"
+    # The label mentions synonymous codon changes only when they are actually
+    # present in the scatter data (codon mode always includes them; amino acid
+    # mode includes them only with --include-synonymous).
+    if getattr(myoptions, 'include_synonymous', False) or not getattr(myoptions, 'aminoacids', False):
+        _colorbar_label = f"{matrix_name} score values (synonymous codon changes shown in dark green)"
+    else:
+        _colorbar_label = f"{matrix_name} score values"
     if norm is not None:
         # Discrete BoundaryNorm path (amino_acid_changes, dkeenan).
         # We want to draw a physically shorter colorbar that only displays the
