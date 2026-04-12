@@ -185,6 +185,26 @@ def main():
         print("Warning: No data points found for the specified positions.")
         sys.exit(0)
 
+    # Compute actual score range from data and update colormap bounds
+    # Exclude synonymous sentinel score (+12) from range computation
+    _actual_scores = [pt.score for pt in data.points if pt.score != 12]
+    _actual_vmin = min(_actual_scores) if _actual_scores else -11
+    _actual_vmax = max(_actual_scores) if _actual_scores else 11
+    # Make symmetric around zero
+    _actual_bound = max(abs(_actual_vmin), abs(_actual_vmax))
+    myoptions.cmap_actual_vmin = -_actual_bound
+    myoptions.cmap_actual_vmax = _actual_bound
+    print(f"  scores:    actual range [{_actual_vmin}, {_actual_vmax}], "
+          f"colorbar range [{myoptions.cmap_actual_vmin}, {myoptions.cmap_actual_vmax}]")
+
+    # Re-derive colormap with data-driven bounds (unless --spread-colormap-virtual-matrix)
+    # Clear stale cmap_vmin/vmax so get_colormap picks up the updated cmap_actual_vmin/vmax
+    if hasattr(myoptions, 'cmap_vmin'):
+        delattr(myoptions, 'cmap_vmin')
+    if hasattr(myoptions, 'cmap_vmax'):
+        delattr(myoptions, 'cmap_vmax')
+    _norm, _cmap, _colors = get_colormap(myoptions, myoptions.colormap)
+
     # Render matplotlib (PNG + PDF)
     PROFILER.mark_phase_start("render_matplotlib")
     render_timeline_matplotlib(data, myoptions, _norm, _cmap, _outfile_prefix)
