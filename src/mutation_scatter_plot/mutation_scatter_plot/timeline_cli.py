@@ -121,6 +121,10 @@ def build_option_parser():
         dest="spread_colormap_virtual_matrix", default=False,
         help="Spread colormap over full theoretical matrix range instead of actual data range",
     )
+    myparser.add_argument(
+        "--dpi", action="store", type=int, dest="dpi", default=600,
+        help="DPI resolution for PNG/PDF output images",
+    )
     return myparser
 
 

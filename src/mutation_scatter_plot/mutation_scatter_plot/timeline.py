@@ -818,7 +818,8 @@ def render_timeline_matplotlib(
     # Save outputs
     for ext in ('png', 'pdf'):
         outpath = f"{outfile_prefix}.{ext}"
-        fig.savefig(outpath, dpi=150, bbox_inches='tight', facecolor='white')
+        _dpi = getattr(myoptions, 'dpi', 600)
+        fig.savefig(outpath, dpi=_dpi, bbox_inches='tight', facecolor='white')
         print(f"Info: Saved {outpath}")
 
     plt.close(fig)
