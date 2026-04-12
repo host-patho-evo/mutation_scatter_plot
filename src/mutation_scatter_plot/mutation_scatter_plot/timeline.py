@@ -550,7 +550,7 @@ def render_timeline_matplotlib(
     )
 
     # Percentage labels next to circles
-    for xi, yi, fi in zip(x_vals, y_vals, freqs):
+    for xi, yi, fi, si in zip(x_vals, y_vals, freqs, sizes):
         pct = fi * 100
         if pct >= 10:
             pct_str = f"{pct:.0f}%"
@@ -558,9 +558,11 @@ def render_timeline_matplotlib(
             pct_str = f"{pct:.1f}%"
         else:
             pct_str = f"{pct:.2f}%"
+        # Offset scales with circle radius (sqrt of size in points²)
+        radius_pts = (si ** 0.5) * 0.7 + 3
         ax.annotate(pct_str, (xi, yi), textcoords='offset points',
-                    xytext=(5, 5), fontsize=5, color='#444444',
-                    zorder=6)
+                    xytext=(radius_pts, radius_pts * 0.6), fontsize=5,
+                    color='black', zorder=6)
 
     # X-axis: months
     ax.set_xticks(range(len(months)))
