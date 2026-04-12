@@ -142,7 +142,7 @@ def build_option_parser():
         help="Disable interactive mplcursors hover on matplotlib output [default: False]",
     )
     myparser.add_argument(
-        "--backend", action="store", type=str, dest="backend", default='',
+        "--matplotlib-backend", action="store", type=str, dest="matplotlib_backend", default='',
         help="Matplotlib backend (agg, wxpython, pyqt5, etc.). "
              "Set MPLBACKEND=agg to prevent interactive windows [default: unset]",
     )
@@ -176,9 +176,9 @@ def main():
     myoptions = myparser.parse_args()
 
     # Apply matplotlib backend before any plotting imports occur
-    if myoptions.backend:
+    if myoptions.matplotlib_backend:
         import matplotlib
-        matplotlib.use(myoptions.backend)
+        matplotlib.use(myoptions.matplotlib_backend)
 
     # Start profiler
     PROFILER.start()

@@ -227,7 +227,7 @@ def build_option_parser():
         help="DPI resolution for images",
     )
     myparser.add_argument(
-        "--backend", action="store", type=str, dest="backend", default='',
+        "--matplotlib-backend", "--backend", action="store", type=str, dest="matplotlib_backend", default='',
         help="Matplotlib backend to render resulting figures: agg, wxpython,"
              " pyqt5, pyqt6, pycairo, cairocffi [default: unset]\n"
              "To disable Matplotlib interactive window being raised up you"
