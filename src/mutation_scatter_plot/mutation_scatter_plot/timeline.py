@@ -566,6 +566,37 @@ def collect_timeline_data(
             data.points.append(pt)
             seen_positions.add(pos)
 
+    # Deduplicate: if the same codon mutation appears multiple times in the
+    # same month (e.g. from multiple padded positions mapping to the same real
+    # position), merge by summing frequencies.  Keep the colour/score from
+    # the entry with the highest individual frequency.
+    _dedup: dict[tuple, TimelinePoint] = {}
+    for pt in data.points:
+        _key = (pt.month, pt.position, pt.ref_codon, pt.mutant_codon)
+        if _key in _dedup:
+            existing = _dedup[_key]
+            merged_freq = existing.frequency + pt.frequency
+            # Keep the score/colour from whichever has the higher frequency
+            if pt.frequency > existing.frequency:
+                _dedup[_key] = TimelinePoint(
+                    month=pt.month, position=pt.position,
+                    ref_aa=pt.ref_aa, mutant_aa=pt.mutant_aa,
+                    ref_codon=pt.ref_codon, mutant_codon=pt.mutant_codon,
+                    frequency=merged_freq,
+                    color=pt.color, score=pt.score, label=pt.label,
+                )
+            else:
+                _dedup[_key] = TimelinePoint(
+                    month=existing.month, position=existing.position,
+                    ref_aa=existing.ref_aa, mutant_aa=existing.mutant_aa,
+                    ref_codon=existing.ref_codon, mutant_codon=existing.mutant_codon,
+                    frequency=merged_freq,
+                    color=existing.color, score=existing.score, label=existing.label,
+                )
+        else:
+            _dedup[_key] = pt
+    data.points = list(_dedup.values())
+
     data.months = sorted(seen_months)
     data.positions = sorted(seen_positions)
     return data
