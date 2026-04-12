@@ -731,11 +731,12 @@ def render_timeline_matplotlib(
     n_pos = len(positions)
     _y_extent = (n_pos - 1) * BAND_SPACING
     fig_height = max(5, n_pos * 0.8 + 2)
-    fig_width = max(10, len(months) * 0.8 + 3)
+    fig_width = max(12, len(months) * 0.8 + 5)
     fig, (ax, ax_cb, ax_leg) = plt.subplots(
         1, 3, figsize=(fig_width, fig_height),
-        width_ratios=[55, 1, 6],
+        width_ratios=[50, 1, 8],
     )
+    fig.subplots_adjust(left=0.06, right=0.86, top=0.94, bottom=0.15)
 
     title = getattr(myoptions, 'title', '') or f"Mutation Timeline ({len(months)} months, {n_pos} positions)"
     ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
@@ -790,18 +791,16 @@ def render_timeline_matplotlib(
     _right_labels = [str(p) for p in positions]
     ax2.set_yticks(_right_ticks)
     # Compute font size so text height ≈ 2/3 of band height in points.
-    # band_height_inches = BAND_SPACING / data_range * fig_height * plot_fraction
     _ylim = ax.get_ylim()
     _data_range = _ylim[1] - _ylim[0]
     _fig_h_in = fig.get_size_inches()[1]
-    # Approximate plot area fraction (tight_layout adjusts this, but ~0.75 is typical)
-    _plot_frac = 0.75
+    _plot_frac = 0.79  # matches subplots_adjust(top=0.94, bottom=0.15)
     _band_height_inches = BAND_SPACING / _data_range * _fig_h_in * _plot_frac
-    # 1 point = 1/72 inch; target 2/3 of band height
-    _pos_fontsize = max(8, min(48, _band_height_inches * (2 / 3) * 72))
+    # 1 point = 1/72 inch; target 2/3 of band height, capped to avoid overflow
+    _pos_fontsize = max(8, min(36, _band_height_inches * (2 / 3) * 72))
     ax2.set_yticklabels(_right_labels, fontsize=_pos_fontsize,
                         fontweight='bold', color='black', alpha=0.7)
-    ax2.tick_params(axis='y', length=0)  # hide tick marks
+    ax2.tick_params(axis='y', length=0, pad=5)  # hide tick marks, add padding
     ax2.spines['top'].set_visible(False)
     ax2.spines['right'].set_visible(False)
 
@@ -832,7 +831,8 @@ def render_timeline_matplotlib(
                   labelspacing=3.5, handletextpad=1.5, borderpad=1.2,
                   scatterpoints=1)
 
-    plt.tight_layout()
+    # NOTE: do NOT call tight_layout() here — it collapses the colorbar axes.
+    # subplots_adjust is set at figure creation to match mutation_scatter_plot.
 
     # ── Auto-fix Y-axis label overlaps ──
     # Draw the canvas to compute actual text bounding boxes, then check
@@ -866,7 +866,7 @@ def render_timeline_matplotlib(
             scale = 1.3
         scale = min(scale, 1.5)  # cap per-iteration growth
         fig.set_size_inches(fig.get_size_inches()[0], old_h * scale)
-        plt.tight_layout()
+        fig.subplots_adjust(left=0.06, right=0.86, top=0.94, bottom=0.15)
 
     # ── mplcursors hover support ──
     if not getattr(myoptions, 'disable_showing_mplcursors', False):
