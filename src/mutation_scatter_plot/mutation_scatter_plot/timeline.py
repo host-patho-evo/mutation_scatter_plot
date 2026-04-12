@@ -493,6 +493,111 @@ def _compute_intra_band_spread(band_spacing: float) -> float:
     return band_spacing * 0.5 * 0.6
 
 
+def _prepare_layout(
+    data: TimelineData,
+) -> tuple[float, float, dict[int, float], dict[tuple[str, int], list['TimelinePoint']]]:
+    """Compute shared layout parameters for both renderers.
+
+    Returns
+    -------
+    tuple of (BAND_SPACING, _spread, pos_to_y, grouped)
+        - BAND_SPACING: dynamic vertical distance between position bands.
+        - _spread: ± vertical offset range within a band.
+        - pos_to_y: mapping from position int to y-coordinate.
+        - grouped: data points grouped by (month, position).
+    """
+    BAND_SPACING = _compute_band_spacing(data)
+    _spread = _compute_intra_band_spread(BAND_SPACING)
+
+    pos_to_y: dict[int, float] = {}
+    for i, pos in enumerate(data.positions):
+        pos_to_y[pos] = float(i) * BAND_SPACING
+
+    grouped: dict[tuple[str, int], list[TimelinePoint]] = defaultdict(list)
+    for pt in data.points:
+        grouped[(pt.month, pt.position)].append(pt)
+
+    return BAND_SPACING, _spread, pos_to_y, grouped
+
+
+def _compute_ytick_labels(
+    positions: list[int],
+    pos_to_y: dict[int, float],
+    grouped: dict[tuple[str, int], list['TimelinePoint']],
+    _spread: float,
+    merge_threshold: float = 0.15,
+) -> tuple[list[float], list[str]]:
+    """Compute merged Y-axis tick positions and labels.
+
+    For each position band, collects all mutation labels, computes their
+    median y-position, and merges labels closer than *merge_threshold*
+    data units (joining them with commas).
+
+    Returns
+    -------
+    tuple of (tick_positions, tick_labels)
+        Parallel lists ready for ``ax.set_yticks`` / ``ax.set_yticklabels``
+        or Bokeh ``yaxis.ticker`` / ``major_label_overrides``.
+    """
+    tick_y: list[float] = []
+    tick_labels: list[str] = []
+
+    for pos in positions:
+        y_base = pos_to_y[pos]
+        labels_at_pos: dict[str, list[float]] = defaultdict(list)
+        for (month, p_key), pts in grouped.items():
+            if p_key != pos:
+                continue
+            pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
+            n = len(pts_sorted)
+            for j, pt in enumerate(pts_sorted):
+                if n == 1:
+                    y_off = 0.0
+                else:
+                    y_off = -_spread + (2 * _spread * j / (n - 1))
+                labels_at_pos[pt.label].append(y_base + y_off)
+
+        if not labels_at_pos:
+            tick_y.append(y_base)
+            tick_labels.append(str(pos))
+            continue
+
+        # Median y per label, sorted
+        label_y: list[tuple[float, str]] = []
+        for lbl, y_list in labels_at_pos.items():
+            median_y = sorted(y_list)[len(y_list) // 2]
+            label_y.append((median_y, lbl))
+        label_y.sort()
+
+        # Merge labels at very similar y-positions
+        merged: list[tuple[float, str]] = []
+        for y, lbl in label_y:
+            if merged and abs(y - merged[-1][0]) < merge_threshold:
+                prev_y, prev_lbl = merged[-1]
+                merged[-1] = ((prev_y + y) / 2, prev_lbl + ', ' + lbl)
+            else:
+                merged.append((y, lbl))
+
+        for y, lbl in merged:
+            tick_y.append(y)
+            tick_labels.append(lbl)
+
+    return tick_y, tick_labels
+
+
+def _format_pct(freq: float) -> str:
+    """Format a frequency as a percentage string.
+
+    Examples: 0.14 → '14%', 0.015 → '1.5%', 0.002 → '0.20%'.
+    """
+    pct = freq * 100
+    if pct >= 10:
+        return f"{pct:.0f}%"
+    if pct >= 1:
+        return f"{pct:.1f}%"
+    return f"{pct:.2f}%"
+
+
 def render_timeline_matplotlib(
     data: TimelineData,
     myoptions: typing.Any,
@@ -533,18 +638,8 @@ def render_timeline_matplotlib(
     months = data.months
     positions = data.positions
 
-    # Dynamically compute band spacing based on data density
-    BAND_SPACING = _compute_band_spacing(data)
-    _spread = _compute_intra_band_spread(BAND_SPACING)
-    pos_to_y: dict[int, float] = {}
-    for i, pos in enumerate(positions):
-        pos_to_y[pos] = float(i) * BAND_SPACING
-
-    # Handle vertical offset for multiple mutations at same position+month
-    # Group points by (month, position) to detect overlaps
-    grouped: dict[tuple[str, int], list[TimelinePoint]] = defaultdict(list)
-    for pt in data.points:
-        grouped[(pt.month, pt.position)].append(pt)
+    # Shared layout: band spacing, position mapping, grouping
+    BAND_SPACING, _spread, pos_to_y, grouped = _prepare_layout(data)
 
     # Prepare scatter data
     x_vals: list[float] = []
@@ -618,15 +713,7 @@ def render_timeline_matplotlib(
 
     # Percentage labels next to circles
     for xi, yi, fi, si in zip(x_vals, y_vals, freqs, sizes):
-        pct = fi * 100
-        if pct >= 10:
-            pct_str = f"{pct:.0f}%"
-        elif pct >= 1:
-            pct_str = f"{pct:.1f}%"
-        else:
-            pct_str = f"{pct:.2f}%"
-        # Offset just past circle edge: sqrt(s/π) ≈ radius in points
-        ax.annotate(pct_str, (xi, yi), textcoords='offset points',
+        ax.annotate(_format_pct(fi), (xi, yi), textcoords='offset points',
                     xytext=(4, 3), fontsize=5,
                     color='black', zorder=6)
 
@@ -634,51 +721,10 @@ def render_timeline_matplotlib(
     ax.set_xticks(range(len(months)))
     ax.set_xticklabels(months, rotation=45, ha='right', fontsize=8)
     ax.set_xlabel('Month', fontsize=11)
-    # Y-axis: use mutation labels as tick labels (like categorical axis)
-    # Collect labels per position band, then set as yticks
-    _all_tick_y: list[float] = []
-    _all_tick_labels: list[str] = []
-    for pos in positions:
-        y_base = pos_to_y[pos]
-        labels_at_pos: dict[str, list[float]] = defaultdict(list)
-        for (month, p_key), pts in grouped.items():
-            if p_key != pos:
-                continue
-            pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
-            n = len(pts_sorted)
-            for j, pt in enumerate(pts_sorted):
-                if n == 1:
-                    y_off = 0.0
-                else:
-                    y_off = -_spread + (2 * _spread * j / (n - 1))
-                labels_at_pos[pt.label].append(y_base + y_off)
-
-        if not labels_at_pos:
-            # Fallback: just the position number
-            _all_tick_y.append(y_base)
-            _all_tick_labels.append(str(pos))
-            continue
-
-        # Use the median y-position for each label
-        label_y: list[tuple[float, str]] = []
-        for lbl, y_list in labels_at_pos.items():
-            median_y = sorted(y_list)[len(y_list) // 2]
-            label_y.append((median_y, lbl))
-        label_y.sort()
-
-        # Merge labels at very similar y-positions (within 0.15 data units)
-        merged_labels: list[tuple[float, str]] = []
-        for y, lbl in label_y:
-            if merged_labels and abs(y - merged_labels[-1][0]) < 0.15:
-                prev_y, prev_lbl = merged_labels[-1]
-                merged_labels[-1] = ((prev_y + y) / 2, prev_lbl + ', ' + lbl)
-            else:
-                merged_labels.append((y, lbl))
-
-        for y, lbl in merged_labels:
-            _all_tick_y.append(y)
-            _all_tick_labels.append(lbl)
-
+    # Y-axis: use merged mutation labels as tick labels
+    _all_tick_y, _all_tick_labels = _compute_ytick_labels(
+        positions, pos_to_y, grouped, _spread,
+    )
     ax.set_yticks(_all_tick_y)
     ax.set_yticklabels(_all_tick_labels, fontsize=7)
     ax.set_ylabel('AA Position', fontsize=11)
@@ -820,16 +866,8 @@ def render_timeline_bokeh(
     months = data.months
     positions = data.positions
 
-    BAND_SPACING = _compute_band_spacing(data)
-    _spread = _compute_intra_band_spread(BAND_SPACING)
-    pos_to_y: dict[int, float] = {}
-    for i, pos in enumerate(positions):
-        pos_to_y[pos] = float(i) * BAND_SPACING
-
-    # Group and prepare data
-    grouped: dict[tuple[str, int], list[TimelinePoint]] = defaultdict(list)
-    for pt in data.points:
-        grouped[(pt.month, pt.position)].append(pt)
+    # Shared layout: band spacing, position mapping, grouping
+    BAND_SPACING, _spread, pos_to_y, grouped = _prepare_layout(data)
 
     x_vals: list[float] = []
     y_vals: list[float] = []
@@ -931,49 +969,14 @@ def render_timeline_bokeh(
     bokeh_fig.xaxis.major_label_orientation = 0.785  # 45 degrees
     bokeh_fig.xaxis.axis_label = "Month"
 
-    # Y-axis: use mutation labels as tick labels
-    _bokeh_tick_y: list[float] = []
-    _bokeh_tick_map: dict[float, str] = {}
-    for pos in positions:
-        y_base = pos_to_y[pos]
-        labels_at_pos: dict[str, list[float]] = defaultdict(list)
-        for (month, p_key), pts in grouped.items():
-            if p_key != pos:
-                continue
-            pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
-            n = len(pts_sorted)
-            for j, pt in enumerate(pts_sorted):
-                if n == 1:
-                    y_off = 0.0
-                else:
-                    y_off = -_spread + (2 * _spread * j / (n - 1))
-                labels_at_pos[pt.label].append(y_base + y_off)
-
-        if not labels_at_pos:
-            _bokeh_tick_y.append(y_base)
-            _bokeh_tick_map[y_base] = str(pos)
-            continue
-
-        label_y: list[tuple[float, str]] = []
-        for lbl, y_list in labels_at_pos.items():
-            median_y = sorted(y_list)[len(y_list) // 2]
-            label_y.append((median_y, lbl))
-        label_y.sort()
-
-        merged_labels: list[tuple[float, str]] = []
-        for y, lbl in label_y:
-            if merged_labels and abs(y - merged_labels[-1][0]) < 0.15:
-                prev_y, prev_lbl = merged_labels[-1]
-                merged_labels[-1] = ((prev_y + y) / 2, prev_lbl + ', ' + lbl)
-            else:
-                merged_labels.append((y, lbl))
-
-        for y, lbl in merged_labels:
-            _bokeh_tick_y.append(y)
-            _bokeh_tick_map[y] = lbl
-
+    # Y-axis: use merged mutation labels as tick labels
+    _bokeh_tick_y, _bokeh_tick_labels = _compute_ytick_labels(
+        positions, pos_to_y, grouped, _spread,
+    )
     bokeh_fig.yaxis.ticker = _bokeh_tick_y
-    bokeh_fig.yaxis.major_label_overrides = _bokeh_tick_map
+    bokeh_fig.yaxis.major_label_overrides = {
+        y: lbl for y, lbl in zip(_bokeh_tick_y, _bokeh_tick_labels)
+    }
     bokeh_fig.yaxis.axis_label = "AA Position"
 
     # Grid
@@ -983,15 +986,7 @@ def render_timeline_bokeh(
     # Percentage labels next to circles
     try:
         from bokeh.models import LabelSet
-        pct_texts: list[str] = []
-        for f in hover_freqs:
-            pct = float(f) * 100
-            if pct >= 10:
-                pct_texts.append(f"{pct:.0f}%")
-            elif pct >= 1:
-                pct_texts.append(f"{pct:.1f}%")
-            else:
-                pct_texts.append(f"{pct:.2f}%")
+        pct_texts = [_format_pct(float(f)) for f in hover_freqs]
 
         pct_source = ColumnDataSource(data=dict(
             x=x_vals, y=y_vals, text=pct_texts,
