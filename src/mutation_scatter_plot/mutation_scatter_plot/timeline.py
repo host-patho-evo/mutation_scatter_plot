@@ -1051,7 +1051,7 @@ def render_timeline_matplotlib(
     )
     ax.set_yticks(_all_tick_y)
     ax.set_yticklabels(_all_tick_labels, fontsize=7, fontfamily='monospace')
-    ax.set_ylabel('Padded AA Position (natural position in parentheses)', fontsize=_heading_fontsize)
+    ax.set_ylabel('Padded amino acid position (natural position in parentheses)', fontsize=_heading_fontsize)
 
     # Grid and styling
     ax.set_xlim(-0.5, len(months) - 0.5)
