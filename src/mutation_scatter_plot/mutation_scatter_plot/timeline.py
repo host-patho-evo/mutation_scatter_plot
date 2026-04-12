@@ -730,8 +730,15 @@ def render_timeline_matplotlib(
     )
     fig.subplots_adjust(left=0.06, right=0.86, top=0.94, bottom=0.15)
 
+    # Dynamic heading font: scales with the smaller figure dimension so that
+    # title, axis labels, and 2nd-y-axis position numbers form a visually
+    # consistent group.  Ranges from 11pt (compact plots with few bands) to
+    # 20pt (spacious plots with many bands).
+    _min_dim = min(fig_width, fig_height)
+    _heading_fontsize = max(11, min(20, _min_dim * 1.8))
+
     title = getattr(myoptions, 'title', '') or f"Mutation Timeline ({len(months)} months, {n_pos} positions)"
-    ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
+    ax.set_title(title, fontsize=_heading_fontsize, fontweight='bold', pad=15)
 
     # Scatter plot
     scatter = ax.scatter(
@@ -753,14 +760,14 @@ def render_timeline_matplotlib(
     # X-axis: months
     ax.set_xticks(range(len(months)))
     ax.set_xticklabels(months, rotation=45, ha='right', fontsize=8)
-    ax.set_xlabel('Month', fontsize=11)
+    ax.set_xlabel('Month', fontsize=_heading_fontsize)
     # Y-axis: use merged mutation labels as tick labels
     _all_tick_y, _all_tick_labels = _compute_ytick_labels(
         positions, pos_to_y, grouped, _spread,
     )
     ax.set_yticks(_all_tick_y)
     ax.set_yticklabels(_all_tick_labels, fontsize=7)
-    ax.set_ylabel('AA Position', fontsize=11)
+    ax.set_ylabel('AA Position', fontsize=_heading_fontsize)
 
     # Grid and styling
     ax.set_xlim(-0.5, len(months) - 0.5)
@@ -782,15 +789,7 @@ def render_timeline_matplotlib(
     _right_ticks = [pos_to_y[p] for p in positions]
     _right_labels = [str(p) for p in positions]
     ax2.set_yticks(_right_ticks)
-    # Compute font size so text height ≈ 2/3 of band height in points.
-    _ylim = ax.get_ylim()
-    _data_range = _ylim[1] - _ylim[0]
-    _fig_h_in = fig.get_size_inches()[1]
-    _plot_frac = 0.79  # matches subplots_adjust(top=0.94, bottom=0.15)
-    _band_height_inches = BAND_SPACING / _data_range * _fig_h_in * _plot_frac
-    # 1 point = 1/72 inch; target 2/3 of band height, capped to avoid overflow
-    _pos_fontsize = max(8, min(36, _band_height_inches * (2 / 3) * 72))
-    ax2.set_yticklabels(_right_labels, fontsize=_pos_fontsize,
+    ax2.set_yticklabels(_right_labels, fontsize=_heading_fontsize,
                         fontweight='bold', color='black', alpha=0.7,
                         ha='left')
     # Small positive pad pushes labels just outside the right spine, into the
