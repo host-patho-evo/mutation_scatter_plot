@@ -558,7 +558,7 @@ def render_timeline_matplotlib(
     ax.set_ylabel('AA Position', fontsize=11)
 
     # Grid and styling
-    ax.set_xlim(-0.5, len(months) - 0.5)
+    ax.set_xlim(-1.2, len(months) - 0.5)
     ax.set_ylim(-BAND_SPACING * 0.5 - 0.2, _y_extent + BAND_SPACING * 0.5 + 0.2)
     ax.grid(axis='x', alpha=0.3, linestyle='--')
     # Draw horizontal band borders above and below each position
@@ -604,6 +604,40 @@ def render_timeline_matplotlib(
               title_fontsize=8, bbox_to_anchor=(1.15, 1.0),
               labelspacing=2.5, handletextpad=1.5, borderpad=1.2,
               scatterpoints=1)
+
+    # ── Mutation labels at right edge of each band ──
+    # For each position, collect unique mutation labels and their stable y-offsets
+    for pos in positions:
+        y_base = pos_to_y[pos]
+        # Collect all unique labels seen at this position (across all months)
+        labels_at_pos: dict[str, list[float]] = defaultdict(list)
+        for (month, p), pts in grouped.items():
+            if p != pos:
+                continue
+            pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
+            n = len(pts_sorted)
+            for j, pt in enumerate(pts_sorted):
+                if n == 1:
+                    y_off = 0.0
+                else:
+                    y_off = -_spread + (2 * _spread * j / (n - 1))
+                labels_at_pos[pt.label].append(y_base + y_off)
+
+        if not labels_at_pos:
+            continue
+
+        # Use the median y-position for each label
+        label_y: list[tuple[float, str]] = []
+        for lbl, y_list in labels_at_pos.items():
+            median_y = sorted(y_list)[len(y_list) // 2]
+            label_y.append((median_y, lbl))
+        label_y.sort()
+
+        # Annotate at the left edge of the plot
+        x_label = -0.8
+        for y, lbl in label_y:
+            ax.text(x_label, y, lbl, fontsize=6, va='center', ha='right',
+                    color='#555555', fontstyle='italic', clip_on=False)
 
     plt.tight_layout()
 
@@ -745,6 +779,47 @@ def render_timeline_bokeh(
     # Grid
     p.xgrid.grid_line_alpha = 0.3
     p.ygrid.grid_line_alpha = 0.0  # disabled — we use band borders instead
+
+    # ── Mutation labels at right edge of each band ──
+    try:
+        from bokeh.models import LabelSet
+        label_x_vals: list[float] = []
+        label_y_vals: list[float] = []
+        label_texts: list[str] = []
+
+        for pos in positions:
+            y_base = pos_to_y[pos]
+            labels_at_pos: dict[str, list[float]] = defaultdict(list)
+            for (month, p), pts in grouped.items():
+                if p != pos:
+                    continue
+                pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
+                n = len(pts_sorted)
+                for j, pt in enumerate(pts_sorted):
+                    if n == 1:
+                        y_off = 0.0
+                    else:
+                        y_off = -_spread + (2 * _spread * j / (n - 1))
+                    labels_at_pos[pt.label].append(y_base + y_off)
+
+            for lbl, y_list in labels_at_pos.items():
+                median_y = sorted(y_list)[len(y_list) // 2]
+                label_x_vals.append(-0.8)
+                label_y_vals.append(median_y)
+                label_texts.append(lbl)
+
+        label_source = ColumnDataSource(data=dict(
+            x=label_x_vals, y=label_y_vals, text=label_texts,
+        ))
+        labels = LabelSet(
+            x='x', y='y', text='text', source=label_source,
+            text_font_size='8pt', text_color='#555555',
+            text_font_style='italic', text_align='right',
+            text_baseline='middle', x_offset=-5,
+        )
+        p.add_layout(labels)
+    except ImportError:
+        pass  # LabelSet not available in older bokeh
 
     # Save HTML
     html_path = f"{outfile_prefix}.html"
