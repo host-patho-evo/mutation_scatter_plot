@@ -126,7 +126,6 @@ def recolor_timeline_data(
     colors : list of str
         Hex colour palette.
     """
-    from .. import alt_translate
 
     for pt in data.points:
         # Synonymous sentinel (score == 12) → dark green
@@ -1064,20 +1063,20 @@ def render_timeline_bokeh(
             hover_new_codons.append(f"{pt.mutant_codon} ({pt.mutant_aa})")
             hover_scores.append(str(pt.score))
 
-    source = ColumnDataSource(data=dict(
-        x=x_vals,
-        y=y_vals,
-        size=sizes_px,
-        color=colors_hex,
-        label=hover_labels,
-        freq=hover_freqs,
-        month=hover_months,
-        codon=hover_codons,
-        position=hover_positions,
-        ref_codon=hover_ref_codons,
-        new_codon=hover_new_codons,
-        score=hover_scores,
-    ))
+    source = ColumnDataSource(data={
+        "x": x_vals,
+        "y": y_vals,
+        "size": sizes_px,
+        "color": colors_hex,
+        "label": hover_labels,
+        "freq": hover_freqs,
+        "month": hover_months,
+        "codon": hover_codons,
+        "position": hover_positions,
+        "ref_codon": hover_ref_codons,
+        "new_codon": hover_new_codons,
+        "score": hover_scores,
+    })
 
     title = getattr(myoptions, 'title', '') or f"Mutation Timeline ({len(months)} months, {len(positions)} positions)"
 
@@ -1117,7 +1116,7 @@ def render_timeline_bokeh(
 
     # Axis labels
     bokeh_fig.xaxis.ticker = list(range(len(months)))
-    bokeh_fig.xaxis.major_label_overrides = {i: m for i, m in enumerate(months)}
+    bokeh_fig.xaxis.major_label_overrides = dict(enumerate(months))
     bokeh_fig.xaxis.major_label_orientation = 0.785  # 45 degrees
     bokeh_fig.xaxis.axis_label = "Month"
 
@@ -1126,9 +1125,7 @@ def render_timeline_bokeh(
         positions, pos_to_y, grouped, _spread,
     )
     bokeh_fig.yaxis.ticker = _bokeh_tick_y
-    bokeh_fig.yaxis.major_label_overrides = {
-        y: lbl for y, lbl in zip(_bokeh_tick_y, _bokeh_tick_labels)
-    }
+    bokeh_fig.yaxis.major_label_overrides = dict(zip(_bokeh_tick_y, _bokeh_tick_labels))
     bokeh_fig.yaxis.axis_label = "AA Position"
 
     # Grid
@@ -1163,9 +1160,9 @@ def render_timeline_bokeh(
                 for f, lbl, cod in zip(hover_freqs, hover_labels, hover_codons)
             ]
 
-            pct_source = ColumnDataSource(data=dict(
-                x=x_vals, y=y_vals, text=annot_texts,
-            ))
+            pct_source = ColumnDataSource(data={
+                "x": x_vals, "y": y_vals, "text": annot_texts,
+            })
             pct_labels = LabelSet(
                 x='x', y='y', text='text', source=pct_source,
                 text_font_size='7pt', text_color='black',
@@ -1208,8 +1205,7 @@ def render_timeline_bokeh(
             _html_content = _fh.read()
         _title_tag = f'<title>{_html_title}</title>'
         if '<title>' in _html_content:
-            import re as _re
-            _html_content = _re.sub(
+            _html_content = re.sub(
                 r'<title>[^<]*</title>', _title_tag, _html_content, count=1,
             )
         else:

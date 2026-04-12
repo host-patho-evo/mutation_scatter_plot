@@ -479,7 +479,7 @@ def main() -> None:
         print(' '.join(str(p) for p in positions_list), file=sys.stderr)
 
         # Also print a copy-pasteable command (with multi-variant sweep flags)
-        print(f"\n# Ready-to-use command:", file=sys.stderr)
+        print("\n# Ready-to-use command:", file=sys.stderr)
         print(
             f"mutation_timeline_plot --dir {args.dir} "
             f"--positions {' '.join(str(p) for p in positions_list)} "
