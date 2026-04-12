@@ -103,17 +103,26 @@ def render_scatter(
     >>> fig = result['figure']
     >>> fig.savefig('my_custom_output.png', dpi=300)
     """
+    # pylint: disable=too-many-locals
     from .mutation_scatter_plot.options import scatter_options
     from .mutation_scatter_plot import (
         load_and_clean_dataframe,
         build_frequency_tables,
-        build_conversion_table,
         setup_matplotlib_figure,
         collect_scatter_data,
         render_bokeh,
         render_matplotlib,
+        load_matrix,
     )
-    from .mutation_scatter_plot.core import load_matrix, get_colormap
+
+    # When no outfile_prefix is given, we still need one for load_matrix()
+    # which requires it.  Use a tempdir that we'll clean up at the end.
+    import tempfile as _tempfile
+    _tmpdir = None
+    _save_files = bool(outfile_prefix)
+    if not outfile_prefix:
+        _tmpdir = _tempfile.mkdtemp()
+        outfile_prefix = os.path.join(_tmpdir, 'api_tmp')
 
     opts = scatter_options(
         tsv_file_path=tsv_path,
@@ -132,81 +141,151 @@ def render_scatter(
         **extra_options,
     )
 
-    # 1. Load data
-    padded_position2position: dict = {}
-    df = load_and_clean_dataframe(opts, tsv_path, padded_position2position)
-    new_aa_table, new_codon_table = build_frequency_tables(opts, df, padded_position2position)
-    amino_acids, codons_whitelist = build_conversion_table(df, padded_position2position)
+    # --linear-circle-size implies --disable-bokeh-sqrt-size (same as CLI)
+    if opts.linear_circle_size:
+        opts.bokeh_sqrt_size = False
 
-    # 2. Set up BLOSUM matrix and colormap
-    matrix_obj = load_matrix(opts)
-    matrix_name = opts.matrix
-    colors, norm, cmap = get_colormap(opts, opts.colormap)
+    # ── 1. Load matrix ───────────────────────────────────────────────────
+    (_matrix, _matrix_name, _min_theoretical_score,
+     _max_theoretical_score, _outfile_prefix) = load_matrix(opts)
 
-    # 3. Set up matplotlib figure
-    (figure, ax1, ax2, ax3, ax4,
-     final_sorted_whitelist,
-     unique_aa_padded_positions,
-     unique_padded_codon_positions,
-     title_data, aln_rows, xlabel) = setup_matplotlib_figure(
-        opts, title or os.path.basename(tsv_path).replace('.frequencies.tsv', ''),
-        0,  # aln_rows placeholder
-        matrix_name,
-        amino_acids, codons_whitelist, [],
-        [], [], new_aa_table, new_codon_table,
-        padded_position2position,
+    # ── 2. Load and clean the TSV ────────────────────────────────────────
+    _padded_position2position = {}
+    _df, _padded_position2position = load_and_clean_dataframe(
+        opts, tsv_path, _padded_position2position,
     )
 
-    # 4. Collect scatter data
-    (circles_bokeh, circles_matplotlib, mutations,
-     hover_texts, markers, dots) = collect_scatter_data(
-        opts, df, new_aa_table if aminoacids else new_codon_table,
-        outfile_prefix, matrix_obj, amino_acids,
-        codons_whitelist, padded_position2position, xmin, xmax,
+    # ── 3. Auto-detection logic (mirrors cli.py:main()) ──────────────────
+    _effective_xmin = opts.xmin if opts.xmin else min(_padded_position2position.keys())
+    _effective_xmax = opts.xmax if opts.xmax else max(_padded_position2position.keys())
+
+    if not opts.disable_padded_x_axis:
+        _window = {k: v for k, v in _padded_position2position.items()
+                   if _effective_xmin <= k <= _effective_xmax}
+        if _window:
+            _differences = set(k - v for k, v in _window.items())
+            if len(_differences) <= 1:
+                opts.disable_padded_x_axis = True
+
+    if opts.showins is None:
+        _ins_in_range = _df[
+            (_df['original_aa'] == 'INS') &
+            (_df['padded_position'] >= _effective_xmin) &
+            (_df['padded_position'] <= _effective_xmax)
+        ]
+        opts.showins = len(_ins_in_range) > 0
+
+    if opts.showdel is None:
+        _del_in_range = _df[
+            (_df['mutant_aa'] == 'DEL') &
+            (_df['padded_position'] >= _effective_xmin) &
+            (_df['padded_position'] <= _effective_xmax)
+        ]
+        opts.showdel = len(_del_in_range) > 0
+
+    # ── 4. Supplement the conversion dictionary ──────────────────────────
+    _unchanged_tsv = tsv_path.replace(
+        '.frequencies.tsv', '.frequencies.unchanged_codons.tsv'
+    )
+    if os.path.exists(_unchanged_tsv):
+        _df_unch, _padded_position2position = load_and_clean_dataframe(
+            opts, _unchanged_tsv, _padded_position2position,
+        )
+        del _df_unch
+
+    # ── 5. Build frequency tables ────────────────────────────────────────
+    (
+        _amino_acids, _codons_whitelist, _codons_whitelist2,
+        _final_sorted_whitelist,
+        _unique_aa_padded_positions, _unique_codon_padded_positions,
+        _old_aa_table, _new_aa_table, _old_codon_table, _new_codon_table,
+        _calculated_aa_offset, _padded_position2position,
+    ) = build_frequency_tables(opts, _df, _padded_position2position)
+
+    # ── 6. Title ─────────────────────────────────────────────────────────
+    if not title:
+        _title_data = os.path.basename(tsv_path).replace('.frequencies.tsv', '')
+    else:
+        _title_data = title
+
+    # Determine aln_rows from .count file
+    _aln_rows = '0'
+    if '.frequencies.tsv' in tsv_path:
+        _count_filename = f"{_outfile_prefix}.count"
+        if os.path.exists(_count_filename):
+            try:
+                with open(_count_filename, encoding="utf-8") as _fh:
+                    _aln_rows = _fh.readline().strip()
+            except OSError:
+                pass
+
+    # ── 7. Set up matplotlib figure ──────────────────────────────────────
+    _figure, _ax1, _ax2, _ax3, _ax4, _xmin, _xmax = \
+        setup_matplotlib_figure(
+            opts,
+            _title_data, _aln_rows, _matrix_name, _amino_acids,
+            _codons_whitelist, _final_sorted_whitelist,
+            _unique_aa_padded_positions, _unique_codon_padded_positions,
+            _new_aa_table, _new_codon_table, _padded_position2position,
+        )
+
+    # ── 8. Collect scatter data ──────────────────────────────────────────
+    _table = _new_aa_table if aminoacids else _new_codon_table
+    (
+        _norm, _cmap, _colors, _used_colors, _matrix_values,
+        _mutations,
+        _circles_bokeh, _circles_matplotlib, _markers, _dots,
+        _hover_text_bokeh,
+    ) = collect_scatter_data(
+        opts,
+        _df, _table, _outfile_prefix, _matrix, _amino_acids,
+        _codons_whitelist2, _padded_position2position,
+        _xmin, _xmax,
     )
 
     files_written = []
 
-    # 5. Render matplotlib
-    if outfile_prefix:
-        render_matplotlib(
-            opts, figure, ax1, ax2, ax3, ax4,
-            outfile_prefix, circles_matplotlib, markers, dots,
-            cmap, norm, colors, matrix_obj, matrix_name,
-            show_mplcursors,
-        )
-        # Collect written files
-        for ext in ('.png', '.pdf'):
-            candidate = f"{outfile_prefix}.{matrix_name}"
-            scaling_tag = 'linear_scaling' if linear_scaling else 'area_scaling'
-            cmap_tag = colormap
-            for suffix in (f'.{scaling_tag}.{cmap_tag}{ext}',):
-                path = candidate + suffix
-                if os.path.exists(path):
-                    files_written.append(path)
+    # ── 9. Render ────────────────────────────────────────────────────────
+    _xlabel = _ax1.get_xlabel()
 
-        # 6. Render Bokeh
-        if not opts.disable_showing_bokeh or outfile_prefix:
-            render_bokeh(
-                opts, outfile_prefix, xmin, xmax,
-                amino_acids, final_sorted_whitelist,
-                circles_bokeh, mutations, hover_texts,
-                title_data, xlabel, matrix_name,
-                colors, norm, cmap, padded_position2position,
-                show_bokeh,
-            )
-            html_path = f"{outfile_prefix}.{matrix_name}"
-            scaling_tag = 'linear_scaling' if linear_scaling else 'area_scaling'
-            cmap_tag = colormap
-            html_candidate = f"{html_path}.{scaling_tag}.{cmap_tag}.html"
-            if os.path.exists(html_candidate):
-                files_written.append(html_candidate)
+    if _circles_bokeh and _save_files:
+        render_bokeh(
+            opts,
+            _outfile_prefix, _xmin, _xmax, _amino_acids,
+            _final_sorted_whitelist,
+            _circles_bokeh, _mutations, _hover_text_bokeh,
+            _title_data, _xlabel,
+            _matrix_name, _colors, _norm, _cmap,
+            _padded_position2position,
+            show=show_bokeh,
+        )
+
+    if _save_files:
+        render_matplotlib(
+            opts,
+            _figure, _ax1, _ax2, _ax3, _ax4, _outfile_prefix,
+            _circles_matplotlib, _markers, _dots, _cmap, _norm, _colors,
+            _matrix, _matrix_name,
+            show=show_mplcursors,
+        )
+
+        # Discover all files that were written
+        out_dir = os.path.dirname(_outfile_prefix) or '.'
+        prefix_base = os.path.basename(_outfile_prefix)
+        for fname in os.listdir(out_dir):
+            if fname.startswith(prefix_base):
+                files_written.append(os.path.join(out_dir, fname))
+
+    # Clean up temp directory if we created one
+    if _tmpdir is not None:
+        import shutil
+        shutil.rmtree(_tmpdir, ignore_errors=True)
 
     return {
-        'figure': figure,
-        'axes': (ax1, ax2, ax3, ax4),
-        'dataframe': df,
-        'files_written': files_written,
+        'figure': _figure,
+        'axes': (_ax1, _ax2, _ax3, _ax4),
+        'dataframe': _df,
+        'files_written': sorted(files_written),
     }
 
 
@@ -299,9 +378,9 @@ def render_timeline(
     )
     if prefix:
         for ext in ('.png', '.pdf'):
-            for candidate in [f"{prefix}.timeline{ext}"]:
-                if os.path.exists(candidate):
-                    files_written.append(candidate)
+            candidate = f"{prefix}.timeline{ext}"
+            if os.path.exists(candidate):
+                files_written.append(candidate)
 
     render_timeline_bokeh(data, opts, norm, cmap, colors, prefix)
     html_candidate = f"{prefix}.timeline.html"
@@ -397,55 +476,64 @@ def calculate_frequencies(
         **extra_options,
     )
 
-    # Read reference
-    ref_record = SeqIO.read(reference_file, 'fasta')
-    ref_seq = str(ref_record.seq).upper()
+    # Read reference — mirrors cli.py: SeqIO.parse, take first record
+    for _record in SeqIO.parse(reference_file, 'fasta'):
+        padded_ref_dna = str(_record.seq)
+        break
 
-    if padded_reference:
-        padded_ref_dna = ref_seq
-    else:
-        padded_ref_dna = ref_seq
-
-    # Translate reference to protein
+    # Translate reference to protein (whole padded sequence, same as CLI)
     from . import alt_translate
-    ref_depadded = ref_seq.replace('-', '')
-    ref_protein = ''
-    for i in range(0, len(ref_depadded) - 2, 3):
-        codon = ref_depadded[i:i + 3]
-        ref_protein += alt_translate(codon, table=translation_table)
+    ref_protein = alt_translate(padded_ref_dna, table=translation_table)
+    ref_codons = get_codons(padded_ref_dna)
 
-    ref_codons = get_codons(ref_seq)
+    # Build output file paths — matches CLI's naming convention
+    if outfile_prefix.endswith('.tsv'):
+        freq_tsv_path = outfile_prefix
+        unchanged_tsv_path = f"{outfile_prefix[:-4]}.unchanged_codons.tsv"
+    else:
+        freq_tsv_path = f"{outfile_prefix}.tsv"
+        unchanged_tsv_path = f"{outfile_prefix}.unchanged_codons.tsv"
 
-    # Open output files
-    freq_tsv_path = f"{outfile_prefix}.frequencies.tsv"
-    unchanged_tsv_path = f"{outfile_prefix}.unchanged_codons.tsv"
-    count_path = f"{outfile_prefix}.count"
+    count_path = (
+        f"{'.'.join(alignment_file.split('.')[:-1])}.count"
+    )
+
+    _tsv_header = (
+        "padded_position\tposition\toriginal_aa\tmutant_aa\tfrequency\t"
+        "original_codon\tmutant_codon\tobserved_codon_count\t"
+        "total_codons_per_site\n"
+    )
 
     outfile = open_file(freq_tsv_path, overwrite)
-    outfile_unchanged = open_file(unchanged_tsv_path, overwrite) if print_unchanged_sites else None
-    outfile_count = open_file(count_path, overwrite)
+    outfile.write(_tsv_header)
 
-    # Write headers
-    header = ("padded_position\tposition\toriginal_aa\tmutant_aa\t"
-              "frequency\toriginal_codon\tmutant_codon\t"
-              "observed_codon_count\ttotal_codons_per_site\n")
-    outfile.write(header)
-    if outfile_unchanged:
-        outfile_unchanged.write(header)
+    outfile_unchanged = None
+    if print_unchanged_sites:
+        outfile_unchanged = open_file(unchanged_tsv_path, overwrite)
+        outfile_unchanged.write(_tsv_header)
+
+    outfile_count = open(count_path, 'w', encoding='utf-8')
+
+    _aa_start = (opts.aa_start - 1) if opts.aa_start else 0
+    _min_start = (opts.min_start - 1) if opts.min_start else 0
+    _max_stop = opts.max_stop if opts.max_stop else 0
+    _threads = threads if threads > 0 else None
 
     try:
         parse_alignment(
             opts, alignment_file, padded_ref_dna, ref_protein, ref_codons,
             outfile, outfile_unchanged, outfile_count,
-            aa_start=opts.aa_start, min_start=opts.min_start,
-            max_stop=opts.max_stop, threads=threads,
+            _aa_start, _min_start, _max_stop,
+            threads=_threads,
             translation_table=translation_table,
         )
     finally:
         outfile.close()
         if outfile_unchanged:
             outfile_unchanged.close()
+        outfile_count.close()
 
     # Read back and return as DataFrame
     df = pd.read_csv(freq_tsv_path, sep='\t')
     return df
+
