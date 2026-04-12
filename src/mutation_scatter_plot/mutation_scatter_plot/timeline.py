@@ -413,6 +413,11 @@ def collect_timeline_data(
             if abs(freq_val) < myoptions.threshold:
                 continue
 
+            # Skip synonymous changes in aminoacid mode (unless --include-synonymous)
+            if (getattr(myoptions, 'aminoacids', False)
+                    and not getattr(myoptions, 'include_synonymous', False)
+                    and ref_aa and mut_aa and ref_aa == mut_aa):
+                continue
             # Compute colour/score using core functions
             codon_on_input, _old, _new = resolve_codon_or_aa(
                 myoptions, ref_codon, mut_codon
@@ -798,22 +803,23 @@ def render_timeline_matplotlib(
     plt.tight_layout()
 
     # ── mplcursors hover support ──
-    try:
-        import mplcursors
-        _cursor = mplcursors.cursor(scatter, hover=True)
+    if not getattr(myoptions, 'disable_showing_mplcursors', False):
+        try:
+            import mplcursors
+            _cursor = mplcursors.cursor(scatter, hover=True)
 
-        @_cursor.connect("add")
-        def _on_add(sel):
-            """Display mutation details in the hover annotation."""
-            idx = sel.index
-            if 0 <= idx < len(labels):
-                sel.annotation.set_text(labels[idx])
-            else:
-                sel.annotation.set_text("?")
-    except ImportError:
-        pass  # mplcursors not installed
-    except Exception:  # pylint: disable=broad-exception-caught
-        pass  # graceful fallback for non-interactive backends
+            @_cursor.connect("add")
+            def _on_add(sel):
+                """Display mutation details in the hover annotation."""
+                idx = sel.index
+                if 0 <= idx < len(labels):
+                    sel.annotation.set_text(labels[idx])
+                else:
+                    sel.annotation.set_text("?")
+        except ImportError:
+            pass  # mplcursors not installed
+        except Exception:  # pylint: disable=broad-exception-caught
+            pass  # graceful fallback for non-interactive backends
 
     # Save outputs
     for ext in ('png', 'pdf'):

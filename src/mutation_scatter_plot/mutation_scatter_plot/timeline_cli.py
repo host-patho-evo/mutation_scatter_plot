@@ -125,6 +125,27 @@ def build_option_parser():
         "--dpi", action="store", type=int, dest="dpi", default=600,
         help="DPI resolution for PNG/PDF output images",
     )
+    myparser.add_argument(
+        "--include-synonymous", action="store_true",
+        dest="include_synonymous", default=False,
+        help="Include synonymous changes in --aminoacids output."
+             " In codon mode they are always shown [default: False]",
+    )
+    myparser.add_argument(
+        "--disable-showing-bokeh", action="store_true",
+        dest="disable_showing_bokeh", default=False,
+        help="Skip generating the interactive Bokeh HTML output [default: False]",
+    )
+    myparser.add_argument(
+        "--disable-showing-mplcursors", action="store_true",
+        dest="disable_showing_mplcursors", default=False,
+        help="Disable interactive mplcursors hover on matplotlib output [default: False]",
+    )
+    myparser.add_argument(
+        "--backend", action="store", type=str, dest="backend", default='',
+        help="Matplotlib backend (agg, wxpython, pyqt5, etc.). "
+             "Set MPLBACKEND=agg to prevent interactive windows [default: unset]",
+    )
     return myparser
 
 
@@ -147,6 +168,11 @@ def main():
     myparser = build_option_parser()
     myoptions = myparser.parse_args()
 
+    # Apply matplotlib backend before any plotting imports occur
+    if myoptions.backend:
+        import matplotlib
+        matplotlib.use(myoptions.backend)
+
     # Start profiler
     PROFILER.start()
     PROFILER.mark_phase_start("timeline_init")
@@ -156,6 +182,7 @@ def main():
     print(f"  positions: {' '.join(myoptions.positions)}")
     print(f"  matrix:    {myoptions.matrix}")
     print(f"  colormap:  {myoptions.colormap}")
+    print(f"  dpi:       {myoptions.dpi}")
 
     # Parse position specifications
     specs = parse_positions(myoptions.positions)
@@ -247,8 +274,9 @@ def main():
         print(summary)
 
     # Render Bokeh (HTML)
-    PROFILER.mark_phase_start("render_bokeh")
-    render_timeline_bokeh(data, myoptions, _outfile_prefix)
+    if not myoptions.disable_showing_bokeh:
+        PROFILER.mark_phase_start("render_bokeh")
+        render_timeline_bokeh(data, myoptions, _outfile_prefix)
 
     summary = PROFILER.pop_phase_summary()
     if summary:
