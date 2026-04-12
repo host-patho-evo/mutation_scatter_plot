@@ -1675,9 +1675,16 @@ def render_bokeh(
     # These tick coordinate values equal the band midpoints (see derivation
     # above), so each label sits visually centred inside its colour band.
     _tick_positions = list(_score_range)
-    # Same conditional label as matplotlib path above.
-    if getattr(myoptions, 'include_synonymous', False) or not getattr(myoptions, 'aminoacids', False):
-        _colorbar_label_bokeh = f"{matrix_name} score values (synonymous codon changes shown in dark green)"
+    # Same data-driven label as matplotlib path above.
+    _has_synonymous_bk = any(c[4] == '#219f11' for c in circles_bokeh) if circles_bokeh else False
+    _has_ins_del_bk = any(c[4] == '#ff0000' for c in circles_bokeh) if circles_bokeh else False
+    _bk_notes = []
+    if _has_ins_del_bk:
+        _bk_notes.append('INS and DEL events are in red')
+    if _has_synonymous_bk:
+        _bk_notes.append('synonymous changes shown in dark green')
+    if _bk_notes:
+        _colorbar_label_bokeh = f"{matrix_name} score values ({'; '.join(_bk_notes)})"
     else:
         _colorbar_label_bokeh = f"{matrix_name} score values"
     _colorbar = bokeh.models.ColorBar(
@@ -1923,11 +1930,20 @@ def render_matplotlib(
         else:
             _mpl_scatterplot = ax1.scatter([], [], marker='o', s=[], alpha=0.5, c=[])
 
-    # The label mentions synonymous codon changes only when they are actually
-    # present in the scatter data (codon mode always includes them; amino acid
-    # mode includes them only with --include-synonymous).
-    if getattr(myoptions, 'include_synonymous', False) or not getattr(myoptions, 'aminoacids', False):
-        _colorbar_label = f"{matrix_name} score values (synonymous codon changes shown in dark green)"
+    # Build the colorbar label dynamically based on what the data actually
+    # contains (green synonymous circles and/or red INS/DEL circles), rather
+    # than relying solely on CLI flags which don't know if the data has any.
+    _has_synonymous = any(c[4] == '#219f11' for c in circles_matplotlib) if circles_matplotlib else False
+    _has_ins_del = any(c[4] == '#ff0000' for c in circles_matplotlib) if circles_matplotlib else False
+
+    _colorbar_notes = []
+    if _has_ins_del:
+        _colorbar_notes.append('INS and DEL events are in red')
+    if _has_synonymous:
+        _colorbar_notes.append('synonymous changes shown in dark green')
+
+    if _colorbar_notes:
+        _colorbar_label = f"{matrix_name} score values ({'; '.join(_colorbar_notes)})"
     else:
         _colorbar_label = f"{matrix_name} score values"
     if norm is not None:
