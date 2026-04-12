@@ -404,9 +404,12 @@ def render_timeline_matplotlib(
     positions = data.positions
 
     # Build position → y-coordinate mapping (band layout)
+    # BAND_SPACING controls vertical distance between adjacent position bands.
+    # A value of 2.0 gives enough room so large circles don't overlap across bands.
+    BAND_SPACING = 2.0
     pos_to_y: dict[int, float] = {}
     for i, pos in enumerate(positions):
-        pos_to_y[pos] = float(i)
+        pos_to_y[pos] = float(i) * BAND_SPACING
 
     # Handle vertical offset for multiple mutations at same position+month
     # Group points by (month, position) to detect overlaps
@@ -434,8 +437,8 @@ def render_timeline_matplotlib(
             if n == 1:
                 y_offset = 0.0
             else:
-                # Spread within ±0.35 of band centre
-                y_offset = -0.35 + (0.7 * j / (n - 1)) if n > 1 else 0.0
+                # Spread within ±0.6 of band centre (wider than before to use the extra space)
+                y_offset = -0.6 + (1.2 * j / (n - 1)) if n > 1 else 0.0
 
             x_vals.append(x)
             y_vals.append(y_base + y_offset)
@@ -455,7 +458,8 @@ def render_timeline_matplotlib(
 
     # Create figure
     n_pos = len(positions)
-    fig_height = max(5, n_pos * 0.5 + 2)
+    _y_extent = (n_pos - 1) * BAND_SPACING
+    fig_height = max(5, n_pos * 0.8 + 2)
     fig_width = max(10, len(months) * 0.8 + 3)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
@@ -485,13 +489,15 @@ def render_timeline_matplotlib(
 
     # Grid and styling
     ax.set_xlim(-0.5, len(months) - 0.5)
-    ax.set_ylim(-0.7, n_pos - 0.3)
+    ax.set_ylim(-BAND_SPACING * 0.5 - 0.2, _y_extent + BAND_SPACING * 0.5 + 0.2)
     ax.grid(axis='x', alpha=0.3, linestyle='--')
     # Draw horizontal band borders above and below each position
     # (not through the centre where data points are)
+    _half_band = BAND_SPACING * 0.5
     for i in range(n_pos):
-        ax.axhline(y=i - 0.5, color='#cccccc', linewidth=0.5, alpha=0.4, zorder=1)
-        ax.axhline(y=i + 0.5, color='#cccccc', linewidth=0.5, alpha=0.4, zorder=1)
+        y_center = float(i) * BAND_SPACING
+        ax.axhline(y=y_center - _half_band, color='#cccccc', linewidth=0.5, alpha=0.4, zorder=1)
+        ax.axhline(y=y_center + _half_band, color='#cccccc', linewidth=0.5, alpha=0.4, zorder=1)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
@@ -566,9 +572,10 @@ def render_timeline_bokeh(
     months = data.months
     positions = data.positions
 
+    BAND_SPACING = 2.0
     pos_to_y: dict[int, float] = {}
     for i, pos in enumerate(positions):
-        pos_to_y[pos] = float(i)
+        pos_to_y[pos] = float(i) * BAND_SPACING
 
     # Group and prepare data
     grouped: dict[tuple[str, int], list[TimelinePoint]] = defaultdict(list)
@@ -594,7 +601,7 @@ def render_timeline_bokeh(
             if n == 1:
                 y_offset = 0.0
             else:
-                y_offset = -0.35 + (0.7 * j / (n - 1)) if n > 1 else 0.0
+                y_offset = -0.6 + (1.2 * j / (n - 1)) if n > 1 else 0.0
 
             x_vals.append(x)
             y_vals.append(y_base + y_offset)
@@ -624,12 +631,13 @@ def render_timeline_bokeh(
     title = getattr(myoptions, 'title', '') or f"Mutation Timeline ({len(months)} months, {len(positions)} positions)"
 
     n_pos = len(positions)
+    _y_extent = (n_pos - 1) * BAND_SPACING
     p = figure(
         title=title,
         width=max(800, len(months) * 60),
-        height=max(400, n_pos * 30 + 100),
+        height=max(400, n_pos * 50 + 100),
         x_range=(-0.5, len(months) - 0.5),
-        y_range=(-0.7, n_pos - 0.3),
+        y_range=(-BAND_SPACING * 0.5 - 0.2, _y_extent + BAND_SPACING * 0.5 + 0.2),
         tools="pan,wheel_zoom,box_zoom,reset,save",
     )
 
@@ -664,7 +672,7 @@ def render_timeline_bokeh(
 
     # Grid
     p.xgrid.grid_line_alpha = 0.3
-    p.ygrid.grid_line_alpha = 0.15
+    p.ygrid.grid_line_alpha = 0.0  # disabled — we use band borders instead
 
     # Save HTML
     html_path = f"{outfile_prefix}.html"
