@@ -43,6 +43,7 @@ extras = [
 
 [project.scripts]
 mutation_scatter_plot       = "mutation_scatter_plot.mutation_scatter_plot.cli:main"
+mutation_timeline_plot      = "mutation_scatter_plot.mutation_scatter_plot.timeline_cli:main"
 calculate_codon_frequencies = "mutation_scatter_plot.calculate_codon_frequencies.cli:main"
 count_motifs_in_sequences   = "mutation_scatter_plot.scripts.count_motifs_in_sequences:main"
 alignment2dots              = "mutation_scatter_plot.scripts.alignment2dots:main"

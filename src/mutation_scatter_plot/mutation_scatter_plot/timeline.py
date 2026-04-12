@@ -1,0 +1,563 @@
+# -*- coding: utf-8 -*-
+# vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
+# This work © 2025-2026 by Jiří Zahradník and Martin Mokrejš
+# (First Medical Faculty - Charles University in Prague) is licensed under
+# Creative Commons Attribution 4.0 International. To view a copy of this
+# license, visit https://creativecommons.org/licenses/by/4.0/
+
+"""Timeline scatter plot for mutation frequencies across monthly datasets.
+
+This module scans a directory of per-month ``.frequencies.tsv`` files produced
+by ``calculate_codon_frequencies`` and renders a timeline scatter plot where:
+
+- **X-axis** = time (YYYY-MM parsed from filenames)
+- **Y-axis** = selected amino acid / codon positions
+- **Circle colour** = BLOSUM substitution score (same scheme as mutation_scatter_plot)
+- **Circle size** = mutation frequency (scaled down vs scatter plots)
+
+The coloring, scoring, and BLOSUM matrix logic are reused from ``core.py``.
+"""
+
+import glob
+import os
+import re
+import sys
+import typing
+from collections import defaultdict
+from dataclasses import dataclass, field
+from decimal import Decimal
+
+import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import numpy as np
+import pandas as pd
+
+from .core import (
+    get_colormap,
+    get_score,
+    load_matrix,
+    resolve_codon_or_aa,
+    adjust_size_and_color,
+)
+from .. import alt_translate
+
+
+# ── Data structures ──────────────────────────────────────────────────────
+
+@dataclass
+class PositionSpec:
+    """A parsed position specification from the CLI.
+
+    Examples
+    --------
+    ``PositionSpec(position=614, ref_aa=None, mutant_aa=None)``
+        Track all mutations at position 614.
+    ``PositionSpec(position=614, ref_aa='D', mutant_aa='G')``
+        Track only the D614G mutation.
+    """
+    position: int
+    ref_aa: typing.Optional[str] = None
+    mutant_aa: typing.Optional[str] = None
+
+    def __str__(self):
+        if self.ref_aa and self.mutant_aa:
+            return f"{self.ref_aa}{self.position}{self.mutant_aa}"
+        return str(self.position)
+
+
+@dataclass
+class TimelinePoint:
+    """A single data point in the timeline."""
+    month: str           # 'YYYY-MM'
+    position: int        # aa position
+    ref_aa: str          # reference amino acid
+    mutant_aa: str       # mutant amino acid
+    ref_codon: str       # reference codon
+    mutant_codon: str    # mutant codon
+    frequency: Decimal   # observed frequency
+    color: str = ''      # hex colour (computed)
+    score: int = 0       # BLOSUM score (computed)
+    label: str = ''      # e.g. 'D614G'
+
+
+@dataclass
+class TimelineData:
+    """Container for parsed per-month, per-position frequency data."""
+    points: list[TimelinePoint] = field(default_factory=list)
+    months: list[str] = field(default_factory=list)    # sorted YYYY-MM
+    positions: list[int] = field(default_factory=list)  # sorted unique positions seen
+    position_specs: list[PositionSpec] = field(default_factory=list)
+
+
+# ── File scanning ────────────────────────────────────────────────────────
+
+_MONTH_RE = re.compile(r'\.(\d{4})-(\d{2})\.')
+
+
+def scan_directory(
+    dirpath: str,
+    pattern: str = '*.frequencies.tsv',
+    include_unknown_month: bool = False,
+) -> list[tuple[str, str]]:
+    """Scan *dirpath* for files matching *pattern* and extract YYYY-MM dates.
+
+    Parameters
+    ----------
+    dirpath : str
+        Directory to scan.
+    pattern : str
+        Glob pattern for input files.
+    include_unknown_month : bool
+        If False (default), skip files where month is '00' (unknown).
+
+    Returns
+    -------
+    list of (month_str, filepath) tuples, sorted chronologically.
+    """
+    results: list[tuple[str, str]] = []
+    for fpath in sorted(glob.glob(os.path.join(dirpath, pattern))):
+        m = _MONTH_RE.search(os.path.basename(fpath))
+        if not m:
+            print(f"Info: Skipping {os.path.basename(fpath)} — no YYYY-MM found in filename")
+            continue
+        year, month = m.group(1), m.group(2)
+        if month == '00' and not include_unknown_month:
+            print(f"Info: Skipping {os.path.basename(fpath)} — month '00' (use --include-unknown-month)")
+            continue
+        month_str = f"{year}-{month}"
+        results.append((month_str, fpath))
+    results.sort(key=lambda x: x[0])
+    return results
+
+
+# ── Position parsing ─────────────────────────────────────────────────────
+
+_MUTATION_RE = re.compile(r'^([A-Z])(\d+)([A-Z])$')
+
+
+def parse_positions(position_args: list[str]) -> list[PositionSpec]:
+    """Parse position specifications from CLI arguments.
+
+    Accepts:
+    - Numeric positions: ``'614'``, ``'501'``
+    - Ranges: ``'480-530'``
+    - Mutation labels: ``'D614G'``, ``'N501Y'``
+
+    Returns a list of :class:`PositionSpec` objects.
+    """
+    specs: list[PositionSpec] = []
+    for arg in position_args:
+        # Try mutation label (e.g. D614G)
+        m = _MUTATION_RE.match(arg.upper())
+        if m:
+            specs.append(PositionSpec(
+                position=int(m.group(2)),
+                ref_aa=m.group(1),
+                mutant_aa=m.group(3),
+            ))
+            continue
+        # Try range (e.g. 480-530)
+        if '-' in arg and not arg.startswith('-'):
+            parts = arg.split('-', 1)
+            try:
+                start, end = int(parts[0]), int(parts[1])
+                for pos in range(start, end + 1):
+                    specs.append(PositionSpec(position=pos))
+                continue
+            except ValueError:
+                pass
+        # Try single numeric position
+        try:
+            specs.append(PositionSpec(position=int(arg)))
+        except ValueError:
+            print(f"Warning: Cannot parse position specification '{arg}' — skipping")
+    return specs
+
+
+# ── Data collection ──────────────────────────────────────────────────────
+
+def collect_timeline_data(
+    files: list[tuple[str, str]],
+    specs: list[PositionSpec],
+    myoptions: typing.Any,
+    matrix: typing.Any,
+    norm: typing.Any,
+    colors: list[str],
+) -> TimelineData:
+    """Load data from monthly TSV files for the requested positions.
+
+    For each file, reads the TSV, filters to the requested positions,
+    and computes BLOSUM colour/score using the shared core functions.
+    """
+    all_positions = set()
+    for s in specs:
+        all_positions.add(s.position)
+
+    # Build a lookup: position → list of PositionSpec (for mutation-label filtering)
+    pos_to_specs: dict[int, list[PositionSpec]] = defaultdict(list)
+    for s in specs:
+        pos_to_specs[s.position].append(s)
+
+    data = TimelineData(position_specs=specs)
+    seen_months: set[str] = set()
+    seen_positions: set[int] = set()
+
+    for month_str, fpath in files:
+        try:
+            df = pd.read_csv(fpath, sep='\t', dtype={'position': int})
+        except Exception as exc:
+            print(f"Warning: Cannot read {fpath}: {exc}")
+            continue
+
+        # Normalise column names (handle legacy/new formats)
+        if 'position' not in df.columns and 'padded_position' in df.columns:
+            df['position'] = df['padded_position']
+
+        # Filter to requested positions
+        df_filtered = df[df['position'].isin(all_positions)]
+        if df_filtered.empty:
+            continue
+
+        seen_months.add(month_str)
+
+        for _, row in df_filtered.iterrows():
+            pos = int(row['position'])
+            ref_codon = str(row.get('original_codon', ''))
+            mut_codon = str(row.get('mutant_codon', ''))
+            ref_aa = str(row.get('original_aa', ''))
+            mut_aa = str(row.get('mutant_aa', ''))
+            freq_val = Decimal(str(row.get('frequency', 0)))
+
+            # Apply mutation-label filter if specified
+            matched_specs = pos_to_specs.get(pos, [])
+            if matched_specs:
+                # Check if any spec is a mutation-label filter
+                has_label_filter = any(s.ref_aa is not None for s in matched_specs)
+                if has_label_filter:
+                    # Only include if it matches at least one label spec
+                    # or a non-label spec exists for this position
+                    matches = False
+                    for s in matched_specs:
+                        if s.ref_aa is None:
+                            matches = True
+                            break
+                        if s.ref_aa == ref_aa.upper() and s.mutant_aa == mut_aa.upper():
+                            matches = True
+                            break
+                    if not matches:
+                        continue
+
+            # Apply frequency threshold
+            if abs(freq_val) < myoptions.threshold:
+                continue
+
+            # Compute colour/score using core functions
+            codon_on_input, _old, _new = resolve_codon_or_aa(
+                myoptions, ref_codon, mut_codon
+            )
+            _score, _freq, _color = adjust_size_and_color(
+                myoptions, freq_val, codon_on_input,
+                ref_codon, mut_codon, _old, _new,
+                matrix, norm, colors,
+            )
+
+            label = f"{ref_aa}{pos}{mut_aa}"
+
+            pt = TimelinePoint(
+                month=month_str,
+                position=pos,
+                ref_aa=ref_aa,
+                mutant_aa=mut_aa,
+                ref_codon=ref_codon,
+                mutant_codon=mut_codon,
+                frequency=freq_val,
+                color=_color,
+                score=_score,
+                label=label,
+            )
+            data.points.append(pt)
+            seen_positions.add(pos)
+
+    data.months = sorted(seen_months)
+    data.positions = sorted(seen_positions)
+    return data
+
+
+# ── Matplotlib rendering ─────────────────────────────────────────────────
+
+# Timeline-specific scaling (much smaller than scatter plot's 3000-5000)
+TIMELINE_CIRCLE_SCALE = 800
+TIMELINE_MIN_SIZE = 10
+TIMELINE_MAX_SIZE = 500
+
+
+def _month_to_float(month_str: str, all_months: list[str]) -> float:
+    """Convert a YYYY-MM string to a float index for plotting."""
+    return all_months.index(month_str) if month_str in all_months else 0.0
+
+
+def render_timeline_matplotlib(
+    data: TimelineData,
+    myoptions: typing.Any,
+    norm: typing.Any,
+    cmap: typing.Any,
+    outfile_prefix: str,
+) -> None:
+    """Render the timeline scatter plot using matplotlib.
+
+    Outputs PNG and PDF files.
+    """
+    if not data.points:
+        print("Warning: No data points to render in timeline plot")
+        return
+
+    months = data.months
+    positions = data.positions
+
+    # Build position → y-coordinate mapping (band layout)
+    pos_to_y: dict[int, float] = {}
+    for i, pos in enumerate(positions):
+        pos_to_y[pos] = float(i)
+
+    # Handle vertical offset for multiple mutations at same position+month
+    # Group points by (month, position) to detect overlaps
+    grouped: dict[tuple[str, int], list[TimelinePoint]] = defaultdict(list)
+    for pt in data.points:
+        grouped[(pt.month, pt.position)].append(pt)
+
+    # Prepare scatter data
+    x_vals: list[float] = []
+    y_vals: list[float] = []
+    sizes: list[float] = []
+    colors_hex: list[str] = []
+    labels: list[str] = []
+
+    for (month, pos), pts in grouped.items():
+        x = _month_to_float(month, months)
+        y_base = pos_to_y[pos]
+
+        # Sort by frequency descending — dominant mutation at centre
+        pts_sorted = sorted(pts, key=lambda p: float(p.frequency), reverse=True)
+        n = len(pts_sorted)
+
+        for j, pt in enumerate(pts_sorted):
+            # Vertical offset within band: centre the dominant, offset others
+            if n == 1:
+                y_offset = 0.0
+            else:
+                # Spread within ±0.35 of band centre
+                y_offset = -0.35 + (0.7 * j / (n - 1)) if n > 1 else 0.0
+
+            x_vals.append(x)
+            y_vals.append(y_base + y_offset)
+
+            # Scale circle size by frequency
+            raw_size = float(pt.frequency) * TIMELINE_CIRCLE_SCALE
+            sizes.append(max(TIMELINE_MIN_SIZE, min(TIMELINE_MAX_SIZE, raw_size)))
+            colors_hex.append(pt.color)
+            labels.append(f"{pt.label} ({float(pt.frequency):.4f})")
+
+    # Create figure
+    n_pos = len(positions)
+    fig_height = max(5, n_pos * 0.5 + 2)
+    fig_width = max(10, len(months) * 0.8 + 3)
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
+    title = getattr(myoptions, 'title', '') or f"Mutation Timeline ({len(months)} months, {n_pos} positions)"
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
+
+    # Scatter plot
+    scatter = ax.scatter(
+        x_vals, y_vals,
+        s=sizes,
+        c=colors_hex,
+        alpha=0.8,
+        edgecolors='#333333',
+        linewidths=0.5,
+        zorder=5,
+    )
+
+    # X-axis: months
+    ax.set_xticks(range(len(months)))
+    ax.set_xticklabels(months, rotation=45, ha='right', fontsize=8)
+    ax.set_xlabel('Month', fontsize=11)
+
+    # Y-axis: positions
+    ax.set_yticks([pos_to_y[p] for p in positions])
+    ax.set_yticklabels([str(p) for p in positions], fontsize=8)
+    ax.set_ylabel('AA Position', fontsize=11)
+
+    # Grid and styling
+    ax.set_xlim(-0.5, len(months) - 0.5)
+    ax.set_ylim(-0.7, n_pos - 0.3)
+    ax.grid(axis='x', alpha=0.3, linestyle='--')
+    ax.grid(axis='y', alpha=0.15, linestyle='-')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    # Colourbar
+    if norm is not None and cmap is not None:
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = fig.colorbar(sm, ax=ax, pad=0.02, shrink=0.7)
+        cbar.set_label('BLOSUM score', fontsize=10)
+    elif cmap is not None:
+        _vmin = getattr(myoptions, 'cmap_vmin', -11)
+        _vmax = getattr(myoptions, 'cmap_vmax', 11)
+        sm = plt.cm.ScalarMappable(
+            cmap=cmap,
+            norm=matplotlib.colors.Normalize(vmin=_vmin, vmax=_vmax),
+        )
+        sm.set_array([])
+        cbar = fig.colorbar(sm, ax=ax, pad=0.02, shrink=0.7)
+        cbar.set_label('BLOSUM score', fontsize=10)
+
+    # Size legend
+    _legend_freqs = [0.01, 0.1, 0.5, 1.0]
+    _legend_sizes = [max(TIMELINE_MIN_SIZE, min(TIMELINE_MAX_SIZE, f * TIMELINE_CIRCLE_SCALE)) for f in _legend_freqs]
+    for f, s in zip(_legend_freqs, _legend_sizes):
+        ax.scatter([], [], s=s, c='gray', alpha=0.5, edgecolors='#333',
+                   linewidths=0.5, label=f'freq={f}')
+    ax.legend(loc='upper left', fontsize=7, framealpha=0.7, title='Circle size',
+              title_fontsize=8, bbox_to_anchor=(1.15, 1.0))
+
+    plt.tight_layout()
+
+    # Save outputs
+    for ext in ('png', 'pdf'):
+        outpath = f"{outfile_prefix}.timeline.{ext}"
+        fig.savefig(outpath, dpi=150, bbox_inches='tight', facecolor='white')
+        print(f"Info: Saved {outpath}")
+
+    plt.close(fig)
+
+
+# ── Bokeh rendering ──────────────────────────────────────────────────────
+
+def render_timeline_bokeh(
+    data: TimelineData,
+    myoptions: typing.Any,
+    outfile_prefix: str,
+) -> None:
+    """Render interactive Bokeh HTML timeline.
+
+    Outputs HTML and JSON files.
+    """
+    if not data.points:
+        print("Warning: No data points to render in Bokeh timeline")
+        return
+
+    try:
+        from bokeh.plotting import figure, output_file, save
+        from bokeh.models import ColumnDataSource, HoverTool
+        from bokeh.io import export_png
+    except ImportError:
+        print("Warning: bokeh not available, skipping Bokeh timeline output")
+        return
+
+    months = data.months
+    positions = data.positions
+
+    pos_to_y: dict[int, float] = {}
+    for i, pos in enumerate(positions):
+        pos_to_y[pos] = float(i)
+
+    # Group and prepare data
+    grouped: dict[tuple[str, int], list[TimelinePoint]] = defaultdict(list)
+    for pt in data.points:
+        grouped[(pt.month, pt.position)].append(pt)
+
+    x_vals: list[float] = []
+    y_vals: list[float] = []
+    sizes_px: list[float] = []
+    colors_hex: list[str] = []
+    hover_labels: list[str] = []
+    hover_freqs: list[str] = []
+    hover_months: list[str] = []
+    hover_codons: list[str] = []
+
+    for (month, pos), pts in grouped.items():
+        x = _month_to_float(month, months)
+        y_base = pos_to_y[pos]
+        pts_sorted = sorted(pts, key=lambda p: float(p.frequency), reverse=True)
+        n = len(pts_sorted)
+
+        for j, pt in enumerate(pts_sorted):
+            if n == 1:
+                y_offset = 0.0
+            else:
+                y_offset = -0.35 + (0.7 * j / (n - 1)) if n > 1 else 0.0
+
+            x_vals.append(x)
+            y_vals.append(y_base + y_offset)
+
+            raw_size = float(pt.frequency) * TIMELINE_CIRCLE_SCALE
+            sizes_px.append(max(3, min(25, raw_size ** 0.5 * 3)))
+            colors_hex.append(pt.color)
+            hover_labels.append(pt.label)
+            hover_freqs.append(f"{float(pt.frequency):.6f}")
+            hover_months.append(month)
+            hover_codons.append(f"{pt.ref_codon}→{pt.mutant_codon}")
+
+    source = ColumnDataSource(data=dict(
+        x=x_vals,
+        y=y_vals,
+        size=sizes_px,
+        color=colors_hex,
+        label=hover_labels,
+        freq=hover_freqs,
+        month=hover_months,
+        codon=hover_codons,
+    ))
+
+    title = getattr(myoptions, 'title', '') or f"Mutation Timeline ({len(months)} months, {len(positions)} positions)"
+
+    n_pos = len(positions)
+    p = figure(
+        title=title,
+        width=max(800, len(months) * 60),
+        height=max(400, n_pos * 30 + 100),
+        x_range=(-0.5, len(months) - 0.5),
+        y_range=(-0.7, n_pos - 0.3),
+        tools="pan,wheel_zoom,box_zoom,reset,save",
+    )
+
+    p.scatter(
+        'x', 'y',
+        source=source,
+        size='size',
+        color='color',
+        alpha=0.8,
+        line_color='#333333',
+        line_width=0.5,
+    )
+
+    # Hover tool
+    hover = HoverTool(tooltips=[
+        ("Mutation", "@label"),
+        ("Month", "@month"),
+        ("Frequency", "@freq"),
+        ("Codon", "@codon"),
+    ])
+    p.add_tools(hover)
+
+    # Axis labels
+    p.xaxis.ticker = list(range(len(months)))
+    p.xaxis.major_label_overrides = {i: m for i, m in enumerate(months)}
+    p.xaxis.major_label_orientation = 0.785  # 45 degrees
+    p.xaxis.axis_label = "Month"
+
+    p.yaxis.ticker = [pos_to_y[pos] for pos in positions]
+    p.yaxis.major_label_overrides = {pos_to_y[pos]: str(pos) for pos in positions}
+    p.yaxis.axis_label = "AA Position"
+
+    # Grid
+    p.xgrid.grid_line_alpha = 0.3
+    p.ygrid.grid_line_alpha = 0.15
+
+    # Save HTML
+    html_path = f"{outfile_prefix}.timeline.html"
+    output_file(html_path, title=title)
+    save(p)
+    print(f"Info: Saved {html_path}")
