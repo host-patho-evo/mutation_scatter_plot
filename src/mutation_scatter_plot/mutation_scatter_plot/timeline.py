@@ -790,7 +790,7 @@ def render_timeline_matplotlib(
     for f, s in zip(_legend_freqs, _legend_sizes):
         ax.scatter([], [], s=s, c='gray', alpha=0.5, edgecolors='#333',
                    linewidths=0.5, label=f'{f:.1%}')
-    ax.legend(loc='upper left', fontsize=7, framealpha=0.7, title='Circle size',
+    ax.legend(loc='upper left', fontsize=7, frameon=False, title='Circle size',
               title_fontsize=8, bbox_to_anchor=(1.15, 1.0),
               labelspacing=3.5, handletextpad=1.5, borderpad=1.2,
               scatterpoints=1)
