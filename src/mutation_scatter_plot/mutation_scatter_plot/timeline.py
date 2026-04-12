@@ -40,6 +40,7 @@ from .core import (
     resolve_codon_or_aa,
     adjust_size_and_color,
 )
+from .colorbar_helpers import setup_matplotlib_colorbar, add_bokeh_colorbar
 from .. import alt_translate
 
 
@@ -636,6 +637,7 @@ def render_timeline_matplotlib(
     myoptions: typing.Any,
     norm: typing.Any,
     cmap: typing.Any,
+    colors: typing.Any,
     outfile_prefix: str,
 ) -> None:
     """Render the timeline scatter plot using matplotlib.
@@ -661,6 +663,8 @@ def render_timeline_matplotlib(
         Discrete colour normaliser, or None for continuous colormaps.
     cmap : matplotlib.colors.Colormap
         Colormap instance.
+    colors : list or None
+        Resolved palette list from ``get_colormap``.
     outfile_prefix : str
         Output path prefix (without extension).
     """
@@ -801,44 +805,14 @@ def render_timeline_matplotlib(
     ax2.spines['top'].set_visible(False)
     ax2.spines['right'].set_visible(False)
 
-    # Colourbar — rendered in dedicated ax_cb column
+    # Colourbar — rendered in dedicated ax_cb column via shared helper
     _vmin = getattr(myoptions, 'cmap_vmin', -11)
     _vmax = getattr(myoptions, 'cmap_vmax', 11)
-
-    if norm is not None and cmap is not None:
-        # ListedColormap with BoundaryNorm: slice to data-driven range
-        _full_boundaries = norm.boundaries
-        _sub_bounds = [b for b in _full_boundaries if _vmin <= b <= _vmax]
-        if len(_sub_bounds) < 2:
-            _sub_bounds = [_vmin, _vmax]
-        _n_colors = cmap.N
-        _full_range = _full_boundaries[-1] - _full_boundaries[0]
-        _sub_colors = []
-        for i in range(len(_sub_bounds) - 1):
-            mid = (_sub_bounds[i] + _sub_bounds[i + 1]) / 2
-            idx = int((mid - _full_boundaries[0]) / _full_range * _n_colors)
-            idx = max(0, min(_n_colors - 1, idx))
-            _sub_colors.append(cmap(idx / (_n_colors - 1) if _n_colors > 1 else 0))
-        _sub_cmap = matplotlib.colors.ListedColormap(_sub_colors)
-        _sub_norm = matplotlib.colors.BoundaryNorm(_sub_bounds, len(_sub_colors))
-        sm = plt.cm.ScalarMappable(cmap=_sub_cmap, norm=_sub_norm)
-        sm.set_array([])
-        cbar = fig.colorbar(sm, cax=ax_cb, label='BLOSUM score', alpha=0.5)
-        # Centre tick labels inside each colour band (same as mutation_scatter_plot)
-        cbar.ax.set_yticks(
-            np.arange(_vmin + 0.5, _vmax + 1.5, 1),
-            np.arange(_vmin, _vmax + 1, 1),
-        )
-        cbar.ax.tick_params(axis='y', which='minor', length=0)
-    elif cmap is not None:
-        sm = plt.cm.ScalarMappable(
-            cmap=cmap,
-            norm=matplotlib.colors.Normalize(vmin=_vmin, vmax=_vmax),
-        )
-        sm.set_array([])
-        cbar = fig.colorbar(sm, cax=ax_cb, label='BLOSUM score', alpha=0.5)
-        cbar.ax.set_yticks(np.arange(_vmin, _vmax + 1, 1))
-        cbar.ax.tick_params(axis='y', which='minor', length=0)
+    _matrix_name = getattr(myoptions, 'matrix', 'BLOSUM80')
+    setup_matplotlib_colorbar(
+        fig, ax_cb, norm, cmap, colors, _vmin, _vmax,
+        label=f'{_matrix_name} score', alpha=0.5,
+    )
 
     # Size legend — rendered in dedicated ax_leg column
     ax_leg.set_axis_off()
@@ -930,6 +904,7 @@ def render_timeline_bokeh(
     myoptions: typing.Any,
     norm: typing.Any,
     cmap: typing.Any,
+    colors: typing.Any,
     outfile_prefix: str,
 ) -> None:
     """Render interactive Bokeh HTML timeline.
@@ -1084,56 +1059,15 @@ def render_timeline_bokeh(
     bokeh_fig.xgrid.grid_line_alpha = 0.3
     bokeh_fig.ygrid.grid_line_alpha = 0.0
 
-    # ── Bokeh Colorbar (same approach as mutation_scatter_plot) ──
+    # ── Bokeh Colorbar (shared helper, same approach as mutation_scatter_plot) ──
     _bk_vmin = getattr(myoptions, 'cmap_vmin', -11)
     _bk_vmax = getattr(myoptions, 'cmap_vmax', 11)
     _matrix_label = f"{_matrix_name} score"
-
-    def _blend_with_white_hex(hex_color: str, alpha: float) -> str:
-        """Pre-blend a hex colour with white to simulate alpha on opaque bg."""
-        import matplotlib.colors as mcolors
-        r, g, b = mcolors.to_rgb(hex_color)
-        r = r * alpha + 1.0 * (1 - alpha)
-        g = g * alpha + 1.0 * (1 - alpha)
-        b = b * alpha + 1.0 * (1 - alpha)
-        return mcolors.to_hex((r, g, b))
-
-    _bk_alpha = 0.8  # match scatter circle alpha
-    if norm is not None and cmap is not None:
-        _score_range = range(_bk_vmin, _bk_vmax + 1)
-        _bk_palette = [
-            _blend_with_white_hex(matplotlib.colors.to_hex(
-                cmap(max(0, min(cmap.N - 1, norm(s))) / (cmap.N - 1) if cmap.N > 1 else 0)),
-                _bk_alpha)
-            for s in _score_range
-        ]
-    elif cmap is not None:
-        _n_cont = _bk_vmax - _bk_vmin + 1
-        _bk_palette = [
-            _blend_with_white_hex(
-                matplotlib.colors.to_hex(cmap(i / max(1, _n_cont - 1))),
-                _bk_alpha)
-            for i in range(_n_cont)
-        ]
-    else:
-        _bk_palette = ['#aaaaaa'] * (_bk_vmax - _bk_vmin + 1)
-
     try:
-        import bokeh.models
-        _bk_mapper = bokeh.models.LinearColorMapper(
-            palette=_bk_palette,
-            low=_bk_vmin - 0.5,
-            high=_bk_vmax + 0.5,
+        add_bokeh_colorbar(
+            bokeh_fig, norm, cmap, colors, _bk_vmin, _bk_vmax,
+            alpha=0.8, label=_matrix_label,
         )
-        _bk_cbar = bokeh.models.ColorBar(
-            color_mapper=_bk_mapper,
-            label_standoff=8,
-            title=_matrix_label,
-            title_standoff=10,
-            location=(0, 0),
-            ticker=bokeh.models.FixedTicker(ticks=list(range(_bk_vmin, _bk_vmax + 1))),
-        )
-        bokeh_fig.add_layout(_bk_cbar, 'right')
     except Exception:  # pylint: disable=broad-exception-caught
         pass
 
