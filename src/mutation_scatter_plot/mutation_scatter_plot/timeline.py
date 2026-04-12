@@ -526,7 +526,16 @@ def render_timeline_matplotlib(
             sizes.append(max(TIMELINE_MIN_SIZE, min(TIMELINE_MAX_SIZE, raw_size)))
             colors_hex.append(pt.color)
             freqs.append(freq_f)
-            labels.append(f"{pt.label} ({float(pt.frequency):.4f})")
+            # Build hover text matching mutation_scatter_plot format
+            _matrix_name = getattr(myoptions, 'matrix', 'BLOSUM80')
+            _hover = (
+                f"Position: {pt.position}\n"
+                f"Original Codon: {pt.ref_codon} ({pt.ref_aa})\n"
+                f"New Codon: {pt.mutant_codon} ({pt.mutant_aa})\n"
+                f"{_matrix_name} score: {pt.score}\n"
+                f"Frequency: {float(pt.frequency):.6f}"
+            )
+            labels.append(_hover)
 
     # Create figure
     n_pos = len(positions)
@@ -737,6 +746,10 @@ def render_timeline_bokeh(
     hover_freqs: list[str] = []
     hover_months: list[str] = []
     hover_codons: list[str] = []
+    hover_positions: list[str] = []
+    hover_ref_codons: list[str] = []
+    hover_new_codons: list[str] = []
+    hover_scores: list[str] = []
 
     for (month, pos), pts in grouped.items():
         x = _month_to_float(month, months)
@@ -763,6 +776,10 @@ def render_timeline_bokeh(
             hover_freqs.append(f"{float(pt.frequency):.6f}")
             hover_months.append(month)
             hover_codons.append(f"{pt.ref_codon}→{pt.mutant_codon}")
+            hover_positions.append(str(pt.position))
+            hover_ref_codons.append(f"{pt.ref_codon} ({pt.ref_aa})")
+            hover_new_codons.append(f"{pt.mutant_codon} ({pt.mutant_aa})")
+            hover_scores.append(str(pt.score))
 
     source = ColumnDataSource(data=dict(
         x=x_vals,
@@ -773,6 +790,10 @@ def render_timeline_bokeh(
         freq=hover_freqs,
         month=hover_months,
         codon=hover_codons,
+        position=hover_positions,
+        ref_codon=hover_ref_codons,
+        new_codon=hover_new_codons,
+        score=hover_scores,
     ))
 
     title = getattr(myoptions, 'title', '') or f"Mutation Timeline ({len(months)} months, {len(positions)} positions)"
@@ -799,12 +820,15 @@ def render_timeline_bokeh(
         line_width=0.5,
     )
 
-    # Hover tool
+    _matrix_name = getattr(myoptions, 'matrix', 'BLOSUM80')
     hover = HoverTool(tooltips=[
         ("Mutation", "@label"),
+        ("Position", "@position"),
         ("Month", "@month"),
+        ("Original Codon", "@ref_codon"),
+        ("New Codon", "@new_codon"),
+        (f"{_matrix_name} score", "@score"),
         ("Frequency", "@freq"),
-        ("Codon", "@codon"),
     ])
     bokeh_fig.add_tools(hover)
 
