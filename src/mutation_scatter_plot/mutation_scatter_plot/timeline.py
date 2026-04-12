@@ -21,6 +21,7 @@ The coloring, scoring, and BLOSUM matrix logic are reused from ``core.py``.
 import glob
 import os
 import re
+import textwrap
 import typing
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -1026,6 +1027,11 @@ def render_timeline_matplotlib(
     title = (getattr(myoptions, 'title', '')
              or f"Timeline of mutations in SARS-CoV-2 in GISAID {_prefix_name}"
                 f" at {_pos_type} positions {_pos_list}")
+    # Wrap the title so it does not force the page wider than the X-axis.
+    # Estimate characters that fit: (fig_width_in * 72pt/in) / font_size
+    # gives ~ems; multiply by ~1.5 for average char width in a bold font.
+    _title_wrap_chars = max(40, int(fig_width * 72 / _heading_fontsize * 1.5))
+    title = textwrap.fill(title, width=_title_wrap_chars)
     ax.set_title(title, fontsize=_heading_fontsize, fontweight='bold', pad=25)
 
     # Scatter plot
@@ -1322,6 +1328,10 @@ def render_timeline_bokeh(
     title = (getattr(myoptions, 'title', '')
              or f"Timeline of mutations in SARS-CoV-2 in GISAID {_prefix_name}"
                 f" at {_pos_type} positions {_pos_list}")
+    # Wrap the title so it does not force the page wider than the timeline.
+    # Bokeh width is in pixels; estimate ~7px per character at default size.
+    _bokeh_wrap_chars = max(40, int(2000 / 7))
+    title = textwrap.fill(title, width=_bokeh_wrap_chars)
 
     _total_height = sum(pos_heights.get(p, 2.0) for p in positions)
     # y-limits: half-band padding around first and last position
