@@ -577,6 +577,16 @@ def _compute_intra_band_spread(band_spacing: float) -> float:
     return band_spacing * 0.5 * 0.6
 
 
+def _slot_key(pt: TimelinePoint) -> str:
+    """Return a unique key for vertical slot assignment within a band.
+
+    Uses codon-level identity so that different codon mutations producing
+    the same AA change (e.g. GAT→GGT vs GAT→GGC, both D614G) get
+    distinct vertical positions.
+    """
+    return f"{pt.ref_codon}{pt.position}{pt.mutant_codon}"
+
+
 def _prepare_layout(
     data: TimelineData,
     myoptions: typing.Any = None,
@@ -611,15 +621,17 @@ def _prepare_layout(
     for pt in data.points:
         grouped[(pt.month, pt.position)].append(pt)
 
-    # Collect unique labels per position (needed for height + offset computation)
-    labels_per_pos: dict[int, list[str]] = {}
+    # Collect unique codon mutations per position (needed for height + offset)
+    # Uses codon-level identity so different codons producing the same AA
+    # change get distinct vertical slots instead of overlapping.
+    slots_per_pos: dict[int, list[str]] = {}
     for pos in data.positions:
         _unique: set[str] = set()
         for (_m, _p), pts in grouped.items():
             if _p == pos:
                 for pt in pts:
-                    _unique.add(pt.label)
-        labels_per_pos[pos] = sorted(_unique)
+                    _unique.add(_slot_key(pt))
+        slots_per_pos[pos] = sorted(_unique)
 
     # Apply user-specified scaling factor
     _factor = getattr(myoptions, 'band_spacing_factor', 1.0) if myoptions else 1.0
@@ -632,11 +644,11 @@ def _prepare_layout(
 
     pos_heights: dict[int, float] = {}
     for pos in data.positions:
-        n_labels = len(labels_per_pos[pos])
+        n_slots = len(slots_per_pos[pos])
         # Circle-based minimum: coexisting circles each need ~0.6 units
-        circle_height = max(_MIN_BAND_HEIGHT, n_labels * 0.6 + 1.4)
+        circle_height = max(_MIN_BAND_HEIGHT, n_slots * 0.6 + 1.4)
         # Label-based minimum: each label needs ~0.7 units
-        label_height = n_labels * _LABEL_HEIGHT + 0.3
+        label_height = n_slots * _LABEL_HEIGHT + 0.3
         pos_heights[pos] = max(circle_height, label_height) * _factor
 
     # Per-position spread: ± vertical offset range within each band
@@ -658,16 +670,16 @@ def _prepare_layout(
     # from jumping vertically.
     label_offsets: dict[int, dict[str, float]] = {}
     for pos in data.positions:
-        _sorted = labels_per_pos[pos]
+        _sorted = slots_per_pos[pos]
         _n = len(_sorted)
         _spr = pos_spread[pos]
         offsets: dict[str, float] = {}
         if _n <= 1:
-            for lbl in _sorted:
-                offsets[lbl] = 0.0
+            for key in _sorted:
+                offsets[key] = 0.0
         else:
-            for j, lbl in enumerate(_sorted):
-                offsets[lbl] = -_spr + (2 * _spr * j / (_n - 1))
+            for j, key in enumerate(_sorted):
+                offsets[key] = -_spr + (2 * _spr * j / (_n - 1))
         label_offsets[pos] = offsets
 
     return pos_heights, pos_spread, pos_to_y, grouped, label_offsets
@@ -699,37 +711,34 @@ def _compute_ytick_labels(
     for pos in positions:
         y_base = pos_to_y[pos]
         _spread = pos_spread.get(pos, 0.6)
-        # Collect unique labels seen at this position (order by first appearance)
-        seen_labels: dict[str, None] = {}
+        # Collect unique codon mutations (slot keys) with their display labels.
+        # Uses _slot_key so that ytick positions match circle vertical slots.
+        seen_slots: dict[str, str] = {}  # slot_key → display label
         for (_month, p_key), pts in grouped.items():
             if p_key != pos:
                 continue
-            # Sort by frequency descending so the highest-frequency label appears first
-            pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
-            for pt in pts_sorted:
-                if pt.label not in seen_labels:
-                    seen_labels[pt.label] = None
+            for pt in pts:
+                key = _slot_key(pt)
+                if key not in seen_slots:
+                    seen_slots[key] = pt.label
 
-        unique_labels = list(seen_labels.keys())
+        slot_keys = sorted(seen_slots.keys())
 
-        if not unique_labels:
+        if not slot_keys:
             tick_y.append(y_base)
             tick_labels.append(str(pos))
             continue
 
-        # Sort labels alphabetically for consistent ordering
-        unique_labels.sort()
-
         # Evenly distribute labels within the band [y_base - _spread, y_base + _spread]
-        n_labels = len(unique_labels)
+        n_labels = len(slot_keys)
         if n_labels == 1:
             tick_y.append(y_base)
-            tick_labels.append(unique_labels[0])
+            tick_labels.append(seen_slots[slot_keys[0]])
         else:
-            for j, lbl in enumerate(unique_labels):
+            for j, key in enumerate(slot_keys):
                 y = y_base - _spread + (2 * _spread * j / (n_labels - 1))
                 tick_y.append(y)
-                tick_labels.append(lbl)
+                tick_labels.append(seen_slots[key])
 
     return tick_y, tick_labels
 
@@ -810,7 +819,7 @@ def render_timeline_matplotlib(
 
         for pt in pts:
             # Fixed vertical slot for this mutation label
-            y_offset = _pos_offsets.get(pt.label, 0.0)
+            y_offset = _pos_offsets.get(_slot_key(pt), 0.0)
 
             x_vals.append(x)
             y_vals.append(y_base + y_offset)
@@ -1106,7 +1115,7 @@ def render_timeline_bokeh(
         _pos_offsets = label_offsets.get(pos, {})
 
         for pt in pts:
-            y_offset = _pos_offsets.get(pt.label, 0.0)
+            y_offset = _pos_offsets.get(_slot_key(pt), 0.0)
 
             x_vals.append(x)
             y_vals.append(y_base + y_offset)
