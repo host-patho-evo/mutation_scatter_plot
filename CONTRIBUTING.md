@@ -171,7 +171,8 @@ Open an issue on GitHub with:
 
 ```
 src/mutation_scatter_plot/
-├── __init__.py                   # package root, alt_translate()
+├── __init__.py                   # package root, alt_translate(), lazy re-exports
+├── api.py                        # high-level programmatic API (render_scatter, etc.)
 ├── profiler.py                   # optional profiling support
 ├── numa_bind.py                  # NUMA auto-bind for multi-socket hosts
 ├── mutation_scatter_plot/        # main scatter plot & timeline modules
@@ -179,6 +180,7 @@ src/mutation_scatter_plot/
 │   ├── cli.py                    # scatter plot CLI
 │   ├── core.py                   # shared BLOSUM scoring, colormap logic
 │   ├── colorbar_helpers.py       # colorbar rendering (matplotlib + Bokeh)
+│   ├── options.py                # factory functions for options Namespaces
 │   ├── timeline.py               # timeline scatter plot renderer
 │   └── timeline_cli.py           # timeline CLI
 ├── calculate_codon_frequencies/  # codon frequency calculator
