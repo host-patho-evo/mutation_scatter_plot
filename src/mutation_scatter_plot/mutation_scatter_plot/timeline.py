@@ -520,7 +520,32 @@ def _prepare_layout(
         - pos_to_y: mapping from position int to y-coordinate.
         - grouped: data points grouped by (month, position).
     """
+    # Group data points
+    grouped: dict[tuple[str, int], list[TimelinePoint]] = defaultdict(list)
+    for pt in data.points:
+        grouped[(pt.month, pt.position)].append(pt)
+
+    # Circle-based spacing (prevents circle bleed between bands)
     BAND_SPACING = _compute_band_spacing(data)
+
+    # Label-based spacing: ensure enough room for unique Y-axis labels
+    # Each label needs ~0.7 data units at default font (fontsize=7).
+    # Compute the max number of unique labels at any single position.
+    _LABEL_HEIGHT = 0.7   # data units per label (empirical for fontsize=7)
+    n_pos = len(data.positions)
+    if n_pos > 0 and grouped:
+        _max_labels = 1
+        for pos in data.positions:
+            _unique = set()
+            for (_m, _p), pts in grouped.items():
+                if _p == pos:
+                    for pt in pts:
+                        _unique.add(pt.label)
+            _max_labels = max(_max_labels, len(_unique))
+        # Minimum spacing so labels fit: n_labels * height + small padding
+        _label_spacing = _max_labels * _LABEL_HEIGHT + 0.3
+        BAND_SPACING = max(BAND_SPACING, _label_spacing)
+
     # Apply user-specified scaling factor
     _factor = getattr(myoptions, 'band_spacing_factor', 1.0) if myoptions else 1.0
     BAND_SPACING *= _factor
@@ -529,10 +554,6 @@ def _prepare_layout(
     pos_to_y: dict[int, float] = {}
     for i, pos in enumerate(data.positions):
         pos_to_y[pos] = float(i) * BAND_SPACING
-
-    grouped: dict[tuple[str, int], list[TimelinePoint]] = defaultdict(list)
-    for pt in data.points:
-        grouped[(pt.month, pt.position)].append(pt)
 
     return BAND_SPACING, _spread, pos_to_y, grouped
 
@@ -808,6 +829,40 @@ def render_timeline_matplotlib(
               scatterpoints=1)
 
     plt.tight_layout()
+
+    # ── Auto-fix Y-axis label overlaps ──
+    # Draw the canvas to compute actual text bounding boxes, then check
+    # for overlapping Y-axis tick labels and increase figure height if needed.
+    for _attempt in range(4):
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        ytick_bboxes = []
+        for label in ax.get_yticklabels():
+            bb = label.get_window_extent(renderer=renderer)
+            ytick_bboxes.append(bb)
+        # Check for pairwise overlaps among consecutive labels (sorted by y)
+        sorted_bbs = sorted(ytick_bboxes, key=lambda b: b.y0)
+        has_overlap = False
+        max_overlap_px = 0.0
+        for i in range(len(sorted_bbs) - 1):
+            gap = sorted_bbs[i + 1].y0 - sorted_bbs[i].y1
+            if gap < 0:
+                has_overlap = True
+                max_overlap_px = max(max_overlap_px, -gap)
+        if not has_overlap:
+            break
+        # Increase figure height proportionally to fix the overlap
+        old_h = fig.get_size_inches()[1]
+        # Scale up by the ratio needed to eliminate the worst overlap
+        # Each label pair needs (overlap + 2px padding) more space
+        total_label_span = sorted_bbs[-1].y1 - sorted_bbs[0].y0
+        if total_label_span > 0:
+            scale = 1.0 + (max_overlap_px + 2.0) * len(sorted_bbs) / total_label_span
+        else:
+            scale = 1.3
+        scale = min(scale, 1.5)  # cap per-iteration growth
+        fig.set_size_inches(fig.get_size_inches()[0], old_h * scale)
+        plt.tight_layout()
 
     # ── mplcursors hover support ──
     if not getattr(myoptions, 'disable_showing_mplcursors', False):
