@@ -1178,6 +1178,7 @@ def pretty_print_bokeh_html(filename):
     pattern = r'(<script type="application/json"[^>]*>)(.*?)(</script>)'
 
     def replacer(match):
+        """Pretty-print JSON inside a Bokeh ``<script>`` tag."""
         prefix = match.group(1)
         json_str = match.group(2)
         suffix = match.group(3)
@@ -1989,6 +1990,7 @@ def render_matplotlib(
         _label.set_ha("center")
 
     def on_add(sel):
+        """Display pre-formatted hover text for the selected scatter point."""
         # sel.index is the index into _mpl_scatterplot's data array, i.e.
         # into circles_matplotlib.  Do NOT use sel.target: it returns the
         # raw mouse position in data coordinates, which produces wrong

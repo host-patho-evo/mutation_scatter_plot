@@ -82,6 +82,7 @@ class ResourceProfiler(threading.Thread):
             return 0.0, 0.0
 
     def start(self):
+        """Start the profiler thread (idempotent; safe to call multiple times)."""
         with self.lock:
             if self._has_started:
                 return
@@ -89,6 +90,7 @@ class ResourceProfiler(threading.Thread):
             super().start()
 
     def run(self):
+        """Background loop: sample CPU and RAM at ``self.interval`` seconds."""
         while True:
             t0 = time.time()
             if self.psutil:
@@ -111,6 +113,7 @@ class ResourceProfiler(threading.Thread):
                 time.sleep(self.interval - elapsed)
 
     def mark_phase_start(self, phase_name: str):
+        """Begin a new named phase, resetting sample accumulators."""
         with self.lock:
             self.active_phase = phase_name
             self.phase_start_time = datetime.datetime.now()
@@ -118,10 +121,15 @@ class ResourceProfiler(threading.Thread):
             self.phase_ram_samples = []
 
     def get_current_load_str(self) -> str:
+        """Return a human-readable string of the latest CPU and RAM readings."""
         with self.lock:
             return f"  [Load: {self.current_ram_gb:.1f} GB RAM | {self.current_cpu:.0f}% CPU]"
 
     def pop_phase_summary(self) -> str | None:
+        """End the current phase and return a formatted summary string.
+
+        Returns ``None`` if no phase was active.
+        """
         with self.lock:
             if self.active_phase is None or not self.phase_start_time:
                 return None

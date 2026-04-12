@@ -198,9 +198,8 @@ docs/                             # technical documentation
 
 - **README.md** — user-facing documentation, installation, usage examples.
 - **docs/** — technical design documents (scaling, profiling, testing).
-- **Docstrings** — public functions should have PEP 257 docstrings. A few
-  older callback functions still lack them; new code should always include
-  them.
+- **Docstrings** — all public functions and classes in `src/` have PEP 257
+  docstrings. Please add one to any new public function you introduce.
 
 If your change modifies user-visible behaviour (new CLI flag, changed
 output format, etc.), please update the README accordingly.
