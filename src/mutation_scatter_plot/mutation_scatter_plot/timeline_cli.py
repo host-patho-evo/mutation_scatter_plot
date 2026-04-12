@@ -378,6 +378,29 @@ def main():
                     if summary:
                         print(summary)
 
+                # Also produce a single-page output with ALL positions
+                if _n_pages > 1:
+                    print(f"  ── full (all {len(view_data.positions)} positions, "
+                          f"{len(view_data.points)} points) ──")
+                    PROFILER.mark_phase_start("render_matplotlib")
+                    render_timeline_matplotlib(
+                        view_data, myoptions, _norm, _cmap, _colors, _view_prefix,
+                    )
+
+                    summary = PROFILER.pop_phase_summary()
+                    if summary:
+                        print(summary)
+
+                    if not myoptions.disable_showing_bokeh:
+                        PROFILER.mark_phase_start("render_bokeh")
+                        render_timeline_bokeh(
+                            view_data, myoptions, _norm, _cmap, _colors, _view_prefix,
+                        )
+
+                    summary = PROFILER.pop_phase_summary()
+                    if summary:
+                        print(summary)
+
     print("mutation_timeline_plot: done")
 
 
