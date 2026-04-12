@@ -12,6 +12,14 @@ Contains two tools:
   - calculate_codon_frequencies: calculate codon/aa frequencies from alignments
 
 Shared utilities are in mutation_scatter_plot.utils.
+
+High-level programmatic API
+---------------------------
+The following functions are re-exported here for convenient library use::
+
+    from mutation_scatter_plot import render_scatter, calculate_frequencies
+
+See :mod:`mutation_scatter_plot.api` for full documentation.
 """
 
 import functools
@@ -65,3 +73,24 @@ def alt_translate(seq, table=1):
             codon = codon.replace('-', 'N')
         result.append(translate(codon, table=table, gap='-'))
     return ''.join(result)
+
+
+# ── Lazy re-exports for the high-level API ──────────────────────────────
+# These are defined as module-level functions that forward to api.py on
+# first call.  This avoids importing matplotlib/pandas/numpy/bokeh when
+# the package is imported just for alt_translate() or similar lightweight
+# use.
+
+def __getattr__(name):
+    """Lazy import for high-level API functions."""
+    _api_names = {
+        'render_scatter', 'render_timeline', 'calculate_frequencies',
+        'scatter_options', 'timeline_options', 'frequency_options',
+    }
+    if name in _api_names:
+        if name in ('scatter_options', 'timeline_options', 'frequency_options'):
+            from .mutation_scatter_plot import options as _opts  # noqa: F811
+            return getattr(_opts, name)
+        from . import api as _api  # noqa: F811
+        return getattr(_api, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
