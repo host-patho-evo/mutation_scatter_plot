@@ -551,14 +551,57 @@ def render_timeline_matplotlib(
     ax.set_xticks(range(len(months)))
     ax.set_xticklabels(months, rotation=45, ha='right', fontsize=8)
     ax.set_xlabel('Month', fontsize=11)
+    # Y-axis: use mutation labels as tick labels (like categorical axis)
+    # Collect labels per position band, then set as yticks
+    _all_tick_y: list[float] = []
+    _all_tick_labels: list[str] = []
+    for pos in positions:
+        y_base = pos_to_y[pos]
+        labels_at_pos: dict[str, list[float]] = defaultdict(list)
+        for (month, p_key), pts in grouped.items():
+            if p_key != pos:
+                continue
+            pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
+            n = len(pts_sorted)
+            for j, pt in enumerate(pts_sorted):
+                if n == 1:
+                    y_off = 0.0
+                else:
+                    y_off = -_spread + (2 * _spread * j / (n - 1))
+                labels_at_pos[pt.label].append(y_base + y_off)
 
-    # Y-axis: positions — tick labels removed, band labels are used instead
-    ax.set_yticks([pos_to_y[p] for p in positions])
-    ax.set_yticklabels([])
+        if not labels_at_pos:
+            # Fallback: just the position number
+            _all_tick_y.append(y_base)
+            _all_tick_labels.append(str(pos))
+            continue
+
+        # Use the median y-position for each label
+        label_y: list[tuple[float, str]] = []
+        for lbl, y_list in labels_at_pos.items():
+            median_y = sorted(y_list)[len(y_list) // 2]
+            label_y.append((median_y, lbl))
+        label_y.sort()
+
+        # Merge labels at very similar y-positions (within 0.15 data units)
+        merged_labels: list[tuple[float, str]] = []
+        for y, lbl in label_y:
+            if merged_labels and abs(y - merged_labels[-1][0]) < 0.15:
+                prev_y, prev_lbl = merged_labels[-1]
+                merged_labels[-1] = ((prev_y + y) / 2, prev_lbl + ', ' + lbl)
+            else:
+                merged_labels.append((y, lbl))
+
+        for y, lbl in merged_labels:
+            _all_tick_y.append(y)
+            _all_tick_labels.append(lbl)
+
+    ax.set_yticks(_all_tick_y)
+    ax.set_yticklabels(_all_tick_labels, fontsize=7)
     ax.set_ylabel('AA Position', fontsize=11)
 
     # Grid and styling
-    ax.set_xlim(-1.2, len(months) - 0.5)
+    ax.set_xlim(-0.5, len(months) - 0.5)
     ax.set_ylim(-BAND_SPACING * 0.5 - 0.2, _y_extent + BAND_SPACING * 0.5 + 0.2)
     ax.grid(axis='x', alpha=0.3, linestyle='--')
     # Draw horizontal band borders above and below each position
@@ -604,49 +647,6 @@ def render_timeline_matplotlib(
               title_fontsize=8, bbox_to_anchor=(1.15, 1.0),
               labelspacing=2.5, handletextpad=1.5, borderpad=1.2,
               scatterpoints=1)
-
-    # ── Mutation labels at left edge of each band ──
-    # For each position, collect unique mutation labels and their stable y-offsets
-    for pos in positions:
-        y_base = pos_to_y[pos]
-        # Collect all unique labels seen at this position (across all months)
-        labels_at_pos: dict[str, list[float]] = defaultdict(list)
-        for (month, p_key), pts in grouped.items():
-            if p_key != pos:
-                continue
-            pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
-            n = len(pts_sorted)
-            for j, pt in enumerate(pts_sorted):
-                if n == 1:
-                    y_off = 0.0
-                else:
-                    y_off = -_spread + (2 * _spread * j / (n - 1))
-                labels_at_pos[pt.label].append(y_base + y_off)
-
-        if not labels_at_pos:
-            continue
-
-        # Use the median y-position for each label
-        label_y: list[tuple[float, str]] = []
-        for lbl, y_list in labels_at_pos.items():
-            median_y = sorted(y_list)[len(y_list) // 2]
-            label_y.append((median_y, lbl))
-        label_y.sort()
-
-        # Merge labels that are at very similar y-positions (within 0.15 data units)
-        merged_labels: list[tuple[float, str]] = []
-        for y, lbl in label_y:
-            if merged_labels and abs(y - merged_labels[-1][0]) < 0.15:
-                prev_y, prev_lbl = merged_labels[-1]
-                merged_labels[-1] = ((prev_y + y) / 2, prev_lbl + ', ' + lbl)
-            else:
-                merged_labels.append((y, lbl))
-
-        # Annotate at the left edge of the plot
-        x_label = -0.8
-        for y, lbl in merged_labels:
-            ax.text(x_label, y, lbl, fontsize=6, va='center', ha='right',
-                    color='black', fontstyle='italic', clip_on=False)
 
     plt.tight_layout()
 
@@ -854,7 +854,7 @@ def render_timeline_bokeh(
         _band_labels = LabelSet(
             x='x', y='y', text='text', source=label_source,
             text_font_size='8pt', text_color='black',
-            text_font_style='italic', text_align='right',
+            text_font_style='normal', text_align='right',
             text_baseline='middle', x_offset=-5,
         )
         bokeh_fig.add_layout(_band_labels)
