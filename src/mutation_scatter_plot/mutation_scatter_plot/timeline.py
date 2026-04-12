@@ -797,7 +797,7 @@ def render_timeline_matplotlib(
             colors_hex.append(pt.color)
             freqs.append(freq_f)
             mut_labels.append(pt.label)
-            codon_changes.append(f"{pt.ref_codon}\u2192{pt.mutant_codon}")
+            codon_changes.append(f"{pt.ref_codon}{pt.position}{pt.mutant_codon}")
             # Build hover text matching mutation_scatter_plot format
             _matrix_name = getattr(myoptions, 'matrix', 'BLOSUM80')
             _hover = (
@@ -1087,7 +1087,7 @@ def render_timeline_bokeh(
             hover_labels.append(pt.label)
             hover_freqs.append(f"{float(pt.frequency):.6f}")
             hover_months.append(month)
-            hover_codons.append(f"{pt.ref_codon}→{pt.mutant_codon}")
+            hover_codons.append(f"{pt.ref_codon}{pt.position}{pt.mutant_codon}")
             hover_positions.append(str(pt.position))
             hover_ref_codons.append(f"{pt.ref_codon} ({pt.ref_aa})")
             hover_new_codons.append(f"{pt.mutant_codon} ({pt.mutant_aa})")
@@ -1177,33 +1177,25 @@ def render_timeline_bokeh(
     except Exception:  # pylint: disable=broad-exception-caught
         pass
 
-    # Percentage + mutation labels next to circles.
-    # Skip when there are many data points — the LabelSet creates one DOM
-    # element per label which makes the HTML too large for browsers to render.
-    # Hover tooltips still provide all the information interactively.
-    _BOKEH_LABEL_LIMIT = 500
-    if len(x_vals) <= _BOKEH_LABEL_LIMIT:
-        try:
-            from bokeh.models import LabelSet
-            annot_texts = [
-                f"{_format_pct(float(f))}\n{lbl}\n{cod}"
-                for f, lbl, cod in zip(hover_freqs, hover_labels, hover_codons)
-            ]
+    # Percentage + mutation labels next to circles
+    try:
+        from bokeh.models import LabelSet
+        annot_texts = [
+            f"{_format_pct(float(f))}\n{lbl}\n{cod}"
+            for f, lbl, cod in zip(hover_freqs, hover_labels, hover_codons)
+        ]
 
-            pct_source = ColumnDataSource(data={
-                "x": x_vals, "y": y_vals, "text": annot_texts,
-            })
-            pct_labels = LabelSet(
-                x='x', y='y', text='text', source=pct_source,
-                text_font_size='7pt', text_color='black',
-                x_offset=4, y_offset=3,
-            )
-            bokeh_fig.add_layout(pct_labels)
-        except Exception:  # pylint: disable=broad-exception-caught
-            pass
-    else:
-        print(f"Info: Skipping Bokeh inline labels ({len(x_vals)} points > {_BOKEH_LABEL_LIMIT})"
-              " — use hover tooltips instead")
+        pct_source = ColumnDataSource(data={
+            "x": x_vals, "y": y_vals, "text": annot_texts,
+        })
+        pct_labels = LabelSet(
+            x='x', y='y', text='text', source=pct_source,
+            text_font_size='7pt', text_color='black',
+            x_offset=4, y_offset=3,
+        )
+        bokeh_fig.add_layout(pct_labels)
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass
 
     # Embed the git version string below the x-axis, mirroring render_bokeh
     # in mutation_scatter_plot.
