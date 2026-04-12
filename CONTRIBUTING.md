@@ -43,7 +43,8 @@ Please keep the copyright header present in each source file:
 
 - Follow [PEP 8](https://peps.python.org/pep-0008/) and
   [PEP 257](https://peps.python.org/pep-0257/) for code style and docstrings.
-- Use **f-strings** for string formatting (no `%` or `.format()`).
+- Prefer **f-strings** for string formatting. Legacy `%` and `.format()`
+  exist in some older scripts but new code should use f-strings.
 - Use `decimal.Decimal` for frequency values and any arithmetic that must be
   bit-identical across platforms — never bare `float`.
 - Preserve all existing comments and docstrings that are unrelated to your
