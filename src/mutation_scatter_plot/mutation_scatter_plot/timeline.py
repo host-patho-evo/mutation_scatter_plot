@@ -639,15 +639,33 @@ def render_timeline_matplotlib(
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    # Colourbar
+    # Colourbar — trimmed to data-driven range
+    _vmin = getattr(myoptions, 'cmap_vmin', -11)
+    _vmax = getattr(myoptions, 'cmap_vmax', 11)
+
     if norm is not None and cmap is not None:
-        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        # ListedColormap with BoundaryNorm: slice to data-driven range
+        # Build a sub-norm/sub-cmap covering only [_vmin, _vmax]
+        _full_boundaries = norm.boundaries
+        _sub_bounds = [b for b in _full_boundaries if _vmin <= b <= _vmax]
+        if len(_sub_bounds) < 2:
+            _sub_bounds = [_vmin, _vmax]
+        # Extract matching colour indices from cmap
+        _n_colors = cmap.N
+        _full_range = _full_boundaries[-1] - _full_boundaries[0]
+        _sub_colors = []
+        for i in range(len(_sub_bounds) - 1):
+            mid = (_sub_bounds[i] + _sub_bounds[i + 1]) / 2
+            idx = int((mid - _full_boundaries[0]) / _full_range * _n_colors)
+            idx = max(0, min(_n_colors - 1, idx))
+            _sub_colors.append(cmap(idx / (_n_colors - 1) if _n_colors > 1 else 0))
+        _sub_cmap = matplotlib.colors.ListedColormap(_sub_colors)
+        _sub_norm = matplotlib.colors.BoundaryNorm(_sub_bounds, len(_sub_colors))
+        sm = plt.cm.ScalarMappable(cmap=_sub_cmap, norm=_sub_norm)
         sm.set_array([])
         cbar = fig.colorbar(sm, ax=ax, pad=0.02, shrink=0.7)
         cbar.set_label('BLOSUM score', fontsize=10)
     elif cmap is not None:
-        _vmin = getattr(myoptions, 'cmap_vmin', -11)
-        _vmax = getattr(myoptions, 'cmap_vmax', 11)
         sm = plt.cm.ScalarMappable(
             cmap=cmap,
             norm=matplotlib.colors.Normalize(vmin=_vmin, vmax=_vmax),
