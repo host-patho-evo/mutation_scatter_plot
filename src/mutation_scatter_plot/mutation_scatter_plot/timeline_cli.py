@@ -25,6 +25,7 @@ from .timeline import (
     collect_timeline_data,
     infer_common_prefix,
     parse_positions,
+    recolor_timeline_data,
     render_timeline_bokeh,
     render_timeline_matplotlib,
     scan_directory,
@@ -66,9 +67,11 @@ def build_option_parser():
         help="Use amino acid mode instead of codon mode",
     )
     myparser.add_argument(
-        "--colormap", action="store", type=str, dest="colormap",
-        default='coolwarm_r',
-        help="Colormap name for BLOSUM scoring",
+        "--colormap", nargs='+', type=str, dest="colormaps",
+        default=['coolwarm_r'],
+        help="Colormap name(s) for BLOSUM scoring."
+             " Multiple names can be given to render all in one pass"
+             " (e.g. --colormap coolwarm_r amino_acid_changes)",
     )
     myparser.add_argument(
         "--matrix", action="store", type=str, dest="matrix",
@@ -114,6 +117,12 @@ def build_option_parser():
         "--linear-circle-size", action="store_true", dest="linear_circle_size",
         default=False,
         help="Use linear (not area-based) circle scaling",
+    )
+    myparser.add_argument(
+        "--both-scaling", action="store_true", dest="both_scaling",
+        default=False,
+        help="Render both area-scaling and linear-scaling variants in one pass."
+             " Overrides --linear-circle-size.",
     )
     myparser.add_argument(
         "--spread-colormap-over-virtual-matrix", action="store_true",
@@ -163,13 +172,13 @@ def main():
     1. Parse command-line arguments via :func:`build_option_parser`.
     2. Scan the input directory for monthly ``.frequencies.tsv`` files.
     3. Infer a common filename prefix for output naming.
-    4. Load the BLOSUM substitution matrix and colormap.
-    5. Collect timeline data for the specified positions.
-    6. Compute the actual BLOSUM score range from the data and re-derive
-       the colormap with data-driven bounds (unless
-       ``--spread-colormap-virtual-matrix`` forces the full theoretical range).
-    7. Render static matplotlib output (PNG + PDF).
-    8. Render interactive Bokeh output (HTML).
+    4. Load the BLOSUM substitution matrix.
+    5. Collect timeline data once (scores are matrix-dependent, not
+       colormap-dependent).
+    6. For each colormap × scaling combination:
+       a. Derive the colormap and recolour the data points.
+       b. Render static matplotlib output (PNG + PDF).
+       c. Render interactive Bokeh output (HTML).
     """
     myparser = build_option_parser()
     myoptions = myparser.parse_args()
@@ -183,11 +192,22 @@ def main():
     PROFILER.start()
     PROFILER.mark_phase_start("timeline_init")
 
+    # Build the list of colormaps and scaling modes to render
+    colormaps = myoptions.colormaps
+    if myoptions.both_scaling:
+        scaling_modes = [False, True]  # area_scaling, then linear_scaling
+    else:
+        scaling_modes = [myoptions.linear_circle_size]
+
+    n_combos = len(colormaps) * len(scaling_modes)
+
     print(f"mutation_timeline_plot: scanning {myoptions.input_dir}")
     print(f"  pattern:   {myoptions.pattern}")
     print(f"  positions: {' '.join(myoptions.positions)}")
     print(f"  matrix:    {myoptions.matrix}")
-    print(f"  colormap:  {myoptions.colormap}")
+    print(f"  colormaps: {' '.join(colormaps)}")
+    print(f"  scaling:   {'both' if myoptions.both_scaling else ('linear' if myoptions.linear_circle_size else 'area')}")
+    print(f"  variants:  {n_combos} (= {len(colormaps)} colormap(s) × {len(scaling_modes)} scaling(s))")
     print(f"  dpi:       {myoptions.dpi}")
 
     # Parse position specifications
@@ -219,26 +239,29 @@ def main():
     if summary:
         print(summary)
 
-    # Append .timeline and .aa/.codon before load_matrix() adds .BLOSUM80.area_scaling.coolwarm_r
-    # so the final order is: prefix.timeline.aa.BLOSUM80.area_scaling.coolwarm_r.ext
+    # Append .timeline.aa/.codon to the base prefix (before matrix/scaling/colormap)
     _mode_label = 'aa' if myoptions.aminoacids else 'codon'
-    myoptions.outfile_prefix = myoptions.outfile_prefix + '.timeline.' + _mode_label
+    _base_prefix = myoptions.outfile_prefix + '.timeline.' + _mode_label
 
-    # Load matrix
+    # Load matrix (once — scoring is matrix-dependent, not colormap-dependent)
+    # Temporarily set colormap and scaling so load_matrix() constructs its
+    # outfile_prefix — we won't use that prefix; we build our own per-combo.
+    myoptions.outfile_prefix = _base_prefix
+    myoptions.colormap = colormaps[0]
     PROFILER.mark_phase_start("matrix_load")
-    _matrix, _matrix_name, _min_score, _max_score, _outfile_prefix = load_matrix(myoptions)
+    _matrix, _matrix_name, _min_score, _max_score, _ = load_matrix(myoptions)
 
-    # Get colormap
-    # Set cmap bounds from actual data (will be refined by collect_timeline_data)
+    # Initial colormap for data collection (first colormap in the list)
     myoptions.cmap_actual_vmin = -10
     myoptions.cmap_actual_vmax = 10
-    _norm, _cmap, _colors = get_colormap(myoptions, myoptions.colormap)
+    _norm, _cmap, _colors = get_colormap(myoptions, colormaps[0])
 
     summary = PROFILER.pop_phase_summary()
     if summary:
         print(summary)
 
-    # Collect timeline data
+    # Collect timeline data ONCE (scores are matrix-dependent, colours will be
+    # recomputed per colormap via recolor_timeline_data)
     PROFILER.mark_phase_start("data_collection")
     data = collect_timeline_data(files, specs, myoptions, _matrix, _norm, _colors)
     print(f"  data:      {len(data.points)} points across {len(data.months)} months, {len(data.positions)} positions")
@@ -251,42 +274,58 @@ def main():
         print("Warning: No data points found for the specified positions.")
         sys.exit(0)
 
-    # Compute actual score range from data and update colormap bounds
-    # Exclude synonymous sentinel score (+12) from range computation
+    # Compute actual score range from data (shared across all combos)
     _actual_scores = [pt.score for pt in data.points if pt.score != 12]
     _actual_vmin = min(_actual_scores) if _actual_scores else -11
     _actual_vmax = max(_actual_scores) if _actual_scores else 11
-    # Make symmetric around zero
     _actual_bound = max(abs(_actual_vmin), abs(_actual_vmax))
     myoptions.cmap_actual_vmin = -_actual_bound
     myoptions.cmap_actual_vmax = _actual_bound
     print(f"  scores:    actual range [{_actual_vmin}, {_actual_vmax}], "
           f"colorbar range [{myoptions.cmap_actual_vmin}, {myoptions.cmap_actual_vmax}]")
 
-    # Re-derive colormap with data-driven bounds (unless --spread-colormap-virtual-matrix)
-    # Clear stale cmap_vmin/vmax so get_colormap picks up the updated cmap_actual_vmin/vmax
-    if hasattr(myoptions, 'cmap_vmin'):
-        delattr(myoptions, 'cmap_vmin')
-    if hasattr(myoptions, 'cmap_vmax'):
-        delattr(myoptions, 'cmap_vmax')
-    _norm, _cmap, _colors = get_colormap(myoptions, myoptions.colormap)
+    # ── Render each colormap × scaling combination ──
+    _combo_idx = 0
+    for cmap_name in colormaps:
+        # Derive colormap with data-driven bounds
+        # Clear stale cmap_vmin/vmax so get_colormap picks up fresh values
+        if hasattr(myoptions, 'cmap_vmin'):
+            delattr(myoptions, 'cmap_vmin')
+        if hasattr(myoptions, 'cmap_vmax'):
+            delattr(myoptions, 'cmap_vmax')
+        myoptions.colormap = cmap_name
+        _norm, _cmap, _colors = get_colormap(myoptions, cmap_name)
 
-    # Render matplotlib (PNG + PDF)
-    PROFILER.mark_phase_start("render_matplotlib")
-    render_timeline_matplotlib(data, myoptions, _norm, _cmap, _colors, _outfile_prefix)
+        # Recolour all data points for this colormap
+        recolor_timeline_data(data, myoptions, _norm, _colors)
 
-    summary = PROFILER.pop_phase_summary()
-    if summary:
-        print(summary)
+        for linear in scaling_modes:
+            _combo_idx += 1
+            myoptions.linear_circle_size = linear
+            _scaling_suffix = 'linear_scaling' if linear else 'area_scaling'
+            _outfile_prefix = f"{_base_prefix}.{_matrix_name}.{_scaling_suffix}.{cmap_name}"
+            print(f"Info: _outfile_prefix={_outfile_prefix}")
 
-    # Render Bokeh (HTML)
-    if not myoptions.disable_showing_bokeh:
-        PROFILER.mark_phase_start("render_bokeh")
-        render_timeline_bokeh(data, myoptions, _norm, _cmap, _colors, _outfile_prefix)
+            if n_combos > 1:
+                print(f"  ── variant {_combo_idx}/{n_combos}: "
+                      f"{cmap_name} + {_scaling_suffix} ──")
 
-    summary = PROFILER.pop_phase_summary()
-    if summary:
-        print(summary)
+            # Render matplotlib (PNG + PDF)
+            PROFILER.mark_phase_start("render_matplotlib")
+            render_timeline_matplotlib(data, myoptions, _norm, _cmap, _colors, _outfile_prefix)
+
+            summary = PROFILER.pop_phase_summary()
+            if summary:
+                print(summary)
+
+            # Render Bokeh (HTML)
+            if not myoptions.disable_showing_bokeh:
+                PROFILER.mark_phase_start("render_bokeh")
+                render_timeline_bokeh(data, myoptions, _norm, _cmap, _colors, _outfile_prefix)
+
+            summary = PROFILER.pop_phase_summary()
+            if summary:
+                print(summary)
 
     print("mutation_timeline_plot: done")
 

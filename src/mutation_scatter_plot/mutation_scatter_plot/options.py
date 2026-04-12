@@ -88,7 +88,8 @@ def timeline_options(**overrides) -> argparse.Namespace:
         - ``positions`` (list[str]): position specs like ``['N501Y', '484']``
         - ``outfile_prefix`` (str): output path prefix
         - ``threshold`` (float): minimum frequency to display
-        - ``colormap`` (str): matplotlib colormap name
+        - ``colormap`` (str): matplotlib colormap name (convenience alias;
+          stored as ``colormaps`` list internally)
         - ``disable_showing_bokeh`` (bool): suppress browser popup
 
     Returns
@@ -101,6 +102,11 @@ def timeline_options(**overrides) -> argparse.Namespace:
         '--dir', overrides.pop('directory', ''),
         '--positions', *(overrides.pop('positions', ['501'])),
     ])
+    # Accept colormap= (str) as convenience alias for colormaps= (list)
+    if 'colormap' in overrides:
+        _cmap = overrides.pop('colormap')
+        defaults.colormaps = [_cmap] if isinstance(_cmap, str) else list(_cmap)
+        defaults.colormap = defaults.colormaps[0]
     _apply_overrides(defaults, overrides)
     return defaults
 

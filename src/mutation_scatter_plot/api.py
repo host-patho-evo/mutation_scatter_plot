@@ -366,6 +366,8 @@ def render_timeline(
         disable_showing_bokeh=not show_bokeh,
         **extra_options,
     )
+    # Ensure opts.colormap is available for get_colormap / load_matrix
+    opts.colormap = colormap
 
     # ── 1. Discover files ────────────────────────────────────────────────
     files = scan_directory(

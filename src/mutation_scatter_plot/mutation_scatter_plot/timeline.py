@@ -100,6 +100,63 @@ class TimelineData:
     position_specs: list[PositionSpec] = field(default_factory=list)
 
 
+def recolor_timeline_data(
+    data: TimelineData,
+    myoptions: typing.Any,
+    norm: typing.Any,
+    colors: list[str],
+) -> None:
+    """Recompute the ``.color`` attribute on every point in *data*.
+
+    This allows rendering the same collected data with a different colormap
+    without re-reading files or re-computing BLOSUM scores.  The function
+    replicates the colour-assignment logic of
+    :func:`~core.adjust_size_and_color` (synonymous → dark green,
+    DEL/INS → red, X/NNN → gray, otherwise index into *colors*), but
+    reads the already-stored ``.score`` instead of calling ``get_score()``.
+
+    Parameters
+    ----------
+    data : TimelineData
+        Collected data whose ``.color`` fields will be mutated in-place.
+    myoptions : argparse.Namespace
+        CLI options (used for ``cmap_vmin``).
+    norm : matplotlib.colors.BoundaryNorm or None
+        Discrete colour normaliser, or None for continuous colormaps.
+    colors : list of str
+        Hex colour palette.
+    """
+    from .. import alt_translate
+
+    for pt in data.points:
+        # Synonymous sentinel (score == 12) → dark green
+        if pt.score == 12:
+            pt.color = '#219f11'
+            continue
+
+        # DEL / INS / stop → red
+        if pt.mutant_codon.upper() in ('---', 'DEL', 'INS'):
+            pt.color = '#ff0000'
+            continue
+
+        # Ambiguous / unknown → gray
+        if pt.ref_codon.upper() in ('NNN',) or pt.mutant_codon.upper() in ('NNN',):
+            pt.color = '#808080'
+            continue
+        if pt.ref_aa.upper() in ('X',) or pt.mutant_aa.upper() in ('X',):
+            pt.color = '#808080'
+            continue
+
+        # Normal scoring path — map score to colour index
+        if norm is not None:
+            _colorindex = norm(pt.score)
+        else:
+            _vmin = getattr(myoptions, 'cmap_vmin', -11)
+            _colorindex = max(0, min(len(colors) - 1, pt.score - _vmin))
+
+        pt.color = colors[_colorindex]
+
+
 # ── File scanning ────────────────────────────────────────────────────────
 
 _MONTH_RE = re.compile(r'\.(\d{4})-(\d{2})\.')
