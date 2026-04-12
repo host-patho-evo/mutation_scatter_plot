@@ -528,7 +528,7 @@ def render_timeline_matplotlib(
 
     # Save outputs
     for ext in ('png', 'pdf'):
-        outpath = f"{outfile_prefix}.timeline.{ext}"
+        outpath = f"{outfile_prefix}.{ext}"
         fig.savefig(outpath, dpi=150, bbox_inches='tight', facecolor='white')
         print(f"Info: Saved {outpath}")
 
@@ -662,7 +662,7 @@ def render_timeline_bokeh(
     p.ygrid.grid_line_alpha = 0.15
 
     # Save HTML
-    html_path = f"{outfile_prefix}.timeline.html"
+    html_path = f"{outfile_prefix}.html"
     output_file(html_path, title=title)
     save(p)
     print(f"Info: Saved {html_path}")

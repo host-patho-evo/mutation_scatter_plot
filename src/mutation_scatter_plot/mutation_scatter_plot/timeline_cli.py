@@ -153,6 +153,10 @@ def main():
     if summary:
         print(summary)
 
+    # Append .timeline before load_matrix() adds .BLOSUM80.area_scaling.coolwarm_r
+    # so the final order is: prefix.timeline.BLOSUM80.area_scaling.coolwarm_r.ext
+    myoptions.outfile_prefix = myoptions.outfile_prefix + '.timeline'
+
     # Load matrix
     PROFILER.mark_phase_start("matrix_load")
     _matrix, _matrix_name, _min_score, _max_score, _outfile_prefix = load_matrix(myoptions)
