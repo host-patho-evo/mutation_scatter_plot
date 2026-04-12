@@ -793,7 +793,7 @@ def render_timeline_matplotlib(
     # 1 point = 1/72 inch; target 2/3 of band height
     _pos_fontsize = max(8, min(48, _band_height_inches * (2 / 3) * 72))
     ax2.set_yticklabels(_right_labels, fontsize=_pos_fontsize,
-                        fontweight='bold', color='#999999', alpha=0.6)
+                        fontweight='bold', color='black', alpha=0.7)
     ax2.tick_params(axis='y', length=0)  # hide tick marks
     ax2.spines['top'].set_visible(False)
     ax2.spines['right'].set_visible(False)
@@ -824,6 +824,12 @@ def render_timeline_matplotlib(
         sm.set_array([])
         cbar = fig.colorbar(sm, ax=ax, pad=0.02, shrink=0.7)
         cbar.set_label('BLOSUM score', fontsize=10)
+        # Centre tick labels inside each colour band (same as mutation_scatter_plot)
+        cbar.ax.set_yticks(
+            np.arange(_vmin + 0.5, _vmax + 1.5, 1),
+            np.arange(_vmin, _vmax + 1, 1),
+        )
+        cbar.ax.tick_params(axis='y', which='minor', length=0)
     elif cmap is not None:
         sm = plt.cm.ScalarMappable(
             cmap=cmap,
@@ -832,6 +838,8 @@ def render_timeline_matplotlib(
         sm.set_array([])
         cbar = fig.colorbar(sm, ax=ax, pad=0.02, shrink=0.7)
         cbar.set_label('BLOSUM score', fontsize=10)
+        cbar.ax.set_yticks(np.arange(_vmin, _vmax + 1, 1))
+        cbar.ax.tick_params(axis='y', which='minor', length=0)
 
     # Size legend — use separate scatter calls with spacing to avoid overlap
     _legend_freqs = [0.01, 0.1, 0.5, 1.0]
