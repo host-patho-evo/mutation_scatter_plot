@@ -17,7 +17,7 @@ Key features
 
 Usage (from project root):
     PYTHONPATH=src python scripts/bench_thread_scaling.py \\
-        --reference tests/inputs/MN908947.3_S_full.fasta \\
+        --reference tests/inputs/MN908947.3_S.3873.fasta \\
         --alignment tests/inputs/test2_full.fasta \\
         [--threads 1 4 8 16 32 64 128 192] \\
         [--runs 3] \\

@@ -354,7 +354,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             outfile_prefix = os.path.join(tmpdir, "test2_full.default.frequencies")
             test2_full_fasta = os.path.join(self.tests_dir, "inputs", "test2_full.fasta")
-            ref_full_fasta = os.path.join(self.tests_dir, "inputs", "MN908947.3_S_full.fasta")
+            ref_full_fasta = os.path.join(self.tests_dir, "inputs", "MN908947.3_S.3873.fasta")
             cmd = self.base_cmd + [
                 "--alignment-file", test2_full_fasta,
                 "--outfile-prefix", outfile_prefix,
@@ -377,7 +377,7 @@ class TestCalculateCodonFrequencies(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             outfile_prefix = os.path.join(tmpdir, "test2_full.x_after_count.frequencies")
             test2_full_fasta = os.path.join(self.tests_dir, "inputs", "test2_full.fasta")
-            ref_full_fasta = os.path.join(self.tests_dir, "inputs", "MN908947.3_S_full.fasta")
+            ref_full_fasta = os.path.join(self.tests_dir, "inputs", "MN908947.3_S.3873.fasta")
             cmd = self.base_cmd + [
                 "--alignment-file", test2_full_fasta,
                 "--outfile-prefix", outfile_prefix,

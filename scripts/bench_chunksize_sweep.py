@@ -9,7 +9,7 @@ for the target machine and workload.
 
 Run on 192-core machine from project root:
     PYTHONPATH=src python scripts/bench_chunksize_sweep.py \
-        --reference tests/inputs/MN908947.3_S_full.fasta \
+        --reference tests/inputs/MN908947.3_S.3873.fasta \
         --alignment tests/inputs/test2_full.fasta \
         --threads 4 \
         --chunksizes 1 2 4 8 16 32 64 128 256 \

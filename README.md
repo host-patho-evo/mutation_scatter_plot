@@ -107,7 +107,7 @@ Below we explain what happens further upon the execution. Not only there is help
 One can calculate the codon frequencies from a provided FASTA input file. The sequence must be in frame +1. In version 0.1 the padding dashes `-` are ignored and the software keeps fetches next() nucleotides as long until there are three nucleotides representing the codon to be translated. In the `main` branch there is now a version which requires the inut sequence to be fully aligned to codons.
 
 ```bash
-calculate_codon_frequencies --reference-infile=tests/inputs/MN908947.3_S_full.fasta --alignment-file=tests/inputs/test2_full.fasta \
+calculate_codon_frequencies --reference-infile=tests/inputs/MN908947.3_S.3873.fasta --alignment-file=tests/inputs/test2_full.fasta \
     --outfile-prefix=tests/outputs/test1.default --padded-reference --print-unchanged-sites
 
 prefix='tests/outputs/test1.default'
@@ -429,7 +429,7 @@ Both `calculate_codon_frequencies` and `mutation_scatter_plot` output some helpf
 When matplotlib raises its interactive image window and user points the mouse pointer some circular object in the chart (triggering the mouse `hover()` event) the `mutation_scatter_plot` writes on the STDOUT the values parsed for the codon or amino acid, for example:
 
 ```
-$ calculate_codon_frequencies --alignment-file tests/inputs/test2_full.fasta --outfile-prefix tests/outputs/test2_full.x_after_count --padded-reference --reference-infile tests/inputs/MN908947.3_S_full.fasta --x-after-count --overwrite
+$ calculate_codon_frequencies --alignment-file tests/inputs/test2_full.fasta --outfile-prefix tests/outputs/test2_full.x_after_count --padded-reference --reference-infile tests/inputs/MN908947.3_S.3873.fasta --x-after-count --overwrite
 Info: consensus = ACAGGCTGCGTTATAGCTTGGAATTCTAACAAGCTTGATTCTAAGGTTGGTGGTAATTATAATTACCTGTATAGATTGTTTAGGAAGTCTAATCTCAAACCTTTTGAGAGAGATATTTCAACTGAAATCTATCAGGCCGGTAACAAACCTTGTAATGGTGTTGCAGGTTTTAATTGTTACTTTCCTTTACAATCATATGGTTTCCGACCCACTTATGGTGTTGGTCACCAACCATACAGAGTAGTAGTACTTTCTTTTGAACTTCTACATGCACCAGCAACTGTTTGTGGACCTAAA
 Info: Sample consensus sequence should roughly match substring inside the reference ATG---...
 ```

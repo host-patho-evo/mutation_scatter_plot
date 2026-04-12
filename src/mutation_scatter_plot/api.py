@@ -450,7 +450,7 @@ def calculate_frequencies(
     >>> from mutation_scatter_plot.api import calculate_frequencies
     >>> df = calculate_frequencies(
     ...     alignment_file='spike_aligned.fasta',
-    ...     reference_file='MN908947.3_S_full.fasta',
+    ...     reference_file='MN908947.3_S.3873.fasta',
     ...     outfile_prefix='output/spike',
     ... )
     >>> high_freq = df[df['frequency'] > 0.1]

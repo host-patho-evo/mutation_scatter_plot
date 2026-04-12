@@ -17,7 +17,7 @@
 set -euo pipefail
 
 ALIGNMENT="${1:-tests/inputs/test2_full.fasta}"
-REFERENCE="${REFERENCE:-tests/inputs/MN908947.3_S_full.fasta}"
+REFERENCE="${REFERENCE:-tests/inputs/MN908947.3_S.3873.fasta}"
 THREADS="${2:-1}"
 MAX_ROWS="${3:-0}"
 

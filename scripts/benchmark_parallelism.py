@@ -32,7 +32,7 @@ def run_benchmark(threads, input_file, ref_file):
 def main():
     """Generate a synthetic dataset and run benchmarks with different thread counts."""
     input_base = "tests/inputs/test2_full.fasta"
-    ref_file = "tests/inputs/MN908947.3_S_full.fasta"
+    ref_file = "tests/inputs/MN908947.3_S.3873.fasta"
     bench_file = "/tmp/large_bench.fasta"
 
     # Create a large file with many unique sequences
