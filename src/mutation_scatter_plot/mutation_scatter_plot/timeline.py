@@ -649,12 +649,15 @@ def _slot_key(pt: TimelinePoint, codon_view: bool = True) -> str:
 def _slot_display(pt: TimelinePoint, codon_view: bool = True) -> str:
     """Return the display label for a vertical slot on the Y-axis.
 
-    In codon mode, shows the codon change (e.g. 'GAT→GGT').
-    In AA mode, shows the AA label (e.g. 'D614G').
+    Format mirrors the scatter plot's X-axis: padded position followed
+    by the mutation identity in parentheses.
+
+    In codon mode: ``'16 (---→GTC)'``.
+    In AA mode: ``'16 (INS15V)'``.
     """
     if codon_view:
-        return f"{pt.ref_codon}→{pt.mutant_codon}"
-    return pt.label
+        return f"{pt.padded_position} ({pt.ref_codon}→{pt.mutant_codon})"
+    return f"{pt.padded_position} ({pt.label})"
 
 
 def aggregate_aa_timeline(
