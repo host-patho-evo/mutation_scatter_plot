@@ -576,14 +576,19 @@ if $split_gisaid_by_month; then
         if [ -n "$_gif_ranges" ]; then
             echo "$_gif_ranges" | tr ',' '\n' | while IFS='-' read -r _rmin _rmax; do
                 for _mode in "aa${_rmin}-${_rmax}" "codon${_rmin}-${_rmax}"; do
-                    # Collect PNGs, sorted by YYYY-MM, excluding month-00
-                    _files=$(ls -1 ${fp}.????-??.counts.*.${_mode}.*.png 2>/dev/null \
-                             | grep -v '\.[0-9]\{4\}-00\.' | sort)
-                    if [ -n "$_files" ]; then
-                        _outgif="${fp}.${_mode}.animated.gif"
-                        echo "Info: Creating $_outgif"
-                        magick -dispose previous -delay 300 $_files gif:"$_outgif"
-                    fi
+                    for _stype in area_scaling linear_scaling; do
+                        for _cmap in coolwarm_r amino_acid_changes; do
+                            # Collect PNGs for this specific (mode, scaling, colormap)
+                            # combination, sorted by YYYY-MM, excluding month-00.
+                            _files=$(ls -1 ${fp}.????-??.counts.*.${_mode}.*.${_stype}.${_cmap}.png 2>/dev/null \
+                                     | grep -v '\.[0-9]\{4\}-00\.' | sort)
+                            if [ -n "$_files" ]; then
+                                _outgif="${fp}.${_mode}.${_stype}.${_cmap}.animated.gif"
+                                echo "Info: Creating $_outgif"
+                                magick -dispose previous -delay 300 $_files gif:"$_outgif"
+                            fi
+                        done
+                    done
                 done
             done
         fi
