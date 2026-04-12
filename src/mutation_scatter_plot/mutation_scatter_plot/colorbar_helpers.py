@@ -229,19 +229,10 @@ def setup_matplotlib_colorbar(
     # Render the colorbar.
     # location='right' is ignored when cax is given, but kept for clarity.
     # pad=-0.1 reduces whitespace between the plot and colorbar.
-    # NOTE: We do NOT pass label= to fig.colorbar() here.  The default
-    # placement of the label is a rotated text along the colorbar axis,
-    # which gets obscured by the large position labels on the timeline's
-    # secondary Y-axis (ax2.twinx).  Instead, we set the label as a title
-    # above the colorbar axes, where it is always visible.
     _colorbar = fig.colorbar(
-        _cb_sm, cax=cax, location='right', pad=-0.1,
+        _cb_sm, cax=cax, label=label, location='right', pad=-0.1,
         alpha=alpha,
     )
-    # Place the label as a title above the colorbar so it is never obscured
-    # by neighbouring elements (e.g. the large position labels on the
-    # timeline's secondary Y-axis).
-    _colorbar.ax.set_title(label, fontsize=9, pad=4)
 
     # TICK CENTERING TRICK.
     # Each band for score s spans [s, s+1) in data coordinates.

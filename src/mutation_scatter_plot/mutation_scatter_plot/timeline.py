@@ -799,8 +799,11 @@ def render_timeline_matplotlib(
     # 1 point = 1/72 inch; target 2/3 of band height, capped to avoid overflow
     _pos_fontsize = max(8, min(36, _band_height_inches * (2 / 3) * 72))
     ax2.set_yticklabels(_right_labels, fontsize=_pos_fontsize,
-                        fontweight='bold', color='black', alpha=0.7)
-    ax2.tick_params(axis='y', length=0, pad=5)  # hide tick marks, add padding
+                        fontweight='bold', color='black', alpha=0.7,
+                        ha='right')
+    # pad=0: keep position labels flush against the right spine so they
+    # don't extend into the colorbar column and obscure its rotated label.
+    ax2.tick_params(axis='y', length=0, pad=0)
     # Clip the position labels to the main axes area so they don't overflow
     # into the colorbar column and obscure the colorbar label.
     for lbl in ax2.get_yticklabels():
