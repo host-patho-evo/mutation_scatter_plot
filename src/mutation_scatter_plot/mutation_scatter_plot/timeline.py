@@ -892,6 +892,30 @@ def _compute_ytick_labels(
     return tick_y, tick_labels
 
 
+def _compress_positions(positions: list[int]) -> str:
+    """Collapse a sorted list of integers into compact range notation.
+
+    Consecutive integers are merged into 'start–end' ranges; isolated
+    values are kept as-is.  Examples::
+
+        [11, 13, 14, 15, 17]  →  '11, 13–15, 17'
+        [5]                   →  '5'
+        [1, 2, 3]             →  '1–3'
+    """
+    if not positions:
+        return ''
+    ranges: list[str] = []
+    start = end = positions[0]
+    for p in positions[1:]:
+        if p == end + 1:
+            end = p
+        else:
+            ranges.append(str(start) if start == end else f"{start}\u2013{end}")
+            start = end = p
+    ranges.append(str(start) if start == end else f"{start}\u2013{end}")
+    return ', '.join(ranges)
+
+
 def _format_pct(freq: float) -> str:
     """Format a frequency as a percentage string.
 
@@ -1022,7 +1046,7 @@ def render_timeline_matplotlib(
     _heading_fontsize = max(11, min(20, _min_dim * 1.8))
 
     _pos_type = 'codon' if _codon_view else 'amino acid'
-    _pos_list = ', '.join(str(p) for p in positions)
+    _pos_list = _compress_positions(positions)
     _prefix_name = os.path.basename(getattr(myoptions, 'outfile_prefix', outfile_prefix))
     title = (getattr(myoptions, 'title', '')
              or f"Timeline of mutations in SARS-CoV-2 in GISAID {_prefix_name}"
@@ -1323,7 +1347,7 @@ def render_timeline_bokeh(
 
     _codon_view = not getattr(myoptions, 'aminoacids', False)
     _pos_type = 'codon' if _codon_view else 'amino acid'
-    _pos_list = ', '.join(str(p) for p in positions)
+    _pos_list = _compress_positions(positions)
     _prefix_name = os.path.basename(getattr(myoptions, 'outfile_prefix', outfile_prefix))
     title = (getattr(myoptions, 'title', '')
              or f"Timeline of mutations in SARS-CoV-2 in GISAID {_prefix_name}"
