@@ -68,10 +68,15 @@ class PositionSpec:
 class TimelinePoint:
     """A single data point in the timeline scatter plot.
 
-    Each point represents one observed mutation (old→new amino acid) at a
-    specific genomic position in a specific month, with its frequency and
-    BLOSUM substitution score.  The ``color`` and ``label`` fields are
-    computed during data collection.
+    Each point represents one observed codon mutation at a specific padded
+    alignment position in a specific month, with its frequency and BLOSUM
+    substitution score.  The ``position`` field is the real amino acid
+    position while ``padded_position`` is the alignment row — multiple
+    padded positions can map to the same real position (e.g. for insertions).
+    Within each band (real position), rows are distinguished by
+    ``padded_position``.
+
+    The ``color`` and ``label`` fields are computed during data collection.
     """
     month: str           # 'YYYY-MM'
     position: int        # aa position (real)
@@ -719,6 +724,11 @@ def _prepare_layout(
     myoptions : argparse.Namespace, optional
         CLI options.  If provided, ``band_spacing_factor`` is used to
         scale the auto-computed band spacing.
+    codon_view : bool
+        If True (codon mode), each unique ``(padded_position, ref_codon,
+        mutant_codon)`` gets its own vertical slot within the band.
+        If False (AA mode), slots are grouped by
+        ``(padded_position, label)``.
 
     Returns
     -------
@@ -728,9 +738,9 @@ def _prepare_layout(
           within each band.
         - pos_to_y: mapping from position int to y-coordinate (band centre).
         - grouped: data points grouped by (month, position).
-        - label_offsets: ``{position: {label: y_offset}}`` — fixed
-          vertical slot for each unique mutation label within a band,
-          consistent across all months.
+        - label_offsets: ``{position: {slot_key: y_offset}}`` — fixed
+          vertical slot for each unique mutation (by padded position and
+          codon/AA identity) within a band, consistent across all months.
     """
     # Group data points
     grouped: dict[tuple[str, int], list[TimelinePoint]] = defaultdict(list)
