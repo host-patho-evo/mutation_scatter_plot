@@ -605,14 +605,14 @@ def render_timeline_matplotlib(
               labelspacing=2.5, handletextpad=1.5, borderpad=1.2,
               scatterpoints=1)
 
-    # ── Mutation labels at right edge of each band ──
+    # ── Mutation labels at left edge of each band ──
     # For each position, collect unique mutation labels and their stable y-offsets
     for pos in positions:
         y_base = pos_to_y[pos]
         # Collect all unique labels seen at this position (across all months)
         labels_at_pos: dict[str, list[float]] = defaultdict(list)
-        for (month, p), pts in grouped.items():
-            if p != pos:
+        for (month, p_key), pts in grouped.items():
+            if p_key != pos:
                 continue
             pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
             n = len(pts_sorted)
@@ -633,9 +633,18 @@ def render_timeline_matplotlib(
             label_y.append((median_y, lbl))
         label_y.sort()
 
+        # Merge labels that are at very similar y-positions (within 0.15 data units)
+        merged_labels: list[tuple[float, str]] = []
+        for y, lbl in label_y:
+            if merged_labels and abs(y - merged_labels[-1][0]) < 0.15:
+                prev_y, prev_lbl = merged_labels[-1]
+                merged_labels[-1] = ((prev_y + y) / 2, prev_lbl + ', ' + lbl)
+            else:
+                merged_labels.append((y, lbl))
+
         # Annotate at the left edge of the plot
         x_label = -0.8
-        for y, lbl in label_y:
+        for y, lbl in merged_labels:
             ax.text(x_label, y, lbl, fontsize=6, va='center', ha='right',
                     color='#555555', fontstyle='italic', clip_on=False)
 
@@ -716,7 +725,7 @@ def render_timeline_bokeh(
     for (month, pos), pts in grouped.items():
         x = _month_to_float(month, months)
         y_base = pos_to_y[pos]
-        pts_sorted = sorted(pts, key=lambda p: float(p.frequency), reverse=True)
+        pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
         n = len(pts_sorted)
 
         for j, pt in enumerate(pts_sorted):
@@ -754,7 +763,7 @@ def render_timeline_bokeh(
 
     n_pos = len(positions)
     _y_extent = (n_pos - 1) * BAND_SPACING
-    p = figure(
+    bokeh_fig = figure(
         title=title,
         width=2000,
         height=max(600, n_pos * 50 + 200),
@@ -764,7 +773,7 @@ def render_timeline_bokeh(
         sizing_mode='stretch_width',
     )
 
-    p.scatter(
+    bokeh_fig.scatter(
         'x', 'y',
         source=source,
         size='size',
@@ -781,23 +790,23 @@ def render_timeline_bokeh(
         ("Frequency", "@freq"),
         ("Codon", "@codon"),
     ])
-    p.add_tools(hover)
+    bokeh_fig.add_tools(hover)
 
     # Axis labels
-    p.xaxis.ticker = list(range(len(months)))
-    p.xaxis.major_label_overrides = {i: m for i, m in enumerate(months)}
-    p.xaxis.major_label_orientation = 0.785  # 45 degrees
-    p.xaxis.axis_label = "Month"
+    bokeh_fig.xaxis.ticker = list(range(len(months)))
+    bokeh_fig.xaxis.major_label_overrides = {i: m for i, m in enumerate(months)}
+    bokeh_fig.xaxis.major_label_orientation = 0.785  # 45 degrees
+    bokeh_fig.xaxis.axis_label = "Month"
 
-    p.yaxis.ticker = [pos_to_y[pos] for pos in positions]
-    p.yaxis.major_label_overrides = {pos_to_y[pos]: str(pos) for pos in positions}
-    p.yaxis.axis_label = "AA Position"
+    bokeh_fig.yaxis.ticker = [pos_to_y[pos] for pos in positions]
+    bokeh_fig.yaxis.major_label_overrides = {pos_to_y[pos]: str(pos) for pos in positions}
+    bokeh_fig.yaxis.axis_label = "AA Position"
 
     # Grid
-    p.xgrid.grid_line_alpha = 0.3
-    p.ygrid.grid_line_alpha = 0.0  # disabled — we use band borders instead
+    bokeh_fig.xgrid.grid_line_alpha = 0.3
+    bokeh_fig.ygrid.grid_line_alpha = 0.0  # disabled — we use band borders instead
 
-    # ── Mutation labels at right edge of each band ──
+    # ── Mutation labels at left edge of each band ──
     try:
         from bokeh.models import LabelSet
         label_x_vals: list[float] = []
@@ -819,10 +828,24 @@ def render_timeline_bokeh(
                         y_off = -_spread + (2 * _spread * j / (n - 1))
                     labels_at_pos[pt.label].append(y_base + y_off)
 
+            # Merge labels at similar y-positions
+            label_y: list[tuple[float, str]] = []
             for lbl, y_list in labels_at_pos.items():
                 median_y = sorted(y_list)[len(y_list) // 2]
+                label_y.append((median_y, lbl))
+            label_y.sort()
+
+            merged_labels: list[tuple[float, str]] = []
+            for y, lbl in label_y:
+                if merged_labels and abs(y - merged_labels[-1][0]) < 0.15:
+                    prev_y, prev_lbl = merged_labels[-1]
+                    merged_labels[-1] = ((prev_y + y) / 2, prev_lbl + ', ' + lbl)
+                else:
+                    merged_labels.append((y, lbl))
+
+            for y, lbl in merged_labels:
                 label_x_vals.append(-0.8)
-                label_y_vals.append(median_y)
+                label_y_vals.append(y)
                 label_texts.append(lbl)
 
         label_source = ColumnDataSource(data=dict(
@@ -834,12 +857,12 @@ def render_timeline_bokeh(
             text_font_style='italic', text_align='right',
             text_baseline='middle', x_offset=-5,
         )
-        p.add_layout(_band_labels)
+        bokeh_fig.add_layout(_band_labels)
     except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"Warning: Could not add Bokeh band labels: {e}")
 
     # Save HTML
     html_path = f"{outfile_prefix}.html"
     output_file(html_path, title=title)
-    save(p)
+    save(bokeh_fig)
     print(f"Info: Saved {html_path}")
