@@ -580,7 +580,9 @@ def _compute_intra_band_spread(band_spacing: float) -> float:
 def _prepare_layout(
     data: TimelineData,
     myoptions: typing.Any = None,
-) -> tuple[float, float, dict[int, float], dict[tuple[str, int], list['TimelinePoint']]]:
+) -> tuple[float, float, dict[int, float],
+              dict[tuple[str, int], list['TimelinePoint']],
+              dict[int, dict[str, float]]]:
     """Compute shared layout parameters for both renderers.
 
     Parameters
@@ -593,11 +595,14 @@ def _prepare_layout(
 
     Returns
     -------
-    tuple of (BAND_SPACING, _spread, pos_to_y, grouped)
+    tuple of (BAND_SPACING, _spread, pos_to_y, grouped, label_offsets)
         - BAND_SPACING: dynamic vertical distance between position bands.
         - _spread: ± vertical offset range within a band.
         - pos_to_y: mapping from position int to y-coordinate.
         - grouped: data points grouped by (month, position).
+        - label_offsets: ``{position: {label: y_offset}}`` — fixed
+          vertical slot for each unique mutation label within a band,
+          consistent across all months.
     """
     # Group data points
     grouped: dict[tuple[str, int], list[TimelinePoint]] = defaultdict(list)
@@ -634,7 +639,29 @@ def _prepare_layout(
     for i, pos in enumerate(data.positions):
         pos_to_y[pos] = float(i) * BAND_SPACING
 
-    return BAND_SPACING, _spread, pos_to_y, grouped
+    # Pre-compute consistent vertical slots for each mutation label within
+    # each position band.  Every label gets the same y-offset regardless of
+    # how many other labels appear in a given month, preventing circles
+    # from jumping vertically.
+    label_offsets: dict[int, dict[str, float]] = {}
+    for pos in data.positions:
+        labels_at_pos: set[str] = set()
+        for (_m, _p), pts in grouped.items():
+            if _p == pos:
+                for pt in pts:
+                    labels_at_pos.add(pt.label)
+        labels_sorted = sorted(labels_at_pos)
+        n_labels = len(labels_sorted)
+        offsets: dict[str, float] = {}
+        if n_labels <= 1:
+            for lbl in labels_sorted:
+                offsets[lbl] = 0.0
+        else:
+            for j, lbl in enumerate(labels_sorted):
+                offsets[lbl] = -_spread + (2 * _spread * j / (n_labels - 1))
+        label_offsets[pos] = offsets
+
+    return BAND_SPACING, _spread, pos_to_y, grouped, label_offsets
 
 
 def _compute_ytick_labels(
@@ -753,8 +780,8 @@ def render_timeline_matplotlib(
     months = data.months
     positions = data.positions
 
-    # Shared layout: band spacing, position mapping, grouping
-    BAND_SPACING, _spread, pos_to_y, grouped = _prepare_layout(data, myoptions)
+    # Shared layout: band spacing, position mapping, grouping, label offsets
+    BAND_SPACING, _spread, pos_to_y, grouped, label_offsets = _prepare_layout(data, myoptions)
 
     # Prepare scatter data
     x_vals: list[float] = []
@@ -769,17 +796,11 @@ def render_timeline_matplotlib(
     for (month, pos), pts in grouped.items():
         x = _month_to_float(month, months)
         y_base = pos_to_y[pos]
+        _pos_offsets = label_offsets.get(pos, {})
 
-        # Sort by frequency descending — dominant mutation at centre
-        pts_sorted = sorted(pts, key=lambda p: float(p.frequency), reverse=True)
-        n = len(pts_sorted)
-
-        for j, pt in enumerate(pts_sorted):
-            # Vertical offset within band: centre the dominant, offset others
-            if n == 1:
-                y_offset = 0.0
-            else:
-                y_offset = -_spread + (2 * _spread * j / (n - 1)) if n > 1 else 0.0
+        for pt in pts:
+            # Fixed vertical slot for this mutation label
+            y_offset = _pos_offsets.get(pt.label, 0.0)
 
             x_vals.append(x)
             y_vals.append(y_base + y_offset)
@@ -1047,8 +1068,8 @@ def render_timeline_bokeh(
     months = data.months
     positions = data.positions
 
-    # Shared layout: band spacing, position mapping, grouping
-    BAND_SPACING, _spread, pos_to_y, grouped = _prepare_layout(data, myoptions)
+    # Shared layout: band spacing, position mapping, grouping, label offsets
+    BAND_SPACING, _spread, pos_to_y, grouped, label_offsets = _prepare_layout(data, myoptions)
 
     x_vals: list[float] = []
     y_vals: list[float] = []
@@ -1066,14 +1087,10 @@ def render_timeline_bokeh(
     for (month, pos), pts in grouped.items():
         x = _month_to_float(month, months)
         y_base = pos_to_y[pos]
-        pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
-        n = len(pts_sorted)
+        _pos_offsets = label_offsets.get(pos, {})
 
-        for j, pt in enumerate(pts_sorted):
-            if n == 1:
-                y_offset = 0.0
-            else:
-                y_offset = -_spread + (2 * _spread * j / (n - 1)) if n > 1 else 0.0
+        for pt in pts:
+            y_offset = _pos_offsets.get(pt.label, 0.0)
 
             x_vals.append(x)
             y_vals.append(y_base + y_offset)
