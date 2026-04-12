@@ -928,6 +928,8 @@ def render_timeline_matplotlib(
 def render_timeline_bokeh(
     data: TimelineData,
     myoptions: typing.Any,
+    norm: typing.Any,
+    cmap: typing.Any,
     outfile_prefix: str,
 ) -> None:
     """Render interactive Bokeh HTML timeline.

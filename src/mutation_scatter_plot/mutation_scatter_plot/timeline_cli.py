@@ -283,7 +283,7 @@ def main():
     # Render Bokeh (HTML)
     if not myoptions.disable_showing_bokeh:
         PROFILER.mark_phase_start("render_bokeh")
-        render_timeline_bokeh(data, myoptions, _outfile_prefix)
+        render_timeline_bokeh(data, myoptions, _norm, _cmap, _outfile_prefix)
 
     summary = PROFILER.pop_phase_summary()
     if summary:
