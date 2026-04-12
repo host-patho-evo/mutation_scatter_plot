@@ -552,9 +552,9 @@ def render_timeline_matplotlib(
     ax.set_xticklabels(months, rotation=45, ha='right', fontsize=8)
     ax.set_xlabel('Month', fontsize=11)
 
-    # Y-axis: positions
+    # Y-axis: positions — tick labels removed, band labels are used instead
     ax.set_yticks([pos_to_y[p] for p in positions])
-    ax.set_yticklabels([str(p) for p in positions], fontsize=8)
+    ax.set_yticklabels([])
     ax.set_ylabel('AA Position', fontsize=11)
 
     # Grid and styling
@@ -646,7 +646,7 @@ def render_timeline_matplotlib(
         x_label = -0.8
         for y, lbl in merged_labels:
             ax.text(x_label, y, lbl, fontsize=6, va='center', ha='right',
-                    color='#555555', fontstyle='italic', clip_on=False)
+                    color='black', fontstyle='italic', clip_on=False)
 
     plt.tight_layout()
 
@@ -799,7 +799,7 @@ def render_timeline_bokeh(
     bokeh_fig.xaxis.axis_label = "Month"
 
     bokeh_fig.yaxis.ticker = [pos_to_y[pos] for pos in positions]
-    bokeh_fig.yaxis.major_label_overrides = {pos_to_y[pos]: str(pos) for pos in positions}
+    bokeh_fig.yaxis.major_label_overrides = {pos_to_y[pos]: '' for pos in positions}
     bokeh_fig.yaxis.axis_label = "AA Position"
 
     # Grid
@@ -853,7 +853,7 @@ def render_timeline_bokeh(
         ))
         _band_labels = LabelSet(
             x='x', y='y', text='text', source=label_source,
-            text_font_size='8pt', text_color='#555555',
+            text_font_size='8pt', text_color='black',
             text_font_style='italic', text_align='right',
             text_baseline='middle', x_offset=-5,
         )
