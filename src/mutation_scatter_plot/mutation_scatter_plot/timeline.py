@@ -792,7 +792,7 @@ def render_timeline_matplotlib(
                    linewidths=0.5, label=f'freq={f}')
     ax.legend(loc='upper left', fontsize=7, framealpha=0.7, title='Circle size',
               title_fontsize=8, bbox_to_anchor=(1.15, 1.0),
-              labelspacing=2.5, handletextpad=1.5, borderpad=1.2,
+              labelspacing=3.5, handletextpad=1.5, borderpad=1.2,
               scatterpoints=1)
 
     plt.tight_layout()
