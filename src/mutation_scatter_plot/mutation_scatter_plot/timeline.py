@@ -734,6 +734,8 @@ def render_timeline_matplotlib(
     colors_hex: list[str] = []
     freqs: list[float] = []
     labels: list[str] = []
+    mut_labels: list[str] = []
+    codon_changes: list[str] = []
 
     for (month, pos), pts in grouped.items():
         x = _month_to_float(month, months)
@@ -765,6 +767,8 @@ def render_timeline_matplotlib(
             sizes.append(max(TIMELINE_MIN_SIZE, min(TIMELINE_MAX_SIZE, raw_size)))
             colors_hex.append(pt.color)
             freqs.append(freq_f)
+            mut_labels.append(pt.label)
+            codon_changes.append(f"{pt.ref_codon}\u2192{pt.mutant_codon}")
             # Build hover text matching mutation_scatter_plot format
             _matrix_name = getattr(myoptions, 'matrix', 'BLOSUM80')
             _hover = (
@@ -808,9 +812,10 @@ def render_timeline_matplotlib(
         zorder=5,
     )
 
-    # Percentage labels next to circles
-    for xi, yi, fi, si in zip(x_vals, y_vals, freqs, sizes):
-        ax.annotate(_format_pct(fi), (xi, yi), textcoords='offset points',
+    # Percentage + mutation labels next to circles
+    for xi, yi, fi, ml, cc in zip(x_vals, y_vals, freqs, mut_labels, codon_changes):
+        _annot_text = f"{_format_pct(fi)}\n{ml}\n{cc}"
+        ax.annotate(_annot_text, (xi, yi), textcoords='offset points',
                     xytext=(4, 3), fontsize=5,
                     color='black', zorder=6)
 
@@ -1145,13 +1150,16 @@ def render_timeline_bokeh(
     except Exception:  # pylint: disable=broad-exception-caught
         pass
 
-    # Percentage labels next to circles
+    # Percentage + mutation labels next to circles
     try:
         from bokeh.models import LabelSet
-        pct_texts = [_format_pct(float(f)) for f in hover_freqs]
+        annot_texts = [
+            f"{_format_pct(float(f))}\n{lbl}\n{cod}"
+            for f, lbl, cod in zip(hover_freqs, hover_labels, hover_codons)
+        ]
 
         pct_source = ColumnDataSource(data=dict(
-            x=x_vals, y=y_vals, text=pct_texts,
+            x=x_vals, y=y_vals, text=annot_texts,
         ))
         pct_labels = LabelSet(
             x='x', y='y', text='text', source=pct_source,

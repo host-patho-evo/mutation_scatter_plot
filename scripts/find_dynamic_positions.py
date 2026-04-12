@@ -478,13 +478,15 @@ def main() -> None:
               file=sys.stderr)
         print(' '.join(str(p) for p in positions_list), file=sys.stderr)
 
-        # Also print a copy-pasteable command
+        # Also print a copy-pasteable command (with multi-variant sweep flags)
         print(f"\n# Ready-to-use command:", file=sys.stderr)
         print(
             f"mutation_timeline_plot --dir {args.dir} "
             f"--positions {' '.join(str(p) for p in positions_list)} "
             f"--pattern '*.frequencies.tsv' "
-            f"--threshold=0.0001",
+            f"--threshold=0.0001 "
+            f"--both-scaling "
+            f"--colormap coolwarm_r amino_acid_changes",
             file=sys.stderr,
         )
 
