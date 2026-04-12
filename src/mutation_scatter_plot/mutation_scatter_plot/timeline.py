@@ -723,12 +723,15 @@ def render_timeline_matplotlib(
             )
             labels.append(_hover)
 
-    # Create figure
+    # Create figure with dedicated colorbar and legend columns
     n_pos = len(positions)
     _y_extent = (n_pos - 1) * BAND_SPACING
     fig_height = max(5, n_pos * 0.8 + 2)
     fig_width = max(10, len(months) * 0.8 + 3)
-    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    fig, (ax, ax_cb, ax_leg) = plt.subplots(
+        1, 3, figsize=(fig_width, fig_height),
+        width_ratios=[55, 1, 6],
+    )
 
     title = getattr(myoptions, 'title', '') or f"Mutation Timeline ({len(months)} months, {n_pos} positions)"
     ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
@@ -798,18 +801,16 @@ def render_timeline_matplotlib(
     ax2.spines['top'].set_visible(False)
     ax2.spines['right'].set_visible(False)
 
-    # Colourbar — trimmed to data-driven range
+    # Colourbar — rendered in dedicated ax_cb column
     _vmin = getattr(myoptions, 'cmap_vmin', -11)
     _vmax = getattr(myoptions, 'cmap_vmax', 11)
 
     if norm is not None and cmap is not None:
         # ListedColormap with BoundaryNorm: slice to data-driven range
-        # Build a sub-norm/sub-cmap covering only [_vmin, _vmax]
         _full_boundaries = norm.boundaries
         _sub_bounds = [b for b in _full_boundaries if _vmin <= b <= _vmax]
         if len(_sub_bounds) < 2:
             _sub_bounds = [_vmin, _vmax]
-        # Extract matching colour indices from cmap
         _n_colors = cmap.N
         _full_range = _full_boundaries[-1] - _full_boundaries[0]
         _sub_colors = []
@@ -822,8 +823,7 @@ def render_timeline_matplotlib(
         _sub_norm = matplotlib.colors.BoundaryNorm(_sub_bounds, len(_sub_colors))
         sm = plt.cm.ScalarMappable(cmap=_sub_cmap, norm=_sub_norm)
         sm.set_array([])
-        cbar = fig.colorbar(sm, ax=ax, pad=0.02, shrink=0.7)
-        cbar.set_label('BLOSUM score', fontsize=10)
+        cbar = fig.colorbar(sm, cax=ax_cb, label='BLOSUM score', alpha=0.5)
         # Centre tick labels inside each colour band (same as mutation_scatter_plot)
         cbar.ax.set_yticks(
             np.arange(_vmin + 0.5, _vmax + 1.5, 1),
@@ -836,12 +836,12 @@ def render_timeline_matplotlib(
             norm=matplotlib.colors.Normalize(vmin=_vmin, vmax=_vmax),
         )
         sm.set_array([])
-        cbar = fig.colorbar(sm, ax=ax, pad=0.02, shrink=0.7)
-        cbar.set_label('BLOSUM score', fontsize=10)
+        cbar = fig.colorbar(sm, cax=ax_cb, label='BLOSUM score', alpha=0.5)
         cbar.ax.set_yticks(np.arange(_vmin, _vmax + 1, 1))
         cbar.ax.tick_params(axis='y', which='minor', length=0)
 
-    # Size legend — use separate scatter calls with spacing to avoid overlap
+    # Size legend — rendered in dedicated ax_leg column
+    ax_leg.set_axis_off()
     _legend_freqs = [0.01, 0.1, 0.5, 1.0]
     _legend_sizes = []
     for f in _legend_freqs:
@@ -851,12 +851,12 @@ def render_timeline_matplotlib(
             raw = (f ** 0.5) * TIMELINE_CIRCLE_SCALE
         _legend_sizes.append(max(TIMELINE_MIN_SIZE, min(TIMELINE_MAX_SIZE, raw)))
     for f, s in zip(_legend_freqs, _legend_sizes):
-        ax.scatter([], [], s=s, c='gray', alpha=0.5, edgecolors='#333',
-                   linewidths=0.5, label=f'{f:.1%}')
-    ax.legend(loc='upper left', fontsize=7, frameon=False, title='Circle size',
-              title_fontsize=8, bbox_to_anchor=(1.15, 1.0),
-              labelspacing=3.5, handletextpad=1.5, borderpad=1.2,
-              scatterpoints=1)
+        ax_leg.scatter([], [], s=s, c='gray', alpha=0.5, edgecolors='#333',
+                       linewidths=0.5, label=f'{f:.1%}')
+    ax_leg.legend(loc='center', fontsize=7, frameon=False, title='Circle size',
+                  title_fontsize=8,
+                  labelspacing=3.5, handletextpad=1.5, borderpad=1.2,
+                  scatterpoints=1)
 
     plt.tight_layout()
 
@@ -1081,6 +1081,59 @@ def render_timeline_bokeh(
     # Grid
     bokeh_fig.xgrid.grid_line_alpha = 0.3
     bokeh_fig.ygrid.grid_line_alpha = 0.0
+
+    # ── Bokeh Colorbar (same approach as mutation_scatter_plot) ──
+    _bk_vmin = getattr(myoptions, 'cmap_vmin', -11)
+    _bk_vmax = getattr(myoptions, 'cmap_vmax', 11)
+    _matrix_label = f"{_matrix_name} score"
+
+    def _blend_with_white_hex(hex_color: str, alpha: float) -> str:
+        """Pre-blend a hex colour with white to simulate alpha on opaque bg."""
+        import matplotlib.colors as mcolors
+        r, g, b = mcolors.to_rgb(hex_color)
+        r = r * alpha + 1.0 * (1 - alpha)
+        g = g * alpha + 1.0 * (1 - alpha)
+        b = b * alpha + 1.0 * (1 - alpha)
+        return mcolors.to_hex((r, g, b))
+
+    _bk_alpha = 0.8  # match scatter circle alpha
+    if norm is not None and cmap is not None:
+        _score_range = range(_bk_vmin, _bk_vmax + 1)
+        _bk_palette = [
+            _blend_with_white_hex(matplotlib.colors.to_hex(
+                cmap(max(0, min(cmap.N - 1, norm(s))) / (cmap.N - 1) if cmap.N > 1 else 0)),
+                _bk_alpha)
+            for s in _score_range
+        ]
+    elif cmap is not None:
+        _n_cont = _bk_vmax - _bk_vmin + 1
+        _bk_palette = [
+            _blend_with_white_hex(
+                matplotlib.colors.to_hex(cmap(i / max(1, _n_cont - 1))),
+                _bk_alpha)
+            for i in range(_n_cont)
+        ]
+    else:
+        _bk_palette = ['#aaaaaa'] * (_bk_vmax - _bk_vmin + 1)
+
+    try:
+        import bokeh.models
+        _bk_mapper = bokeh.models.LinearColorMapper(
+            palette=_bk_palette,
+            low=_bk_vmin - 0.5,
+            high=_bk_vmax + 0.5,
+        )
+        _bk_cbar = bokeh.models.ColorBar(
+            color_mapper=_bk_mapper,
+            label_standoff=8,
+            title=_matrix_label,
+            title_standoff=10,
+            location=(0, 0),
+            ticker=bokeh.models.FixedTicker(ticks=list(range(_bk_vmin, _bk_vmax + 1))),
+        )
+        bokeh_fig.add_layout(_bk_cbar, 'right')
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass
 
     # Percentage labels next to circles
     try:
