@@ -583,7 +583,7 @@ if $split_gisaid_by_month; then
                             _files=$(ls -1 ${fp}.????-??.counts.*.${_mode}.*.${_stype}.${_cmap}.png 2>/dev/null \
                                      | grep -v '\.[0-9]\{4\}-00\.' | sort)
                             if [ -n "$_files" ]; then
-                                _outgif="${fp}.${_mode}.${_stype}.${_cmap}.animated.gif"
+                                _outgif="${fp}.${_mode}.BLOSUM80.${_stype}.${_cmap}.animated.gif"
                                 echo "Info: Creating $_outgif"
                                 magick -dispose previous -delay 300 $_files gif:"$_outgif"
                             fi
