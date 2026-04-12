@@ -249,8 +249,13 @@ def build_profiles(
     positions: set[int],
     start_month: str,
     end_month: str,
+    freq_threshold: float = 0.0,
 ) -> dict[int, PositionProfile]:
-    """Build rich PositionProfile objects from monthly frequency files."""
+    """Build rich PositionProfile objects from monthly frequency files.
+
+    Only mutation rows with frequency >= *freq_threshold* are included.
+    This filters out sequencing noise and background errors.
+    """
     files = sorted(glob.glob(os.path.join(directory, pattern)))
 
     # position -> month -> {mutant_aa: sum_freq}
@@ -276,7 +281,7 @@ def build_profiles(
                     mut_aa = row['mutant_aa']
                 except (ValueError, KeyError):
                     continue
-                if pos in positions:
+                if pos in positions and freq >= freq_threshold:
                     pos_month_aa[pos][month][mut_aa] += freq
 
     # Build profiles
@@ -395,10 +400,14 @@ def main() -> None:
     print(f"  Found {len(candidates)} candidate positions.", file=sys.stderr)
 
     # Phase 2: build rich profiles from frequencies files
-    print("Phase 2: Building mutation profiles...", file=sys.stderr)
+    # Reuse --threshold to filter out low-frequency noise in individual
+    # mutation rows (rows with freq < threshold are likely sequencing errors).
+    print(f"Phase 2: Building mutation profiles (freq >= {args.threshold})...",
+          file=sys.stderr)
     profiles = build_profiles(
         args.dir, args.freq_pattern, set(candidates.keys()),
         args.start_month, args.end_month,
+        freq_threshold=args.threshold,
     )
 
     # Merge candidate info with profiles and build results
