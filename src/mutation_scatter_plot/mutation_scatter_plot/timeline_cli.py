@@ -10,6 +10,7 @@ from .core import get_colormap, load_matrix
 from .timeline import (
     TimelineData,
     collect_timeline_data,
+    infer_common_prefix,
     parse_positions,
     render_timeline_bokeh,
     render_timeline_matplotlib,
@@ -67,8 +68,8 @@ def build_option_parser():
     )
     myparser.add_argument(
         "--outfile-prefix", action="store", type=str, dest="outfile_prefix",
-        default='timeline',
-        help="Output file prefix (with optional directory path)",
+        default='',
+        help="Output file prefix. If omitted, inferred from common root of input filenames",
     )
     myparser.add_argument(
         "--title", action="store", type=str, dest="title",
@@ -140,6 +141,13 @@ def main():
         print(f"Error: No matching files found in {myoptions.input_dir}", file=sys.stderr)
         sys.exit(1)
     print(f"  files:     {len(files)} monthly datasets found")
+
+    # Auto-infer output prefix from filenames if not specified
+    if not myoptions.outfile_prefix:
+        myoptions.outfile_prefix = infer_common_prefix(files, myoptions.input_dir)
+        print(f"  prefix:    {myoptions.outfile_prefix} (auto-inferred)")
+    else:
+        print(f"  prefix:    {myoptions.outfile_prefix}")
 
     summary = PROFILER.pop_phase_summary()
     if summary:

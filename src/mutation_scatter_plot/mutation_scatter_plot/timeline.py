@@ -135,6 +135,61 @@ def scan_directory(
     return results
 
 
+def infer_common_prefix(
+    files: list[tuple[str, str]],
+    dirpath: str,
+) -> str:
+    """Infer a common output prefix from scanned filenames.
+
+    Extracts the portion of each filename that precedes the ``YYYY-MM``
+    date stamp, then finds the longest common prefix among those stems.
+    The result includes the input directory so that output files land
+    in the same directory as the input unless overridden.
+
+    Examples
+    --------
+    >>> files = [
+    ...   ('2020-01', '/data/spikenuc0719.no_junk.2020-01.counts.tsv'),
+    ...   ('2020-02', '/data/spikenuc0719.no_junk.2020-02.counts.tsv'),
+    ... ]
+    >>> infer_common_prefix(files, '/data')
+    '/data/spikenuc0719.no_junk'
+    """
+    if not files:
+        return os.path.join(dirpath, 'timeline')
+
+    stems: list[str] = []
+    for _, fpath in files:
+        basename = os.path.basename(fpath)
+        m = _MONTH_RE.search(basename)
+        if m:
+            # Take everything before the .YYYY-MM. match, stripping trailing dot
+            prefix = basename[:m.start()]
+            if prefix.endswith('.'):
+                prefix = prefix[:-1]
+            stems.append(prefix)
+        else:
+            stems.append(basename)
+
+    if not stems:
+        return os.path.join(dirpath, 'timeline')
+
+    # Find longest common prefix
+    common = stems[0]
+    for s in stems[1:]:
+        while not s.startswith(common):
+            common = common[:-1]
+            if not common:
+                break
+    # Strip trailing dots/separators from the common prefix
+    common = common.rstrip('.')
+
+    if not common:
+        common = 'timeline'
+
+    return os.path.join(dirpath, common)
+
+
 # ── Position parsing ─────────────────────────────────────────────────────
 
 _MUTATION_RE = re.compile(r'^([A-Z])(\d+)([A-Z])$')
