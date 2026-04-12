@@ -1001,7 +1001,6 @@ def render_timeline_matplotlib(
             labels.append(_hover)
 
     # Create figure with dedicated colorbar and legend columns
-    n_pos = len(positions)
     # Total vertical extent = sum of all band heights
     _total_height = sum(pos_heights.get(p, 2.0) for p in positions)
     fig_height = max(5, _total_height * 0.5 + 2)
@@ -1019,7 +1018,12 @@ def render_timeline_matplotlib(
     _min_dim = min(fig_width, fig_height)
     _heading_fontsize = max(11, min(20, _min_dim * 1.8))
 
-    title = getattr(myoptions, 'title', '') or f"Mutation Timeline ({len(months)} months, {n_pos} positions)"
+    _pos_type = 'codon' if _codon_view else 'amino acid'
+    _pos_list = ', '.join(str(p) for p in positions)
+    _prefix_name = os.path.basename(getattr(myoptions, 'outfile_prefix', outfile_prefix))
+    title = (getattr(myoptions, 'title', '')
+             or f"Timeline of mutations in SARS-CoV-2 in GISAID {_prefix_name}"
+                f" at {_pos_type} positions {_pos_list}")
     ax.set_title(title, fontsize=_heading_fontsize, fontweight='bold', pad=15)
 
     # Scatter plot
@@ -1304,7 +1308,13 @@ def render_timeline_bokeh(
         "score": hover_scores,
     })
 
-    title = getattr(myoptions, 'title', '') or f"Mutation Timeline ({len(months)} months, {len(positions)} positions)"
+    _codon_view = not getattr(myoptions, 'aminoacids', False)
+    _pos_type = 'codon' if _codon_view else 'amino acid'
+    _pos_list = ', '.join(str(p) for p in positions)
+    _prefix_name = os.path.basename(getattr(myoptions, 'outfile_prefix', outfile_prefix))
+    title = (getattr(myoptions, 'title', '')
+             or f"Timeline of mutations in SARS-CoV-2 in GISAID {_prefix_name}"
+                f" at {_pos_type} positions {_pos_list}")
 
     _total_height = sum(pos_heights.get(p, 2.0) for p in positions)
     # y-limits: half-band padding around first and last position
