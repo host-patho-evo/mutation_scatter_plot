@@ -422,6 +422,41 @@ def _month_to_float(month_str: str, all_months: list[str]) -> float:
     return all_months.index(month_str) if month_str in all_months else 0.0
 
 
+def _compute_band_spacing(data: TimelineData) -> float:
+    """Dynamically compute vertical band spacing based on data density.
+
+    Examines the maximum number of mutations sharing a single
+    (month, position) slot and scales spacing so that vertically
+    offset circles do not bleed into neighbouring bands.
+
+    Returns
+    -------
+    float
+        Band spacing in data units (minimum 1.2).
+    """
+    if not data.points:
+        return 1.5
+
+    # Count max overlap per (month, position)
+    overlap_counts: dict[tuple[str, int], int] = defaultdict(int)
+    for pt in data.points:
+        overlap_counts[(pt.month, pt.position)] += 1
+    max_overlap = max(overlap_counts.values()) if overlap_counts else 1
+
+    # Scale: 1 mutation → 1.2, 2 → 1.6, 3 → 2.0, 5 → 2.8, ...
+    spacing = max(1.2, max_overlap * 0.4 + 0.8)
+    return spacing
+
+
+def _compute_intra_band_spread(band_spacing: float) -> float:
+    """Compute the ± vertical offset range within a band.
+
+    Uses 60% of the half-band width so circles stay well inside
+    the band borders.
+    """
+    return band_spacing * 0.5 * 0.6
+
+
 def render_timeline_matplotlib(
     data: TimelineData,
     myoptions: typing.Any,
@@ -440,10 +475,9 @@ def render_timeline_matplotlib(
     months = data.months
     positions = data.positions
 
-    # Build position → y-coordinate mapping (band layout)
-    # BAND_SPACING controls vertical distance between adjacent position bands.
-    # A value of 2.0 gives enough room so large circles don't overlap across bands.
-    BAND_SPACING = 2.0
+    # Dynamically compute band spacing based on data density
+    BAND_SPACING = _compute_band_spacing(data)
+    _spread = _compute_intra_band_spread(BAND_SPACING)
     pos_to_y: dict[int, float] = {}
     for i, pos in enumerate(positions):
         pos_to_y[pos] = float(i) * BAND_SPACING
@@ -474,8 +508,7 @@ def render_timeline_matplotlib(
             if n == 1:
                 y_offset = 0.0
             else:
-                # Spread within ±0.6 of band centre (wider than before to use the extra space)
-                y_offset = -0.6 + (1.2 * j / (n - 1)) if n > 1 else 0.0
+                y_offset = -_spread + (2 * _spread * j / (n - 1)) if n > 1 else 0.0
 
             x_vals.append(x)
             y_vals.append(y_base + y_offset)
@@ -609,7 +642,8 @@ def render_timeline_bokeh(
     months = data.months
     positions = data.positions
 
-    BAND_SPACING = 2.0
+    BAND_SPACING = _compute_band_spacing(data)
+    _spread = _compute_intra_band_spread(BAND_SPACING)
     pos_to_y: dict[int, float] = {}
     for i, pos in enumerate(positions):
         pos_to_y[pos] = float(i) * BAND_SPACING
@@ -638,7 +672,7 @@ def render_timeline_bokeh(
             if n == 1:
                 y_offset = 0.0
             else:
-                y_offset = -0.6 + (1.2 * j / (n - 1)) if n > 1 else 0.0
+                y_offset = -_spread + (2 * _spread * j / (n - 1)) if n > 1 else 0.0
 
             x_vals.append(x)
             y_vals.append(y_base + y_offset)
