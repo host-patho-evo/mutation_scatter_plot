@@ -580,7 +580,8 @@ def _compute_intra_band_spread(band_spacing: float) -> float:
 def _prepare_layout(
     data: TimelineData,
     myoptions: typing.Any = None,
-) -> tuple[float, float, dict[int, float],
+) -> tuple[dict[int, float], dict[int, float],
+              dict[int, float],
               dict[tuple[str, int], list['TimelinePoint']],
               dict[int, dict[str, float]]]:
     """Compute shared layout parameters for both renderers.
@@ -595,10 +596,11 @@ def _prepare_layout(
 
     Returns
     -------
-    tuple of (BAND_SPACING, _spread, pos_to_y, grouped, label_offsets)
-        - BAND_SPACING: dynamic vertical distance between position bands.
-        - _spread: ± vertical offset range within a band.
-        - pos_to_y: mapping from position int to y-coordinate.
+    tuple of (pos_heights, pos_spread, pos_to_y, grouped, label_offsets)
+        - pos_heights: ``{position: height}`` — per-position band height.
+        - pos_spread: ``{position: spread}`` — ± vertical offset range
+          within each band.
+        - pos_to_y: mapping from position int to y-coordinate (band centre).
         - grouped: data points grouped by (month, position).
         - label_offsets: ``{position: {label: y_offset}}`` — fixed
           vertical slot for each unique mutation label within a band,
@@ -609,35 +611,46 @@ def _prepare_layout(
     for pt in data.points:
         grouped[(pt.month, pt.position)].append(pt)
 
-    # Circle-based spacing (prevents circle bleed between bands)
-    BAND_SPACING = _compute_band_spacing(data)
-
-    # Label-based spacing: ensure enough room for unique Y-axis labels
-    # Each label needs ~0.7 data units at default font (fontsize=7).
-    # Compute the max number of unique labels at any single position.
-    _LABEL_HEIGHT = 0.7   # data units per label (empirical for fontsize=7)
-    n_pos = len(data.positions)
-    if n_pos > 0 and grouped:
-        _max_labels = 1
-        for pos in data.positions:
-            _unique = set()
-            for (_m, _p), pts in grouped.items():
-                if _p == pos:
-                    for pt in pts:
-                        _unique.add(pt.label)
-            _max_labels = max(_max_labels, len(_unique))
-        # Minimum spacing so labels fit: n_labels * height + small padding
-        _label_spacing = _max_labels * _LABEL_HEIGHT + 0.3
-        BAND_SPACING = max(BAND_SPACING, _label_spacing)
+    # Collect unique labels per position (needed for height + offset computation)
+    labels_per_pos: dict[int, list[str]] = {}
+    for pos in data.positions:
+        _unique: set[str] = set()
+        for (_m, _p), pts in grouped.items():
+            if _p == pos:
+                for pt in pts:
+                    _unique.add(pt.label)
+        labels_per_pos[pos] = sorted(_unique)
 
     # Apply user-specified scaling factor
     _factor = getattr(myoptions, 'band_spacing_factor', 1.0) if myoptions else 1.0
-    BAND_SPACING *= _factor
-    _spread = _compute_intra_band_spread(BAND_SPACING)
 
+    # Compute per-position band heights.
+    # Height scales with the number of unique labels at each position,
+    # so dense positions get taller bands while simple positions stay compact.
+    _LABEL_HEIGHT = 0.7   # data units per label (empirical for fontsize=7)
+    _MIN_BAND_HEIGHT = 2.0  # minimum for positions with 1 mutation
+
+    pos_heights: dict[int, float] = {}
+    for pos in data.positions:
+        n_labels = len(labels_per_pos[pos])
+        # Circle-based minimum: coexisting circles each need ~0.6 units
+        circle_height = max(_MIN_BAND_HEIGHT, n_labels * 0.6 + 1.4)
+        # Label-based minimum: each label needs ~0.7 units
+        label_height = n_labels * _LABEL_HEIGHT + 0.3
+        pos_heights[pos] = max(circle_height, label_height) * _factor
+
+    # Per-position spread: ± vertical offset range within each band
+    pos_spread: dict[int, float] = {}
+    for pos in data.positions:
+        pos_spread[pos] = _compute_intra_band_spread(pos_heights[pos])
+
+    # Compute cumulative y positions (variable spacing)
     pos_to_y: dict[int, float] = {}
-    for i, pos in enumerate(data.positions):
-        pos_to_y[pos] = float(i) * BAND_SPACING
+    y_cursor = 0.0
+    for pos in data.positions:
+        half_h = pos_heights[pos] * 0.5
+        pos_to_y[pos] = y_cursor + half_h
+        y_cursor += pos_heights[pos]
 
     # Pre-compute consistent vertical slots for each mutation label within
     # each position band.  Every label gets the same y-offset regardless of
@@ -645,30 +658,26 @@ def _prepare_layout(
     # from jumping vertically.
     label_offsets: dict[int, dict[str, float]] = {}
     for pos in data.positions:
-        labels_at_pos: set[str] = set()
-        for (_m, _p), pts in grouped.items():
-            if _p == pos:
-                for pt in pts:
-                    labels_at_pos.add(pt.label)
-        labels_sorted = sorted(labels_at_pos)
-        n_labels = len(labels_sorted)
+        _sorted = labels_per_pos[pos]
+        _n = len(_sorted)
+        _spr = pos_spread[pos]
         offsets: dict[str, float] = {}
-        if n_labels <= 1:
-            for lbl in labels_sorted:
+        if _n <= 1:
+            for lbl in _sorted:
                 offsets[lbl] = 0.0
         else:
-            for j, lbl in enumerate(labels_sorted):
-                offsets[lbl] = -_spread + (2 * _spread * j / (n_labels - 1))
+            for j, lbl in enumerate(_sorted):
+                offsets[lbl] = -_spr + (2 * _spr * j / (_n - 1))
         label_offsets[pos] = offsets
 
-    return BAND_SPACING, _spread, pos_to_y, grouped, label_offsets
+    return pos_heights, pos_spread, pos_to_y, grouped, label_offsets
 
 
 def _compute_ytick_labels(
     positions: list[int],
     pos_to_y: dict[int, float],
     grouped: dict[tuple[str, int], list['TimelinePoint']],
-    _spread: float,
+    pos_spread: dict[int, float],
     merge_threshold: float = 0.15,
 ) -> tuple[list[float], list[str]]:
     """Compute merged Y-axis tick positions and labels.
@@ -689,6 +698,7 @@ def _compute_ytick_labels(
 
     for pos in positions:
         y_base = pos_to_y[pos]
+        _spread = pos_spread.get(pos, 0.6)
         # Collect unique labels seen at this position (order by first appearance)
         seen_labels: dict[str, None] = {}
         for (_month, p_key), pts in grouped.items():
@@ -780,8 +790,8 @@ def render_timeline_matplotlib(
     months = data.months
     positions = data.positions
 
-    # Shared layout: band spacing, position mapping, grouping, label offsets
-    BAND_SPACING, _spread, pos_to_y, grouped, label_offsets = _prepare_layout(data, myoptions)
+    # Shared layout: per-position heights, spread, y-mapping, grouping, label offsets
+    pos_heights, pos_spread, pos_to_y, grouped, label_offsets = _prepare_layout(data, myoptions)
 
     # Prepare scatter data
     x_vals: list[float] = []
@@ -832,8 +842,9 @@ def render_timeline_matplotlib(
 
     # Create figure with dedicated colorbar and legend columns
     n_pos = len(positions)
-    _y_extent = (n_pos - 1) * BAND_SPACING
-    fig_height = max(5, n_pos * 0.8 + 2)
+    # Total vertical extent = sum of all band heights
+    _total_height = sum(pos_heights.get(p, 2.0) for p in positions)
+    fig_height = max(5, _total_height * 0.5 + 2)
     fig_width = max(12, len(months) * 0.8 + 5)
     fig, (ax, ax_cb, ax_leg) = plt.subplots(
         1, 3, figsize=(fig_width, fig_height),
@@ -875,7 +886,7 @@ def render_timeline_matplotlib(
     ax.set_xlabel('Month', fontsize=_heading_fontsize)
     # Y-axis: use merged mutation labels as tick labels
     _all_tick_y, _all_tick_labels = _compute_ytick_labels(
-        positions, pos_to_y, grouped, _spread,
+        positions, pos_to_y, grouped, pos_spread,
     )
     ax.set_yticks(_all_tick_y)
     ax.set_yticklabels(_all_tick_labels, fontsize=7)
@@ -883,15 +894,20 @@ def render_timeline_matplotlib(
 
     # Grid and styling
     ax.set_xlim(-0.5, len(months) - 0.5)
-    ax.set_ylim(-BAND_SPACING * 0.5 - 0.2, _y_extent + BAND_SPACING * 0.5 + 0.2)
+    # y-limits: half-band padding around first and last position
+    _first_half = pos_heights.get(positions[0], 2.0) * 0.5 if positions else 1.0
+    _last_half = pos_heights.get(positions[-1], 2.0) * 0.5 if positions else 1.0
+    _y_min = pos_to_y.get(positions[0], 0.0) - _first_half - 0.2 if positions else -0.2
+    _y_max = pos_to_y.get(positions[-1], 0.0) + _last_half + 0.2 if positions else 0.2
+    ax.set_ylim(_y_min, _y_max)
     ax.grid(axis='x', alpha=0.3, linestyle='--')
     # Draw horizontal band borders above and below each position
     # (not through the centre where data points are)
-    _half_band = BAND_SPACING * 0.5
-    for i in range(n_pos):
-        y_center = float(i) * BAND_SPACING
-        ax.axhline(y=y_center - _half_band, color='#cccccc', linewidth=0.5, alpha=0.4, zorder=1)
-        ax.axhline(y=y_center + _half_band, color='#cccccc', linewidth=0.5, alpha=0.4, zorder=1)
+    for pos in positions:
+        y_center = pos_to_y[pos]
+        _half = pos_heights[pos] * 0.5
+        ax.axhline(y=y_center - _half, color='#cccccc', linewidth=0.5, alpha=0.4, zorder=1)
+        ax.axhline(y=y_center + _half, color='#cccccc', linewidth=0.5, alpha=0.4, zorder=1)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
@@ -1068,8 +1084,8 @@ def render_timeline_bokeh(
     months = data.months
     positions = data.positions
 
-    # Shared layout: band spacing, position mapping, grouping, label offsets
-    BAND_SPACING, _spread, pos_to_y, grouped, label_offsets = _prepare_layout(data, myoptions)
+    # Shared layout: per-position heights, spread, y-mapping, grouping, label offsets
+    pos_heights, pos_spread, pos_to_y, grouped, label_offsets = _prepare_layout(data, myoptions)
 
     x_vals: list[float] = []
     y_vals: list[float] = []
@@ -1128,13 +1144,18 @@ def render_timeline_bokeh(
     title = getattr(myoptions, 'title', '') or f"Mutation Timeline ({len(months)} months, {len(positions)} positions)"
 
     n_pos = len(positions)
-    _y_extent = (n_pos - 1) * BAND_SPACING
+    _total_height = sum(pos_heights.get(p, 2.0) for p in positions)
+    # y-limits: half-band padding around first and last position
+    _first_half = pos_heights.get(positions[0], 2.0) * 0.5 if positions else 1.0
+    _last_half = pos_heights.get(positions[-1], 2.0) * 0.5 if positions else 1.0
+    _y_min = pos_to_y.get(positions[0], 0.0) - _first_half - 0.2 if positions else -0.2
+    _y_max = pos_to_y.get(positions[-1], 0.0) + _last_half + 0.2 if positions else 0.2
     bokeh_fig = figure(
         title=title,
         width=2000,
-        height=max(600, int(n_pos * BAND_SPACING * 27 + 200)),
+        height=max(600, int(_total_height * 27 + 200)),
         x_range=(-0.5, len(months) - 0.5),
-        y_range=(-BAND_SPACING * 0.5 - 0.2, _y_extent + BAND_SPACING * 0.5 + 0.2),
+        y_range=(_y_min, _y_max),
         tools="pan,wheel_zoom,box_zoom,reset,save",
         sizing_mode='stretch_width',
     )
@@ -1169,7 +1190,7 @@ def render_timeline_bokeh(
 
     # Y-axis: use merged mutation labels as tick labels
     _bokeh_tick_y, _bokeh_tick_labels = _compute_ytick_labels(
-        positions, pos_to_y, grouped, _spread,
+        positions, pos_to_y, grouped, pos_spread,
     )
     bokeh_fig.yaxis.ticker = _bokeh_tick_y
     bokeh_fig.yaxis.major_label_overrides = dict(zip(_bokeh_tick_y, _bokeh_tick_labels))
