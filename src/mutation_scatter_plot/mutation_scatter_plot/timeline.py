@@ -596,7 +596,7 @@ def collect_timeline_data(
     if _multi:
         print(f"Info: {len(_multi)} codon mutation(s) appear at multiple "
               f"padded positions (expected for INS sites):")
-        for _key, _pads in sorted(_multi.items()):
+        for _key, _pads in sorted(_multi.items(), key=lambda x: (x[0][1], x[0][0])):
             print(f"  {_key[2]}{_key[1]}{_key[3]} month={_key[0]} "
                   f"padded_positions={sorted(_pads)}")
 
