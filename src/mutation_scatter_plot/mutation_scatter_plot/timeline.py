@@ -776,6 +776,28 @@ def render_timeline_matplotlib(
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
+    # ── Second Y-axis (right): position numbers ──
+    ax2 = ax.twinx()
+    ax2.set_ylim(ax.get_ylim())
+    _right_ticks = [pos_to_y[p] for p in positions]
+    _right_labels = [str(p) for p in positions]
+    ax2.set_yticks(_right_ticks)
+    # Compute font size so text height ≈ 2/3 of band height in points.
+    # band_height_inches = BAND_SPACING / data_range * fig_height * plot_fraction
+    _ylim = ax.get_ylim()
+    _data_range = _ylim[1] - _ylim[0]
+    _fig_h_in = fig.get_size_inches()[1]
+    # Approximate plot area fraction (tight_layout adjusts this, but ~0.75 is typical)
+    _plot_frac = 0.75
+    _band_height_inches = BAND_SPACING / _data_range * _fig_h_in * _plot_frac
+    # 1 point = 1/72 inch; target 2/3 of band height
+    _pos_fontsize = max(8, min(48, _band_height_inches * (2 / 3) * 72))
+    ax2.set_yticklabels(_right_labels, fontsize=_pos_fontsize,
+                        fontweight='bold', color='#999999', alpha=0.6)
+    ax2.tick_params(axis='y', length=0)  # hide tick marks
+    ax2.spines['top'].set_visible(False)
+    ax2.spines['right'].set_visible(False)
+
     # Colourbar — trimmed to data-driven range
     _vmin = getattr(myoptions, 'cmap_vmin', -11)
     _vmax = getattr(myoptions, 'cmap_vmax', 11)
