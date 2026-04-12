@@ -63,6 +63,7 @@ class PositionSpec:
     mutant_aas: typing.Optional[list[str]] = None
 
     def __str__(self):
+        """Return human-readable position label, e.g. 'D614G' or '498[RHQ]'."""
         if self.ref_aa and self.mutant_aas and len(self.mutant_aas) == 1:
             return f"{self.ref_aa}{self.position}{self.mutant_aas[0]}"
         if self.mutant_aas:
@@ -72,7 +73,13 @@ class PositionSpec:
 
 @dataclass
 class TimelinePoint:
-    """A single data point in the timeline."""
+    """A single data point in the timeline scatter plot.
+
+    Each point represents one observed mutation (old→new amino acid) at a
+    specific genomic position in a specific month, with its frequency and
+    BLOSUM substitution score.  The ``color`` and ``label`` fields are
+    computed during data collection.
+    """
     month: str           # 'YYYY-MM'
     position: int        # aa position
     ref_aa: str          # reference amino acid
@@ -87,7 +94,13 @@ class TimelinePoint:
 
 @dataclass
 class TimelineData:
-    """Container for parsed per-month, per-position frequency data."""
+    """Container for parsed per-month, per-position frequency data.
+
+    Aggregates all :class:`TimelinePoint` instances together with sorted
+    month labels, unique positions, and the original position specifications
+    from the CLI.  Passed to both ``render_timeline_matplotlib`` and
+    ``render_timeline_bokeh``.
+    """
     points: list[TimelinePoint] = field(default_factory=list)
     months: list[str] = field(default_factory=list)    # sorted YYYY-MM
     positions: list[int] = field(default_factory=list)  # sorted unique positions seen
@@ -309,8 +322,31 @@ def collect_timeline_data(
 ) -> TimelineData:
     """Load data from monthly TSV files for the requested positions.
 
-    For each file, reads the TSV, filters to the requested positions,
-    and computes BLOSUM colour/score using the shared core functions.
+    For each file in *files*, reads the ``.frequencies.tsv`` table, filters
+    rows to the amino acid positions listed in *specs*, and computes the
+    BLOSUM substitution score and colour using :func:`adjust_size_and_color`
+    from ``core.py``.
+
+    Parameters
+    ----------
+    files : list of (month_str, filepath)
+        Output of :func:`scan_directory`.
+    specs : list of PositionSpec
+        Parsed position filters from :func:`parse_positions`.
+    myoptions : argparse.Namespace
+        CLI options (threshold, debug, aminoacids, etc.).
+    matrix : blosum.BLOSUM
+        Active substitution-score matrix.
+    norm : matplotlib.colors.BoundaryNorm or None
+        Discrete colour normaliser (for ListedColormap), or None.
+    colors : list of str
+        Hex colour palette, indexed by normalised score.
+
+    Returns
+    -------
+    TimelineData
+        Populated container with all matching data points, sorted month
+        list, and sorted position list.
     """
     all_positions = set()
     for s in specs:
@@ -466,7 +502,29 @@ def render_timeline_matplotlib(
 ) -> None:
     """Render the timeline scatter plot using matplotlib.
 
-    Outputs PNG and PDF files.
+    Produces PNG and PDF files at ``{outfile_prefix}.png`` and ``.pdf``.
+
+    Visual elements
+    ---------------
+    * Circles coloured by BLOSUM score (via *cmap* / *norm*).
+    * Circle size proportional to mutation frequency (area or linear scaling).
+    * Percentage labels annotated next to each circle.
+    * Y-axis tick labels show mutation names (e.g. ``N501Y``, ``E484A, E484K``).
+    * Colourbar trimmed to the data-driven score range.
+    * Interactive hover via ``mplcursors`` (if installed).
+
+    Parameters
+    ----------
+    data : TimelineData
+        Collected timeline data points.
+    myoptions : argparse.Namespace
+        CLI options.
+    norm : matplotlib.colors.BoundaryNorm or None
+        Discrete colour normaliser, or None for continuous colormaps.
+    cmap : matplotlib.colors.Colormap
+        Colormap instance.
+    outfile_prefix : str
+        Output path prefix (without extension).
     """
     if not data.points:
         print("Warning: No data points to render in timeline plot")
@@ -700,6 +758,7 @@ def render_timeline_matplotlib(
 
         @_cursor.connect("add")
         def _on_add(sel):
+            """Display mutation details in the hover annotation."""
             idx = sel.index
             if 0 <= idx < len(labels):
                 sel.annotation.set_text(labels[idx])
@@ -728,7 +787,23 @@ def render_timeline_bokeh(
 ) -> None:
     """Render interactive Bokeh HTML timeline.
 
-    Outputs HTML and JSON files.
+    Produces an HTML file at ``{outfile_prefix}.html`` with:
+
+    * Full-page responsive layout (``sizing_mode='stretch_width'``).
+    * Hover tooltips showing: Mutation, Position, Month, Original Codon (AA),
+      New Codon (AA), BLOSUM score, and Frequency.
+    * Percentage labels next to each circle.
+    * Y-axis tick labels showing mutation names.
+    * Band borders separating position groups.
+
+    Parameters
+    ----------
+    data : TimelineData
+        Collected timeline data points.
+    myoptions : argparse.Namespace
+        CLI options.
+    outfile_prefix : str
+        Output path prefix (without extension).
     """
     if not data.points:
         print("Warning: No data points to render in Bokeh timeline")

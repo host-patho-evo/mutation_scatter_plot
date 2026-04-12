@@ -1,6 +1,20 @@
 # -*- coding: utf-8 -*-
 # vim: set fileencoding=utf-8 ts=4 sw=4 expandtab :
-"""Command-line interface for mutation_timeline_plot."""
+"""Command-line interface for mutation_timeline_plot.
+
+This module provides the ``mutation_timeline_plot`` console script entry
+point.  It parses command-line arguments, scans a directory of per-month
+``.frequencies.tsv`` files, collects mutation data at user-specified amino
+acid positions, and renders both static (matplotlib PNG/PDF) and
+interactive (Bokeh HTML) timeline scatter plots.
+
+Usage
+-----
+::
+
+    mutation_timeline_plot --dir <input_dir> --positions 498[RHQ] N501Y 484 \
+                           --threshold 0.001
+"""
 
 import argparse
 import sys
@@ -22,6 +36,7 @@ class NoWrapFormatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDef
     """Help formatter that does not wrap long lines, preserving URLs."""
 
     def _split_lines(self, text, width):
+        """Preserve explicit newlines in help text (e.g. for URL formatting)."""
         return text.splitlines()
 
 
@@ -110,7 +125,21 @@ def build_option_parser():
 
 
 def main():
-    """Entry point for mutation_timeline_plot CLI."""
+    """Entry point for the mutation_timeline_plot CLI.
+
+    Workflow:
+
+    1. Parse command-line arguments via :func:`build_option_parser`.
+    2. Scan the input directory for monthly ``.frequencies.tsv`` files.
+    3. Infer a common filename prefix for output naming.
+    4. Load the BLOSUM substitution matrix and colormap.
+    5. Collect timeline data for the specified positions.
+    6. Compute the actual BLOSUM score range from the data and re-derive
+       the colormap with data-driven bounds (unless
+       ``--spread-colormap-virtual-matrix`` forces the full theoretical range).
+    7. Render static matplotlib output (PNG + PDF).
+    8. Render interactive Bokeh output (HTML).
+    """
     myparser = build_option_parser()
     myoptions = myparser.parse_args()
 
