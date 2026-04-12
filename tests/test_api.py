@@ -244,5 +244,102 @@ class TestCalculateFrequenciesAPI(unittest.TestCase):
             ))
 
 
+class TestRenderTimelineAPI(unittest.TestCase):
+    """Integration test: render_timeline() produces correct outputs."""
+
+    def setUp(self):
+        """Set up paths to test fixtures."""
+        self.tests_dir = os.path.dirname(os.path.abspath(__file__))
+        self.timeline_dir = os.path.join(
+            self.tests_dir, "inputs", "timeline"
+        )
+
+    def test_render_timeline_basic(self):
+        """render_timeline() produces files from per-month TSVs."""
+        from mutation_scatter_plot.api import render_timeline
+
+        if not os.path.isdir(self.timeline_dir):
+            self.skipTest("Timeline fixtures not available")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outfile_prefix = os.path.join(tmpdir, "api_timeline")
+            result = render_timeline(
+                directory=self.timeline_dir,
+                positions=['N501Y', '484', 'D614G'],
+                outfile_prefix=outfile_prefix,
+                aminoacids=True,
+                show_bokeh=False,
+            )
+
+            self.assertIn('data', result)
+            self.assertIn('files_written', result)
+            self.assertGreater(len(result['data'].points), 0)
+
+            # Files should have been written
+            self.assertGreater(len(result['files_written']), 0)
+
+            # PNG should exist
+            extensions = {os.path.splitext(f)[1] for f in result['files_written']}
+            self.assertIn('.png', extensions)
+
+    def test_render_timeline_no_data(self):
+        """render_timeline() with position that has no data returns empty."""
+        from mutation_scatter_plot.api import render_timeline
+
+        if not os.path.isdir(self.timeline_dir):
+            self.skipTest("Timeline fixtures not available")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outfile_prefix = os.path.join(tmpdir, "api_timeline_empty")
+            result = render_timeline(
+                directory=self.timeline_dir,
+                positions=['999'],  # position not in data
+                outfile_prefix=outfile_prefix,
+                aminoacids=True,
+            )
+
+            self.assertEqual(len(result['data'].points), 0)
+            self.assertEqual(result['files_written'], [])
+
+    def test_render_timeline_missing_dir(self):
+        """render_timeline() with nonexistent directory raises FileNotFoundError."""
+        from mutation_scatter_plot.api import render_timeline
+
+        with self.assertRaises(FileNotFoundError):
+            render_timeline(
+                directory='/nonexistent/path',
+                positions=['501'],
+            )
+
+
+class TestExample4MatrixComparison(unittest.TestCase):
+    """Test that Example 4 from the implementation plan works."""
+
+    def test_blosum_matrix_comparison(self):
+        """load_matrix + get_score works for multiple BLOSUM matrices."""
+        from mutation_scatter_plot import scatter_options
+        from mutation_scatter_plot.mutation_scatter_plot import load_matrix
+        from mutation_scatter_plot.mutation_scatter_plot.core import get_score
+
+        matrices = ['BLOSUM45', 'BLOSUM62', 'BLOSUM80', 'BLOSUM90']
+        scores = {}
+        for matrix_name in matrices:
+            opts = scatter_options(
+                matrix=matrix_name, outfile_prefix='/tmp/dummy',
+            )
+            matrix, _name, _min_s, _max_s, _prefix = load_matrix(opts)
+            score = get_score(opts, matrix, False, 'Q', 'R')
+            scores[matrix_name] = score
+
+        # All should return integer scores
+        for name, score in scores.items():
+            self.assertIsInstance(score, (int, float), f"{name} score is not numeric")
+
+        # BLOSUM matrices produce consistent Q->R scores
+        self.assertEqual(scores['BLOSUM62'], scores['BLOSUM80'],
+                         "BLOSUM62 and BLOSUM80 should give same Q→R score")
+
+
 if __name__ == "__main__":
     unittest.main()
+

@@ -1,0 +1,4 @@
+padded_position	position	original_aa	mutant_aa	frequency	original_codon	mutant_codon	observed_codon_count	total_codons_per_site
+501	501	N	Y	0.05	AAT	TAT	5	100
+484	484	E	K	0.08	GAA	AAA	8	100
+614	614	D	G	0.45	GAT	GGT	45	100

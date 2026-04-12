@@ -25,8 +25,11 @@ Quick start
 """
 
 import os
+from typing import TYPE_CHECKING
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
+
 
 
 def render_scatter(
@@ -294,10 +297,12 @@ def render_timeline(
     positions: list[str],
     outfile_prefix: str = '',
     *,
-    threshold: float = 0.001,
+    aminoacids: bool = False,
+    threshold: float = 0.0,
     colormap: str = 'coolwarm_r',
     matrix: str = 'BLOSUM80',
     show_bokeh: bool = False,
+    dpi: int = 600,
     **extra_options,
 ) -> dict:
     """Render a timeline scatter plot from per-month frequency TSV files.
@@ -314,27 +319,32 @@ def render_timeline(
     positions : list[str]
         Position specifications, e.g. ``['N501Y', '498[RHQ]', '484']``.
     outfile_prefix : str, optional
-        Output path prefix.  When empty, only the ``Figure`` is returned.
+        Output path prefix.  When empty, auto-inferred from filenames.
+    aminoacids : bool
+        Amino-acid mode (``True``) or codon mode (``False``).
     threshold : float
-        Minimum frequency to include in the timeline.
+        Minimum frequency to include in the timeline (default 0.0).
     colormap : str
         Matplotlib colormap name (default ``'coolwarm_r'``).
     matrix : str
         BLOSUM matrix name (default ``'BLOSUM80'``).
     show_bokeh : bool
         Open the Bokeh HTML in a browser.
+    dpi : int
+        Resolution for raster outputs (default 600).
     **extra_options
         Additional options forwarded to the timeline options namespace.
 
     Returns
     -------
     dict
-        - ``'figure'``: ``matplotlib.figure.Figure``
         - ``'data'``: ``TimelineData`` object with all collected points
         - ``'files_written'``: ``list[str]``
     """
+    # pylint: disable=too-many-locals
     from .mutation_scatter_plot.options import timeline_options
-    from .mutation_scatter_plot.core import load_matrix, get_colormap
+    from .mutation_scatter_plot import load_matrix
+    from .mutation_scatter_plot.core import get_colormap
     from .mutation_scatter_plot.timeline import (
         scan_directory,
         infer_common_prefix,
@@ -347,50 +357,90 @@ def render_timeline(
     opts = timeline_options(
         directory=directory,
         positions=positions,
+        outfile_prefix=outfile_prefix,
+        aminoacids=aminoacids,
         threshold=threshold,
         colormap=colormap,
         matrix=matrix,
+        dpi=dpi,
         disable_showing_bokeh=not show_bokeh,
         **extra_options,
     )
 
-    # 1. Discover files
-    files = scan_directory(directory, opts.pattern, opts.include_unknown_month)
+    # ── 1. Discover files ────────────────────────────────────────────────
+    files = scan_directory(
+        opts.input_dir, opts.pattern, opts.include_unknown_month,
+    )
     if not files:
         raise FileNotFoundError(
             f"No .frequencies.tsv files found in {directory!r}"
         )
 
-    # 2. Parse positions and load scoring
+    # ── 2. Parse positions ───────────────────────────────────────────────
     specs = parse_positions(positions)
-    matrix_obj = load_matrix(opts)
-    colors, norm, cmap = get_colormap(opts, colormap)
 
-    # 3. Collect data
-    data = collect_timeline_data(files, specs, opts, matrix_obj, norm, colors)
-    prefix = outfile_prefix or infer_common_prefix(files, directory)
+    # ── 3. Auto-infer output prefix ──────────────────────────────────────
+    if not opts.outfile_prefix:
+        opts.outfile_prefix = infer_common_prefix(files, opts.input_dir)
 
+    # Append .timeline.aa/.codon before load_matrix adds .BLOSUM80.area_scaling.coolwarm_r
+    _mode_label = 'aa' if aminoacids else 'codon'
+    opts.outfile_prefix = opts.outfile_prefix + '.timeline.' + _mode_label
+
+    # ── 4. Load matrix ───────────────────────────────────────────────────
+    (_matrix, _matrix_name, _min_score,
+     _max_score, _outfile_prefix) = load_matrix(opts)
+
+    # ── 5. Initial colormap (will be refined after data collection) ─────
+    opts.cmap_actual_vmin = -10
+    opts.cmap_actual_vmax = 10
+    _norm, _cmap, _colors = get_colormap(opts, colormap)
+
+    # ── 6. Collect timeline data ─────────────────────────────────────────
+    data = collect_timeline_data(files, specs, opts, _matrix, _norm, _colors)
+
+    if not data.points:
+        return {
+            'data': data,
+            'files_written': [],
+        }
+
+    # ── 7. Re-derive colormap with actual score range ────────────────────
+    _actual_scores = [pt.score for pt in data.points if pt.score != 12]
+    _actual_vmin = min(_actual_scores) if _actual_scores else -11
+    _actual_vmax = max(_actual_scores) if _actual_scores else 11
+    _actual_bound = max(abs(_actual_vmin), abs(_actual_vmax))
+    opts.cmap_actual_vmin = -_actual_bound
+    opts.cmap_actual_vmax = _actual_bound
+
+    if hasattr(opts, 'cmap_vmin'):
+        delattr(opts, 'cmap_vmin')
+    if hasattr(opts, 'cmap_vmax'):
+        delattr(opts, 'cmap_vmax')
+    _norm, _cmap, _colors = get_colormap(opts, colormap)
+
+    # ── 8. Render ────────────────────────────────────────────────────────
     files_written = []
 
-    # 4. Render
-    fig = render_timeline_matplotlib(
-        data, opts, norm, cmap, colors, prefix,
+    render_timeline_matplotlib(
+        data, opts, _norm, _cmap, _colors, _outfile_prefix,
     )
-    if prefix:
-        for ext in ('.png', '.pdf'):
-            candidate = f"{prefix}.timeline{ext}"
-            if os.path.exists(candidate):
-                files_written.append(candidate)
+    for ext in ('.png', '.pdf'):
+        candidate = f"{_outfile_prefix}{ext}"
+        if os.path.exists(candidate):
+            files_written.append(candidate)
 
-    render_timeline_bokeh(data, opts, norm, cmap, colors, prefix)
-    html_candidate = f"{prefix}.timeline.html"
-    if os.path.exists(html_candidate):
-        files_written.append(html_candidate)
+    if show_bokeh or outfile_prefix:
+        render_timeline_bokeh(
+            data, opts, _norm, _cmap, _colors, _outfile_prefix,
+        )
+        html_candidate = f"{_outfile_prefix}.html"
+        if os.path.exists(html_candidate):
+            files_written.append(html_candidate)
 
     return {
-        'figure': fig,
         'data': data,
-        'files_written': files_written,
+        'files_written': sorted(files_written),
     }
 
 
@@ -406,7 +456,7 @@ def calculate_frequencies(
     translation_table: int = 1,
     overwrite: bool = True,
     **extra_options,
-) -> pd.DataFrame:
+) -> 'pd.DataFrame':
     """Calculate codon frequencies from a FASTA alignment.
 
     Runs the full ``calculate_codon_frequencies`` pipeline: parses the
@@ -534,6 +584,7 @@ def calculate_frequencies(
         outfile_count.close()
 
     # Read back and return as DataFrame
+    import pandas as pd  # noqa: PLC0415  (deferred for import-time savings)
     df = pd.read_csv(freq_tsv_path, sep='\t')
     return df
 
