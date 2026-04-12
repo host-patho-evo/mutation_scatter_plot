@@ -581,6 +581,25 @@ def collect_timeline_data(
 
     data.months = sorted(seen_months)
     data.positions = sorted(seen_positions)
+
+    # Defensive check: warn about codon mutations that share
+    # (month, position, ref_codon, mutant_codon) but differ in
+    # padded_position.  These must NOT be merged — they are distinct
+    # insertion sites.  If this warning fires after a code change,
+    # the padded_position distinction may have been broken.
+    _codon_key_to_padded: dict[tuple, set[int]] = defaultdict(set)
+    for pt in data.points:
+        _codon_key_to_padded[
+            (pt.month, pt.position, pt.ref_codon, pt.mutant_codon)
+        ].add(pt.padded_position)
+    _multi = {k: v for k, v in _codon_key_to_padded.items() if len(v) > 1}
+    if _multi:
+        print(f"Info: {len(_multi)} codon mutation(s) appear at multiple "
+              f"padded positions (expected for INS sites):")
+        for _key, _pads in sorted(_multi.items()):
+            print(f"  {_key[2]}{_key[1]}{_key[3]} month={_key[0]} "
+                  f"padded_positions={sorted(_pads)}")
+
     return data
 
 
