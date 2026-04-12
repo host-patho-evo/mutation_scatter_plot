@@ -976,14 +976,16 @@ def render_timeline_matplotlib(
             y_vals.append(y_base + y_offset)
 
             # Scale circle size by frequency
+            # matplotlib scatter s= sets the marker AREA.
             freq_f = float(pt.frequency)
             if getattr(myoptions, 'linear_circle_size', False):
-                # Linear scaling: size proportional to frequency
-                raw_size = freq_f * TIMELINE_CIRCLE_SCALE
+                # Linear scaling: diameter ∝ frequency → area ∝ freq²
+                # Matches scatter plot: _mpl_s = abs(freq)**2 * SCALE
+                raw_size = freq_f ** 2 * TIMELINE_CIRCLE_SCALE
             else:
-                # Area scaling (default): size proportional to sqrt(frequency)
-                # so that circle *area* is proportional to frequency
-                raw_size = (freq_f ** 0.5) * TIMELINE_CIRCLE_SCALE
+                # Area scaling (default): area ∝ frequency
+                # Matches scatter plot: _mpl_s = abs(freq) * SCALE
+                raw_size = freq_f * TIMELINE_CIRCLE_SCALE
             sizes.append(max(TIMELINE_MIN_SIZE, min(TIMELINE_MAX_SIZE, raw_size)))
             colors_hex.append(pt.color)
             freqs.append(freq_f)
@@ -1278,11 +1280,16 @@ def render_timeline_bokeh(
             x_vals.append(x)
             y_vals.append(y_base + y_offset)
 
-            raw_size = float(pt.frequency) * TIMELINE_CIRCLE_SCALE
+            # Bokeh sizes are in screen pixels (radius), so we convert
+            # from the area-based raw_size to a pixel diameter.
             if getattr(myoptions, 'linear_circle_size', False):
+                # Linear: diameter ∝ freq → area ∝ freq²
+                raw_size = float(pt.frequency) ** 2 * TIMELINE_CIRCLE_SCALE
                 sizes_px.append(max(3, min(25, raw_size ** 0.5 * 2)))
             else:
-                sizes_px.append(max(3, min(25, (raw_size ** 0.5) ** 0.5 * 4)))
+                # Area (default): area ∝ freq
+                raw_size = float(pt.frequency) * TIMELINE_CIRCLE_SCALE
+                sizes_px.append(max(3, min(25, raw_size ** 0.5 * 2)))
             colors_hex.append(pt.color)
             hover_labels.append(pt.label)
             hover_freqs.append(f"{float(pt.frequency):.6f}")
