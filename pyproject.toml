@@ -33,6 +33,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "pyflakes",
     "pytest",
     "pytest-cov",
 ]
