@@ -652,11 +652,11 @@ def _slot_display(pt: TimelinePoint, codon_view: bool = True) -> str:
     Format mirrors the scatter plot's X-axis: padded position followed
     by the mutation identity in parentheses.
 
-    In codon mode: ``'16 (---→GTC)'``.
+    In codon mode: ``'16 (---15GTC)'``.
     In AA mode: ``'16 (INS15V)'``.
     """
     if codon_view:
-        return f"{pt.padded_position} ({pt.ref_codon}→{pt.mutant_codon})"
+        return f"{pt.padded_position} ({pt.ref_codon}{pt.position}{pt.mutant_codon})"
     return f"{pt.padded_position} ({pt.label})"
 
 
