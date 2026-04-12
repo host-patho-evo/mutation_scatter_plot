@@ -508,9 +508,8 @@ def render_timeline_matplotlib(
         cbar = fig.colorbar(sm, ax=ax, pad=0.02, shrink=0.7)
         cbar.set_label('BLOSUM score', fontsize=10)
 
-    # Size legend
+    # Size legend — use separate scatter calls with spacing to avoid overlap
     _legend_freqs = [0.01, 0.1, 0.5, 1.0]
-    _scaling_label = 'linear' if getattr(myoptions, 'linear_circle_size', False) else 'area'
     _legend_sizes = []
     for f in _legend_freqs:
         if getattr(myoptions, 'linear_circle_size', False):
@@ -522,7 +521,9 @@ def render_timeline_matplotlib(
         ax.scatter([], [], s=s, c='gray', alpha=0.5, edgecolors='#333',
                    linewidths=0.5, label=f'freq={f}')
     ax.legend(loc='upper left', fontsize=7, framealpha=0.7, title='Circle size',
-              title_fontsize=8, bbox_to_anchor=(1.15, 1.0))
+              title_fontsize=8, bbox_to_anchor=(1.15, 1.0),
+              labelspacing=2.5, handletextpad=1.5, borderpad=1.2,
+              scatterpoints=1)
 
     plt.tight_layout()
 

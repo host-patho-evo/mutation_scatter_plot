@@ -153,9 +153,10 @@ def main():
     if summary:
         print(summary)
 
-    # Append .timeline before load_matrix() adds .BLOSUM80.area_scaling.coolwarm_r
-    # so the final order is: prefix.timeline.BLOSUM80.area_scaling.coolwarm_r.ext
-    myoptions.outfile_prefix = myoptions.outfile_prefix + '.timeline'
+    # Append .timeline and .aa/.codon before load_matrix() adds .BLOSUM80.area_scaling.coolwarm_r
+    # so the final order is: prefix.timeline.aa.BLOSUM80.area_scaling.coolwarm_r.ext
+    _mode_label = 'aa' if myoptions.aminoacids else 'codon'
+    myoptions.outfile_prefix = myoptions.outfile_prefix + '.timeline.' + _mode_label
 
     # Load matrix
     PROFILER.mark_phase_start("matrix_load")
