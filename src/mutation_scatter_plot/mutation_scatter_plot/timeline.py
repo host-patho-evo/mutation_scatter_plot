@@ -1306,7 +1306,6 @@ def render_timeline_bokeh(
 
     title = getattr(myoptions, 'title', '') or f"Mutation Timeline ({len(months)} months, {len(positions)} positions)"
 
-    n_pos = len(positions)
     _total_height = sum(pos_heights.get(p, 2.0) for p in positions)
     # y-limits: half-band padding around first and last position
     _first_half = pos_heights.get(positions[0], 2.0) * 0.5 if positions else 1.0
