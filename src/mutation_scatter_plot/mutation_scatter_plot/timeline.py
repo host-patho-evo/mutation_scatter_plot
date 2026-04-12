@@ -944,6 +944,21 @@ def render_timeline_matplotlib(
         except Exception:  # pylint: disable=broad-exception-caught
             pass  # graceful fallback for non-interactive backends
 
+    # Embed the git version string as a small footnote so that PNG and PDF
+    # files can always be traced back to the exact code version that produced
+    # them.  Matches the pattern in mutation_scatter_plot.render_matplotlib.
+    from . import VERSION, _GIT_VERSION
+    _version_label = (
+        f"mutation_timeline_plot v{VERSION}  git:{_GIT_VERSION}  "
+        f"{os.path.basename(outfile_prefix)}"
+    )
+    fig.text(
+        0.99, 0.002, _version_label,
+        ha='right', va='bottom',
+        fontsize=6, color='#808080',
+        transform=fig.transFigure,
+    )
+
     # Save outputs
     for ext in ('png', 'pdf'):
         outpath = f"{outfile_prefix}.{ext}"
@@ -1146,8 +1161,44 @@ def render_timeline_bokeh(
         bokeh_fig.add_layout(pct_labels)
     except Exception:  # pylint: disable=broad-exception-caught
         pass
-    # Save HTML
+
+    # Embed the git version string below the x-axis, mirroring render_bokeh
+    # in mutation_scatter_plot.
+    from . import VERSION, _GIT_VERSION
+    import bokeh.models
+    _version_label_text = f"mutation_timeline_plot v{VERSION}  git:{_GIT_VERSION}"
+    _version_label = bokeh.models.Title(
+        text=_version_label_text,
+        align='right',
+        text_font_size='9pt', text_color='#808080',
+        text_font_style='normal',
+    )
+    bokeh_fig.add_layout(_version_label, 'below')
+
+    # Save HTML — embed version in browser tab title
+    _html_title = (
+        f"{os.path.basename(outfile_prefix)} "
+        f"| mutation_timeline_plot v{VERSION} git:{_GIT_VERSION}"
+    )
     html_path = f"{outfile_prefix}.html"
-    output_file(html_path, title=title)
+    output_file(html_path, title=_html_title)
     save(bokeh_fig)
     print(f"Info: Saved {html_path}")
+
+    # Post-process: set/replace <title> tag unconditionally so the version
+    # string is visible in the browser tab regardless of Bokeh version.
+    if os.path.exists(html_path):
+        with open(html_path, 'r', encoding='utf-8') as _fh:
+            _html_content = _fh.read()
+        _title_tag = f'<title>{_html_title}</title>'
+        if '<title>' in _html_content:
+            import re as _re
+            _html_content = _re.sub(
+                r'<title>[^<]*</title>', _title_tag, _html_content, count=1,
+            )
+        else:
+            _html_content = _html_content.replace(
+                '<head>', f'<head>\n  {_title_tag}', 1,
+            )
+        with open(html_path, 'w', encoding='utf-8') as _fh:
+            _fh.write(_html_content)
