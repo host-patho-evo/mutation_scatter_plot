@@ -601,20 +601,34 @@ def _slot_display(pt: TimelinePoint, codon_view: bool = True) -> str:
     return pt.label
 
 
-def aggregate_aa_timeline(data: TimelineData) -> TimelineData:
+def aggregate_aa_timeline(
+    data: TimelineData,
+    myoptions: typing.Any = None,
+) -> TimelineData:
     """Aggregate codon-level data to AA level by summing frequencies.
 
     Points with the same (month, position, label) are merged: their
     frequencies are summed and the first point's codon fields are kept
     as representative values.
 
+    Matches the scatter plot's AA-mode behaviour:
+    - Synonymous mutations (ref_aa == mutant_aa) are excluded unless
+      ``myoptions.include_synonymous`` is set.
+
     Returns
     -------
     TimelineData
         New data object with merged points.
     """
+    # Filter out synonymous mutations in AA mode (matching scatter plot)
+    include_syn = getattr(myoptions, 'include_synonymous', False) if myoptions else False
+    filtered = [
+        pt for pt in data.points
+        if include_syn or pt.ref_aa != pt.mutant_aa
+    ]
+
     groups: dict[tuple[str, int, str], list[TimelinePoint]] = defaultdict(list)
-    for pt in data.points:
+    for pt in filtered:
         groups[(pt.month, pt.position, pt.label)].append(pt)
 
     merged: list[TimelinePoint] = []

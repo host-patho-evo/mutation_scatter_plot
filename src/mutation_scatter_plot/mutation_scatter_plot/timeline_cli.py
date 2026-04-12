@@ -342,7 +342,7 @@ def main():
 
                 # For AA mode, aggregate codon-level data to AA level
                 if _view_mode == 'aa':
-                    view_data = aggregate_aa_timeline(data)
+                    view_data = aggregate_aa_timeline(data, myoptions)
                 else:
                     view_data = data
 
