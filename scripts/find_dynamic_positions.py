@@ -9,9 +9,20 @@
    where the reference codon was significantly displaced at some point.
 
 2. **Dynamics characterisation** — for each candidate, walk through the
-   ``*.frequencies.tsv`` files month-by-month and compute the *total mutant
-   frequency* (1 − unchanged_freq) to build a trajectory.  Classify the
-   trajectory as "rose to fixation", "transient sweep", or "persistent low".
+   ``*.frequencies.tsv`` files month-by-month and build a rich profile
+   tracking total mutant frequency, per-AA trajectories, dominant-mutation
+   switches, sweep counts, and volatility.
+
+   Classifications:
+   - **replacement**    — dominant mutant AA changed over time (variant replacement,
+     e.g. E484K → E484A → E484K)
+   - **recurrence**     — frequency swept up through 20 %% at least twice
+   - **fixation**       — rose to ≥90 %% and stayed there
+   - **transient**      — peaked ≥20 %% then fell back below 5 %%
+   - **growing**        — trending upward in recent months
+   - **declining**      — was high, now dropping
+   - **persistent_low** — never exceeded 20 %%
+   - **variable**       — significant fluctuation not fitting other categories
 
 The output is a sorted list of AA positions ready for
 ``mutation_timeline_plot --positions …``.
@@ -31,6 +42,8 @@ Usage
         [--output-format positions|tsv|both]
 """
 
+from __future__ import annotations
+
 import argparse
 import csv
 import glob
@@ -38,6 +51,7 @@ import os
 import re
 import sys
 from collections import defaultdict
+from dataclasses import dataclass, field as dc_field
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -123,26 +137,125 @@ def find_candidate_positions(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Phase 2: build trajectories from frequencies.tsv
+# Phase 2: build rich profiles from frequencies.tsv
 # ──────────────────────────────────────────────────────────────────────────────
 
-def build_trajectories(
+@dataclass
+class PositionProfile:
+    """Rich trajectory data for one AA position."""
+    position: int
+    total_series: list[tuple[str, float]] = dc_field(default_factory=list)
+    per_aa_series: dict[str, list[tuple[str, float]]] = dc_field(default_factory=dict)
+    dominant_history: list[tuple[str, str | None]] = dc_field(default_factory=list)
+
+    # ── Derived metrics (filled by compute_metrics) ──
+    max_mutant_freq: float = 0.0
+    last_mutant_freq: float = 0.0
+    n_sweeps: int = 0              # times freq crossed 0.20 going up
+    n_dominant_mutations: int = 0  # distinct AAs ever dominant (>10%)
+    dominant_switches: int = 0     # times the dominant AA changed
+    volatility: float = 0.0       # mean |Δfreq| per month
+    classification: str = 'unknown'
+
+    def compute_metrics(self) -> None:
+        """Compute derived metrics from the raw series."""
+        freqs = [f for _, f in self.total_series]
+        if not freqs:
+            return
+        self.max_mutant_freq = max(freqs)
+        self.last_mutant_freq = freqs[-1]
+
+        # ── Sweep count: transitions across 0.20 going upward ──
+        for i in range(1, len(freqs)):
+            if freqs[i - 1] < 0.20 <= freqs[i]:
+                self.n_sweeps += 1
+
+        # ── Volatility: mean |Δfreq| per month ──
+        if len(freqs) >= 2:
+            deltas = [abs(freqs[i] - freqs[i - 1]) for i in range(1, len(freqs))]
+            self.volatility = sum(deltas) / len(deltas)
+
+        # ── Dominant-mutation analysis ──
+        dominants_seen: set[str] = set()
+        prev_dom: str | None = None
+        for _month, dom_aa in self.dominant_history:
+            if dom_aa is not None:
+                dominants_seen.add(dom_aa)
+                if prev_dom is not None and dom_aa != prev_dom:
+                    self.dominant_switches += 1
+                prev_dom = dom_aa
+
+        self.n_dominant_mutations = len(dominants_seen)
+
+        # ── Classification ──
+        self.classification = _classify(freqs, self)
+
+
+def _classify(freqs: list[float], prof: PositionProfile) -> str:
+    """Classify a mutation trajectory using rich metrics.
+
+    Categories (from most to least specific):
+        'replacement'    - dominant AA switched ≥1 time (variant replacement)
+        'recurrence'     - ≥2 sweeps (frequency rose, fell, rose again)
+        'fixation'       - rose to ≥90% and stayed; single dominant mutation
+        'transient'      - peaked ≥20% then fell back below 5%
+        'growing'        - trending upward in recent months
+        'declining'      - was high, now dropping
+        'persistent_low' - never exceeded 20%
+        'variable'       - everything else
+    """
+    if not freqs:
+        return 'unknown'
+
+    last_n = freqs[-3:] if len(freqs) >= 3 else freqs
+    first_n = freqs[:3] if len(freqs) >= 3 else freqs
+    avg_last = sum(last_n) / len(last_n)
+    avg_first = sum(first_n) / len(first_n)
+
+    # Variant replacement: the dominant mutant AA changed at this position
+    if prof.dominant_switches >= 1 and prof.max_mutant_freq >= 0.50:
+        return 'replacement'
+
+    # Recurrence: multiple sweeps through 20%
+    if prof.n_sweeps >= 2:
+        return 'recurrence'
+
+    # Fixation: reached high frequency and stayed
+    if prof.max_mutant_freq >= 0.90 and avg_last >= 0.85:
+        return 'fixation'
+
+    # Transient: peaked then vanished
+    if prof.max_mutant_freq >= 0.20 and avg_last < 0.05:
+        return 'transient'
+
+    # Growing: trending upward
+    if avg_last > avg_first + 0.10 and avg_last >= 0.10:
+        return 'growing'
+
+    # Declining: was high, now lower
+    if avg_first >= 0.20 and avg_last < avg_first * 0.5:
+        return 'declining'
+
+    # Persistent low
+    if prof.max_mutant_freq < 0.20:
+        return 'persistent_low'
+
+    return 'variable'
+
+
+def build_profiles(
     directory: str,
     pattern: str,
     positions: set[int],
     start_month: str,
     end_month: str,
-) -> dict[int, list[tuple[str, float]]]:
-    """For each position, collect (month, total_mutant_freq) time-series.
-
-    total_mutant_freq is the sum of all non-reference mutation frequencies
-    at that position in a given month.
-    """
+) -> dict[int, PositionProfile]:
+    """Build rich PositionProfile objects from monthly frequency files."""
     files = sorted(glob.glob(os.path.join(directory, pattern)))
 
-    # position -> month -> sum of mutant frequencies
-    pos_month_freq: dict[int, dict[str, float]] = defaultdict(
-        lambda: defaultdict(float)
+    # position -> month -> {mutant_aa: sum_freq}
+    pos_month_aa: dict[int, dict[str, dict[str, float]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(float))
     )
     all_months: set[str] = set()
 
@@ -160,55 +273,51 @@ def build_trajectories(
                 try:
                     pos = int(row['position'])
                     freq = float(row['frequency'])
+                    mut_aa = row['mutant_aa']
                 except (ValueError, KeyError):
                     continue
                 if pos in positions:
-                    pos_month_freq[pos][month] += freq
+                    pos_month_aa[pos][month][mut_aa] += freq
 
-    # Convert to sorted time-series
+    # Build profiles
     sorted_months = sorted(all_months)
-    trajectories: dict[int, list[tuple[str, float]]] = {}
+    profiles: dict[int, PositionProfile] = {}
+
     for pos in sorted(positions):
-        series = []
+        prof = PositionProfile(position=pos)
+
+        # Collect all mutant AAs seen at this position
+        all_aas: set[str] = set()
         for m in sorted_months:
-            series.append((m, pos_month_freq[pos].get(m, 0.0)))
-        trajectories[pos] = series
+            for aa in pos_month_aa[pos].get(m, {}):
+                all_aas.add(aa)
 
-    return trajectories
+        for m in sorted_months:
+            aa_freqs = pos_month_aa[pos].get(m, {})
+            total = sum(aa_freqs.values())
+            prof.total_series.append((m, total))
 
+            # Dominant mutant AA this month (highest freq, must exceed 10%)
+            if aa_freqs:
+                best_aa = max(aa_freqs, key=aa_freqs.get)
+                if aa_freqs[best_aa] >= 0.10:
+                    prof.dominant_history.append((m, best_aa))
+                else:
+                    prof.dominant_history.append((m, None))
+            else:
+                prof.dominant_history.append((m, None))
 
-def classify_trajectory(series: list[tuple[str, float]]) -> str:
-    """Classify a mutation frequency trajectory.
+        # Per-AA series
+        for aa in sorted(all_aas):
+            prof.per_aa_series[aa] = [
+                (m, pos_month_aa[pos].get(m, {}).get(aa, 0.0))
+                for m in sorted_months
+            ]
 
-    Returns one of:
-        'fixation'       - rose to ≥90% and stayed
-        'transient'      - peaked ≥20% then fell back below 5%
-        'persistent_low' - stayed mostly below 20% but above threshold
-        'growing'        - still increasing in latest months
-        'declining'      - was high, now declining
-        'variable'       - significant fluctuation
-    """
-    if not series:
-        return 'unknown'
+        prof.compute_metrics()
+        profiles[pos] = prof
 
-    freqs = [f for _, f in series]
-    max_freq = max(freqs)
-    last_n = freqs[-3:] if len(freqs) >= 3 else freqs
-    first_n = freqs[:3] if len(freqs) >= 3 else freqs
-    avg_last = sum(last_n) / len(last_n)
-    avg_first = sum(first_n) / len(first_n)
-
-    if max_freq >= 0.90 and avg_last >= 0.85:
-        return 'fixation'
-    if max_freq >= 0.20 and avg_last < 0.05:
-        return 'transient'
-    if avg_last > avg_first + 0.10 and avg_last >= 0.10:
-        return 'growing'
-    if avg_first >= 0.20 and avg_last < avg_first * 0.5:
-        return 'declining'
-    if max_freq < 0.20:
-        return 'persistent_low'
-    return 'variable'
+    return profiles
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -285,29 +394,40 @@ def main() -> None:
 
     print(f"  Found {len(candidates)} candidate positions.", file=sys.stderr)
 
-    # Phase 2: build trajectories from frequencies files
-    print("Phase 2: Building mutation trajectories...", file=sys.stderr)
-    trajectories = build_trajectories(
+    # Phase 2: build rich profiles from frequencies files
+    print("Phase 2: Building mutation profiles...", file=sys.stderr)
+    profiles = build_profiles(
         args.dir, args.freq_pattern, set(candidates.keys()),
         args.start_month, args.end_month,
     )
 
-    # Classify and sort
+    # Merge candidate info with profiles and build results
     results = []
     for pos in sorted(candidates.keys()):
         info = candidates[pos]
-        traj = trajectories.get(pos, [])
-        classification = classify_trajectory(traj)
-        max_mutant_freq = max((f for _, f in traj), default=0.0)
-        last_freq = traj[-1][1] if traj else 0.0
+        prof = profiles.get(pos)
+        if prof is None:
+            continue
+
+        # Summarise dominant mutations seen
+        dom_aas = sorted({
+            aa for _, aa in prof.dominant_history if aa is not None
+        })
+        dom_summary = ','.join(dom_aas) if dom_aas else '-'
+
         results.append({
             'position': pos,
+            'classification': prof.classification,
+            'max_mutant_freq': prof.max_mutant_freq,
+            'last_mutant_freq': prof.last_mutant_freq,
             'min_unchanged': info['min_freq'],
             'min_month': info['min_month'],
             'months_below': info['months_below'],
-            'max_mutant_freq': max_mutant_freq,
-            'last_mutant_freq': last_freq,
-            'classification': classification,
+            'n_sweeps': prof.n_sweeps,
+            'dom_switches': prof.dominant_switches,
+            'n_dom_aas': prof.n_dominant_mutations,
+            'dom_aas': dom_summary,
+            'volatility': prof.volatility,
         })
 
     # Sort by max_mutant_freq descending (most dynamic first)
@@ -322,7 +442,8 @@ def main() -> None:
         header = [
             'position', 'classification', 'max_mutant_freq',
             'last_mutant_freq', 'min_unchanged_freq', 'worst_month',
-            'months_below_threshold',
+            'months_below_threshold', 'n_sweeps', 'dom_switches',
+            'n_dom_AAs', 'dominant_AAs', 'volatility',
         ]
         print('\t'.join(header))
         for r in results:
@@ -334,6 +455,11 @@ def main() -> None:
                 f"{r['min_unchanged']:.4f}",
                 r['min_month'],
                 str(r['months_below']),
+                str(r['n_sweeps']),
+                str(r['dom_switches']),
+                str(r['n_dom_aas']),
+                r['dom_aas'],
+                f"{r['volatility']:.4f}",
             ]))
 
     if args.output_format in ('positions', 'both'):
