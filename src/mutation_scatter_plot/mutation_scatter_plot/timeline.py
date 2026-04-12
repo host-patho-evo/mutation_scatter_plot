@@ -493,6 +493,7 @@ def render_timeline_matplotlib(
     y_vals: list[float] = []
     sizes: list[float] = []
     colors_hex: list[str] = []
+    freqs: list[float] = []
     labels: list[str] = []
 
     for (month, pos), pts in grouped.items():
@@ -524,6 +525,7 @@ def render_timeline_matplotlib(
                 raw_size = (freq_f ** 0.5) * TIMELINE_CIRCLE_SCALE
             sizes.append(max(TIMELINE_MIN_SIZE, min(TIMELINE_MAX_SIZE, raw_size)))
             colors_hex.append(pt.color)
+            freqs.append(freq_f)
             labels.append(f"{pt.label} ({float(pt.frequency):.4f})")
 
     # Create figure
@@ -546,6 +548,20 @@ def render_timeline_matplotlib(
         linewidths=0.5,
         zorder=5,
     )
+
+    # Percentage labels next to circles (only for freq ≥ 1% to avoid clutter)
+    for xi, yi, fi in zip(x_vals, y_vals, freqs):
+        if fi >= 0.01:
+            pct = fi * 100
+            if pct >= 10:
+                pct_str = f"{pct:.0f}%"
+            elif pct >= 1:
+                pct_str = f"{pct:.1f}%"
+            else:
+                pct_str = f"{pct:.2f}%"
+            ax.annotate(pct_str, (xi, yi), textcoords='offset points',
+                        xytext=(5, 5), fontsize=5, color='#444444',
+                        zorder=6)
 
     # X-axis: months
     ax.set_xticks(range(len(months)))
