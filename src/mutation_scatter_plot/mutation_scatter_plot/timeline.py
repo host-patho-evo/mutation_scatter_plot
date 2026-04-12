@@ -100,6 +100,48 @@ class TimelineData:
     position_specs: list[PositionSpec] = field(default_factory=list)
 
 
+# ── Biological orderings (matching mutation_scatter_plot) ────────────────
+# Amino acid order used on the Y-axis of the scatter plot.
+AA_ORDER: list[str] = [
+    'C', 'R', 'K', 'E', 'Q', 'D', 'N', 'T', 'S', 'H',
+    'M', 'P', 'W', 'Y', 'F', 'V', 'L', 'I', 'A', 'G',
+    'INS', 'X', '*', 'DEL',
+]
+_AA_RANK: dict[str, int] = {aa: i for i, aa in enumerate(AA_ORDER)}
+
+# Standard codon table order (grouped by amino acid).
+CODON_ORDER: list[str] = [
+    'TTT', 'TTC', 'TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG',
+    'ATT', 'ATC', 'ATA', 'ATG', 'GTT', 'GTC', 'GTA', 'GTG',
+    'TCT', 'TCC', 'TCA', 'TCG', 'CCT', 'CCC', 'CCA', 'CCG',
+    'ACT', 'ACC', 'ACA', 'ACG', 'GCT', 'GCC', 'GCA', 'GCG',
+    'TAT', 'TAC', 'TAA', 'TAG', 'CAT', 'CAC', 'CAA', 'CAG',
+    'AAT', 'AAC', 'AAA', 'AAG', 'GAT', 'GAC', 'GAA', 'GAG',
+    'TGT', 'TGC', 'TGA', 'TGG', 'CGT', 'CGC', 'CGA', 'CGG',
+    'AGT', 'AGC', 'AGA', 'AGG', 'GGT', 'GGC', 'GGA', 'GGG',
+    '---', '+++',
+]
+_CODON_RANK: dict[str, int] = {c: i for i, c in enumerate(CODON_ORDER)}
+
+
+def _slot_sort_key(slot_key: str, codon_view: bool = True) -> tuple:
+    """Return a sort key that mirrors the biological ordering.
+
+    In codon mode (key = 'ref_codon|mutant_codon'), sort by the mutant
+    codon's position in the standard codon table.
+    In AA mode (key = AA label like 'D614G'), sort by the last character
+    (mutant amino acid) using the standard amino acid order.
+    """
+    if codon_view:
+        # key = "ref_codon|mutant_codon"
+        parts = slot_key.split('|')
+        mutant = parts[1] if len(parts) > 1 else parts[0]
+        return (_CODON_RANK.get(mutant.upper(), 999), slot_key)
+    # AA mode: key = label like "D614G", last char is mutant_aa
+    mutant_aa = slot_key[-1] if slot_key else '?'
+    return (_AA_RANK.get(mutant_aa, 999), slot_key)
+
+
 def recolor_timeline_data(
     data: TimelineData,
     myoptions: typing.Any,
@@ -696,7 +738,7 @@ def _prepare_layout(
             if _p == pos:
                 for pt in pts:
                     _unique.add(_slot_key(pt, codon_view))
-        slots_per_pos[pos] = sorted(_unique)
+        slots_per_pos[pos] = sorted(_unique, key=lambda k: _slot_sort_key(k, codon_view))
 
     # Apply user-specified scaling factor
     _factor = getattr(myoptions, 'band_spacing_factor', 1.0) if myoptions else 1.0
@@ -787,7 +829,7 @@ def _compute_ytick_labels(
                 if key not in seen_slots:
                     seen_slots[key] = _slot_display(pt, codon_view)
 
-        slot_keys = sorted(seen_slots.keys())
+        slot_keys = sorted(seen_slots.keys(), key=lambda k: _slot_sort_key(k, codon_view))
 
         if not slot_keys:
             tick_y.append(y_base)
