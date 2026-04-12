@@ -789,7 +789,7 @@ def _prepare_layout(
     # so dense positions get taller bands while simple positions stay compact.
     # The constants below must be large enough for the circle + 3-line
     # annotation text at TIMELINE_CIRCLE_SCALE=800 and 600 DPI.
-    _SLOT_HEIGHT = 0.7    # data units per slot (circle + annotation)
+    _SLOT_HEIGHT = 0.8    # data units per slot (circle + annotation)
     _MIN_BAND_HEIGHT = 1.2  # minimum for positions with 1 mutation
 
     pos_heights: dict[int, float] = {}
