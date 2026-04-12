@@ -645,10 +645,9 @@ def _compute_band_spacing(data: TimelineData) -> float:
 def _compute_intra_band_spread(band_spacing: float) -> float:
     """Compute the ± vertical offset range within a band.
 
-    Uses 60% of the half-band width so circles stay well inside
-    the band borders.
+    Uses 85% of the half-band width so circles fill most of the band.
     """
-    return band_spacing * 0.5 * 0.6
+    return band_spacing * 0.5 * 0.85
 
 
 def _slot_key(pt: TimelinePoint, codon_view: bool = True) -> str:
@@ -790,14 +789,14 @@ def _prepare_layout(
     # so dense positions get taller bands while simple positions stay compact.
     # The constants below must be large enough for the circle + 3-line
     # annotation text at TIMELINE_CIRCLE_SCALE=800 and 600 DPI.
-    _SLOT_HEIGHT = 0.9    # data units per slot (circle + annotation)
-    _MIN_BAND_HEIGHT = 1.5  # minimum for positions with 1 mutation
+    _SLOT_HEIGHT = 0.7    # data units per slot (circle + annotation)
+    _MIN_BAND_HEIGHT = 1.2  # minimum for positions with 1 mutation
 
     pos_heights: dict[int, float] = {}
     for pos in data.positions:
         n_slots = len(slots_per_pos[pos])
         # Height = padding + n_slots * per-slot height
-        pos_heights[pos] = max(_MIN_BAND_HEIGHT, n_slots * _SLOT_HEIGHT + 0.4) * _factor
+        pos_heights[pos] = max(_MIN_BAND_HEIGHT, n_slots * _SLOT_HEIGHT + 0.2) * _factor
 
     # Per-position spread: ± vertical offset range within each band
     pos_spread: dict[int, float] = {}
