@@ -862,6 +862,31 @@ def render_timeline_bokeh(
     # Grid
     bokeh_fig.xgrid.grid_line_alpha = 0.3
     bokeh_fig.ygrid.grid_line_alpha = 0.0
+
+    # Percentage labels next to circles
+    try:
+        from bokeh.models import LabelSet
+        pct_texts: list[str] = []
+        for f in hover_freqs:
+            pct = float(f) * 100
+            if pct >= 10:
+                pct_texts.append(f"{pct:.0f}%")
+            elif pct >= 1:
+                pct_texts.append(f"{pct:.1f}%")
+            else:
+                pct_texts.append(f"{pct:.2f}%")
+
+        pct_source = ColumnDataSource(data=dict(
+            x=x_vals, y=y_vals, text=pct_texts,
+        ))
+        pct_labels = LabelSet(
+            x='x', y='y', text='text', source=pct_source,
+            text_font_size='7pt', text_color='black',
+            x_offset=4, y_offset=3,
+        )
+        bokeh_fig.add_layout(pct_labels)
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass
     # Save HTML
     html_path = f"{outfile_prefix}.html"
     output_file(html_path, title=title)
