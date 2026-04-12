@@ -1947,20 +1947,24 @@ def render_matplotlib(
         _colorbar.ax.set_yticks(np.arange(_cb_vmin + 0.5, _cb_vmax + 1.5, 1), np.arange(_cb_vmin, _cb_vmax + 1, 1))
         _colorbar.ax.tick_params(axis='y', which='minor', length=0)
     else:
-        # Continuous cmap path (coolwarm_r etc.).
-        # The scatter used pre-resolved hex strings with no ScalarMappable, so
-        # a standalone ScalarMappable with a plain Normalize is needed to drive
-        # the colorbar.  The colorbar range [-_cb_half, +_cb_half] corresponds
-        # to the raw score axis; integer ticks land at colour transitions rather
-        # than band centres (correct for a continuous gradient).
-        # alpha=0.5 is applied natively by matplotlib, matching the scatter.
+        # Continuous cmap path (coolwarm_r etc.) — discretise into bands.
+        # Since scores are integers, discrete colour bands are more
+        # informative than a smooth gradient — the reader can see the
+        # distinct colour for each integer score value.
+        # Sample the continuous cmap at evenly-spaced fractions.
         _cb_vmin = getattr(myoptions, 'cmap_vmin', -11)
         _cb_vmax = getattr(myoptions, 'cmap_vmax', 11)
-        _cb_norm = matplotlib.colors.Normalize(vmin=_cb_vmin, vmax=_cb_vmax)
-        _sm = matplotlib.cm.ScalarMappable(cmap=cmap, norm=_cb_norm)
+        _n_bands = _cb_vmax - _cb_vmin + 1
+        _cb_sliced = [cmap(i / max(1, _n_bands - 1)) for i in range(_n_bands)]
+        _cb_cmap = matplotlib.colors.ListedColormap(_cb_sliced, "sliced")
+        _cb_norm = matplotlib.colors.BoundaryNorm(
+            np.arange(_cb_vmin, _cb_vmax + 2, 1), _n_bands,
+        )
+        _sm = matplotlib.cm.ScalarMappable(cmap=_cb_cmap, norm=_cb_norm)
         _sm.set_array([])
         _colorbar = figure.colorbar(_sm, cax=ax3, label=_colorbar_label, location='right', pad=-0.1, alpha=0.5)
-        _colorbar.ax.set_yticks(np.arange(_cb_vmin, _cb_vmax + 1, 1))
+        # +0.5 tick centering trick: each band spans [s, s+1), midpoint s+0.5
+        _colorbar.ax.set_yticks(np.arange(_cb_vmin + 0.5, _cb_vmax + 1.5, 1), np.arange(_cb_vmin, _cb_vmax + 1, 1))
         _colorbar.ax.tick_params(axis='y', which='minor', length=0)
 
     if markers:

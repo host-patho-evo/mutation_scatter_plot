@@ -121,9 +121,11 @@ def setup_matplotlib_colorbar(
 ) -> None:
     """Create a matplotlib colorbar in the dedicated *cax* axes.
 
-    Handles both the **discrete** ``BoundaryNorm`` path (e.g.
-    ``amino_acid_changes``, ``dkeenan``) and the **continuous** cmap path
-    (e.g. ``coolwarm_r``), with proper tick centering.
+    **Always builds a discrete ``ListedColormap`` + ``BoundaryNorm``**, even
+    for continuous colormaps like ``coolwarm_r``.  Since BLOSUM/PAM scores are
+    always integers, discrete colour bands are more informative than a smooth
+    gradient — the reader can instantly see the distinct colour assigned to
+    each integer score value.
 
     **Why a dedicated cax?**
     Using ``fig.colorbar(mappable, ax=some_axes)`` steals space from the data
@@ -134,8 +136,8 @@ def setup_matplotlib_colorbar(
     narrow to visually verify tick centering (this was the root cause of the
     "ticks not centred" issue in the timeline renderer).
 
-    Discrete path — tick centering trick
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Tick centering trick
+    ~~~~~~~~~~~~~~~~~~~~
     ``BoundaryNorm`` with boundaries ``[vmin, vmin+1, …, vmax, vmax+1]``
     creates N = (vmax − vmin + 1) colour bands, each one unit wide.  The band
     for score ``s`` spans ``[s, s+1)`` in data coordinates.  matplotlib's
@@ -148,15 +150,15 @@ def setup_matplotlib_colorbar(
         tick positions:  vmin + 0.5,  vmin + 1.5,  …,  vmax + 0.5
         tick labels:     vmin,        vmin + 1,     …,  vmax
 
-    The sliced palette is built by looking up ``colors[norm(s)]`` for each
-    integer score, which is the same lookup used to colour scatter glyphs —
-    guaranteeing colour consistency between the data points and the colorbar.
+    For pre-built palettes (``amino_acid_changes``, ``dkeenan``), the sliced
+    palette is built by looking up ``colors[norm(s)]`` for each integer score,
+    which is the same lookup used to colour scatter glyphs — guaranteeing
+    colour consistency between the data points and the colorbar.
 
-    Continuous path
-    ~~~~~~~~~~~~~~~
-    Uses ``Normalize(vmin, vmax)`` with the original cmap.  Ticks are placed at
-    integer positions (which naturally correspond to colour values in a
-    continuous gradient).
+    For continuous colormaps (``coolwarm_r``, etc.), the cmap is sampled at
+    evenly-spaced fractions to produce one colour per integer score, then
+    wrapped in a ``ListedColormap``.  The same ``BoundaryNorm`` + tick
+    centering trick is applied.
 
     Parameters
     ----------
@@ -166,15 +168,16 @@ def setup_matplotlib_colorbar(
         Dedicated axes for the colorbar, created via ``gridspec`` or
         ``width_ratios``.  Must **not** be a data-plot axes.
     norm : matplotlib.colors.BoundaryNorm or None
-        ``BoundaryNorm`` from ``get_colormap`` for discrete palettes, or
-        ``None`` for continuous colormaps.
+        ``BoundaryNorm`` from ``get_colormap`` for pre-built discrete
+        palettes, or ``None`` for continuous colormaps (which will be
+        discretised here).
     cmap : matplotlib.colors.Colormap
         Colormap instance (e.g. ``coolwarm_r``, or a ``ListedColormap``).
     colors : list or None
         Resolved palette list from ``get_colormap``.  Required for the
-        discrete ``BoundaryNorm`` path (each element is an RGBA tuple or hex
+        pre-built discrete palette path (each element is an RGBA tuple or hex
         string that matches the scatter-circle colouring).  May be ``None``
-        for continuous cmaps.
+        for continuous cmaps, which will be sampled automatically.
     vmin, vmax : int
         Integer score range to display on the colorbar (inclusive on both
         ends).  Typically derived from ``cmap_vmin`` / ``cmap_vmax`` on
@@ -185,10 +188,12 @@ def setup_matplotlib_colorbar(
         Alpha transparency applied to the colorbar bands via
         ``fig.colorbar(…, alpha=…)``.
     """
+    n_bands = vmax - vmin + 1
+
     if norm is not None and colors is not None:
-        # ── Discrete BoundaryNorm path (amino_acid_changes, dkeenan) ──
+        # ── Pre-built discrete palette (amino_acid_changes, dkeenan) ──
         #
-        # Step 1: Slice the full palette to only [vmin, vmax].
+        # Slice the full palette to only [vmin, vmax].
         # Use the same colors[norm(s)] lookup as the scatter circles so that
         # the colorbar colours are pixel-identical to the glyph colours.
         # Clamp the index to valid bounds to handle edge cases where norm(s)
@@ -197,51 +202,51 @@ def setup_matplotlib_colorbar(
             colors[max(0, min(len(colors) - 1, norm(s)))]
             for s in range(vmin, vmax + 1)
         ]
-
-        # Step 2: Build a fresh ListedColormap + BoundaryNorm for the sliced
-        # range.  The BoundaryNorm boundaries are [vmin, vmin+1, …, vmax+1],
-        # i.e. N+1 boundaries for N colour bands, where N = vmax − vmin + 1.
-        _cb_cmap = matplotlib.colors.ListedColormap(_cb_sliced, "sliced")
-        _cb_norm = matplotlib.colors.BoundaryNorm(
-            np.arange(vmin, vmax + 2, 1), len(_cb_sliced),
-        )
-        _cb_sm = matplotlib.cm.ScalarMappable(cmap=_cb_cmap, norm=_cb_norm)
-        _cb_sm.set_array([])  # required by matplotlib even though we don't map data
-
-        # Step 3: Render the colorbar.
-        # location='right' is ignored when cax is given, but kept for clarity.
-        # pad=-0.1 reduces whitespace between the plot and colorbar.
-        _colorbar = fig.colorbar(
-            _cb_sm, cax=cax, label=label, location='right', pad=-0.1,
-            alpha=alpha,
-        )
-
-        # Step 4: TICK CENTERING TRICK.
-        # Each band for score s spans [s, s+1) in data coordinates.
-        # The midpoint is at s + 0.5.  We set custom tick positions at these
-        # midpoints and label them with the integer scores.
-        # Without this, matplotlib would put tick labels at boundary positions
-        # (i.e. at band *edges*), making -3 appear at the bottom edge and +3
-        # at the top edge of their bands rather than centred.
-        _colorbar.ax.set_yticks(
-            np.arange(vmin + 0.5, vmax + 1.5, 1),
-            np.arange(vmin, vmax + 1, 1),
-        )
-        # Suppress minor ticks that matplotlib may auto-add.
-        _colorbar.ax.tick_params(axis='y', which='minor', length=0)
     elif cmap is not None:
-        # ── Continuous cmap path (coolwarm_r etc.) ──
-        # For continuous (gradient) colormaps, ticks naturally sit at the
-        # correct data-coordinate positions.  No +0.5 offset trick needed.
-        _cb_norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
-        _sm = matplotlib.cm.ScalarMappable(cmap=cmap, norm=_cb_norm)
-        _sm.set_array([])
-        _colorbar = fig.colorbar(
-            _sm, cax=cax, label=label, location='right', pad=-0.1,
-            alpha=alpha,
-        )
-        _colorbar.ax.set_yticks(np.arange(vmin, vmax + 1, 1))
-        _colorbar.ax.tick_params(axis='y', which='minor', length=0)
+        # ── Continuous cmap (coolwarm_r etc.) — discretise into bands ──
+        #
+        # Sample the continuous cmap at evenly-spaced fractions to produce
+        # one flat-colour band per integer score.  This makes it easy for
+        # the reader to distinguish individual score values instead of
+        # seeing a smooth gradient where neighbouring integers blend.
+        _cb_sliced = [
+            cmap(i / max(1, n_bands - 1))
+            for i in range(n_bands)
+        ]
+    else:
+        return  # nothing to render
+
+    # Build a fresh ListedColormap + BoundaryNorm for the (possibly sliced)
+    # palette.  The BoundaryNorm boundaries are [vmin, vmin+1, …, vmax+1],
+    # i.e. N+1 boundaries for N colour bands, where N = vmax − vmin + 1.
+    _cb_cmap = matplotlib.colors.ListedColormap(_cb_sliced, "sliced")
+    _cb_norm = matplotlib.colors.BoundaryNorm(
+        np.arange(vmin, vmax + 2, 1), len(_cb_sliced),
+    )
+    _cb_sm = matplotlib.cm.ScalarMappable(cmap=_cb_cmap, norm=_cb_norm)
+    _cb_sm.set_array([])  # required by matplotlib even though we don't map data
+
+    # Render the colorbar.
+    # location='right' is ignored when cax is given, but kept for clarity.
+    # pad=-0.1 reduces whitespace between the plot and colorbar.
+    _colorbar = fig.colorbar(
+        _cb_sm, cax=cax, label=label, location='right', pad=-0.1,
+        alpha=alpha,
+    )
+
+    # TICK CENTERING TRICK.
+    # Each band for score s spans [s, s+1) in data coordinates.
+    # The midpoint is at s + 0.5.  We set custom tick positions at these
+    # midpoints and label them with the integer scores.
+    # Without this, matplotlib would put tick labels at boundary positions
+    # (i.e. at band *edges*), making -3 appear at the bottom edge and +3
+    # at the top edge of their bands rather than centred.
+    _colorbar.ax.set_yticks(
+        np.arange(vmin + 0.5, vmax + 1.5, 1),
+        np.arange(vmin, vmax + 1, 1),
+    )
+    # Suppress minor ticks that matplotlib may auto-add.
+    _colorbar.ax.tick_params(axis='y', which='minor', length=0)
 
 
 def build_bokeh_colorbar_palette(
@@ -290,9 +295,10 @@ def build_bokeh_colorbar_palette(
         One hex colour string per score band, suitable as ``palette`` arg
         for ``bokeh.models.LinearColorMapper``.
     """
+    n_bands = vmax - vmin + 1
     palette: list[str] = []
     if norm is not None and colors is not None:
-        # Discrete path: lookup and pre-blend each score's palette colour.
+        # Pre-built discrete palette: lookup and pre-blend each score's colour.
         for s in range(vmin, vmax + 1):
             idx = max(0, min(len(colors) - 1, norm(s)))
             hex_c = matplotlib.colors.to_hex(
@@ -300,14 +306,14 @@ def build_bokeh_colorbar_palette(
             )
             palette.append(blend_with_white(hex_c, alpha))
     elif cmap is not None:
-        # Continuous path: sample the colormap at evenly-spaced fractions.
-        n = vmax - vmin + 1
-        for i in range(n):
-            hex_c = matplotlib.colors.to_hex(cmap(i / max(1, n - 1)))
+        # Continuous cmap — discretise into per-integer bands, same as the
+        # matplotlib helper.  Sample at evenly-spaced fractions.
+        for i in range(n_bands):
+            hex_c = matplotlib.colors.to_hex(cmap(i / max(1, n_bands - 1)))
             palette.append(blend_with_white(hex_c, alpha))
     else:
         # Fallback: neutral grey bands.
-        palette = ['#aaaaaa'] * (vmax - vmin + 1)
+        palette = ['#aaaaaa'] * n_bands
     return palette
 
 
