@@ -22,6 +22,7 @@ import sys
 from ..profiler import PROFILER
 from .core import get_colormap, load_matrix
 from .timeline import (
+    aggregate_aa_timeline,
     collect_timeline_data,
     filter_timeline_data,
     infer_common_prefix,
@@ -249,9 +250,9 @@ def main():
     if summary:
         print(summary)
 
-    # Append .timeline.aa/.codon to the base prefix (before matrix/scaling/colormap)
-    _mode_label = 'aa' if myoptions.aminoacids else 'codon'
-    _base_prefix = myoptions.outfile_prefix + '.timeline.' + _mode_label
+    # Base prefix without view mode — view mode (.codon. / .aa.) is added
+    # inside the render loop so both variants are always produced.
+    _base_prefix = myoptions.outfile_prefix + '.timeline'
 
     # Load matrix (once — scoring is matrix-dependent, not colormap-dependent)
     # Temporarily set colormap and scaling so load_matrix() constructs its
@@ -328,44 +329,54 @@ def main():
             _combo_idx += 1
             myoptions.linear_circle_size = linear
             _scaling_suffix = 'linear_scaling' if linear else 'area_scaling'
-            _outfile_prefix = f"{_base_prefix}.{_matrix_name}.{_scaling_suffix}.{cmap_name}"
-            print(f"Info: _outfile_prefix={_outfile_prefix}")
 
             if n_combos > 1:
                 print(f"  ── variant {_combo_idx}/{n_combos}: "
                       f"{cmap_name} + {_scaling_suffix} ──")
 
-            for page_idx, page_positions in enumerate(_chunks, 1):
-                if _n_pages > 1:
-                    page_data = filter_timeline_data(data, page_positions)
-                    _page_prefix = f"{_outfile_prefix}.page{page_idx}"
-                    print(f"  ── page {page_idx}/{_n_pages}: "
-                          f"positions {page_positions[0]}..{page_positions[-1]} "
-                          f"({len(page_data.points)} points) ──")
+            # ── View modes: codon-level and AA-level ──
+            for _view_mode in ('codon', 'aa'):
+                myoptions.aminoacids = _view_mode == 'aa'
+                _view_prefix = f"{_base_prefix}.{_view_mode}.{_matrix_name}.{_scaling_suffix}.{cmap_name}"
+                print(f"Info: _outfile_prefix={_view_prefix}")
+
+                # For AA mode, aggregate codon-level data to AA level
+                if _view_mode == 'aa':
+                    view_data = aggregate_aa_timeline(data)
                 else:
-                    page_data = data
-                    _page_prefix = _outfile_prefix
+                    view_data = data
 
-                # Render matplotlib (PNG + PDF + JPG)
-                PROFILER.mark_phase_start("render_matplotlib")
-                render_timeline_matplotlib(
-                    page_data, myoptions, _norm, _cmap, _colors, _page_prefix,
-                )
+                for page_idx, page_positions in enumerate(_chunks, 1):
+                    if _n_pages > 1:
+                        page_data = filter_timeline_data(view_data, page_positions)
+                        _page_prefix = f"{_view_prefix}.page{page_idx}"
+                        print(f"  ── page {page_idx}/{_n_pages}: "
+                              f"positions {page_positions[0]}..{page_positions[-1]} "
+                              f"({len(page_data.points)} points) ──")
+                    else:
+                        page_data = view_data
+                        _page_prefix = _view_prefix
 
-                summary = PROFILER.pop_phase_summary()
-                if summary:
-                    print(summary)
-
-                # Render Bokeh (HTML)
-                if not myoptions.disable_showing_bokeh:
-                    PROFILER.mark_phase_start("render_bokeh")
-                    render_timeline_bokeh(
+                    # Render matplotlib (PNG + PDF)
+                    PROFILER.mark_phase_start("render_matplotlib")
+                    render_timeline_matplotlib(
                         page_data, myoptions, _norm, _cmap, _colors, _page_prefix,
                     )
 
-                summary = PROFILER.pop_phase_summary()
-                if summary:
-                    print(summary)
+                    summary = PROFILER.pop_phase_summary()
+                    if summary:
+                        print(summary)
+
+                    # Render Bokeh (HTML)
+                    if not myoptions.disable_showing_bokeh:
+                        PROFILER.mark_phase_start("render_bokeh")
+                        render_timeline_bokeh(
+                            page_data, myoptions, _norm, _cmap, _colors, _page_prefix,
+                        )
+
+                    summary = PROFILER.pop_phase_summary()
+                    if summary:
+                        print(summary)
 
     print("mutation_timeline_plot: done")
 

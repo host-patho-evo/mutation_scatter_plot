@@ -577,19 +577,70 @@ def _compute_intra_band_spread(band_spacing: float) -> float:
     return band_spacing * 0.5 * 0.6
 
 
-def _slot_key(pt: TimelinePoint) -> str:
+def _slot_key(pt: TimelinePoint, codon_view: bool = True) -> str:
     """Return a unique key for vertical slot assignment within a band.
 
-    Uses the codon-level pair (ref_codon, mutant_codon) as the identity.
-    This ensures that every distinct codon mutation gets its own vertical
-    slot, even when multiple codons translate to the same amino acid.
+    In codon mode, uses the codon pair (ref_codon, mutant_codon) so that
+    every distinct codon mutation gets its own row.
+    In AA mode, uses the AA-level label (e.g. 'D614G') so that different
+    codons producing the same AA change share one row (with summed freq).
     """
-    return f"{pt.ref_codon}|{pt.mutant_codon}"
+    if codon_view:
+        return f"{pt.ref_codon}|{pt.mutant_codon}"
+    return pt.label
+
+
+def _slot_display(pt: TimelinePoint, codon_view: bool = True) -> str:
+    """Return the display label for a vertical slot on the Y-axis.
+
+    In codon mode, shows the codon change (e.g. 'GAT→GGT').
+    In AA mode, shows the AA label (e.g. 'D614G').
+    """
+    if codon_view:
+        return f"{pt.ref_codon}→{pt.mutant_codon}"
+    return pt.label
+
+
+def aggregate_aa_timeline(data: TimelineData) -> TimelineData:
+    """Aggregate codon-level data to AA level by summing frequencies.
+
+    Points with the same (month, position, label) are merged: their
+    frequencies are summed and the first point's codon fields are kept
+    as representative values.
+
+    Returns
+    -------
+    TimelineData
+        New data object with merged points.
+    """
+    groups: dict[tuple[str, int, str], list[TimelinePoint]] = defaultdict(list)
+    for pt in data.points:
+        groups[(pt.month, pt.position, pt.label)].append(pt)
+
+    merged: list[TimelinePoint] = []
+    for pts in groups.values():
+        total_freq = sum(pt.frequency for pt in pts)
+        t = pts[0]  # template
+        merged.append(TimelinePoint(
+            month=t.month, position=t.position,
+            ref_aa=t.ref_aa, mutant_aa=t.mutant_aa,
+            ref_codon=t.ref_codon, mutant_codon=t.mutant_codon,
+            frequency=total_freq,
+            color=t.color, score=t.score, label=t.label,
+        ))
+
+    return TimelineData(
+        points=merged,
+        months=list(data.months),
+        positions=list(data.positions),
+        position_specs=list(data.position_specs),
+    )
 
 
 def _prepare_layout(
     data: TimelineData,
     myoptions: typing.Any = None,
+    codon_view: bool = True,
 ) -> tuple[dict[int, float], dict[int, float],
               dict[int, float],
               dict[tuple[str, int], list['TimelinePoint']],
@@ -630,7 +681,7 @@ def _prepare_layout(
         for (_m, _p), pts in grouped.items():
             if _p == pos:
                 for pt in pts:
-                    _unique.add(_slot_key(pt))
+                    _unique.add(_slot_key(pt, codon_view))
         slots_per_pos[pos] = sorted(_unique)
 
     # Apply user-specified scaling factor
@@ -689,6 +740,7 @@ def _compute_ytick_labels(
     pos_to_y: dict[int, float],
     grouped: dict[tuple[str, int], list['TimelinePoint']],
     pos_spread: dict[int, float],
+    codon_view: bool = True,
     merge_threshold: float = 0.15,
 ) -> tuple[list[float], list[str]]:
     """Compute merged Y-axis tick positions and labels.
@@ -717,9 +769,9 @@ def _compute_ytick_labels(
             if p_key != pos:
                 continue
             for pt in pts:
-                key = _slot_key(pt)
+                key = _slot_key(pt, codon_view)
                 if key not in seen_slots:
-                    seen_slots[key] = pt.label
+                    seen_slots[key] = _slot_display(pt, codon_view)
 
         slot_keys = sorted(seen_slots.keys())
 
@@ -799,7 +851,10 @@ def render_timeline_matplotlib(
     positions = data.positions
 
     # Shared layout: per-position heights, spread, y-mapping, grouping, label offsets
-    pos_heights, pos_spread, pos_to_y, grouped, label_offsets = _prepare_layout(data, myoptions)
+    _codon_view = not getattr(myoptions, 'aminoacids', False)
+    pos_heights, pos_spread, pos_to_y, grouped, label_offsets = _prepare_layout(
+        data, myoptions, codon_view=_codon_view,
+    )
 
     # Prepare scatter data
     x_vals: list[float] = []
@@ -818,7 +873,7 @@ def render_timeline_matplotlib(
 
         for pt in pts:
             # Fixed vertical slot for this mutation label
-            y_offset = _pos_offsets.get(_slot_key(pt), 0.0)
+            y_offset = _pos_offsets.get(_slot_key(pt, _codon_view), 0.0)
 
             x_vals.append(x)
             y_vals.append(y_base + y_offset)
@@ -894,7 +949,7 @@ def render_timeline_matplotlib(
     ax.set_xlabel('Month', fontsize=_heading_fontsize)
     # Y-axis: use merged mutation labels as tick labels
     _all_tick_y, _all_tick_labels = _compute_ytick_labels(
-        positions, pos_to_y, grouped, pos_spread,
+        positions, pos_to_y, grouped, pos_spread, codon_view=_codon_view,
     )
     ax.set_yticks(_all_tick_y)
     ax.set_yticklabels(_all_tick_labels, fontsize=7)
@@ -1093,7 +1148,10 @@ def render_timeline_bokeh(
     positions = data.positions
 
     # Shared layout: per-position heights, spread, y-mapping, grouping, label offsets
-    pos_heights, pos_spread, pos_to_y, grouped, label_offsets = _prepare_layout(data, myoptions)
+    _codon_view = not getattr(myoptions, 'aminoacids', False)
+    pos_heights, pos_spread, pos_to_y, grouped, label_offsets = _prepare_layout(
+        data, myoptions, codon_view=_codon_view,
+    )
 
     x_vals: list[float] = []
     y_vals: list[float] = []
@@ -1114,7 +1172,7 @@ def render_timeline_bokeh(
         _pos_offsets = label_offsets.get(pos, {})
 
         for pt in pts:
-            y_offset = _pos_offsets.get(_slot_key(pt), 0.0)
+            y_offset = _pos_offsets.get(_slot_key(pt, _codon_view), 0.0)
 
             x_vals.append(x)
             y_vals.append(y_base + y_offset)
@@ -1198,7 +1256,7 @@ def render_timeline_bokeh(
 
     # Y-axis: use merged mutation labels as tick labels
     _bokeh_tick_y, _bokeh_tick_labels = _compute_ytick_labels(
-        positions, pos_to_y, grouped, pos_spread,
+        positions, pos_to_y, grouped, pos_spread, codon_view=_codon_view,
     )
     bokeh_fig.yaxis.ticker = _bokeh_tick_y
     bokeh_fig.yaxis.major_label_overrides = dict(zip(_bokeh_tick_y, _bokeh_tick_labels))
