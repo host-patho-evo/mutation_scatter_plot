@@ -75,8 +75,6 @@ import sys
 import typing
 from decimal import Decimal, ExtendedContext, getcontext, setcontext
 
-# https://pypi.org/project/blosum/
-import blosum
 import matplotlib
 import matplotlib.pyplot as plt
 import mplcursors

@@ -21,27 +21,19 @@ The coloring, scoring, and BLOSUM matrix logic are reused from ``core.py``.
 import glob
 import os
 import re
-import sys
 import typing
 from collections import defaultdict
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import numpy as np
 import pandas as pd
 
 from .core import (
-    get_colormap,
-    get_score,
-    load_matrix,
     resolve_codon_or_aa,
     adjust_size_and_color,
 )
 from .colorbar_helpers import setup_matplotlib_colorbar, add_bokeh_colorbar
-from .. import alt_translate
 
 
 # ── Data structures ──────────────────────────────────────────────────────
@@ -947,7 +939,6 @@ def render_timeline_bokeh(
     try:
         from bokeh.plotting import figure, output_file, save
         from bokeh.models import ColumnDataSource, HoverTool
-        from bokeh.io import export_png
     except ImportError:
         print("Warning: bokeh not available, skipping Bokeh timeline output")
         return

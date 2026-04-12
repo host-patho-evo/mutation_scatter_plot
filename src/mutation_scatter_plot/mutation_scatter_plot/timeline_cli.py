@@ -22,7 +22,6 @@ import sys
 from ..profiler import PROFILER
 from .core import get_colormap, load_matrix
 from .timeline import (
-    TimelineData,
     collect_timeline_data,
     infer_common_prefix,
     parse_positions,
