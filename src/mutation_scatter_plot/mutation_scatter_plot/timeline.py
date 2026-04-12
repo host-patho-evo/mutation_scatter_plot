@@ -792,14 +792,10 @@ def render_timeline_matplotlib(
     _pos_fontsize = max(8, min(36, _band_height_inches * (2 / 3) * 72))
     ax2.set_yticklabels(_right_labels, fontsize=_pos_fontsize,
                         fontweight='bold', color='black', alpha=0.7,
-                        ha='right')
-    # pad=0: keep position labels flush against the right spine so they
-    # don't extend into the colorbar column and obscure its rotated label.
-    ax2.tick_params(axis='y', length=0, pad=0)
-    # Clip the position labels to the main axes area so they don't overflow
-    # into the colorbar column and obscure the colorbar label.
-    for lbl in ax2.get_yticklabels():
-        lbl.set_clip_on(True)
+                        ha='left')
+    # Small positive pad pushes labels just outside the right spine, into the
+    # gap between the plot and the colorbar column.
+    ax2.tick_params(axis='y', length=0, pad=4)
     ax2.spines['top'].set_visible(False)
     ax2.spines['right'].set_visible(False)
 
