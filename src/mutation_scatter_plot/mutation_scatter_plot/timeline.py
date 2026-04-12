@@ -51,18 +51,22 @@ class PositionSpec:
 
     Examples
     --------
-    ``PositionSpec(position=614, ref_aa=None, mutant_aa=None)``
+    ``PositionSpec(position=614, ref_aa=None, mutant_aas=None)``
         Track all mutations at position 614.
-    ``PositionSpec(position=614, ref_aa='D', mutant_aa='G')``
+    ``PositionSpec(position=614, ref_aa='D', mutant_aas=['G'])``
         Track only the D614G mutation.
+    ``PositionSpec(position=498, ref_aa=None, mutant_aas=['R', 'H', 'Q'])``
+        Track mutations to R, H, or Q at position 498.
     """
     position: int
     ref_aa: typing.Optional[str] = None
-    mutant_aa: typing.Optional[str] = None
+    mutant_aas: typing.Optional[list[str]] = None
 
     def __str__(self):
-        if self.ref_aa and self.mutant_aa:
-            return f"{self.ref_aa}{self.position}{self.mutant_aa}"
+        if self.ref_aa and self.mutant_aas and len(self.mutant_aas) == 1:
+            return f"{self.ref_aa}{self.position}{self.mutant_aas[0]}"
+        if self.mutant_aas:
+            return f"{self.position}[{''.join(self.mutant_aas)}]"
         return str(self.position)
 
 
@@ -134,6 +138,8 @@ def scan_directory(
 # ── Position parsing ─────────────────────────────────────────────────────
 
 _MUTATION_RE = re.compile(r'^([A-Z])(\d+)([A-Z])$')
+_BRACKET_RE = re.compile(r'^(\d+)\[([A-Z]+)\]$')
+_REF_BRACKET_RE = re.compile(r'^([A-Z])(\d+)\[([A-Z]+)\]$')
 
 
 def parse_positions(position_args: list[str]) -> list[PositionSpec]:
@@ -143,18 +149,42 @@ def parse_positions(position_args: list[str]) -> list[PositionSpec]:
     - Numeric positions: ``'614'``, ``'501'``
     - Ranges: ``'480-530'``
     - Mutation labels: ``'D614G'``, ``'N501Y'``
+    - Bracket notation: ``'498[RHQ]'`` (mutations to R, H, or Q at pos 498)
+    - Ref+bracket: ``'Q498[RH]'`` (Q→R or Q→H at pos 498)
 
     Returns a list of :class:`PositionSpec` objects.
     """
     specs: list[PositionSpec] = []
     for arg in position_args:
-        # Try mutation label (e.g. D614G)
-        m = _MUTATION_RE.match(arg.upper())
+        arg_upper = arg.upper()
+
+        # Try ref + bracket notation (e.g. Q498[RH])
+        m = _REF_BRACKET_RE.match(arg_upper)
         if m:
             specs.append(PositionSpec(
                 position=int(m.group(2)),
                 ref_aa=m.group(1),
-                mutant_aa=m.group(3),
+                mutant_aas=list(m.group(3)),
+            ))
+            continue
+
+        # Try bracket notation without ref (e.g. 498[RHQ])
+        m = _BRACKET_RE.match(arg_upper)
+        if m:
+            specs.append(PositionSpec(
+                position=int(m.group(1)),
+                ref_aa=None,
+                mutant_aas=list(m.group(2)),
+            ))
+            continue
+
+        # Try mutation label (e.g. D614G)
+        m = _MUTATION_RE.match(arg_upper)
+        if m:
+            specs.append(PositionSpec(
+                position=int(m.group(2)),
+                ref_aa=m.group(1),
+                mutant_aas=[m.group(3)],
             ))
             continue
         # Try range (e.g. 480-530)
@@ -229,20 +259,23 @@ def collect_timeline_data(
             mut_aa = str(row.get('mutant_aa', ''))
             freq_val = Decimal(str(row.get('frequency', 0)))
 
-            # Apply mutation-label filter if specified
+            # Apply mutation-label or bracket filter if specified
             matched_specs = pos_to_specs.get(pos, [])
             if matched_specs:
-                # Check if any spec is a mutation-label filter
-                has_label_filter = any(s.ref_aa is not None for s in matched_specs)
-                if has_label_filter:
-                    # Only include if it matches at least one label spec
-                    # or a non-label spec exists for this position
+                # Check if any spec has a mutant filter
+                has_filter = any(s.mutant_aas is not None for s in matched_specs)
+                if has_filter:
                     matches = False
                     for s in matched_specs:
-                        if s.ref_aa is None:
+                        if s.mutant_aas is None:
+                            # Unfiltered spec for this position — accept all
                             matches = True
                             break
-                        if s.ref_aa == ref_aa.upper() and s.mutant_aa == mut_aa.upper():
+                        # Check ref_aa if specified
+                        if s.ref_aa and s.ref_aa != ref_aa.upper():
+                            continue
+                        # Check mutant_aa against the list
+                        if mut_aa.upper() in s.mutant_aas:
                             matches = True
                             break
                     if not matches:
@@ -353,7 +386,14 @@ def render_timeline_matplotlib(
             y_vals.append(y_base + y_offset)
 
             # Scale circle size by frequency
-            raw_size = float(pt.frequency) * TIMELINE_CIRCLE_SCALE
+            freq_f = float(pt.frequency)
+            if getattr(myoptions, 'linear_circle_size', False):
+                # Linear scaling: size proportional to frequency
+                raw_size = freq_f * TIMELINE_CIRCLE_SCALE
+            else:
+                # Area scaling (default): size proportional to sqrt(frequency)
+                # so that circle *area* is proportional to frequency
+                raw_size = (freq_f ** 0.5) * TIMELINE_CIRCLE_SCALE
             sizes.append(max(TIMELINE_MIN_SIZE, min(TIMELINE_MAX_SIZE, raw_size)))
             colors_hex.append(pt.color)
             labels.append(f"{pt.label} ({float(pt.frequency):.4f})")
@@ -415,7 +455,14 @@ def render_timeline_matplotlib(
 
     # Size legend
     _legend_freqs = [0.01, 0.1, 0.5, 1.0]
-    _legend_sizes = [max(TIMELINE_MIN_SIZE, min(TIMELINE_MAX_SIZE, f * TIMELINE_CIRCLE_SCALE)) for f in _legend_freqs]
+    _scaling_label = 'linear' if getattr(myoptions, 'linear_circle_size', False) else 'area'
+    _legend_sizes = []
+    for f in _legend_freqs:
+        if getattr(myoptions, 'linear_circle_size', False):
+            raw = f * TIMELINE_CIRCLE_SCALE
+        else:
+            raw = (f ** 0.5) * TIMELINE_CIRCLE_SCALE
+        _legend_sizes.append(max(TIMELINE_MIN_SIZE, min(TIMELINE_MAX_SIZE, raw)))
     for f, s in zip(_legend_freqs, _legend_sizes):
         ax.scatter([], [], s=s, c='gray', alpha=0.5, edgecolors='#333',
                    linewidths=0.5, label=f'freq={f}')
@@ -493,7 +540,10 @@ def render_timeline_bokeh(
             y_vals.append(y_base + y_offset)
 
             raw_size = float(pt.frequency) * TIMELINE_CIRCLE_SCALE
-            sizes_px.append(max(3, min(25, raw_size ** 0.5 * 3)))
+            if getattr(myoptions, 'linear_circle_size', False):
+                sizes_px.append(max(3, min(25, raw_size ** 0.5 * 2)))
+            else:
+                sizes_px.append(max(3, min(25, (raw_size ** 0.5) ** 0.5 * 4)))
             colors_hex.append(pt.color)
             hover_labels.append(pt.label)
             hover_freqs.append(f"{float(pt.frequency):.6f}")
