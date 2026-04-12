@@ -782,7 +782,7 @@ def render_timeline_bokeh(
     bokeh_fig = figure(
         title=title,
         width=2000,
-        height=max(600, int(n_pos * BAND_SPACING * 80 + 200)),
+        height=max(600, int(n_pos * BAND_SPACING * 27 + 200)),
         x_range=(-0.5, len(months) - 0.5),
         y_range=(-BAND_SPACING * 0.5 - 0.2, _y_extent + BAND_SPACING * 0.5 + 0.2),
         tools="pan,wheel_zoom,box_zoom,reset,save",
