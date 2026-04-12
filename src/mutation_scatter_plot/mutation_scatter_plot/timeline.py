@@ -580,11 +580,11 @@ def _compute_intra_band_spread(band_spacing: float) -> float:
 def _slot_key(pt: TimelinePoint) -> str:
     """Return a unique key for vertical slot assignment within a band.
 
-    Uses codon-level identity so that different codon mutations producing
-    the same AA change (e.g. GAT→GGT vs GAT→GGC, both D614G) get
-    distinct vertical positions.
+    Combines the AA-level label with the codon pair so that:
+    - different codons producing the same AA change get distinct slots,
+    - same codon pair with different labels (e.g. insertions) also separate.
     """
-    return f"{pt.ref_codon}{pt.position}{pt.mutant_codon}"
+    return f"{pt.label}|{pt.ref_codon}{pt.mutant_codon}"
 
 
 def _prepare_layout(
