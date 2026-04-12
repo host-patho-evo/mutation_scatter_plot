@@ -817,7 +817,7 @@ def render_timeline_matplotlib(
     _matrix_name = getattr(myoptions, 'matrix', 'BLOSUM80')
     setup_matplotlib_colorbar(
         fig, ax_cb, norm, cmap, colors, _vmin, _vmax,
-        label=f'{_matrix_name} score', alpha=0.5,
+        label=f'{_matrix_name} score values (synonymous codon changes shown in dark green)', alpha=0.5,
     )
 
     # Size legend — rendered in dedicated ax_leg column
@@ -1069,7 +1069,7 @@ def render_timeline_bokeh(
     # ── Bokeh Colorbar (shared helper, same approach as mutation_scatter_plot) ──
     _bk_vmin = getattr(myoptions, 'cmap_vmin', -11)
     _bk_vmax = getattr(myoptions, 'cmap_vmax', 11)
-    _matrix_label = f"{_matrix_name} score"
+    _matrix_label = f"{_matrix_name} score values (synonymous codon changes shown in dark green)"
     try:
         add_bokeh_colorbar(
             bokeh_fig, norm, cmap, colors, _bk_vmin, _bk_vmax,
