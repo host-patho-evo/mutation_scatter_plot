@@ -70,8 +70,9 @@ Optional:
                             e.g. '1-1274,331-528'.  Overrides --xmin/--xmax.
                             Each range produces a separate set of figures.
                             [default: use --xmin/--xmax or full range].
-  --title=STRING            Figure title for scatter plots.  In per-month
-                            mode the month tag is appended automatically.
+  --title=STRING            Figure title for scatter plots.  Use {prefix}
+                            as a placeholder for the input filename prefix.
+                            In per-month mode the month tag is appended.
                             [default: auto-derived by mutation_scatter_plot].
   --threshold=FLOAT         Minimum frequency for filtered TSVs [default: 0.001].
   --jobs=INT                Parallel jobs for summarize_fasta_pipeline.py [default: 5].
@@ -164,6 +165,9 @@ fi
 # Prefix: strip .fasta (or .fasta.gz, .fa, etc.) from the input filename.
 prefix="$(basename "$infile" .fasta)"
 prefix="${prefix%.fa}"   # also handle .fa extension
+
+# Expand {prefix} placeholder in --title (if provided).
+title="${title//\{prefix\}/$prefix}"
 
 export reference
 export PATH=/auto/vestec1-elixir/projects/biocev/mmokrejs/proj/mutation_scatter_plot/scripts:$PATH
