@@ -641,6 +641,23 @@ def render_timeline_matplotlib(
 
     plt.tight_layout()
 
+    # ── mplcursors hover support ──
+    try:
+        import mplcursors
+        _cursor = mplcursors.cursor(scatter, hover=True)
+
+        @_cursor.connect("add")
+        def _on_add(sel):
+            idx = sel.index
+            if 0 <= idx < len(labels):
+                sel.annotation.set_text(labels[idx])
+            else:
+                sel.annotation.set_text("?")
+    except ImportError:
+        pass  # mplcursors not installed
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass  # graceful fallback for non-interactive backends
+
     # Save outputs
     for ext in ('png', 'pdf'):
         outpath = f"{outfile_prefix}.{ext}"
@@ -790,8 +807,8 @@ def render_timeline_bokeh(
         for pos in positions:
             y_base = pos_to_y[pos]
             labels_at_pos: dict[str, list[float]] = defaultdict(list)
-            for (month, p), pts in grouped.items():
-                if p != pos:
+            for (month, p_key), pts in grouped.items():
+                if p_key != pos:
                     continue
                 pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
                 n = len(pts_sorted)
@@ -811,15 +828,15 @@ def render_timeline_bokeh(
         label_source = ColumnDataSource(data=dict(
             x=label_x_vals, y=label_y_vals, text=label_texts,
         ))
-        labels = LabelSet(
+        _band_labels = LabelSet(
             x='x', y='y', text='text', source=label_source,
             text_font_size='8pt', text_color='#555555',
             text_font_style='italic', text_align='right',
             text_baseline='middle', x_offset=-5,
         )
-        p.add_layout(labels)
-    except ImportError:
-        pass  # LabelSet not available in older bokeh
+        p.add_layout(_band_labels)
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        print(f"Warning: Could not add Bokeh band labels: {e}")
 
     # Save HTML
     html_path = f"{outfile_prefix}.html"
