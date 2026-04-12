@@ -487,7 +487,11 @@ def render_timeline_matplotlib(
     ax.set_xlim(-0.5, len(months) - 0.5)
     ax.set_ylim(-0.7, n_pos - 0.3)
     ax.grid(axis='x', alpha=0.3, linestyle='--')
-    ax.grid(axis='y', alpha=0.15, linestyle='-')
+    # Draw horizontal band borders above and below each position
+    # (not through the centre where data points are)
+    for i in range(n_pos):
+        ax.axhline(y=i - 0.5, color='#cccccc', linewidth=0.5, alpha=0.4, zorder=1)
+        ax.axhline(y=i + 0.5, color='#cccccc', linewidth=0.5, alpha=0.4, zorder=1)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
