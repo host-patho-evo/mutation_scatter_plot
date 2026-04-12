@@ -156,6 +156,36 @@ def recolor_timeline_data(
         pt.color = colors[_colorindex]
 
 
+def filter_timeline_data(
+    data: TimelineData,
+    positions: list[int],
+) -> TimelineData:
+    """Return a new :class:`TimelineData` containing only *positions*.
+
+    All original months are preserved so the X-axis remains consistent
+    across paginated outputs.
+
+    Parameters
+    ----------
+    data : TimelineData
+        The full collected data.
+    positions : list of int
+        Subset of positions to keep.
+
+    Returns
+    -------
+    TimelineData
+        Filtered copy (points list is new; month list is shared).
+    """
+    pos_set = set(positions)
+    return TimelineData(
+        points=[pt for pt in data.points if pt.position in pos_set],
+        months=list(data.months),
+        positions=sorted(p for p in data.positions if p in pos_set),
+        position_specs=[s for s in data.position_specs if s.position in pos_set],
+    )
+
+
 # ── File scanning ────────────────────────────────────────────────────────
 
 _MONTH_RE = re.compile(r'\.(\d{4})-(\d{2})\.')
@@ -964,7 +994,7 @@ def render_timeline_matplotlib(
     )
 
     # Save outputs
-    for ext in ('png', 'pdf'):
+    for ext in ('png', 'pdf', 'jpg'):
         outpath = f"{outfile_prefix}.{ext}"
         _dpi = getattr(myoptions, 'dpi', 600)
         fig.savefig(outpath, dpi=_dpi, bbox_inches='tight', facecolor='white')

@@ -23,6 +23,7 @@ from ..profiler import PROFILER
 from .core import get_colormap, load_matrix
 from .timeline import (
     collect_timeline_data,
+    filter_timeline_data,
     infer_common_prefix,
     parse_positions,
     recolor_timeline_data,
@@ -161,6 +162,15 @@ def build_option_parser():
              " Values >1 increase spacing (useful for dense datasets)."
              " [default: 1.0]",
     )
+    myparser.add_argument(
+        "--positions-per-page", action="store", type=int,
+        dest="positions_per_page", default=10,
+        help="Maximum number of Y-axis position bands per output page."
+             " When the total number of positions exceeds this value the"
+             " output is split into numbered pages (e.g. prefix.page1.png)."
+             " Set to 0 to disable splitting."
+             " [default: 10]",
+    )
     return myparser
 
 
@@ -286,6 +296,21 @@ def main():
 
     # ── Render each colormap × scaling combination ──
     _combo_idx = 0
+
+    # Pagination: split positions into pages of N bands each
+    _per_page = myoptions.positions_per_page
+    if 0 < _per_page < len(data.positions):
+        _chunks = [
+            data.positions[i:i + _per_page]
+            for i in range(0, len(data.positions), _per_page)
+        ]
+    else:
+        _chunks = [data.positions]
+    _n_pages = len(_chunks)
+    if _n_pages > 1:
+        print(f"  pages:     {_n_pages} (= {len(data.positions)} positions "
+              f"/ {_per_page} per page)")
+
     for cmap_name in colormaps:
         # Derive colormap with data-driven bounds
         # Clear stale cmap_vmin/vmax so get_colormap picks up fresh values
@@ -310,22 +335,37 @@ def main():
                 print(f"  ── variant {_combo_idx}/{n_combos}: "
                       f"{cmap_name} + {_scaling_suffix} ──")
 
-            # Render matplotlib (PNG + PDF)
-            PROFILER.mark_phase_start("render_matplotlib")
-            render_timeline_matplotlib(data, myoptions, _norm, _cmap, _colors, _outfile_prefix)
+            for page_idx, page_positions in enumerate(_chunks, 1):
+                if _n_pages > 1:
+                    page_data = filter_timeline_data(data, page_positions)
+                    _page_prefix = f"{_outfile_prefix}.page{page_idx}"
+                    print(f"  ── page {page_idx}/{_n_pages}: "
+                          f"positions {page_positions[0]}..{page_positions[-1]} "
+                          f"({len(page_data.points)} points) ──")
+                else:
+                    page_data = data
+                    _page_prefix = _outfile_prefix
 
-            summary = PROFILER.pop_phase_summary()
-            if summary:
-                print(summary)
+                # Render matplotlib (PNG + PDF + JPG)
+                PROFILER.mark_phase_start("render_matplotlib")
+                render_timeline_matplotlib(
+                    page_data, myoptions, _norm, _cmap, _colors, _page_prefix,
+                )
 
-            # Render Bokeh (HTML)
-            if not myoptions.disable_showing_bokeh:
-                PROFILER.mark_phase_start("render_bokeh")
-                render_timeline_bokeh(data, myoptions, _norm, _cmap, _colors, _outfile_prefix)
+                summary = PROFILER.pop_phase_summary()
+                if summary:
+                    print(summary)
 
-            summary = PROFILER.pop_phase_summary()
-            if summary:
-                print(summary)
+                # Render Bokeh (HTML)
+                if not myoptions.disable_showing_bokeh:
+                    PROFILER.mark_phase_start("render_bokeh")
+                    render_timeline_bokeh(
+                        page_data, myoptions, _norm, _cmap, _colors, _page_prefix,
+                    )
+
+                summary = PROFILER.pop_phase_summary()
+                if summary:
+                    print(summary)
 
     print("mutation_timeline_plot: done")
 
