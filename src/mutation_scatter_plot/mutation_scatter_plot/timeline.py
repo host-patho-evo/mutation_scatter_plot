@@ -1011,7 +1011,7 @@ def render_timeline_matplotlib(
         1, 3, figsize=(fig_width, fig_height),
         width_ratios=[50, 1, 8],
     )
-    fig.subplots_adjust(left=0.06, right=0.86, top=0.94, bottom=0.15)
+    fig.subplots_adjust(left=0.06, right=0.86, top=0.91, bottom=0.15)
 
     # Dynamic heading font: scales with the smaller figure dimension so that
     # title, axis labels, and 2nd-y-axis position numbers form a visually
@@ -1026,7 +1026,7 @@ def render_timeline_matplotlib(
     title = (getattr(myoptions, 'title', '')
              or f"Timeline of mutations in SARS-CoV-2 in GISAID {_prefix_name}"
                 f" at {_pos_type} positions {_pos_list}")
-    ax.set_title(title, fontsize=_heading_fontsize, fontweight='bold', pad=15)
+    ax.set_title(title, fontsize=_heading_fontsize, fontweight='bold', pad=25)
 
     # Scatter plot
     scatter = ax.scatter(
