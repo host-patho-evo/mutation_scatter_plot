@@ -314,7 +314,9 @@ def main() -> None:
     results.sort(key=lambda r: -r['max_mutant_freq'])
 
     # Output
-    positions_list = [str(r['position']) for r in results]
+    # TSV table: sorted by max_mutant_freq (most dynamic first).
+    # Positions list: numerically sorted (matches timeline renderer order).
+    positions_list = sorted([r['position'] for r in results])
 
     if args.output_format in ('tsv', 'both'):
         header = [
@@ -339,13 +341,13 @@ def main() -> None:
             print(file=sys.stderr)
         print(f"# mutation_timeline_plot --positions for {len(results)} sites:",
               file=sys.stderr)
-        print(' '.join(positions_list), file=sys.stderr)
+        print(' '.join(str(p) for p in positions_list), file=sys.stderr)
 
         # Also print a copy-pasteable command
         print(f"\n# Ready-to-use command:", file=sys.stderr)
         print(
             f"mutation_timeline_plot --dir {args.dir} "
-            f"--positions {' '.join(positions_list)} "
+            f"--positions {' '.join(str(p) for p in positions_list)} "
             f"--pattern '*.frequencies.tsv' "
             f"--threshold=0.0001",
             file=sys.stderr,
