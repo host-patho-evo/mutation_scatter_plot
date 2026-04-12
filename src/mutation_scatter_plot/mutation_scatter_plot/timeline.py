@@ -906,7 +906,7 @@ def render_timeline_matplotlib(
                         ha='left')
     # Small positive pad pushes labels just outside the right spine, into the
     # gap between the plot and the colorbar column.
-    ax2.tick_params(axis='y', length=0, pad=4)
+    ax2.tick_params(axis='y', length=0, pad=20)
     ax2.spines['top'].set_visible(False)
     ax2.spines['right'].set_visible(False)
 
