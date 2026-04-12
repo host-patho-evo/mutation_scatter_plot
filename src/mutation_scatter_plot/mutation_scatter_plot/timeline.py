@@ -414,7 +414,7 @@ def collect_timeline_data(
 # Timeline-specific scaling (much smaller than scatter plot's 3000-5000)
 TIMELINE_CIRCLE_SCALE = 800
 TIMELINE_MIN_SIZE = 10
-TIMELINE_MAX_SIZE = 500
+TIMELINE_MAX_SIZE = 800
 
 
 def _month_to_float(month_str: str, all_months: list[str]) -> float:
@@ -549,19 +549,18 @@ def render_timeline_matplotlib(
         zorder=5,
     )
 
-    # Percentage labels next to circles (only for freq ≥ 1% to avoid clutter)
+    # Percentage labels next to circles
     for xi, yi, fi in zip(x_vals, y_vals, freqs):
-        if fi >= 0.01:
-            pct = fi * 100
-            if pct >= 10:
-                pct_str = f"{pct:.0f}%"
-            elif pct >= 1:
-                pct_str = f"{pct:.1f}%"
-            else:
-                pct_str = f"{pct:.2f}%"
-            ax.annotate(pct_str, (xi, yi), textcoords='offset points',
-                        xytext=(5, 5), fontsize=5, color='#444444',
-                        zorder=6)
+        pct = fi * 100
+        if pct >= 10:
+            pct_str = f"{pct:.0f}%"
+        elif pct >= 1:
+            pct_str = f"{pct:.1f}%"
+        else:
+            pct_str = f"{pct:.2f}%"
+        ax.annotate(pct_str, (xi, yi), textcoords='offset points',
+                    xytext=(5, 5), fontsize=5, color='#444444',
+                    zorder=6)
 
     # X-axis: months
     ax.set_xticks(range(len(months)))
