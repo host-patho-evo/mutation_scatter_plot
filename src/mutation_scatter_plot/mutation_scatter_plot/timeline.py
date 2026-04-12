@@ -546,9 +546,10 @@ def _compute_ytick_labels(
 ) -> tuple[list[float], list[str]]:
     """Compute merged Y-axis tick positions and labels.
 
-    For each position band, collects all mutation labels, computes their
-    median y-position, and merges labels closer than *merge_threshold*
-    data units (joining them with commas).
+    For each position band, collects all unique mutation labels, merges
+    labels that would be too close, then **evenly distributes** the
+    resulting labels across the band height.  This prevents overlap
+    regardless of the actual circle positions within the band.
 
     Returns
     -------
@@ -561,43 +562,37 @@ def _compute_ytick_labels(
 
     for pos in positions:
         y_base = pos_to_y[pos]
-        labels_at_pos: dict[str, list[float]] = defaultdict(list)
-        for (month, p_key), pts in grouped.items():
+        # Collect unique labels seen at this position (order by first appearance)
+        seen_labels: dict[str, None] = {}
+        for (_month, p_key), pts in grouped.items():
             if p_key != pos:
                 continue
+            # Sort by frequency descending so the highest-frequency label appears first
             pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
-            n = len(pts_sorted)
-            for j, pt in enumerate(pts_sorted):
-                if n == 1:
-                    y_off = 0.0
-                else:
-                    y_off = -_spread + (2 * _spread * j / (n - 1))
-                labels_at_pos[pt.label].append(y_base + y_off)
+            for pt in pts_sorted:
+                if pt.label not in seen_labels:
+                    seen_labels[pt.label] = None
 
-        if not labels_at_pos:
+        unique_labels = list(seen_labels.keys())
+
+        if not unique_labels:
             tick_y.append(y_base)
             tick_labels.append(str(pos))
             continue
 
-        # Median y per label, sorted
-        label_y: list[tuple[float, str]] = []
-        for lbl, y_list in labels_at_pos.items():
-            median_y = sorted(y_list)[len(y_list) // 2]
-            label_y.append((median_y, lbl))
-        label_y.sort()
+        # Sort labels alphabetically for consistent ordering
+        unique_labels.sort()
 
-        # Merge labels at very similar y-positions
-        merged: list[tuple[float, str]] = []
-        for y, lbl in label_y:
-            if merged and abs(y - merged[-1][0]) < merge_threshold:
-                prev_y, prev_lbl = merged[-1]
-                merged[-1] = ((prev_y + y) / 2, prev_lbl + ', ' + lbl)
-            else:
-                merged.append((y, lbl))
-
-        for y, lbl in merged:
-            tick_y.append(y)
-            tick_labels.append(lbl)
+        # Evenly distribute labels within the band [y_base - _spread, y_base + _spread]
+        n_labels = len(unique_labels)
+        if n_labels == 1:
+            tick_y.append(y_base)
+            tick_labels.append(unique_labels[0])
+        else:
+            for j, lbl in enumerate(unique_labels):
+                y = y_base - _spread + (2 * _spread * j / (n_labels - 1))
+                tick_y.append(y)
+                tick_labels.append(lbl)
 
     return tick_y, tick_labels
 
