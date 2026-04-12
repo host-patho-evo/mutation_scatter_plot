@@ -815,69 +815,54 @@ def render_timeline_bokeh(
     bokeh_fig.xaxis.major_label_orientation = 0.785  # 45 degrees
     bokeh_fig.xaxis.axis_label = "Month"
 
-    bokeh_fig.yaxis.ticker = [pos_to_y[pos] for pos in positions]
-    bokeh_fig.yaxis.major_label_overrides = {pos_to_y[pos]: '' for pos in positions}
+    # Y-axis: use mutation labels as tick labels
+    _bokeh_tick_y: list[float] = []
+    _bokeh_tick_map: dict[float, str] = {}
+    for pos in positions:
+        y_base = pos_to_y[pos]
+        labels_at_pos: dict[str, list[float]] = defaultdict(list)
+        for (month, p_key), pts in grouped.items():
+            if p_key != pos:
+                continue
+            pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
+            n = len(pts_sorted)
+            for j, pt in enumerate(pts_sorted):
+                if n == 1:
+                    y_off = 0.0
+                else:
+                    y_off = -_spread + (2 * _spread * j / (n - 1))
+                labels_at_pos[pt.label].append(y_base + y_off)
+
+        if not labels_at_pos:
+            _bokeh_tick_y.append(y_base)
+            _bokeh_tick_map[y_base] = str(pos)
+            continue
+
+        label_y: list[tuple[float, str]] = []
+        for lbl, y_list in labels_at_pos.items():
+            median_y = sorted(y_list)[len(y_list) // 2]
+            label_y.append((median_y, lbl))
+        label_y.sort()
+
+        merged_labels: list[tuple[float, str]] = []
+        for y, lbl in label_y:
+            if merged_labels and abs(y - merged_labels[-1][0]) < 0.15:
+                prev_y, prev_lbl = merged_labels[-1]
+                merged_labels[-1] = ((prev_y + y) / 2, prev_lbl + ', ' + lbl)
+            else:
+                merged_labels.append((y, lbl))
+
+        for y, lbl in merged_labels:
+            _bokeh_tick_y.append(y)
+            _bokeh_tick_map[y] = lbl
+
+    bokeh_fig.yaxis.ticker = _bokeh_tick_y
+    bokeh_fig.yaxis.major_label_overrides = _bokeh_tick_map
     bokeh_fig.yaxis.axis_label = "AA Position"
 
     # Grid
     bokeh_fig.xgrid.grid_line_alpha = 0.3
-    bokeh_fig.ygrid.grid_line_alpha = 0.0  # disabled — we use band borders instead
-
-    # ── Mutation labels at left edge of each band ──
-    try:
-        from bokeh.models import LabelSet
-        label_x_vals: list[float] = []
-        label_y_vals: list[float] = []
-        label_texts: list[str] = []
-
-        for pos in positions:
-            y_base = pos_to_y[pos]
-            labels_at_pos: dict[str, list[float]] = defaultdict(list)
-            for (month, p_key), pts in grouped.items():
-                if p_key != pos:
-                    continue
-                pts_sorted = sorted(pts, key=lambda pt: float(pt.frequency), reverse=True)
-                n = len(pts_sorted)
-                for j, pt in enumerate(pts_sorted):
-                    if n == 1:
-                        y_off = 0.0
-                    else:
-                        y_off = -_spread + (2 * _spread * j / (n - 1))
-                    labels_at_pos[pt.label].append(y_base + y_off)
-
-            # Merge labels at similar y-positions
-            label_y: list[tuple[float, str]] = []
-            for lbl, y_list in labels_at_pos.items():
-                median_y = sorted(y_list)[len(y_list) // 2]
-                label_y.append((median_y, lbl))
-            label_y.sort()
-
-            merged_labels: list[tuple[float, str]] = []
-            for y, lbl in label_y:
-                if merged_labels and abs(y - merged_labels[-1][0]) < 0.15:
-                    prev_y, prev_lbl = merged_labels[-1]
-                    merged_labels[-1] = ((prev_y + y) / 2, prev_lbl + ', ' + lbl)
-                else:
-                    merged_labels.append((y, lbl))
-
-            for y, lbl in merged_labels:
-                label_x_vals.append(-0.8)
-                label_y_vals.append(y)
-                label_texts.append(lbl)
-
-        label_source = ColumnDataSource(data=dict(
-            x=label_x_vals, y=label_y_vals, text=label_texts,
-        ))
-        _band_labels = LabelSet(
-            x='x', y='y', text='text', source=label_source,
-            text_font_size='8pt', text_color='black',
-            text_font_style='normal', text_align='right',
-            text_baseline='middle', x_offset=-5,
-        )
-        bokeh_fig.add_layout(_band_labels)
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        print(f"Warning: Could not add Bokeh band labels: {e}")
-
+    bokeh_fig.ygrid.grid_line_alpha = 0.0
     # Save HTML
     html_path = f"{outfile_prefix}.html"
     output_file(html_path, title=title)
