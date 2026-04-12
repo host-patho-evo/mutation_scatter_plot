@@ -118,6 +118,7 @@ def setup_matplotlib_colorbar(
     vmax: int,
     label: str = 'BLOSUM score',
     alpha: float = 0.5,
+    label_fontsize: typing.Optional[float] = None,
 ) -> None:
     """Create a matplotlib colorbar in the dedicated *cax* axes.
 
@@ -187,6 +188,9 @@ def setup_matplotlib_colorbar(
     alpha : float
         Alpha transparency applied to the colorbar bands via
         ``fig.colorbar(…, alpha=…)``.
+    label_fontsize : float or None
+        Font size for the colorbar label text.  If ``None``, matplotlib's
+        default is used.
     """
     n_bands = vmax - vmin + 1
 
@@ -247,6 +251,9 @@ def setup_matplotlib_colorbar(
     )
     # Suppress minor ticks that matplotlib may auto-add.
     _colorbar.ax.tick_params(axis='y', which='minor', length=0)
+    # Apply custom label font size if specified.
+    if label_fontsize is not None:
+        _colorbar.set_label(label, fontsize=label_fontsize)
 
 
 def build_bokeh_colorbar_palette(

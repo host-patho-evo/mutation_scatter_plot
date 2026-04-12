@@ -810,7 +810,7 @@ def render_timeline_matplotlib(
         _cb_label = f'{_matrix_name} score values'
     setup_matplotlib_colorbar(
         fig, ax_cb, norm, cmap, colors, _vmin, _vmax,
-        label=_cb_label, alpha=0.5,
+        label=_cb_label, alpha=0.5, label_fontsize=_heading_fontsize,
     )
 
     # Size legend — rendered in dedicated ax_leg column
