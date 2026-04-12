@@ -443,8 +443,8 @@ def _compute_band_spacing(data: TimelineData) -> float:
         overlap_counts[(pt.month, pt.position)] += 1
     max_overlap = max(overlap_counts.values()) if overlap_counts else 1
 
-    # Scale: 1 mutation → 1.2, 2 → 1.6, 3 → 2.0, 5 → 2.8, ...
-    spacing = max(1.2, max_overlap * 0.4 + 0.8)
+    # Scale: 1 mutation → 2.0, 2 → 2.6, 3 → 3.2, 5 → 4.4, ...
+    spacing = max(2.0, max_overlap * 0.6 + 1.4)
     return spacing
 
 
