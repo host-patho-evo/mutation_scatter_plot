@@ -705,11 +705,12 @@ def render_timeline_bokeh(
     _y_extent = (n_pos - 1) * BAND_SPACING
     p = figure(
         title=title,
-        width=max(800, len(months) * 60),
-        height=max(400, n_pos * 50 + 100),
+        width=2000,
+        height=max(600, n_pos * 50 + 200),
         x_range=(-0.5, len(months) - 0.5),
         y_range=(-BAND_SPACING * 0.5 - 0.2, _y_extent + BAND_SPACING * 0.5 + 0.2),
         tools="pan,wheel_zoom,box_zoom,reset,save",
+        sizing_mode='stretch_width',
     )
 
     p.scatter(
