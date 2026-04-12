@@ -38,6 +38,7 @@ write_original_descr_lines=false
 use_nnnx_counts=false
 split_gisaid_by_month=false
 xranges=""
+title=""
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Parse command-line arguments
@@ -69,6 +70,9 @@ Optional:
                             e.g. '1-1274,331-528'.  Overrides --xmin/--xmax.
                             Each range produces a separate set of figures.
                             [default: use --xmin/--xmax or full range].
+  --title=STRING            Figure title for scatter plots.  In per-month
+                            mode the month tag is appended automatically.
+                            [default: auto-derived by mutation_scatter_plot].
   --threshold=FLOAT         Minimum frequency for filtered TSVs [default: 0.001].
   --jobs=INT                Parallel jobs for summarize_fasta_pipeline.py [default: 5].
   --sort-bucket-size=SIZE   Memory fraction for sort buckets [default: 40%].
@@ -130,6 +134,7 @@ for arg in "$@"; do
         --use-nnnx-counts)       use_nnnx_counts=true ;;
         --split-gisaid-by-month) split_gisaid_by_month=true ;;
         --xranges=*)             xranges="${arg#*=}" ;;
+        --title=*)               title="${arg#*=}" ;;
         --help)                  usage 0 ;;
         *)                       echo "Error: unknown argument: $arg" >&2; usage 1 ;;
     esac
@@ -227,6 +232,9 @@ if [ "$realign_covid19_spike" = true ]; then
 fi
 if [ "$split_gisaid_by_month" = true ]; then
     echo "  Split by month: enabled (per-month pipeline, combined file skipped)"
+fi
+if [ -n "$title" ]; then
+    echo "  Title: $title"
 fi
 echo "═══════════════════════════════════════════════════════════════════════"
 
@@ -556,8 +564,12 @@ if $split_gisaid_by_month; then
         [ -f "$month_fasta" ] || continue
         fp_month="${month_fasta%.fasta}"
         month_tag="${fp_month##*.}"   # e.g. "2025-06"
-        title="Mutations in SARS-CoV-2 per month in GISAID ${prefix} (${month_tag})"
-        _run_stages "$fp_month" "$title"
+        if [ -n "$title" ]; then
+            _month_title="${title} (${month_tag})"
+        else
+            _month_title="Mutations in SARS-CoV-2 per month in GISAID ${prefix} (${month_tag})"
+        fi
+        _run_stages "$fp_month" "$_month_title"
     done
 
     # ──────────────────────────────────────────────────────────────────────
@@ -599,7 +611,7 @@ else
     # ──────────────────────────────────────────────────────────────────────
     # Standard combined-file processing
     # ──────────────────────────────────────────────────────────────────────
-    _run_stages "$fp"
+    _run_stages "$fp" "$title"
 
     # ──────────────────────────────────────────────────────────────────────
     # Stage 10: Pipeline summary + traceability
