@@ -183,11 +183,11 @@ def get_colormap(myoptions, colormapname):
         # _norm intentionally stays None — signals the separate code path
 
     if getattr(myoptions, 'spread_colormap_virtual_matrix', False):
-        if not hasattr(myoptions, 'cmap_vmin'):
+        if getattr(myoptions, 'cmap_vmin', None) is None:
             myoptions.cmap_vmin = getattr(myoptions, 'matrix_min_theoretical', -11)
             myoptions.cmap_vmax = getattr(myoptions, 'matrix_max_theoretical', 11)
     else:
-        if not hasattr(myoptions, 'cmap_vmin'):
+        if getattr(myoptions, 'cmap_vmin', None) is None:
             myoptions.cmap_vmin = getattr(myoptions, 'cmap_actual_vmin', -11)
             myoptions.cmap_vmax = getattr(myoptions, 'cmap_actual_vmax', 11)
 
