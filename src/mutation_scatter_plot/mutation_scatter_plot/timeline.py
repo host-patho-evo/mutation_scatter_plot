@@ -952,7 +952,7 @@ def render_timeline_matplotlib(
         positions, pos_to_y, grouped, pos_spread, codon_view=_codon_view,
     )
     ax.set_yticks(_all_tick_y)
-    ax.set_yticklabels(_all_tick_labels, fontsize=7)
+    ax.set_yticklabels(_all_tick_labels, fontsize=7, fontfamily='monospace')
     ax.set_ylabel('AA Position', fontsize=_heading_fontsize)
 
     # Grid and styling
