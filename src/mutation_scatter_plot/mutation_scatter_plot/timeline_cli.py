@@ -337,8 +337,6 @@ def main():
             # ── View modes: codon-level and AA-level ──
             for _view_mode in ('codon', 'aa'):
                 myoptions.aminoacids = _view_mode == 'aa'
-                _view_prefix = f"{_base_prefix}.{_view_mode}.{_matrix_name}.{_scaling_suffix}.{cmap_name}"
-                print(f"Info: _outfile_prefix={_view_prefix}")
 
                 # For AA mode, aggregate codon-level data to AA level
                 if _view_mode == 'aa':
@@ -346,16 +344,26 @@ def main():
                 else:
                     view_data = data
 
+                # Build base prefix with position range (for full output)
+                _all_pos = view_data.positions
+                _all_range = f"{_all_pos[0]}-{_all_pos[-1]}" if _all_pos else "0-0"
+                _full_prefix = (f"{_base_prefix}.{_view_mode}{_all_range}"
+                                f".{_matrix_name}.{_scaling_suffix}.{cmap_name}")
+                print(f"Info: _outfile_prefix={_full_prefix}")
+
                 for page_idx, page_positions in enumerate(_chunks, 1):
                     if _n_pages > 1:
                         page_data = filter_timeline_data(view_data, page_positions)
-                        _page_prefix = f"{_view_prefix}.page{page_idx}"
+                        _page_range = f"{page_positions[0]}-{page_positions[-1]}"
+                        _page_prefix = (f"{_base_prefix}.{_view_mode}{_page_range}"
+                                        f".{_matrix_name}.{_scaling_suffix}.{cmap_name}"
+                                        f".page{page_idx}")
                         print(f"  ── page {page_idx}/{_n_pages}: "
                               f"positions {page_positions[0]}..{page_positions[-1]} "
                               f"({len(page_data.points)} points) ──")
                     else:
                         page_data = view_data
-                        _page_prefix = _view_prefix
+                        _page_prefix = _full_prefix
 
                     # Render matplotlib (PNG + PDF)
                     PROFILER.mark_phase_start("render_matplotlib")
@@ -384,7 +392,7 @@ def main():
                           f"{len(view_data.points)} points) ──")
                     PROFILER.mark_phase_start("render_matplotlib")
                     render_timeline_matplotlib(
-                        view_data, myoptions, _norm, _cmap, _colors, _view_prefix,
+                        view_data, myoptions, _norm, _cmap, _colors, _full_prefix,
                     )
 
                     summary = PROFILER.pop_phase_summary()
@@ -394,7 +402,7 @@ def main():
                     if not myoptions.disable_showing_bokeh:
                         PROFILER.mark_phase_start("render_bokeh")
                         render_timeline_bokeh(
-                            view_data, myoptions, _norm, _cmap, _colors, _view_prefix,
+                            view_data, myoptions, _norm, _cmap, _colors, _full_prefix,
                         )
 
                     summary = PROFILER.pop_phase_summary()
