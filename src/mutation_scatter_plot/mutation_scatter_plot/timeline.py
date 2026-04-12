@@ -257,7 +257,44 @@ def parse_positions(position_args: list[str]) -> list[PositionSpec]:
             specs.append(PositionSpec(position=int(arg)))
         except ValueError:
             print(f"Warning: Cannot parse position specification '{arg}' — skipping")
-    return specs
+
+    # ── Deduplicate: merge specs for the same position into a union ──
+    # Rules:
+    #   - Unfiltered spec (mutant_aas=None) subsumes all filtered specs for that position.
+    #   - Multiple filtered specs: union of mutant_aas, keep ref_aa only if all agree.
+    merged: dict[int, PositionSpec] = {}
+    for s in specs:
+        if s.position not in merged:
+            merged[s.position] = PositionSpec(
+                position=s.position,
+                ref_aa=s.ref_aa,
+                mutant_aas=list(s.mutant_aas) if s.mutant_aas else None,
+            )
+        else:
+            existing = merged[s.position]
+            if existing.mutant_aas is None:
+                # Already unfiltered — subsumes everything
+                continue
+            if s.mutant_aas is None:
+                # New spec is unfiltered — subsumes existing
+                existing.mutant_aas = None
+                existing.ref_aa = None
+                continue
+            # Both filtered: merge mutant_aas union
+            combined = set(existing.mutant_aas) | set(s.mutant_aas)
+            existing.mutant_aas = sorted(combined)
+            # Keep ref_aa only if both agree
+            if existing.ref_aa != s.ref_aa:
+                existing.ref_aa = None
+
+    result = list(merged.values())
+    # Preserve position order (sorted numerically)
+    result.sort(key=lambda s: s.position)
+
+    if len(result) < len(specs):
+        print(f"Info: Merged {len(specs)} position specs into {len(result)} unique positions")
+
+    return result
 
 
 # ── Data collection ──────────────────────────────────────────────────────
