@@ -1011,7 +1011,7 @@ def render_timeline_matplotlib(
         1, 3, figsize=(fig_width, fig_height),
         width_ratios=[50, 1, 8],
     )
-    fig.subplots_adjust(left=0.06, right=0.86, top=0.91, bottom=0.15)
+    fig.subplots_adjust(left=0.06, right=0.86, top=0.94, bottom=0.15)
 
     # Dynamic heading font: scales with the smaller figure dimension so that
     # title, axis labels, and 2nd-y-axis position numbers form a visually
@@ -1064,7 +1064,7 @@ def render_timeline_matplotlib(
     _first_half = pos_heights.get(positions[0], 2.0) * 0.5 if positions else 1.0
     _last_half = pos_heights.get(positions[-1], 2.0) * 0.5 if positions else 1.0
     _y_min = pos_to_y.get(positions[0], 0.0) - _first_half - 0.2 if positions else -0.2
-    _y_max = pos_to_y.get(positions[-1], 0.0) + _last_half + 0.2 if positions else 0.2
+    _y_max = pos_to_y.get(positions[-1], 0.0) + _last_half + 1.0 if positions else 1.0
     ax.set_ylim(_y_min, _y_max)
     ax.grid(axis='x', alpha=0.3, linestyle='--')
     # Draw horizontal band borders above and below each position
