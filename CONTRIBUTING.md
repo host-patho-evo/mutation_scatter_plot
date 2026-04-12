@@ -11,13 +11,18 @@ By submitting a pull request you agree that your contributions will be
 licensed under the same terms. No dual-licensing or CLA is required —
 just make sure your contribution is compatible with CC BY 4.0.
 
-Please keep the copyright header present in each source file:
+The core modules carry a copyright header; please preserve it where present
+and add it to new files under `src/`:
 
 ```python
 # This work © 2025-2026 by Jiří Zahradník and Martin Mokrejš
 # (First Medical Faculty - Charles University in Prague) is licensed under
 # Creative Commons Attribution 4.0 International.
 ```
+
+Not all files carry the header yet (notably `cli.py`, `colorbar_helpers.py`,
+and most `scripts/*.py`), so this is a guideline for new code, not a hard
+requirement for every file.
 
 ## Getting Started
 
@@ -26,7 +31,7 @@ Please keep the copyright header present in each source file:
    name (do not work directly on `main`):
 
    ```bash
-   git clone https://github.com/<you>/mutation_scatter_plot.git
+   git clone https://github.com/host-patho-evo/mutation_scatter_plot.git
    cd mutation_scatter_plot
    git checkout -b fix-colorbar-label
    ```
@@ -45,21 +50,27 @@ Please keep the copyright header present in each source file:
   [PEP 257](https://peps.python.org/pep-0257/) for code style and docstrings.
 - Prefer **f-strings** for string formatting. Legacy `%` and `.format()`
   exist in some older scripts but new code should use f-strings.
-- Use `decimal.Decimal` for frequency values and any arithmetic that must be
-  bit-identical across platforms — never bare `float`.
+- Use `decimal.Decimal` for frequency values in the core frequency
+  pipeline (`calculate_codon_frequencies` and `__init__.py`) to ensure
+  bit-identical results across platforms. Not all code paths require
+  `Decimal` — use your judgement.
 - Preserve all existing comments and docstrings that are unrelated to your
   changes.
 - Import order: stdlib → third-party → local (relative imports within the
-  package).
+  package). This is the convention used consistently in `core.py`,
+  `timeline.py`, and `__init__.py`.
 
 ### Static Analysis
 
 We enforce clean static analysis on every push via GitHub Actions:
 
-- **pyflakes** — must report zero errors. Unused imports, undefined names,
-  and redefined-but-unused variables will fail CI.
-- **flake8 + flake8-bugbear** — via pre-commit (see below).
-- **pylint** — via pre-commit; target score is 10.0/10.
+- **pyflakes** — must report zero errors on every push. This is the only CI
+  gate; unused imports, undefined names, and redefined-but-unused variables
+  will fail the build.
+- **flake8 + flake8-bugbear** — via pre-commit (see below). `max-line-length`
+  is 120; some files have per-file `E501` suppressions in `.flake8`.
+- **pylint** — via pre-commit; the target score is 10.0/10, achieved for the
+  core modules. Some long-line and similar suppressions exist in `.pylintrc`.
 
 ### Pre-commit Hooks
 
@@ -160,30 +171,36 @@ Open an issue on GitHub with:
 
 ```
 src/mutation_scatter_plot/
-├── mutation_scatter_plot/      # Main scatter plot & timeline modules
-│   ├── __init__.py             # mutation_scatter_plot entry point
-│   ├── cli.py                  # scatter plot CLI
-│   ├── core.py                 # shared BLOSUM scoring, colormap logic
-│   ├── colorbar_helpers.py     # colorbar rendering (matplotlib + Bokeh)
-│   ├── timeline.py             # timeline scatter plot renderer
-│   └── timeline_cli.py         # timeline CLI
+├── __init__.py                   # package root, alt_translate()
+├── profiler.py                   # optional profiling support
+├── numa_bind.py                  # NUMA auto-bind for multi-socket hosts
+├── mutation_scatter_plot/        # main scatter plot & timeline modules
+│   ├── __init__.py               # mutation_scatter_plot entry point
+│   ├── cli.py                    # scatter plot CLI
+│   ├── core.py                   # shared BLOSUM scoring, colormap logic
+│   ├── colorbar_helpers.py       # colorbar rendering (matplotlib + Bokeh)
+│   ├── timeline.py               # timeline scatter plot renderer
+│   └── timeline_cli.py           # timeline CLI
 ├── calculate_codon_frequencies/  # codon frequency calculator
-└── scripts/                    # standalone helper scripts
+└── scripts/                      # installable helper scripts (alignment2dots, etc.)
 tests/
-├── inputs/                     # test input FASTA + TSV files
-├── outputs/                    # golden baseline outputs
-├── test_mutation_scatter_plot.py  # main regression suite
-├── test_dynamic_colormap.py    # colormap unit tests
-└── test_scaling_logic.py       # scaling mode tests
-scripts/                        # pipeline shell scripts
-docs/                           # technical documentation
+├── inputs/                       # test input FASTA + TSV files
+├── outputs/                      # golden baseline outputs
+├── test_mutation_scatter_plot.py  # main regression suite (~8 400 tests)
+├── test_dynamic_colormap.py      # colormap unit tests
+├── test_scaling_logic.py         # scaling mode tests
+└── ...                           # + 8 more test modules
+scripts/                          # standalone pipeline shell/Python scripts
+docs/                             # technical documentation
 ```
 
 ## Documentation
 
 - **README.md** — user-facing documentation, installation, usage examples.
 - **docs/** — technical design documents (scaling, profiling, testing).
-- **Docstrings** — all public functions should have PEP 257 docstrings.
+- **Docstrings** — public functions should have PEP 257 docstrings. A few
+  older callback functions still lack them; new code should always include
+  them.
 
 If your change modifies user-visible behaviour (new CLI flag, changed
 output format, etc.), please update the README accordingly.
