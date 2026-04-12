@@ -558,10 +558,10 @@ def render_timeline_matplotlib(
             pct_str = f"{pct:.1f}%"
         else:
             pct_str = f"{pct:.2f}%"
-        # Offset scales with circle radius (sqrt of size in points²)
-        radius_pts = (si ** 0.5) * 0.7 + 3
+        # Offset just past circle edge: sqrt(s/π) ≈ radius in points
+        radius_pts = (si / 3.14159) ** 0.5 + 2
         ax.annotate(pct_str, (xi, yi), textcoords='offset points',
-                    xytext=(radius_pts, radius_pts * 0.6), fontsize=5,
+                    xytext=(radius_pts, radius_pts * 0.5), fontsize=5,
                     color='black', zorder=6)
 
     # X-axis: months
