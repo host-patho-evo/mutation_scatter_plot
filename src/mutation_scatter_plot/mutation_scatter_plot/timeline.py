@@ -500,8 +500,17 @@ def _compute_intra_band_spread(band_spacing: float) -> float:
 
 def _prepare_layout(
     data: TimelineData,
+    myoptions: typing.Any = None,
 ) -> tuple[float, float, dict[int, float], dict[tuple[str, int], list['TimelinePoint']]]:
     """Compute shared layout parameters for both renderers.
+
+    Parameters
+    ----------
+    data : TimelineData
+        Collected timeline data.
+    myoptions : argparse.Namespace, optional
+        CLI options.  If provided, ``band_spacing_factor`` is used to
+        scale the auto-computed band spacing.
 
     Returns
     -------
@@ -512,6 +521,9 @@ def _prepare_layout(
         - grouped: data points grouped by (month, position).
     """
     BAND_SPACING = _compute_band_spacing(data)
+    # Apply user-specified scaling factor
+    _factor = getattr(myoptions, 'band_spacing_factor', 1.0) if myoptions else 1.0
+    BAND_SPACING *= _factor
     _spread = _compute_intra_band_spread(BAND_SPACING)
 
     pos_to_y: dict[int, float] = {}
@@ -644,7 +656,7 @@ def render_timeline_matplotlib(
     positions = data.positions
 
     # Shared layout: band spacing, position mapping, grouping
-    BAND_SPACING, _spread, pos_to_y, grouped = _prepare_layout(data)
+    BAND_SPACING, _spread, pos_to_y, grouped = _prepare_layout(data, myoptions)
 
     # Prepare scatter data
     x_vals: list[float] = []
@@ -874,7 +886,7 @@ def render_timeline_bokeh(
     positions = data.positions
 
     # Shared layout: band spacing, position mapping, grouping
-    BAND_SPACING, _spread, pos_to_y, grouped = _prepare_layout(data)
+    BAND_SPACING, _spread, pos_to_y, grouped = _prepare_layout(data, myoptions)
 
     x_vals: list[float] = []
     y_vals: list[float] = []

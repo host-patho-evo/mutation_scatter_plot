@@ -146,6 +146,13 @@ def build_option_parser():
         help="Matplotlib backend (agg, wxpython, pyqt5, etc.). "
              "Set MPLBACKEND=agg to prevent interactive windows [default: unset]",
     )
+    myparser.add_argument(
+        "--band-spacing-factor", action="store", type=float,
+        dest="band_spacing_factor", default=1.0,
+        help="Multiplier for vertical spacing between Y-axis position bands."
+             " Values >1 increase spacing (useful for dense datasets)."
+             " [default: 1.0]",
+    )
     return myparser
 
 
