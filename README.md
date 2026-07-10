@@ -1,6 +1,6 @@
 ## Calculate in each position frequency of codons and amino acids from a multiple sequence alignment and draw an interactive scatter plot
 
-The software code and data contained in this folder were used during the work published in **In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence** publication by Shoshany et al. (submitted, see [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)). Original input data, calculated frequencies in TSV files and also the ready-made figures in JPG/PNG/PDF/HTML+Javascript can be found at [DOI:10.5281/zenodo.17252728](https://zenodo.org/records/17252728) meanwhile. One does not need to install these two utilities to study the results. However, we provide our code to facilitate similar studies of other datasets.
+The software code and data contained in this folder were used during the work published in **Stringent selection drives convergence toward omicron-like SARS-CoV-2 receptor-binding motifs** publication by [Shoshany et al. (2026) Nat Commun 17, 5712](https://www.nature.com/articles/s41467-026-72312-z), [DOI:10.1038/s41467-026-72312-z](https://doi.org/10.1038/s41467-026-72312-z). Original input data, calculated frequencies in TSV files and also the ready-made figures in JPG/PNG/PDF/HTML+Javascript can be found at [DOI:10.5281/zenodo.19475241](https://zenodo.org/records/19475241) meanwhile. One does not need to install these two utilities to study the results. However, we provide our code to facilitate similar studies of other datasets.
 
 We developed two standalone programs:
 `calculate_codon_frequencies.py` takes a multiple sequence alignment file in a FASTA format (possibly padded with `-` as gaps) and calculates frequencies of the codons. It parses a reference nucleotide sequence of the respective protein to stay in the reading frame (only reading frame +1 is supported). Therefore it is best to map sequencing reads (notably including amplification primer sequences to anchor the alignment ends perfectly) to a complete open reading frame (ORF) sequence encoding the protein (incl. START and STOP codons) although only part of it may have been studied. When this is followed the nucleotide or amino acid positions can be easily calculated from the padding with dashes (`-`) in a multi-FASTA 2-line file (input multiple-sequence alignment file). Otherwise the program allows to specify an arbitrary offset (to be added to the output codon position values) to output native coordinates despite short sequence provided. One can also specify some narrow regions (multiples of three) so that not all columns are to be inspected and codon frequencies calculated.
@@ -38,9 +38,9 @@ You can copy&paste the commands shown below so the installation of the requireme
 
 **A.1 Install some of the necessary python tools using apt on a Debian-based Linux host**
 ```
-apt-get install python3-biopython
-apt-get install python3-pandas
-apt-get install python3-mplcursors
+sudo apt install python3-biopython
+sudo apt install python3-pandas
+sudo apt install python3-mplcursors
 ```
 
 Further you need to install [blosum](https://github.com/not-a-feature/blosum) and [Bokeh](https://docs.bokeh.org/en/latest/docs/first_steps.html#first-steps-installing) packages via either `pip` (ideally into a virtual environment) or `conda` (follow either of the following procedures).
@@ -48,6 +48,7 @@ Further you need to install [blosum](https://github.com/not-a-feature/blosum) an
 **A.2 Install all necessary python tools using pip**
 
 ```
+sudo apt install python3-virtualenv
 cd $HOME
 mkdir -p .virtualenvs && cd .virtualenvs
 virtualenv mutation_scatter_plot
@@ -65,6 +66,7 @@ Later you can re-enter this virtual environment by `. ~/.virtualenvs/mutation_sc
 To yield interactive figures one of the following backends must be installed
 
 ```
+apt install python3-virtualenv
 pip install wxpython
 pip install pyqt5
 pip install pyqt6
@@ -480,7 +482,7 @@ We further improved the software to be able to report DELetions and INSertions a
 
 Please cite the following article if you use our data or software in your research:
 
-Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxova K., Zoler E., Mokrejš M., Schreiber G., Zahradník J. (submitted) In Vitro and Viral Evolution Convergence Reveal the Selective Pressures Driving Omicron Emergence. [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.04.23.650148v1)
+Shoshany A., Tian R., Padilla-Blanco M., Hruška A., Baxova K., Zoler E., Mokrejš M., Schreiber G., Zahradník J. (2026) Stringent selection drives convergence toward omicron-like SARS-CoV-2 receptor-binding motifs. [Nat. Commun. 17:5712](https://www.nature.com/articles/s41467-026-72312-z)
 
 
 ## Website
@@ -490,7 +492,7 @@ https://github.com/host-patho-evo/mutation_scatter_plot
 
 ## License
 
-This work © 2025 by Jiří Zahradník and Martin Mokrejš (First Medical Faculty - Charles University in Prague) is licensed under Creative Commons Attribution 4.0 International (CC BY 4.0). To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/
+This work © 2025 by Martin Mokrejš and Jiří Zahradník (First Medical Faculty - Charles University in Prague) is licensed under Creative Commons Attribution 4.0 International (CC BY 4.0). To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/
 
 
 ## Acknowledgements
